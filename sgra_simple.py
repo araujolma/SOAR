@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from numpy.linalg import norm
 from utils import interpV, interpM, ddt
-from prob import declProb, calcPhi, calcPsi, calcF, calcGrads
+from prob import declProb, calcPhi, calcPsi, calcF, calcGrads, calcI
 
 #from scipy.integrate import quad
 
@@ -38,75 +38,201 @@ def calcLamDotRest(lam,t,tVec,phixInv):
 	phixt = interpM(t,tVec,phixInv)
 	return phixt.dot(lam)
 
-def calcADotGrad(A,t,tVec,phixVec,phiuVec,B):
+def calcADotGrad(A,t,tVec,phixVec,phiuVec,phipVec,B,C):
 	#print("In calcADot!")
 	phixt = interpM(t,tVec,phixVec)
 	phiut = interpM(t,tVec,phiuVec)
-
+	phipt = interpM(t,tVec,phipVec)
 	Bt = interpV(t,tVec,B)
+	
 	#print('phixt =',phixt)
 	#print('phiut =',phiut)
 	#print('Bt =',Bt)
 	
-	return phixt.dot(A) + phiut.dot(Bt)
+	return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C)
 
-def calcADotRest(A,t,tVec,phixVec,phiuVec,B,aux):
+def calcADotRest(A,t,tVec,phixVec,phiuVec,phipVec,B,C,aux):
 	#print("In calcADot!")
 	phixt = interpM(t,tVec,phixVec)
 	phiut = interpM(t,tVec,phiuVec)
+	phipt = interpM(t,tVec,phipVec)
 	auxt = interpV(t,tVec,aux)
 	Bt = interpV(t,tVec,B)
 	#print('phixt =',phixt)
 	#print('phiut =',phiut)
 	#print('Bt =',Bt)
 	
-	return phixt.dot(A) + phiut.dot(Bt) + auxt
+	return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C) + auxt
 
-def calcI(sizes,x,u):
-	N = sizes['N']
-	f = calcF(sizes,x,u)
-	I = f.sum() - .5*(f[0]+f[N-1])
-	I *= 1.0/(N-1)
-	return I
-
-def calcP(sizes,x,u):
-	# MISSING: PSI term
+def calcP(sizes,x,u,pi):
 
 	N = sizes['N']
-	phi = calcPhi(sizes,x,u)
+	phi = calcPhi(sizes,x,u,pi)
+	psi = calcPsi(sizes,x)
 	dx = ddt(sizes,x)
 	#dx = x.copy()
 	P = 0.0	
-	for t in range(1,N):
+	for t in range(1,N-1):
 	#	dx[t,:] = x[t,:]-x[t-1,:]
 		P += norm(dx[t,:]-phi[t,:])**2
-	P *= 1.0/N
+	P += .5*norm(dx[0,:]-phi[0,:])**2
+	P += .5*norm(dx[N-1,:]-phi[N-1,:])**2
+	
+	P *= 1.0/(N-1)
+	
+	P += norm(psi)
 	return P
 	
-def calcQ(sizes,x,u,lam,mu):
-	# MISSING: PSI term and derivatives with PI
-	N = sizes['N']
+def calcQ(sizes,x,u,pi,lam,mu):
+	# Q expression from (15)
 
+	N = sizes['N']
+	p = sizes['p']
+	dt = 1.0/(N-1)
+	
 	# get gradients
-	Grads = calcGrads(sizes,x,u)
+	Grads = calcGrads(sizes,x,u,pi)
 	phix = Grads['phix']
-	phiu = Grads['phiu']	
+	phiu = Grads['phiu']
+	phip = Grads['phip']	
 	fx = Grads['fx']
 	fu = Grads['fu']	
+	fp = Grads['fp']
 	psix = Grads['psix']
+	#psip = Grads['psip']
 	
 	dlam = ddt(sizes,lam)
-	Q = 0.0	
-	for k in range(1,N):
+	Qx = 0.0	
+	Qu = 0.0
+	auxVecIntQ = numpy.zeros(p)
+	for k in range(1,N-1):
 #		dlam[k,:] = lam[k,:]-lam[k-1,:]
-		Q += norm(dlam[k,:] - fx[k,:] + phix[k,:,:].transpose().dot( lam[k,:]))**2
-		Q += norm(fu[k,:]-phiu[k,:,:].transpose().dot(lam[k,:]))**2
-	Q *= 1.0/N
-	
-	Q += norm(lam[N-1,:]+psix.transpose().dot(mu))
-	return Q
+		Qx += norm(dlam[k,:] - fx[k,:] + phix[k,:,:].transpose().dot( lam[k,:]))**2
+		Qu += norm(fu[k,:]-phiu[k,:,:].transpose().dot(lam[k,:]))**2
+		auxVecIntQ += fp[k,:] - phip[k,:,:].transpose().dot(lam[k,:])
+	#
 		
-def grad(sizes,x,u,t,Q0):
+	Qx += .5*(norm(dlam[0,:] - fx[0,:] + phix[0,:,:].transpose().dot( lam[0,:]))**2)
+	Qx += .5*(norm(dlam[N-1,:] - fx[N-1,:] + phix[N-1,:,:].transpose().dot( lam[N-1,:]))**2)
+
+	Qu += .5*norm(fu[0,:]-phiu[0,:,:].transpose().dot(lam[0,:]))**2
+	Qu += .5*norm(fu[N-1,:]-phiu[N-1,:,:].transpose().dot(lam[N-1,:]))**2
+	
+	Qx *= dt
+	Qu *= dt
+	
+	auxVecIntQ += .5*(fp[0,:] - phip[0,:,:].transpose().dot(lam[0,:]))
+	auxVecIntQ += .5*(fp[N-1,:] - phip[N-1,:,:].transpose().dot(lam[N-1,:]))	
+	
+	auxVecIntQ *= dt
+	Qp = norm(auxVecIntQ)
+	Qt = norm(lam[N-1,:] + psix.transpose().dot(mu))
+#"Qx =",Qx)
+
+	Q = Qx + Qu + Qp + Qt
+	print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+", Qt = {:.4E}".format(Qt))
+
+	return Q
+
+def calcStepGrad(x,u,pi,lam,mu,A,B,C):
+
+#	alfa = 1.0	
+#	nx = x + alfa * A
+#	nu = u + alfa * B
+#	np = pi + alfa * C
+#	
+#	Q0 = calcQ(sizes,nx,nu,np,lam,mu)
+#	print("Q =",Q0)
+#
+#	Q = Q0
+#	alfa = .8
+#	nx = x + alfa * A
+#	nu = u + alfa * B
+#	np = pi + alfa * C
+#	nQ = calcQ(sizes,nx,nu,np,lam,mu)
+#	cont = 0
+#	while (nQ-Q)/Q < -.05 and alfa > 1.0e-11 and cont < 5:
+#		cont += 1
+#		Q = nQ
+#		alfa *= .5
+#		nx = x + alfa * A
+#		nu = u + alfa * B
+#		np = pi + alfa * C
+#		nQ = calcQ(sizes,nx,nu,np,lam,mu)
+#		print("alfa =",alfa,"Q =",nQ)
+#	
+#	if Q>Q0:
+#		alfa = 1.0
+
+	# "Trissection" method
+	alfa = 1.0	
+	nx = x + alfa * A
+	nu = u + alfa * B
+	np = pi + alfa * C
+	
+	oldQ = calcQ(sizes,nx,nu,np,lam,mu)
+	nQ = .9*oldQ
+#	print("Q =",Q)
+	alfaMin = 0.0
+	alfaMax = 1.0
+	cont = 0		
+	while (nQ-oldQ)/oldQ < -.05 and cont < 5:
+		oldQ = nQ
+		
+		dalfa = (alfaMax-alfaMin)/3.0
+		alfaList = numpy.array([alfaMin,alfaMin+dalfa,alfaMax-dalfa,alfaMax])	
+		QList = numpy.empty(numpy.shape(alfaList))
+
+		for j in range(4):
+			alfa = alfaList[j]
+			
+			nx = x + alfa * A
+			nu = u + alfa * B
+			np = pi + alfa * C
+	
+			Q = calcQ(sizes,nx,nu,np,lam,mu)
+			QList[j] = Q
+		#
+		print("QList:",QList)
+		minQ = QList[0]
+		indxMinQ = 0
+		
+		for j in range(1,4):
+			if QList[j] < minQ:
+				indxMinQ = j
+				minQ = QList[j]
+		#
+		
+		alfa = alfaList[indxMinQ]
+		nQ = QList[indxMinQ]
+		print("nQ =",nQ)
+		if indxMinQ == 0:
+			alfaMin = alfaList[0]
+			alfaMax = alfaList[1]
+		elif indxMinQ == 1:
+			if QList[0] < QList[2]:
+				alfaMin = alfaList[0]
+				alfaMax = alfaList[1]
+			else:
+				alfaMin = alfaList[1]
+				alfaMax = alfaList[2]
+		elif indxMinQ == 2:
+			if QList[1] < QList[3]:
+				alfaMin = alfaList[1]
+				alfaMax = alfaList[2]
+			else:
+				alfaMin = alfaList[2]
+				alfaMax = alfaList[3]
+		elif indxMinQ == 3:
+			alfaMin = alfaList[2]
+			alfaMax = alfaList[3]
+			
+		cont+=1
+	#
+		
+	return .5*(alfaMin+alfaMax)
+		
+def grad(sizes,x,u,pi,t,Q0):
 	print("In grad.")
 	
 	print("Q0 =",Q0)
@@ -114,63 +240,79 @@ def grad(sizes,x,u,t,Q0):
 	N = sizes['N']
 	n = sizes['n']	
 	m = sizes['m']
+	p = sizes['p']
 	q = sizes['q']
 	
 	# get gradients
-	Grads = calcGrads(sizes,x,u)
+	Grads = calcGrads(sizes,x,u,pi)
 	
 	phix = Grads['phix']	
 	phiu = Grads['phiu']	
+	phip = Grads['phip']
 	fx = Grads['fx']
 	fu = Grads['fu']
+	fp = Grads['fp']
 	psix = Grads['psix']	
-
+	psip = Grads['psip']
+	dt = Grads['dt']
+	
+	# prepare time reversed/transposed versions of the arrays
 	psixTr = psix.transpose()
 	fxInv = fx.copy()
 	phixInv = phix.copy()
 	phiuTr = numpy.empty((N,m,n))
+	phipTr = numpy.empty((N,p,n))
 	for k in range(N):
 		fxInv[k,:] = fx[N-k-1,:]
 		phixInv[k,:,:] = phix[N-k-1,:,:].transpose()	
 		phiuTr[k,:,:] = phiu[k,:,:].transpose()
+		phipTr[k,:,:] = phip[k,:,:].transpose()
+	psipTr = psip.transpose()
 	
+	# Prepare array mu and arrays for linear combinations of A,B,C,lam
 	mu = numpy.zeros(q)
 	M = numpy.ones((q+1,q+1))	
 	
 	arrayA = numpy.empty((q+1,N,n))
 	arrayB = numpy.empty((q+1,N,m))
+	arrayC = numpy.empty((q+1,p))
 	arrayL = arrayA.copy()
 	arrayM = numpy.empty((q+1,q))
+	
 	for i in range(q+1):		
 		mu = 0.0*mu
 		if i<q:
 			mu[i] = 1.0
 		
 		#print("mu =",mu)
-		# integrate equation (38) backwards		
+		# integrate equation (38) backwards for lambda		
 		auxLamInit = - psixTr.dot(mu)
 		auxLam = odeint(calcLamDotGrad,auxLamInit,t,args=(t,fxInv, phixInv))
 		
+		# Calculate B
 		B = -fu
 		lam = auxLam.copy()
 		for k in range(N):
 			lam[k,:] = auxLam[N-k-1,:]
 			B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
+
+		# Calculate C		
+		C = numpy.zeros(p)
+		for k in range(1,N-1):
+			C += fp[k,:] - phipTr[k,:,:].dot(lam[k,:])
+		C += .5*(fp[0,:] - phipTr[0,:,:].dot(lam[0,:]))
+		C += .5*(fp[N-1,:] - phipTr[N-1,:,:].dot(lam[N-1,:]))
+		C *= -dt
+		C -= -psipTr.dot(mu) 
 		
-#		plt.plot(t,lam)
-#		plt.grid(True)
-#		plt.xlabel("t")
-#		plt.ylabel("lambda")
-#		plt.show()
-#		# C = 0.0 (unnecessary)
-#
 #		plt.plot(t,B)
 #		plt.grid(True)
 #		plt.xlabel("t")
 #		plt.ylabel("B")
 #		plt.show()		
 #		
-		A = odeint(calcADotGrad,numpy.zeros(n),t,args=(t,phix,phiu,B))
+		# integrate diff equation for A
+		A = odeint(calcADotGrad,numpy.zeros(n),t, args=(t,phix,phiu,phip,B,C))
 
 #		plt.plot(t,A)
 #		plt.grid(True)
@@ -180,9 +322,10 @@ def grad(sizes,x,u,t,Q0):
 		
 		arrayA[i,:,:] = A
 		arrayB[i,:,:] = B
+		arrayC[i,:] = C
 		arrayL[i,:,:] = lam
 		arrayM[i,:] = mu
-		M[1:,i] = psixTr.dot(A[N-1,:])
+		M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
 	#
 		
 	# Calculations of weights k:
@@ -195,105 +338,130 @@ def grad(sizes,x,u,t,Q0):
 	# summing up linear combinations
 	A = 0.0*A	
 	B = 0.0*B
+	C = 0.0*C
 	lam = 0.0*lam
 	mu = 0.0*mu
 	for i in range(q+1):
 		A += K[i]*arrayA[i,:,:]
 		B += K[i]*arrayB[i,:,:]
+		C += K[i]*arrayC[i,:]
 		lam += K[i]*arrayL[i,:,:]
 		mu += K[i]*arrayM[i,:]
 	
-	# TODO: calculation of alfa
-#	alfa = 1.0e-3
+	# Calculation of alfa
+	
+	alfa = calcStepGrad(x,u,pi,lam,mu,A,B,C)
+		
+	nx = x + alfa * A
+	nu = u + alfa * B
+	np = pi + alfa * C
+	Q = calcQ(sizes,nx,nu,np,lam,mu)
+		
+	print("Leaving grad with alfa =",alfa)	
+	
+	return nx,nu,np,lam,mu,Q
 
-	nx = x.copy()
-	nu = u.copy()
-	alfa = 1.0
-	nx += alfa * A
-	nu += alfa * B
-	Q = calcQ(sizes,nx,nu,lam,mu)
-	print("Q =",Q)
-	while Q > Q0:
+def calcStepRest(x,u,pi,A,B,C):
+
+	alfa = 1.0	
+	nx = x + alfa * A
+	nu = u + alfa * B
+	np = pi + alfa * C
+	
+	P0 = calcP(sizes,nx,nu,np)
+	print("P =",P0)
+
+	P = P0
+	alfa = .8
+	nx = x + alfa * A
+	nu = u + alfa * B
+	np = pi + alfa * C
+	nP = calcP(sizes,nx,nu,np)
+	cont = 0
+	while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 5:
+		cont += 1
+		P = nP
 		alfa *= .5
 		nx = x + alfa * A
 		nu = u + alfa * B
-		Q = calcQ(sizes,nx,nu,lam,mu)
-		print("alfa =",alfa,"Q =",Q)
+		np = pi + alfa * C
+		nP = calcP(sizes,nx,nu,np)
+		print("alfa =",alfa,"P =",nP)
 		
-	print("alfa =",alfa)	
-	
-	# incorporation of A, B into the solution
-#	x += alfa * A
-#	u += alfa * B
+	return alfa
 
-	print("Leaving grad.")
-	return nx,nu,lam,mu,Q
-
-def rest(sizes,x,u,t):
+def rest(sizes,x,u,pi,t):
 	print("In rest.")
 	
-	P0 = calcP(sizes,x,u)
+	P0 = calcP(sizes,x,u,pi)
 	print("P0 =",P0)	
 	
 	# get sizes
 	N = sizes['N']
 	n = sizes['n']	
 	m = sizes['m']
+	p = sizes['p']
 	q = sizes['q']
 
-	phi = calcPhi(sizes,x,u)	
+	# calculate phi and psi
+	phi = calcPhi(sizes,x,u,pi)	
 	psi = calcPsi(sizes,x)
 
+	# aux: phi - dx/dt
 	aux = phi.copy()
 	aux -= ddt(sizes,x)
 
-#	aux = numpy.empty((N,n))	
-#	dt = 1.0/N
-#	for k in range(1,N):
-#		aux[k,:] = phi[k,:] - (x[k,:]-x[k-1,:])/dt	
-	
 	# get gradients
-	Grads = calcGrads(sizes,x,u)
+	Grads = calcGrads(sizes,x,u,pi)
+	
+	dt = Grads['dt']
 	
 	phix = Grads['phix']	
 	phiu = Grads['phiu']	
+	phip = Grads['phip']
 	fx = Grads['fx']
-	#fu = Grads['fu']
 	psix = Grads['psix']	
-
+	psip = Grads['psip']
+	
 	psixTr = psix.transpose()
 	fxInv = fx.copy()
 	phixInv = phix.copy()
 	phiuTr = numpy.empty((N,m,n))
-
-	# column vector for linear system involving k's	
-	col = numpy.zeros(q+1)
-	col[0] = 1.0
-	col[1:] = -psi
-	
+	phipTr = numpy.empty((N,p,n))
+	psipTr = psip.transpose()
+		
 	for k in range(N):
 		fxInv[k,:] = fx[N-k-1,:]
 		phixInv[k,:,:] = phix[N-k-1,:,:].transpose()	
 		phiuTr[k,:,:] = phiu[k,:,:].transpose()
+		phipTr[k,:,:] = phip[k,:,:].transpose()
 	
 	mu = numpy.zeros(q)
+	
+	# Matrix for linear system involving k's
 	M = numpy.ones((q+1,q+1))	
+
+	# column vector for linear system involving k's	[eqs (88-89)]
+	col = numpy.zeros(q+1)
+	col[0] = 1.0 # eq (88)
+	col[1:] = -psi # eq (89)
 	
 	arrayA = numpy.empty((q+1,N,n))
 	arrayB = numpy.empty((q+1,N,m))
+	arrayC = numpy.empty((q+1,p))
 	arrayL = arrayA.copy()
 	arrayM = numpy.empty((q+1,q))
+	
 	for i in range(q+1):		
 		mu = 0.0*mu
 		if i<q:
 			mu[i] = 1.0
-		
-		#print("mu =",mu)
-		
+				
 		# integrate equation (75-2) backwards		
 		auxLamInit = - psixTr.dot(mu)
 		auxLam = odeint(calcLamDotRest,auxLamInit,t,args=(t,phixInv))
 		
+		# equation for Bi (75-3)
 		B = numpy.empty((N,m))
 		lam = auxLam.copy()
 		for k in range(N):
@@ -305,28 +473,29 @@ def rest(sizes,x,u,t):
 #		plt.xlabel("t")
 #		plt.ylabel("lambda")
 #		plt.show()
-		# C = 0.0 (unnecessary)
-
-#		plt.plot(t,B)
-#		plt.grid(True)
-#		plt.xlabel("t")
-#		plt.ylabel("B")
-#		plt.show()		
-				
-		A = odeint(calcADotRest,numpy.zeros(n),t,args=(t,phix,phiu,B, aux))
-
-#		plt.plot(t,A)
-#		plt.grid(True)
-#		plt.xlabel("t")
-#		plt.ylabel("A")
-#		plt.show()		
 		
+		# equation for Ci (75-4)
+		C = numpy.zeros(p)
+		for k in range(1,N-1):
+			C += phipTr[k,:,:].dot(lam[k,:])
+		C += .5*(phipTr[0,:,:].dot(lam[0,:]))
+		C += .5*(phipTr[N-1,:,:].dot(lam[N-1,:]))
+		C *= dt
+		C -= -psipTr.dot(mu)
+		
+		# integrate equation for A:				
+		A = odeint(calcADotRest,numpy.zeros(n),t,args= (t,phix,phiu,phip,B,C,aux))
+
+		# store solution in arrays
 		arrayA[i,:,:] = A
 		arrayB[i,:,:] = B
+		arrayC[i,:] = C
 		arrayL[i,:,:] = lam
 		arrayM[i,:] = mu
 		
-		M[1:,i] = psixTr.dot(A[N-1,:])
+		# Matrix for linear system (89)
+		M[1:,i] = psix.dot(A[N-1,:])
+		M[1:,i] += psip.dot(C)#psip * C
 	#
 		
 	# Calculations of weights k:
@@ -337,42 +506,39 @@ def rest(sizes,x,u,t):
 	# summing up linear combinations
 	A = 0.0*A	
 	B = 0.0*B
+	C = 0.0*C
 	lam = 0.0*lam
 	mu = 0.0*mu
 	for i in range(q+1):
 		A += K[i]*arrayA[i,:,:]
 		B += K[i]*arrayB[i,:,:]
+		C += K[i]*arrayC[i,:]
 		lam += K[i]*arrayL[i,:,:]
 		mu += K[i]*arrayM[i,:]
 	
-	# TODO: calculation of alfa
-#	alfaHigh = 1.0
-#	alfaLow = 0.0
-#	alfa = 1.0e-1#3
+#	alfa = 1.0#2.0#
+	alfa = calcStepRest(x,u,p,A,B,C)
+	nx = x + alfa * A
+	nu = u + alfa * B
+	np = pi + alfa * C
+#	while calcP(sizes,nx,nu,np) > P0:
+#		alfa *= .8#.5
+#		nx = x + alfa * A
+#		nu = u + alfa * B
+#		np = pi + alfa * C
+#	print("alfa =",alfa)
 	
-	nx = x.copy()
-	nu = u.copy()
-	
-	alfa = 1.0
-	nx += alfa * A
-	nu += alfa * B
-	while calcP(sizes,nx,nu) > P0:
-		alfa *= .5
-		nx = x + alfa * A
-		nu = u + alfa * B
-		
-	print("alfa =",alfa)
 	# incorporation of A, B into the solution
 #	x += alfa * A
 #	u += alfa * B
 
-	print("Leaving rest.")
-	return nx,nu,lam,mu
+	print("Leaving rest with alfa =",alfa)	
+	return nx,nu,np,lam,mu
 
-def plotSol(t,x,u,lam,mu):
-	P = calcP(sizes,x,u)
-	Q = calcQ(sizes,x,u,lam,mu)
-	I = calcI(sizes,x,u)
+def plotSol(t,x,u,pi,lam,mu):
+	P = calcP(sizes,x,u,pi)
+	Q = calcQ(sizes,x,u,pi,lam,mu)
+	I = calcI(sizes,x,u,pi)
 	plt.subplot(2,1,1)
 	plt.plot(t,x)
 	plt.grid(True)
@@ -385,6 +551,7 @@ def plotSol(t,x,u,lam,mu):
 	plt.xlabel("t")
 	plt.ylabel("u")
 	plt.show()
+	print("pi =",pi)#, ", lambda =",lam,", mu =",mu)
 #
 
 
@@ -393,25 +560,33 @@ def plotSol(t,x,u,lam,mu):
 # ##################
 
 # declare problem:
-sizes,t,x,u,lam,mu = declProb()
-Grads = calcGrads(sizes,x,u)
+sizes,t,x,u,pi,lam,mu,tol = declProb()
+Grads = calcGrads(sizes,x,u,pi)
+phix = Grads['phix']
 phiu = Grads['phiu']
-plotSol(t,x,u,lam,mu)
+psix = Grads['psix']
+psip = Grads['psip']
 
-#P = calcP(sizes,x,u)
-#print("P =",P)
+print("Proposed initial guess:")
+plotSol(t,x,u,pi,lam,mu)
 
-## first restoration step:
+tolP = tol['P']
+tolQ = tol['Q']
 
-while calcP(sizes,x,u) > 1e-6:
-	x,u,lam,mu = rest(sizes,x,u,t)
-	plotSol(t,x,u,lam,mu)
+# first restoration step:
 
-Q = calcQ(sizes,x,u,lam,mu)
+while calcP(sizes,x,u,pi) > tolP:
+	x,u,pi,lam,mu = rest(sizes,x,u,pi,t)
+	#plotSol(t,x,u,pi,lam,mu)
+
+print("\nAfter first rounds of restoration:")
+plotSol(t,x,u,pi,lam,mu)
+
+Q = calcQ(sizes,x,u,pi,lam,mu)
 # first gradient step:
-while Q > 5e-4:
-	while calcP(sizes,x,u) > 1e-6:
-		x,u,lam,mu = rest(sizes,x,u,t)
-		plotSol(t,x,u,lam,mu)
-	x,u,lam,mu,Q = grad(sizes,x,u,t,Q)
-	plotSol(t,x,u,lam,mu)
+while Q > tolQ:
+	while calcP(sizes,x,u,pi) > tolP:
+		x,u,pi,lam,mu = rest(sizes,x,u,pi,t)
+		plotSol(t,x,u,pi,lam,mu)
+	x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q)
+	plotSol(t,x,u,pi,lam,mu)
