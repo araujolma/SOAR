@@ -17,16 +17,27 @@ def declProb():
     t = numpy.arange(0,1.0+dt,dt)
     
 # example rocket single stage to orbit L=0 D=0
+# initial state condition
+    h_initial = 0.0            # km  
+    V_initial = 0.0            # km/s
+    gamma_initial = numpy.pi/2 # rad
+    m_initial = 50000          # kg
+# final state condition
+    h_final = 463     # km
+    V_final = 7.633   # km/s    
+    gamma_final = 0.0 # rad
+    #m_final = free   # kg
+# constants    
     n = 4
     m = 2
     p = 1 
-    q = 3 # (Miele 1970)  # 7 (Miele 2003)     
-    grav_e = 9.8     # m/s^2
-    Thrust = 500000  # N
-    Isp = 450        # s
-    r_e = 6371       # km
-    GM = 398600.4415 # km^3 s^-2
-    s_f = 0.1
+    q = 3  # (Miele 1970)  # 7 (Miele 2003)     
+    grav_e = 9.8e-3        # km/s^2
+    Thrust = 1.3*m_initial # N
+    Isp = 450              # s
+    r_e = 6371             # km
+    GM = 398600.4415       # km^3 s^-2
+    s_f = 0.05
     
 # prepare sizes
     sizes = dict()
@@ -44,26 +55,56 @@ def declProb():
     constants['r_e'] = r_e
     constants['GM'] = GM
     constants['s_f'] = s_f
+
+# prepare state
+    state = dict()
+    state['m_initial'] = m_initial
     
 # initial guess:
 
 # example rocket single stage to orbit L=0 D=0
     x = numpy.zeros((N,n))
-#    x[:,0] = t.copy()
-#    x[:,1] = 1.0+t.copy()
-#    x[:,2] = 
-#    x[:,3] = 
-    u = numpy.ones((N,m))
+    x[:,0] = h_final*numpy.sin(numpy.pi*t.copy()/2)
+    #x[:,1] = V_final*t.copy()
+    x[:,1] = 1.0e3*(-0.4523*t.copy()**5 + 1.2353*t.copy()**4-1.1884*t.copy()**3+0.4527*t.copy()**2-0.0397*t.copy())
+    x[:,2] = (numpy.pi/2)*(1.0-t.copy()*t.copy())
+    x[:,3] = m_initial*(1.0-0.89*t.copy())
+    u = numpy.zeros((N,m))
+    u[:,1] = numpy.ones(N)
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)
-    pi = numpy.ones((p,1))
+    pi = 1100*numpy.ones((p,1))
 
     tol = dict()
     tol['P'] = 1.0e-8
     tol['Q'] = 1.0e-5
-    return sizes,t,x,u,pi,lam,mu,tol
+
+    return sizes,t,x,u,pi,lam,mu,tol,constants
     
-def calcPhi(sizes,x,u,pi):
+    
+#def calcR(sizes,x,constants):
+#    N = sizes['N']
+#    r_e = constants['r_e']
+#
+#    # calculate r
+#    r = numpy.empty(N)
+#    for k in range(N):
+#        r[k] = r_e + x[k,0]
+#
+#    return r
+    
+#def calcGrav(sizes,r,constants):
+#    N = sizes['N']
+#    GM = constants['GM']
+#
+#    # calculate grav
+#    grav = numpy.empty(N)
+#    for k in range(N):
+#        grav[k] = GM/(r[k]**2)   
+#    
+#    return grav
+    
+def calcPhi(sizes,x,u,pi,constants):
     N = sizes['N']
     n = sizes['n']
     grav_e = constants['grav_e']
@@ -71,33 +112,41 @@ def calcPhi(sizes,x,u,pi):
     Isp = constants['Isp']
     r_e = constants['r_e']
     GM = constants['GM']
-       
+
+# calculate r
+    r = numpy.empty(N)
+    for k in range(N):
+        r[k] = r_e + x[k,0]
+    
+# calculate grav
+    grav = numpy.empty(N)
+    for k in range(N):
+        grav[k] = GM/(r[k]**2)
+        
 # calculate phi:
     phi = numpy.empty((N,n))
-
-# calculate r and grav:
-    r = numpy.empty(N)
-    grav = numpy.empty(N)
-    r = r_e + x[:,0]
-    grav = GM/(r**2)
     
 # example rocket single stage to orbit L=0 D=0     
-    phi[:,0] = pi[0] * x[:,1] * sin(x[:,2])
-    phi[:,1] = (pi[0] * u[:,1] * Thrust * cos(u[:,0]))/(x[:,3]) - grav * sin(x[:,2])
-    phi[:,2] = pi[0] * ((u[:,1] * Thrust * sin(u[:,0]))/(x[:,3] * x[:,1]) - cos(x[:,2]) * ((x[:,1]/r) - (grav/x[:,1])))
-    phi[:,3] = - (pi[0] * u[:,1] * Thrust)/(grav_e * Isp)
-
+    phi[:,0] = pi[0] * x[:,1] * numpy.sin(x[:,2])
+    phi[:,1] = (pi[0] * u[:,1] * Thrust * numpy.cos(u[:,0]))/(x[:,3]) - grav * numpy.sin(x[:,2])
+    for k in range(N):
+        if k==0:
+            phi[k,2] = 0.0
+        else:
+            phi[k,2] = pi[0] * ((u[k,1] * Thrust * numpy.sin(u[k,0]))/(x[k,3] * x[k,1]) - numpy.cos(x[k,2]) * ((x[k,1]/r[k]) - (grav[k]/x[k,1])))
+    phi[:,3] = - (pi[0] * u[:,1] * Thrust)/(grav_e * Isp)    
+   
     return phi
     
 def calcPsi(sizes,x):    
     N = sizes['N']
   
 # example rocket single stage to orbit L=0 D=0
-    psi = numpy.array([x[N-1,0]-463.0,x[N-1,1]-7633.0,x[N-1,2]])
+    psi = numpy.array([x[N-1,0]-463.0,x[N-1,1]-7.633,x[N-1,2]])
 
     return psi
     
-def calcF(sizes,x,u,pi):
+def calcF(sizes,x,u,pi,constants):
     N = sizes['N']
     f = numpy.empty(N)
     grav_e = constants['grav_e']
@@ -107,11 +156,11 @@ def calcF(sizes,x,u,pi):
     
     for k in range(N):
 # example rocket single stage to orbit L=0 D=0
-        f[k] = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * u[k,2]
+        f[k] = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * u[k,1]
    
     return f
 
-def calcGrads(sizes,x,u,pi):
+def calcGrads(sizes,x,u,pi,constants):
     Grads = dict()
         
     N = sizes['N']
@@ -119,6 +168,13 @@ def calcGrads(sizes,x,u,pi):
     m = sizes['m']
     p = sizes['p']
     #q = sizes['q']
+    
+    grav_e = constants['grav_e']
+    Thrust = constants['Thrust']
+    Isp = constants['Isp']
+    r_e = constants['r_e']
+    GM = constants['GM']
+    s_f = constants['s_f']
     
     Grads['dt'] = 1.0/(N-1)
 
@@ -134,17 +190,57 @@ def calcGrads(sizes,x,u,pi):
     fu = numpy.zeros((N,m))
     fp = numpy.zeros((N,p))
     
-    for k in range(N):       
-        # Gradients from example rocket single stage to orbit L=0 D=0
-        psix = numpy.array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
-        psip = numpy.array([[0.0],[0.0],[0.0]])  
-#        cosuk = numpy.cos(u[k,0])
-#        sinuk = numpy.sin(u[k,0])
-#        zk = x[k,2]
-#        phix[k,:,:] = pi[0]*numpy.array([[0.0,0.0,cosuk],[0.0,0.0,sinuk],[0.0,0.0,0.0]])
-#        phiu[k,:,:] = pi[0]*numpy.array([[-zk*sinuk],[zk*cosuk],[cosuk]])
-#        phip[k,:,:] = numpy.array([[zk*cosuk],[zk*sinuk],[sinuk]])
-#        fp[k,0] = 1.0    
+           
+    # Gradients from example rocket single stage to orbit L=0 D=0
+    psix = numpy.array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
+    psip = numpy.array([[0.0],[0.0],[0.0]])
+    
+    # calculate r
+    r = numpy.empty(N)
+    for k in range(N):
+        r[k] = r_e + x[k,0]
+    
+    # calculate grav
+    grav = numpy.empty(N)
+    for k in range(N):
+        grav[k] = GM/(r[k]**2)
+        
+    for k in range(N):
+#       
+    # Expanded notation:
+        if k==0:
+            phix[k,:,:] = numpy.array([[0.0                                                              ,pi[0]*numpy.sin(x[k,2])                                                                                     ,pi[0]*x[k,1]*numpy.cos(x[k,2])                         ,0.0                                                      ],
+                                       [2*GM*numpy.sin(x[k,2])/(r[k]**3)                                 ,0.0                                                                                                         ,-grav[k]*numpy.cos(x[k,2])                             ,-pi[0]*u[k,1]*Thrust*numpy.cos(u[k,0])/(x[k,3]**2)],
+                                       [0.0                                                              ,0.0                                                                                                         ,0.0                                                    ,0.0                                                      ],
+                                       [0.0                                                              ,0.0                                                                                                         ,0.0                                                    ,0.0                                                      ]])
+            
+            phiu[k,:,:] = numpy.array([[0.0                                                    ,0.0                                           ],
+                                       [-pi[0]*u[k,1]*Thrust*numpy.sin(u[k,0])/(x[k,3]) ,pi[0]*Thrust*numpy.cos(u[k,0])/(x[k,3])],
+                                       [0.0                                                    ,0.0                                           ],
+                                       [0.0                                                    ,-pi[0]*Thrust/(grav_e*Isp)             ]])
+            
+            phip[k,:,:] = numpy.array([[x[k,1]*numpy.sin(x[k,2])                                                ],
+                                       [u[k,1]*Thrust*numpy.cos(u[k,0])/(x[k,3]) - grav[k]*numpy.sin(x[k,2])],
+                                       [0.0                                                                     ],
+                                       [-(u[k,1]*Thrust)/(grav_e*Isp)                                    ]])
+        else:
+            phix[k,:,:] = numpy.array([[0.0                                                               ,pi[0]*numpy.sin(x[k,2])                                                                                            ,pi[0]*x[k,1]*numpy.cos(x[k,2])                                ,0.0                                                               ],
+                                       [2*GM*numpy.sin(x[k,2])/(r[k]**3)                                  ,0.0                                                                                                                ,-grav[k]*numpy.cos(x[k,2])                                    ,-pi[0]*u[k,1]*Thrust*numpy.cos(u[k,0])/(x[k,3]**2)         ],
+                                       [pi[0]*numpy.cos(x[k,2])*(x[k,1]/(r[k]**2)-2*GM/(x[k,1]*(r[k]**3))),pi[0]*(-u[k,1]*Thrust*numpy.sin(u[k,0])/(x[k,3]*x[k,1]**2)+numpy.cos(x[k,2])*((1/r[k])-grav[k]/(x[k,1]**2))),pi[0]*numpy.sin(x[k,2])*((x[k,1]/r[k])-grav[k]/x[k,1])        ,-pi[0]*u[k,1]*Thrust*numpy.sin(u[k,0])/(x[k,1]*(x[k,3]**2))],
+                                       [0.0                                                               ,0.0                                                                                                                ,0.0                                                           ,0.0                                                               ]])
+        
+            phiu[k,:,:] = numpy.array([[0.0                                                           ,0.0                                                  ],
+                                       [-pi[0]*u[k,1]*Thrust*numpy.sin(u[k,0])/(x[k,3])        ,pi[0]*Thrust*numpy.cos(u[k,0])/(x[k,3])       ],
+                                       [pi[0]*u[k,1]*Thrust*numpy.cos(u[k,0])/(x[k,3]*x[k,1])  ,pi[0]*Thrust*numpy.sin(u[k,0])/(x[k,3]*x[k,1])],
+                                       [0.0                                                           ,-pi[0]*Thrust/(grav_e*Isp)                    ]])
+            
+            phip[k,:,:] = numpy.array([[x[k,1]*numpy.sin(x[k,2])                                                                                   ],
+                                       [u[k,1]*Thrust*numpy.cos(u[k,0])/(x[k,3]) - grav[k]*numpy.sin(x[k,2])                                   ],
+                                       [(u[k,1]*Thrust*numpy.sin(u[k,0]))/(x[k,3]*x[k,1])-numpy.cos(x[k,2])*((x[k,1]/r[k])-(grav[k]/x[k,1]))],
+                                       [-(u[k,1]*Thrust)/(grav_e*Isp)                                                                       ]])
+   
+        fu[k,:] = numpy.array([0.0,(pi[0]*Thrust)/(grav_e * Isp * (1-s_f))])
+        fp[k,0] =(Thrust * u[k,1])/(grav_e * Isp * (1-s_f))
     
     Grads['phix'] = phix.copy()
     Grads['phiu'] = phiu.copy()
@@ -160,10 +256,9 @@ def calcGrads(sizes,x,u,pi):
     return Grads
     
 
-def calcI(sizes,x,u,pi):
+def calcI(sizes,x,u,pi,constants):
 # example rocket single stage to orbit L=0 D=0
-    N = sizes['N']
-    f = calcF(sizes,x,u,pi)
+    f = calcF(sizes,x,u,pi,constants)
     I = f.sum()
     
     return I
