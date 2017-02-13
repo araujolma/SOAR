@@ -38,18 +38,18 @@ def main ():
 	efes = .95
 	R = 6371             # km
 	g0 = 9.8e-3
-	AoAmax = 5.0 # graus
+	AoAmax = 2.0 # graus
 
 	##########################################################################
-	fator_V = 1.07 # Ajuste para acertar o V
-	tf = 363 # Ajuste para acertar o gamma
-	tAoA = 1.0 #Ajuste para acertar o h
+	fator_V = 1.05 # Ajust to find a final V
+	tf = 440.0 # Ajust to find a final gamma
+	tAoA = 2.0 #Ajust to find a final h
 
 	Mu = 100.0
-	Dv1 = numpy.cos(AoAmax*pi/180)*numpy.sqrt(2.0*GM*(1/R - 1/(R+h_final)))
+	Dv1 = 1.3*numpy.sqrt(2.0*GM*(1/R - 1/(R+h_final)))
 	Dv2 = V_final
+
 	##########################################################################
-	# Ajuste para acertar o V
 	Dv2 = Dv2*fator_V
 	LamMax = 1/(1-efes)
 	Lam1 = numpy.exp(Dv1/g0/Isp)
@@ -70,9 +70,7 @@ def main ():
 	tb1 = Mp1 * g0 * Isp / T
 	tb2 = Mp2 * g0 * Isp / T
 	tb = tb1 + tb2
-	##########################################################################
-	# Ajuste para acertar o gamma
-	#tf = fator_tf * tb#60.0#
+
 	t = numpy.arange(0,tf+dt,dt)
 	Nt = numpy.size(t)
 
@@ -90,8 +88,8 @@ def main ():
 	alfa = numpy.zeros((Nt,1))
 	tvar = 0.0
 	tAoA1 = .01*tf
+
 	##########################################################################
-	#Ajuste para acertar o h
 	tAoA2 = tAoA1 + tAoA
 	for i in range(Nt):
 		tvar += dt
@@ -142,7 +140,7 @@ def main ():
 	plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 	plt.show()
 
-	plotRockTraj(t,x,R,tb1)
+	plotRockTraj(t,x,R,tb1,tf-tb2)
 
 	# colocar aqui módulo de calculo de órbita
 	h,v,gama,M = x[Nt-1,:]
@@ -163,7 +161,7 @@ def main ():
 
 	return None
 
-def plotRockTraj(t,x,R,tb):
+def plotRockTraj(t,x,R,tb,tb2):
 
 	pi = numpy.pi
 	cos = numpy.cos
@@ -192,6 +190,7 @@ def plotRockTraj(t,x,R,tb):
 	print("sigma =",sigma)
 	# get burnout point
 	itb = int(tb/dt) - 1
+	itb2 = int(tb2/dt) - 1
 	h,v,gama,M = x[itb,:]
 	print("itb =",itb)
 	print("State @burnout time:")
@@ -215,6 +214,9 @@ def plotRockTraj(t,x,R,tb):
 	plt.plot(x,z,'k')
 	plt.plot(X[:itb],Z[:itb],'r')
 	plt.plot(X[itb],Z[itb],'or')
+	plt.plot(X[itb2:],Z[itb2:],'g')
+	plt.plot(X[itb2],Z[itb2],'og')
+	plt.plot(X[1]-1,Z[1],'ok')
 	plt.xlabel("X [km]")
 	plt.ylabel("Z [km]")
 
