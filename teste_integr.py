@@ -8,14 +8,16 @@ This is a temporary script file.
 import numpy
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+#from numpy.linalg import norm
 from utils import interpV#, interpM, ddt
 
-def plotRockTraj(t,x,R):
+def plotRockTraj(t,x,R,tb):
 
 	cos = numpy.cos
 	sin = numpy.sin	
 
 	N = len(t)
+	print("N =",N)
 	dt = t[1]-t[0]
 	X = numpy.empty(numpy.shape(t))
 	Z = numpy.empty(numpy.shape(t))	
@@ -32,32 +34,54 @@ def plotRockTraj(t,x,R):
 		X[i] = X[i-1] + dt * v * cos(gama-sigma)
 		Z[i] = Z[i-1] + dt * v * sin(gama-sigma)
 	
+
+	
 	print("sigma =",sigma)
-	plt.plot(X/R,Z/R)
+	# get burnout point
+	itb = int(tb/dt) - 1
+	h,v,gama,M = x[itb,:]
+	print("itb =",itb)
+	print("State @burnout time:")
+	print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+	", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+
+	
+	plt.plot(X,Z)
 	plt.grid(True)
 	plt.hold(True)
-	plt.plot([0.0,0.0],[-1.0,0.0],'k')
-	plt.plot([0.0,sin(sigma)],[-1.0,-1.0+cos(sigma)],'k')
-	x = numpy.arange(0,sin(sigma),.01)
-	z = -1 + numpy.sqrt(1-x**2)
+	# Draw burnout point
+	#plt.plot(X[:itb],Z[:itb],'r')
+	#plt.plot(X[itb],Z[itb],'or')	
+	
+#	plt.plot([0.0,0.0],[-1.0,0.0],'k')
+#	plt.plot([0.0,sin(sigma)],[-1.0,-1.0+cos(sigma)],'k')
+	s = numpy.arange(0,1.01,.01)*sigma
+	x = R * cos(.5*pi - s)
+	z = R * (sin(.5*pi - s) - 1.0)
+	#z = -1 + numpy.sqrt(1-x**2)
 	plt.plot(x,z,'k')
+	plt.plot(X[:itb],Z[:itb],'r')
+	plt.plot(X[itb],Z[itb],'or')	
+
 	plt.axis('equal')
+	plt.title("Rocket trajectory on Earth")
 	plt.show()
 	
 	return None
 
 
-def mdlDer(x,t,tVec,alfa,beta,T,Isp,g0,R):
+def mdlDer(x,t,tVec,alfaProg,betaProg,T,Isp,g0,R):
 	h,v,gama,M = x[0],x[1],x[2],x[3]
-	betat = interpV(t,tVec,beta)
-	alfat = interpV(t,tVec,alfa)	
+	betat = interpV(t,tVec,betaProg)
+	alfat = interpV(t,tVec,alfaProg)	
 	
 	btm = betat*T/M
 	sinGama = numpy.sin(gama)
+	g = g0*(R/(R+h))**2
 	
 	return numpy.array([v*sinGama,\
-	btm*numpy.cos(alfat) - g0*sinGama,\
-	btm*numpy.sin(alfat)/v + (v/(h+R)-g0/v)*numpy.cos(gama),\
+	btm*numpy.cos(alfat) - g*sinGama,\
+	btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
 	-btm*M/g0/Isp])
 
 
@@ -83,7 +107,7 @@ R = 6371             # km
 g0 = 9.8e-3 
 
 Mu = 100.0
-Dv = 1.0*numpy.sqrt(V_final**2 + 2.0*GM*(1/R - 1/(R+h_final)))
+Dv = 1.2*numpy.sqrt(V_final**2 + 2.0*GM*(1/R - 1/(R+h_final)))
 LamMax = 1/(1-efes)
 Lam = numpy.exp(Dv/g0/Isp)
 print("Dv =",Dv," Lam =",Lam,"LamMax =",LamMax)
@@ -94,11 +118,11 @@ M0 = Mu + Mp + Me
 print("Mu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0)
 
 
-T = 75.0e3 # thrust in N
+T = 40.0e3 # thrust in N
 T *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
 
 tb = Mp * g0 * Isp / T
-tf = 60.0#1200.0
+tf = 1.5 * tb#60.0#
 t = numpy.arange(0,tf+dt,dt)
 Nt = numpy.size(t)
 
@@ -106,7 +130,7 @@ beta = numpy.zeros((Nt,1))
 tvar = 0.0
 i = 0
 while tvar <= tb:
-	beta[i] = 1.0
+	beta[i] = 2.0*(1.0-tvar/tb)#1.0
 	i += 1
 	tvar += dt
 
@@ -114,9 +138,22 @@ alfa = numpy.zeros((Nt,1))
 tvar = 0.0
 for i in range(Nt):
 	tvar += dt
-	if tvar > .1*tb and tvar < tb:
-		alfa[i] = -15*pi/180#-21*pi/180
+	if tvar > .1*tb and tvar < .8*tb:
+		alfa[i] = -25*pi/180#-21*pi/180
+	elif tvar > .8*tb and tvar < tb:
+		alfa[i] = -40*pi/180#-20*pi/180
 
+plt.plot(t,alfa*180/pi)
+plt.grid(True)
+plt.xlabel("Time [s]")
+plt.ylabel("Angle of attack [deg]")
+plt.show()
+
+plt.plot(t,beta)
+plt.grid(True)
+plt.xlabel("Time [s]")
+plt.ylabel("Thrust profile [-]")
+plt.show()
 
 x0 = numpy.array([0,1.0e-6,90*pi/180,M0])
 x = odeint(mdlDer,x0,t,args=(t,alfa,beta,T,Isp,g0,R))
@@ -149,4 +186,21 @@ plt.ylabel("m [kg]")
 plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 plt.show()
 
-plotRockTraj(t,x,R)
+plotRockTraj(t,x,R,tb)
+
+# colocar aqui módulo de calculo de órbita
+h,v,gama,M = x[Nt-1,:]
+r = R + h
+cosGama = numpy.cos(gama)
+sinGama = numpy.sin(gama)
+momAng = r * v * cosGama
+print("Ang mom:",momAng)
+en = .5 * v * v - GM/r
+print("Energy:",en)
+a = - .5*GM/en
+print("Semi-major axis:",a)
+aux = v * momAng / GM
+e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
+print("Eccentricity:",e)
+ph = a * (1.0 - e) - R
+print("Perigee altitude:",ph)

@@ -575,8 +575,11 @@ def plotSol(t,x,u,pi,lam,mu):
 # MAIN SEGMENT:
 # ##################
 
+opt = dict()
+opt['initMode'] = 'extSol'
+
 # declare problem:
-sizes,t,x,u,pi,lam,mu,tol,constants = declProb()
+sizes,t,x,u,pi,lam,mu,tol,constants = declProb(opt)
 Grads = calcGrads(sizes,x,u,pi,constants)
 phix = Grads['phix']
 phiu = Grads['phiu']
