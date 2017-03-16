@@ -13,7 +13,7 @@ from scipy.interpolate import interp1d
 # ##################
 def declProb(opt=dict()):
 # time discretization    
-    N = 5000 + 1    
+    N = 5000 + 1#20000 + 1 # 
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
     
@@ -34,7 +34,7 @@ def declProb(opt=dict()):
     p = 1 
     q = 3  # (Miele 1970)  # 7 (Miele 2003)     
     grav_e = 9.8e-3        # km/s^2
-    Thrust = 1.3*m_initial # N
+    Thrust = 40.0   # kg km/s²  1.3*m_initial # N
     Isp = 450              # s
     r_e = 6371             # km
     GM = 398600.4415       # km^3 s^-2
@@ -109,25 +109,24 @@ def calcPhi(sizes,x,u,pi,constants):
     Isp = constants['Isp']
     r_e = constants['r_e']
     GM = constants['GM']
-
+    sin = numpy.sin
+    cos = numpy.cos
 # calculate r
     r = r_e + x[:,0]
     
 # calculate grav
     grav = GM/r/r
-        
+
 # calculate phi:
     phi = numpy.empty((N,n))
     
-# example rocket single stage to orbit L=0 D=0     
-    phi[:,0] = pi[0] * x[:,1] * numpy.sin(x[:,2])
-    phi[:,1] = pi[0] * (u[:,1] * Thrust * numpy.cos(u[:,0])/x[:,3] - grav * numpy.sin(x[:,2]))
-    for k in range(N):
-        if k==0:
-            phi[k,2] = 0.0
-        else:
-            phi[k,2] = pi[0] * ((u[k,1] * Thrust * numpy.sin(u[k,0]))/(x[k,3] * x[k,1]) - numpy.cos(x[k,2]) * ((x[k,1]/r[k]) - (grav[k]/x[k,1])))
-    phi[:,3] = - (pi[0] * u[:,1] * Thrust)/(grav_e * Isp)    
+# example rocket single stage to orbit L=0 D=0    
+    phi[:,0] = pi[0] * x[:,1] * sin(x[:,2])
+    phi[:,1] = pi[0] * (u[:,1] * Thrust * cos(u[:,0])/x[:,3] - grav * sin(x[:,2]))
+    phi[0,2] = 0.0
+    for k in range(1,N):
+        phi[k,2] = pi[0] * (u[k,1] * Thrust * sin(u[k,0])/(x[k,3] * x[k,1]) - cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
+    phi[:,3] = - (pi[0] * u[:,1] * Thrust)/(grav_e * Isp)
    
     return phi
     
@@ -146,11 +145,10 @@ def calcF(sizes,x,u,pi,constants):
     Thrust = constants['Thrust']
     Isp = constants['Isp']
     s_f = constants['s_f']
+
+# example rocket single stage to orbit L=0 D=0    
+    f = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * u[:,1]
     
-    for k in range(N):
-# example rocket single stage to orbit L=0 D=0
-        f[k] = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * u[k,1]
-   
     return f
 
 def calcGrads(sizes,x,u,pi,constants):
