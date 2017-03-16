@@ -20,7 +20,7 @@ from utils import interpV#, interpM, ddt
 
 def getRockTraj(printInfo=False):
     
-    dt = 7.0e-4#1.0/(N-1)
+    dt = 1e-3#7.0e-4#1.0/(N-1)
     pi = numpy.pi
 
     # example rocket single stage to orbit L=0 D=0
@@ -50,7 +50,7 @@ def getRockTraj(printInfo=False):
     Dv2 = V_final
 
     ##########################################################################
-    Dv2 = Dv2*fator_V
+    Dv2 = Dv2 * fator_V
     LamMax = 1/(1-efes)
     Lam1 = numpy.exp(Dv1/g0/Isp)
     Lam2 = numpy.exp(Dv2/g0/Isp)
