@@ -58,11 +58,11 @@ def calcADotRest(A,t,tVec,phixVec,phiuVec,phipVec,B,C,aux):
     
     return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C) + auxt
 
-def calcP(sizes,x,u,pi,constants):
+def calcP(sizes,x,u,pi,constants,boundary):
 
     N = sizes['N']
     phi = calcPhi(sizes,x,u,pi,constants)
-    psi = calcPsi(sizes,x)
+    psi = calcPsi(sizes,x,boundary)
     dx = ddt(sizes,x)
     #dx = x.copy()
     P = 0.0    
@@ -361,14 +361,14 @@ def grad(sizes,x,u,pi,t,Q0):
     
     return nx,nu,np,lam,mu,Q
 
-def calcStepRest(x,u,pi,A,B,C):
+def calcStepRest(x,u,pi,A,B,C,constants,boundary):
 
     alfa = 1.0    
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
     
-    P0 = calcP(sizes,nx,nu,np,constants)
+    P0 = calcP(sizes,nx,nu,np,constants,boundary)
     print("P =",P0)
 
     P = P0
@@ -376,7 +376,7 @@ def calcStepRest(x,u,pi,A,B,C):
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    nP = calcP(sizes,nx,nu,np,constants)
+    nP = calcP(sizes,nx,nu,np,constants,boundary)
     cont = 0
     while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 5:
         cont += 1
@@ -385,15 +385,15 @@ def calcStepRest(x,u,pi,A,B,C):
         nx = x + alfa * A
         nu = u + alfa * B
         np = pi + alfa * C
-        nP = calcP(sizes,nx,nu,np,constants)
+        nP = calcP(sizes,nx,nu,np,constants,boundary)
         print("alfa =",alfa,"P =",nP)
         
     return alfa
 
-def rest(sizes,x,u,pi,t):
+def rest(sizes,x,u,pi,t,constants,boundary):
     print("In rest.")
     
-    P0 = calcP(sizes,x,u,pi,constants)
+    P0 = calcP(sizes,x,u,pi,constants,boundary)
     print("P0 =",P0)    
     
     # get sizes
@@ -407,7 +407,7 @@ def rest(sizes,x,u,pi,t):
     # calculate phi and psi
     phi = calcPhi(sizes,x,u,pi,constants)    
     print("Calc psi...")
-    psi = calcPsi(sizes,x)
+    psi = calcPsi(sizes,x,boundary)
 
     # aux: phi - dx/dt
     aux = phi.copy()
@@ -523,7 +523,7 @@ def rest(sizes,x,u,pi,t):
     
 #    alfa = 1.0#2.0#
     print("Calculating step...")
-    alfa = calcStepRest(x,u,p,A,B,C)
+    alfa = calcStepRest(x,u,p,A,B,C,constants,boundary)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
@@ -541,8 +541,8 @@ def rest(sizes,x,u,pi,t):
     print("Leaving rest with alfa =",alfa)    
     return nx,nu,np,lam,mu
 
-def plotSol(sizes,t,x,u,pi,lam,mu,constants):
-    P = calcP(sizes,x,u,pi,constants)
+def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary):
+    P = calcP(sizes,x,u,pi,constants,boundary)
     Q = calcQ(sizes,x,u,pi,lam,mu,constants)
     I = calcI(sizes,x,u,pi,constants)    
     plt.subplot2grid((6,4),(0,0),colspan=4)
@@ -585,7 +585,7 @@ if __name__ == "__main__":
 	opt['initMode'] = 'extSol'
 
 	# declare problem:
-	sizes,t,x,u,pi,lam,mu,tol,constants = declProb(opt)
+	sizes,t,x,u,pi,lam,mu,tol,constants,boundary = declProb(opt)
 	Grads = calcGrads(sizes,x,u,pi,constants)
 #	phix = Grads['phix']
 #	phiu = Grads['phiu']
@@ -593,25 +593,25 @@ if __name__ == "__main__":
 #	psip = Grads['psip']
 	
 	print("Proposed initial guess:")
-	plotSol(sizes,t,x,u,pi,lam,mu,constants)
+	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
 	
 	tolP = tol['P']
 	tolQ = tol['Q']
 	
 	# first restoration step:
 	
-	while calcP(sizes,x,u,pi,constants) > tolP:
-	    x,u,pi,lam,mu = rest(sizes,x,u,pi,t)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants)
+	while calcP(sizes,x,u,pi,constants,boundary) > tolP:
+	    x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary)
+	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
 	
 	print("\nAfter first rounds of restoration:")
-	plotSol(t,x,u,pi,lam,mu,constants)
+	plotSol(t,x,u,pi,lam,mu,constants,boundary)
 	
 	Q = calcQ(sizes,x,u,pi,lam,mu)
 	# first gradient step:
 	while Q > tolQ:
-	    while calcP(sizes,x,u,pi,constants) > tolP:
-	        x,u,pi,lam,mu = rest(sizes,x,u,pi,t)
-	        plotSol(sizes,t,x,u,pi,lam,mu,constants)
+	    while calcP(sizes,x,u,pi,constants,boundary) > tolP:
+	        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary)
+	        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
 	    x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants)
+	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
