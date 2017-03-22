@@ -61,6 +61,7 @@ def calcADotRest(A,t,tVec,phixVec,phiuVec,phipVec,B,C,aux):
 def calcP(sizes,x,u,pi,constants,boundary):
 
     N = sizes['N']
+    
     phi = calcPhi(sizes,x,u,pi,constants)
     psi = calcPsi(sizes,x,boundary)
     dx = ddt(sizes,x)
@@ -403,6 +404,8 @@ def rest(sizes,x,u,pi,t,constants,boundary):
     p = sizes['p']
     q = sizes['q']
 
+    u2 = numpy.arcsin(2*u[:,1] - 1)
+    
     print("Calc phi...")
     # calculate phi and psi
     phi = calcPhi(sizes,x,u,pi,constants)    
@@ -545,32 +548,41 @@ def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary):
     P = calcP(sizes,x,u,pi,constants,boundary)
     Q = calcQ(sizes,x,u,pi,lam,mu,constants)
     I = calcI(sizes,x,u,pi,constants)    
-    plt.subplot2grid((6,4),(0,0),colspan=4)
+    plt.subplot2grid((7,4),(0,0),colspan=5)
     plt.plot(t,x[:,0],)
     plt.grid(True)
     plt.ylabel("h [km]")
     plt.title("P = {:.4E}".format(P)+", Q = {:.4E}".format(Q)+", I = {:.4E}".format(I))    
-    plt.subplot2grid((6,4),(1,0),colspan=4)
+    plt.subplot2grid((7,4),(1,0),colspan=5)
     plt.plot(t,x[:,1],'g')
     plt.grid(True)
     plt.ylabel("V [km/s]")
-    plt.subplot2grid((6,4),(2,0),colspan=4)
-    plt.plot(t,x[:,2],'r')
+    plt.subplot2grid((7,4),(2,0),colspan=5)
+    plt.plot(t,x[:,2]*180/numpy.pi,'r')
     plt.grid(True)
-    plt.ylabel("gamma [rad]")
-    plt.subplot2grid((6,4),(3,0),colspan=4)
+    plt.ylabel("gamma [deg]")
+    plt.subplot2grid((7,4),(3,0),colspan=5)
     plt.plot(t,x[:,3],'m')
     plt.grid(True)
-    plt.ylabel("m [normalized]")
-    plt.subplot2grid((6,4),(4,0),colspan=4)
-    plt.plot(t,u[:,0],'k')
+    plt.ylabel("m [kg]")
+    plt.subplot2grid((7,4),(4,0),colspan=5)
+    plt.plot(t,u[:,0]*180/numpy.pi,'k')
     plt.grid(True)
-    plt.ylabel("alfa [rad]")
-    plt.subplot2grid((6,4),(5,0),colspan=4)
+    plt.ylabel("alfa [deg]")
+    plt.subplot2grid((7,4),(5,0),colspan=5)
     plt.plot(t,u[:,1],'c')
     plt.grid(True)
     plt.xlabel("t")
     plt.ylabel("beta [adim]")
+    ######################################
+    u2 = numpy.arcsin(2*u[:,1] - 1)
+    u2 = u2*180/numpy.pi
+    plt.subplot2grid((7,4),(6,0),colspan=5)
+    plt.plot(t,u2,'b')
+    plt.grid(True)
+    plt.xlabel("t")
+    plt.ylabel("u2 [deg]")
+    ######################################
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.show()
     print("pi =",pi)#, ", lambda =",lam,", mu =",mu)
@@ -605,9 +617,9 @@ if __name__ == "__main__":
 	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
 	
 	print("\nAfter first rounds of restoration:")
-	plotSol(t,x,u,pi,lam,mu,constants,boundary)
+	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
 	
-	Q = calcQ(sizes,x,u,pi,lam,mu)
+	Q = calcQ(sizes,x,u,pi,lam,mu,constants)
 	# first gradient step:
 	while Q > tolQ:
 	    while calcP(sizes,x,u,pi,constants,boundary) > tolP:
