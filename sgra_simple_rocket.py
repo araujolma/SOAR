@@ -58,11 +58,11 @@ def calcADotRest(A,t,tVec,phixVec,phiuVec,phipVec,B,C,aux):
     
     return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C) + auxt
 
-def calcP(sizes,x,u,pi,constants,boundary):
+def calcP(sizes,x,u,pi,constants,boundary,restrictions):
 
     N = sizes['N']
     
-    phi = calcPhi(sizes,x,u,pi,constants)
+    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
     psi = calcPsi(sizes,x,boundary)
     dx = ddt(sizes,x)
     #dx = x.copy()
@@ -78,7 +78,7 @@ def calcP(sizes,x,u,pi,constants,boundary):
     P += norm(psi)
     return P
     
-def calcQ(sizes,x,u,pi,lam,mu,constants):
+def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions):
     # Q expression from (15)
 
     N = sizes['N']
@@ -86,7 +86,7 @@ def calcQ(sizes,x,u,pi,lam,mu,constants):
     dt = 1.0/(N-1)
     
     # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants)
+    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
     phix = Grads['phix']
     phiu = Grads['phiu']
     phip = Grads['phip']    
@@ -135,7 +135,7 @@ def calcQ(sizes,x,u,pi,lam,mu,constants):
 
     return Q
 
-def calcStepGrad(x,u,pi,lam,mu,A,B,C):
+def calcStepGrad(x,u,pi,lam,mu,A,B,C,restrictions):
 
 #    alfa = 1.0    
 #    nx = x + alfa * A
@@ -171,7 +171,7 @@ def calcStepGrad(x,u,pi,lam,mu,A,B,C):
     nu = u + alfa * B
     np = pi + alfa * C
     
-    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants)
+    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
     nQ = .9*oldQ
 #    print("Q =",Q)
     alfaMin = 0.0
@@ -191,7 +191,7 @@ def calcStepGrad(x,u,pi,lam,mu,A,B,C):
             nu = u + alfa * B
             np = pi + alfa * C
     
-            Q = calcQ(sizes,nx,nu,np,lam,mu,constants)
+            Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
             QList[j] = Q
         #
         print("QList:",QList)
@@ -233,7 +233,7 @@ def calcStepGrad(x,u,pi,lam,mu,A,B,C):
         
     return .5*(alfaMin+alfaMax)
         
-def grad(sizes,x,u,pi,t,Q0):
+def grad(sizes,x,u,pi,t,Q0,restrictions):
     print("In grad.")
     
     print("Q0 =",Q0)
@@ -245,7 +245,7 @@ def grad(sizes,x,u,pi,t,Q0):
     q = sizes['q']
     
     # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants)
+    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
     
     phix = Grads['phix']    
     phiu = Grads['phiu']    
@@ -351,25 +351,25 @@ def grad(sizes,x,u,pi,t,Q0):
     
     # Calculation of alfa
     
-    alfa = calcStepGrad(x,u,pi,lam,mu,A,B,C)
+    alfa = calcStepGrad(x,u,pi,lam,mu,A,B,C,restrictions)
         
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    Q = calcQ(sizes,nx,nu,np,lam,mu)
+    Q = calcQ(sizes,nx,nu,np,lam,mu,restrictions)
         
     print("Leaving grad with alfa =",alfa)    
     
     return nx,nu,np,lam,mu,Q
 
-def calcStepRest(x,u,pi,A,B,C,constants,boundary):
+def calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions):
 
     alfa = 1.0    
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
     
-    P0 = calcP(sizes,nx,nu,np,constants,boundary)
+    P0 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
     print("P =",P0)
 
     P = P0
@@ -377,7 +377,7 @@ def calcStepRest(x,u,pi,A,B,C,constants,boundary):
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    nP = calcP(sizes,nx,nu,np,constants,boundary)
+    nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
     cont = 0
     while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 5:
         cont += 1
@@ -386,15 +386,15 @@ def calcStepRest(x,u,pi,A,B,C,constants,boundary):
         nx = x + alfa * A
         nu = u + alfa * B
         np = pi + alfa * C
-        nP = calcP(sizes,nx,nu,np,constants,boundary)
+        nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
         print("alfa =",alfa,"P =",nP)
         
     return alfa
 
-def rest(sizes,x,u,pi,t,constants,boundary):
+def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     print("In rest.")
     
-    P0 = calcP(sizes,x,u,pi,constants,boundary)
+    P0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
     print("P0 =",P0)    
     
     # get sizes
@@ -404,11 +404,9 @@ def rest(sizes,x,u,pi,t,constants,boundary):
     p = sizes['p']
     q = sizes['q']
 
-    u2 = numpy.arcsin(2*u[:,1] - 1)
-    
     print("Calc phi...")
     # calculate phi and psi
-    phi = calcPhi(sizes,x,u,pi,constants)    
+    phi = calcPhi(sizes,x,u,pi,constants,restrictions)    
     print("Calc psi...")
     psi = calcPsi(sizes,x,boundary)
 
@@ -418,7 +416,7 @@ def rest(sizes,x,u,pi,t,constants,boundary):
 
     # get gradients
     print("Calc grads...")
-    Grads = calcGrads(sizes,x,u,pi,constants)
+    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
     
     dt = Grads['dt']
     phix = Grads['phix']    
@@ -526,7 +524,7 @@ def rest(sizes,x,u,pi,t,constants,boundary):
     
 #    alfa = 1.0#2.0#
     print("Calculating step...")
-    alfa = calcStepRest(x,u,p,A,B,C,constants,boundary)
+    alfa = calcStepRest(x,u,p,A,B,C,constants,boundary,restrictions)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
@@ -544,44 +542,55 @@ def rest(sizes,x,u,pi,t,constants,boundary):
     print("Leaving rest with alfa =",alfa)    
     return nx,nu,np,lam,mu
 
-def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary):
-    P = calcP(sizes,x,u,pi,constants,boundary)
-    Q = calcQ(sizes,x,u,pi,lam,mu,constants)
-    I = calcI(sizes,x,u,pi,constants)    
-    plt.subplot2grid((7,4),(0,0),colspan=5)
+def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions):
+    
+    alpha_min = restrictions['alpha_min']
+    alpha_max = restrictions['alpha_max']
+    beta_min = restrictions['beta_min'] 
+    beta_max = restrictions['beta_max']
+    P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
+    I = calcI(sizes,x,u,pi,constants,restrictions)
+    plt.subplot2grid((8,4),(0,0),colspan=5)
     plt.plot(t,x[:,0],)
     plt.grid(True)
     plt.ylabel("h [km]")
     plt.title("P = {:.4E}".format(P)+", Q = {:.4E}".format(Q)+", I = {:.4E}".format(I))    
-    plt.subplot2grid((7,4),(1,0),colspan=5)
+    plt.subplot2grid((8,4),(1,0),colspan=5)
     plt.plot(t,x[:,1],'g')
     plt.grid(True)
     plt.ylabel("V [km/s]")
-    plt.subplot2grid((7,4),(2,0),colspan=5)
+    plt.subplot2grid((8,4),(2,0),colspan=5)
     plt.plot(t,x[:,2]*180/numpy.pi,'r')
     plt.grid(True)
     plt.ylabel("gamma [deg]")
-    plt.subplot2grid((7,4),(3,0),colspan=5)
+    plt.subplot2grid((8,4),(3,0),colspan=5)
     plt.plot(t,x[:,3],'m')
     plt.grid(True)
     plt.ylabel("m [kg]")
-    plt.subplot2grid((7,4),(4,0),colspan=5)
-    plt.plot(t,u[:,0]*180/numpy.pi,'k')
+    plt.subplot2grid((8,4),(4,0),colspan=5)
+    plt.plot(t,u[:,0],'k')
     plt.grid(True)
-    plt.ylabel("alfa [deg]")
-    plt.subplot2grid((7,4),(5,0),colspan=5)
+    plt.ylabel("u1 [-]")
+    plt.subplot2grid((8,4),(5,0),colspan=5)
     plt.plot(t,u[:,1],'c')
     plt.grid(True)
     plt.xlabel("t")
-    plt.ylabel("beta [adim]")
+    plt.ylabel("u2 [-]")
     ######################################
-    u2 = numpy.arcsin(2*u[:,1] - 1)
-    u2 = u2*180/numpy.pi
-    plt.subplot2grid((7,4),(6,0),colspan=5)
-    plt.plot(t,u2,'b')
+    alpha = (alpha_max + alpha_min)/2 + numpy.sin(u[:,0])*(alpha_max - alpha_min)/2
+    alpha = alpha*180/numpy.pi
+    plt.subplot2grid((8,4),(6,0),colspan=5)
+    plt.plot(t,alpha,'b')
     plt.grid(True)
     plt.xlabel("t")
-    plt.ylabel("u2 [deg]")
+    plt.ylabel("alpha [deg]")
+    beta = (beta_max + beta_min)/2 + numpy.sin(u[:,1])*(beta_max - beta_min)/2
+    plt.subplot2grid((8,4),(7,0),colspan=5)
+    plt.plot(t,beta,'b')
+    plt.grid(True)
+    plt.xlabel("t")
+    plt.ylabel("beta [-]")
     ######################################
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.show()
@@ -594,36 +603,36 @@ def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary):
 # ##################
 if __name__ == "__main__":
 	opt = dict()
-	opt['initMode'] = 'extSol'
+	opt['initMode'] = 'extSol'#'default'#'extSol'
 
 	# declare problem:
-	sizes,t,x,u,pi,lam,mu,tol,constants,boundary = declProb(opt)
-	Grads = calcGrads(sizes,x,u,pi,constants)
+	sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
+	Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
 #	phix = Grads['phix']
 #	phiu = Grads['phiu']
 #	psix = Grads['psix']
 #	psip = Grads['psip']
 	
 	print("Proposed initial guess:")
-	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
+	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 	
 	tolP = tol['P']
 	tolQ = tol['Q']
 	
 	# first restoration step:
 	
-	while calcP(sizes,x,u,pi,constants,boundary) > tolP:
-	    x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
+	while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
+	    x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 	
 	print("\nAfter first rounds of restoration:")
-	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
+	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 	
-	Q = calcQ(sizes,x,u,pi,lam,mu,constants)
+	Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
 	# first gradient step:
 	while Q > tolQ:
-	    while calcP(sizes,x,u,pi,constants,boundary) > tolP:
-	        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary)
-	        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
-	    x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary)
+	    while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
+	        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+	        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+	    x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
+	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)

@@ -17,43 +17,54 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 #from numpy.linalg import norm
 from utils import interpV#, interpM, ddt
+#import prob_rocket_sgra
 
-def getRockTraj(printInfo=False):
+def getRockTraj(printInfo=False):#,constants,boundary,restrictions):
     
     dt = 1e-3#7.0e-4#1.0/(N-1)
     pi = numpy.pi
 
     # example rocket single stage to orbit L=0 D=0
-    # initial state condition
-    #h_initial = 0.0            # km
-    #V_initial = 0.0            # km/s
-    #gamma_initial = pi/2 # rad
-    #m_initial = 50000          # kg
-    # final state condition
+    
     h_final = 463     # km
     V_final = 7.633   # km/s
-    #gamma_final = 0.0 # rad
     GM = 398600.4415       # km^3 s^-2
     Isp = 450              # s
-    efes = .95
-    R = 6371             # km
-    g0 = 9.8e-3
-    AoAmax = 2.0 # graus
-
+    s_f = 0.05              
+    efes = 1 - s_f
+    r_e = 6371             # km
+    grav_e = 9.8e-3
+    alpha_min = -2*(numpy.pi)/180  # in rads
+    alpha_max = 2*(numpy.pi)/180   # in rads
+    beta_min = 0
+    beta_max = 1
+#    h_final = boundary['h_final']
+#    V_final = boundary['V_final']
+#    grav_e = constants['grav_e']
+#    Thrust = constants['Thrust']
+#    Isp = constants['Isp']
+#    r_e = constants['r_e']
+#    GM = constants['GM']
+#    s_f = constants['s_f']
+#    alpha_min = restrictions['alpha_min']
+#    alpha_max = restrictions['alpha_max']
+#    beta_min = restrictions['beta_min'] 
+#    beta_max = restrictions['beta_max']
+    
     ##########################################################################
-    fator_V = 1.05#1.05 # Ajust to find a final V
-    tf = 440.0 # Ajust to find a final gamma
-    tAoA = 2.0 #Ajust to find a final h
-
+    fator_V = 1.05  #1.05 # Ajust to find a final V
+    tf = 440.0            # Adjust to find a final gamma
+    tAoA = 2.0      #2.0  # Adjust to find a final h
+    
     Mu = 100.0
-    Dv1 = 1.3*numpy.sqrt(2.0*GM*(1/R - 1/(R+h_final)))
+    Dv1 = 1.3*numpy.sqrt(2.0*GM*(1/r_e - 1/(r_e+h_final)))
     Dv2 = V_final
 
     ##########################################################################
     Dv2 = Dv2 * fator_V
     LamMax = 1/(1-efes)
-    Lam1 = numpy.exp(Dv1/g0/Isp)
-    Lam2 = numpy.exp(Dv2/g0/Isp)
+    Lam1 = numpy.exp(Dv1/grav_e/Isp)
+    Lam2 = numpy.exp(Dv2/grav_e/Isp)
     if printInfo:
         print("Dv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
     
@@ -66,40 +77,38 @@ def getRockTraj(printInfo=False):
         print("Mu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0)
 
 
-    T = 40.0e3 # thrust in N
-    T *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
+    Thrust = 40.0e3 # thrust in N
+    Thrust *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
 
-    tb1 = Mp1 * g0 * Isp / T
-    tb2 = Mp2 * g0 * Isp / T
+    tb1 = Mp1 * grav_e * Isp / Thrust
+    tb2 = Mp2 * grav_e * Isp / Thrust
     tb = tb1 + tb2
 
     t = numpy.arange(0,tf+dt,dt)
     Nt = numpy.size(t)
-
-    beta = numpy.zeros((Nt,1))
+    u1 = numpy.zeros((Nt,1))
+    u2 = (-pi/2)*numpy.ones((Nt,1))
     tvar = 0.0
     i = 0
     while tvar <= tf:
         if tvar < tb1:
-            beta[i] = 1#1.0
+            u2[i] = pi/2            
         elif tvar > (tf - tb2):
-            beta[i] = 1#1.0
+            u2[i] = pi/2            
         i += 1
         tvar += dt
-
-    alfa = numpy.zeros((Nt,1))
+    beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2    
+    
     tvar = 0.0
     tAoA1 = .01*tf
-
-    ##########################################################################
     tAoA2 = tAoA1 + tAoA
     for i in range(Nt):
         tvar += dt
         if tvar > tAoA1 and tvar < tAoA2:
-            alfa[i] = -AoAmax*pi/180#-21*pi/180
-
-
-    plt.plot(t,alfa*180/pi)
+            u1[i] = -pi/2
+    alpha = (alpha_max + alpha_min)/2 + numpy.sin(u1)*(alpha_max - alpha_min)/2
+    ##########################################################################
+    plt.plot(t,alpha*180/pi)
     plt.grid(True)
     plt.xlabel("Time [s]")
     plt.ylabel("Angle of attack [deg]")
@@ -115,45 +124,39 @@ def getRockTraj(printInfo=False):
     x0 = numpy.array([0,1.0e-6,90*pi/180,M0])
  
     # integrate differential equations for trajectory
-    x = odeint(mdlDer,x0,t,args=(t,alfa,beta,T,Isp,g0,R))
+    #x = odeint(mdlDer,x0,t,args=(t,alpha,beta,Thrust,Isp,grav_e,r_e))
+    x = odeint(mdlDer,x0,t,args=(t,u1,u2,Thrust,Isp,grav_e,r_e,alpha_min,alpha_max,beta_min,beta_max))
     u = numpy.empty((Nt,2))
     for k in range(Nt):
-        u[k,0] = alfa[k]
-        u[k,1] = beta[k]
-         
-    plt.subplot2grid((6,4),(0,0),colspan=4)
+#        u[k,0] = alpha[k]
+#        u[k,1] = beta[k]
+         u[k,0] = u1[k]
+         u[k,1] = u2[k]
+
+    plt.subplot2grid((4,4),(0,0),colspan=4)
     plt.plot(t,x[:,0],)
     plt.grid(True)
     plt.ylabel("h [km]")
-    plt.subplot2grid((6,4),(1,0),colspan=4)
+    plt.subplot2grid((4,4),(1,0),colspan=4)
     plt.plot(t,x[:,1],'g')
     plt.grid(True)
     plt.ylabel("V [km/s]")
-    plt.subplot2grid((6,4),(2,0),colspan=4)
+    plt.subplot2grid((4,4),(2,0),colspan=4)
     plt.plot(t,x[:,2]*180.0/pi,'r')
     plt.grid(True)
     plt.ylabel("gamma [deg]")
-    plt.subplot2grid((6,4),(3,0),colspan=4)
+    plt.subplot2grid((4,4),(3,0),colspan=4)
     plt.plot(t,x[:,3],'m')
     plt.grid(True)
     plt.ylabel("m [kg]")
-    #plt.subplot2grid((6,4),(4,0),colspan=4)
-    #plt.plot(t,u[:,0],'k')
-    #plt.grid(True)
-    #plt.ylabel("alfa [rad]")
-    #plt.subplot2grid((6,4),(5,0),colspan=4)
-    #plt.plot(t,u[:,1],'c')
-    #plt.grid(True)
-    #plt.xlabel("t")
-    #plt.ylabel("beta [adim]")
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.show()
 
-    plotRockTraj(t,x,R,tb1,tf-tb2)
+    plotRockTraj(t,x,r_e,tb1,tf-tb2)
 
     # colocar aqui módulo de calculo de órbita
     h,v,gama,M = x[Nt-1,:]
-    r = R + h
+    r = r_e + h
     cosGama = numpy.cos(gama)
     sinGama = numpy.sin(gama)
     momAng = r * v * cosGama
@@ -165,12 +168,14 @@ def getRockTraj(printInfo=False):
     aux = v * momAng / GM
     e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
     print("Eccentricity:",e)
-    ph = a * (1.0 - e) - R
+    ph = a * (1.0 - e) - r_e
     print("Perigee altitude:",ph)
+    print("Altitude at tf:",x[Nt-1,0])
+    print("Speed at tf:",x[Nt-1,1])
 
     return t/tf,x,u,numpy.array([tf])
 
-def plotRockTraj(t,x,R,tb,ts2):
+def plotRockTraj(t,x,r_e,tb,ts2):
 
     pi = numpy.pi
     cos = numpy.cos
@@ -188,7 +193,7 @@ def plotRockTraj(t,x,R,tb,ts2):
     for i in range(1,N):
         v = x[i,1]
         gama = x[i,2]
-        dsigma = v * cos(gama) / (R+x[i,0])
+        dsigma = v * cos(gama) / (r_e+x[i,0])
         sigma += dsigma*dt
 
         X[i] = X[i-1] + dt * v * cos(gama-sigma)
@@ -212,8 +217,8 @@ def plotRockTraj(t,x,R,tb,ts2):
     # Draw burnout point
     
     s = numpy.arange(0,1.01,.01)*sigma
-    x = R * cos(.5*pi - s)
-    z = R * (sin(.5*pi - s) - 1.0)
+    x = r_e * cos(.5*pi - s)
+    z = r_e * (sin(.5*pi - s) - 1.0)
     
     plt.plot(x,z,'k')
     plt.plot(X[:itb],Z[:itb],'r')
@@ -231,19 +236,23 @@ def plotRockTraj(t,x,R,tb,ts2):
     return None
 
 
-def mdlDer(x,t,tVec,alfaProg,betaProg,T,Isp,g0,R):
+#def mdlDer(x,t,tVec,alphaProg,betaProg,Thrust,Isp,grav_e,r_e):
+def mdlDer(x,t,tVec,u1Prog,u2Prog,Thrust,Isp,grav_e,r_e,alpha_min,alpha_max,beta_min,beta_max):
     h,v,gama,M = x[0],x[1],x[2],x[3]
-    betat = interpV(t,tVec,betaProg)
-    alfat = interpV(t,tVec,alfaProg)
-
-    btm = betat*T/M
+#    betat = interpV(t,tVec,betaProg)
+#    alphat = interpV(t,tVec,alphaProg)
+    u1t = interpV(t,tVec,u1Prog)
+    u2t = interpV(t,tVec,u2Prog)    
+    alphat = (alpha_max + alpha_min)/2 + numpy.sin(u1t)*(alpha_max - alpha_min)/2
+    betat = (beta_max + beta_min)/2 + numpy.sin(u2t)*(beta_max - beta_min)/2
+    btm = betat*Thrust/M
     sinGama = numpy.sin(gama)
-    g = g0*(R/(R+h))**2
-
+    g = grav_e*(r_e/(r_e+h))**2
+    
     return numpy.array([v*sinGama,\
-    btm*numpy.cos(alfat) - g*sinGama,\
-    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
-    -btm*M/g0/Isp])
+    btm*numpy.cos(alphat) - g*sinGama,\
+    btm*numpy.sin(alphat)/v + (v/(h+r_e)-g/v)*numpy.cos(gama),\
+    -btm*M/grav_e/Isp])
 
 if __name__ == "__main__":
     getRockTraj(printInfo=True)
