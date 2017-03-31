@@ -24,7 +24,7 @@ def declProb(opt=dict()):
     V_initial = 0.0            # km/s
     gamma_initial = numpy.pi/2 # rad
     m_initial = 50000          # kg
-    h_final = 463     # km
+    h_final = 463.0   # km
     V_final = 7.633   # km/s    
     gamma_final = 0.0 # rad
     #m_final = free   # kg
@@ -37,12 +37,12 @@ def declProb(opt=dict()):
 
 # Earth constants
     grav_e = 9.8e-3        # km/s^2
-    r_e = 6371             # km
+    r_e = 6371.0           # km
     GM = 398600.4415       # km^3 s^-2
     
 # rocket constants     
     Thrust = 40.0          # kg km/s²  1.3*m_initial # N
-    Isp = 450              # s
+    Isp = 450.0            # s
     s_f = 0.05
     
  # restrictions
@@ -119,7 +119,7 @@ def declProb(opt=dict()):
         
     elif initMode == 'extSol':
         # adapt solution        
-        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj()        
+        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)        
         for i in range(n):
             f_x = interp1d(t_rp, x_rp[:,i])
             x[:,i] = f_x(t)
@@ -151,8 +151,8 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     u2 = u[:,1]
     
 # calculate variables alpha and beta
-    alpha = (alpha_max + alpha_min)/2 + numpy.sin(u1)*(alpha_max - alpha_min)/2
-    beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
+    alpha = (alpha_max + alpha_min)/2 + sin(u1)*(alpha_max - alpha_min)/2
+    beta = (beta_max + beta_min)/2 + sin(u2)*(beta_max - beta_min)/2
 
 # calculate r
     r = r_e + x[:,0]
@@ -193,7 +193,7 @@ def calcF(sizes,x,u,pi,constants,restrictions):
     s_f = constants['s_f']
     beta_min = restrictions['beta_min'] 
     beta_max = restrictions['beta_max']
-    u1 = u[:,0]
+    #u1 = u[:,0]
     u2 = u[:,1]
 # calculate variable beta
     beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
@@ -211,6 +211,11 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     m = sizes['m']
     p = sizes['p']
     #q = sizes['q']
+    
+    # Pre-assign functions
+    sin = numpy.sin
+    cos = numpy.cos
+    array = numpy.array
     
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
@@ -241,12 +246,14 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     fp = numpy.zeros((N,p))
                
     # Gradients from example rocket single stage to orbit L=0 D=0
-    psix = numpy.array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
-    psip = numpy.array([[0.0],[0.0],[0.0]])
+    psix = array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
+    psip = array([[0.0],[0.0],[0.0]])
     
 #   calculate variables alpha and beta
-    alpha = (alpha_max + alpha_min)/2 + numpy.sin(u1)*(alpha_max - alpha_min)/2
-    beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
+    aExp = .5*(alpha_max - alpha_min)
+    alpha = (alpha_max + alpha_min)/2 + sin(u1)*aExp
+    bExp = .5*(beta_max - beta_min)
+    beta = (beta_max + beta_min)/2 + sin(u2)*bExp
       
     # calculate r
     r = r_e + x[:,0]
@@ -255,63 +262,63 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     grav = GM/r/r
         
     for k in range(N):  
-        sinGama = numpy.sin(x[k,2])
-        cosGama = numpy.cos(x[k,2])
+        sinGama = sin(x[k,2])
+        cosGama = cos(x[k,2])
         
-        sinAlpha = numpy.sin(alpha[k])
-        cosAlpha = numpy.cos(alpha[k])
+        sinAlpha = sin(alpha[k])
+        cosAlpha = cos(alpha[k])
         
-        cosu1 = numpy.cos(u1[k])
-        cosu2 = numpy.cos(u2[k])
+        cosu1 = cos(u1[k])
+        cosu2 = cos(u2[k])
         
         V = x[k,1]        
         m = x[k,3]
 
     # Expanded notation:
         if k==0:
-            phix[k,:,:] = numpy.array([[0.0                           ,pi[0]*sinGama   ,pi[0]*V*cosGama         ,0.0                                  ],
-                                       [pi[0]*2*GM*sinGama/(r[k]**3)  ,0.0             ,-pi[0]*grav[k]*cosGama  ,-pi[0]*beta[k]*Thrust*cosAlpha/(m**2)],
+            phix[k,:,:] = pi[0]*array([[0.0                           ,sinGama   ,V*cosGama         ,0.0                                  ],
+                                       [2*GM*sinGama/(r[k]**3)  ,0.0             ,-grav[k]*cosGama  ,-beta[k]*Thrust*cosAlpha/(m**2)],
                                        [0.0                           ,0.0             ,0.0                     ,0.0                                  ],
                                        [0.0                           ,0.0             ,0.0                     ,0.0                                  ]])
             
-            phiu[k,:,:] = numpy.array([[0.0                                                                   ,0.0                                                       ],
-                                       [-pi[0]*beta[k]*Thrust*sinAlpha*((alpha_max - alpha_min)/2)*cosu1/(m)  ,pi[0]*Thrust*cosAlpha*((beta_max - beta_min)/2)*cosu2/(m) ],
+            phiu[k,:,:] = pi[0]*array([[0.0                                                                   ,0.0                                                       ],
+                                       [-beta[k]*Thrust*sinAlpha*aExp*cosu1/m  ,Thrust*cosAlpha*bExp*cosu2/m ],
                                        [0.0                                                                   ,0.0                                                       ],
-                                       [0.0                                                                   ,-pi[0]*Thrust*((beta_max - beta_min)/2)*cosu2/(grav_e*Isp)]])
+                                       [0.0                                                                   ,-Thrust*bExp*cosu2/(grav_e*Isp)]])
             
-            phip[k,:,:] = numpy.array([[V*sinGama                                    ],
-                                       [beta[k]*Thrust*cosAlpha/(m) - grav[k]*sinGama],
+            phip[k,:,:] = array([[V*sinGama                                    ],
+                                       [beta[k]*Thrust*cosAlpha/m - grav[k]*sinGama],
                                        [0.0                                          ],
                                        [-(beta[k]*Thrust)/(grav_e*Isp)               ]])
         else:
-            phix[k,:,:] = numpy.array([[0.0                                              ,pi[0]*sinGama                                                                    ,pi[0]*V*cosGama                      ,0.0                                      ],
-                                       [pi[0]*2*GM*sinGama/(r[k]**3)                     ,0.0                                                                              ,-pi[0]*grav[k]*cosGama               ,-pi[0]*beta[k]*Thrust*cosAlpha/(m**2)    ],
-                                       [pi[0]*cosGama*(-V/(r[k]**2)+2*GM/(V*(r[k]**3)))  ,pi[0]*(-beta[k]*Thrust*sinAlpha/(m*V**2)+cosGama*((1/r[k])+grav[k]/(V**2)))      ,-pi[0]*sinGama*((V/r[k])-grav[k]/V)  ,-pi[0]*beta[k]*Thrust*sinAlpha/(V*(m**2))],
+            phix[k,:,:] = pi[0]*array([[0.0                                              ,sinGama                                                                    ,V*cosGama                      ,0.0                                      ],
+                                       [2*GM*sinGama/(r[k]**3)                     ,0.0                                                                              ,-grav[k]*cosGama               ,-beta[k]*Thrust*cosAlpha/(m**2)    ],
+                                       [cosGama*(-V/(r[k]**2)+2*GM/(V*(r[k]**3)))  ,(-beta[k]*Thrust*sinAlpha/(m*V**2)+cosGama*((1/r[k])+grav[k]/(V**2)))      ,-sinGama*((V/r[k])-grav[k]/V)  ,-beta[k]*Thrust*sinAlpha/(V*(m**2))],
                                        [0.0                                              ,0.0                                                                              ,0.0                                  ,0.0                                      ]])
         
-            phiu[k,:,:] = numpy.array([[0.0                                                                    ,0.0                                                        ],
-                                       [-pi[0]*beta[k]*Thrust*sinAlpha*((alpha_max - alpha_min)/2)*cosu1/(m)   ,pi[0]*Thrust*cosAlpha*((beta_max - beta_min)/2)*cosu2/(m)  ],
-                                       [pi[0]*beta[k]*Thrust*cosAlpha*((alpha_max - alpha_min)/2)*cosu1/(m*V)  ,pi[0]*Thrust*sinAlpha*((beta_max - beta_min)/2)*cosu2/(m*V)],
-                                       [0.0                                                                    ,-pi[0]*Thrust*((beta_max - beta_min)/2)*cosu2/(grav_e*Isp)]])
+            phiu[k,:,:] = pi[0]*array([[0.0                                                                    ,0.0                                                        ],
+                                       [-beta[k]*Thrust*sinAlpha*aExp*cosu1/m   ,Thrust*cosAlpha*bExp*cosu2/m  ],
+                                       [beta[k]*Thrust*cosAlpha*aExp*cosu1/(m*V)  ,Thrust*sinAlpha*bExp*cosu2/(m*V)],
+                                       [0.0                                                                    ,-Thrust*bExp*cosu2/(grav_e*Isp)]])
             
             phip[k,:,:] = numpy.array([[V*sinGama                                                     ],
-                                       [beta[k]*Thrust*cosAlpha/(m) - grav[k]*sinGama                 ],
+                                       [beta[k]*Thrust*cosAlpha/m - grav[k]*sinGama                 ],
                                        [(beta[k]*Thrust*sinAlpha)/(m*V)+cosGama*((V/r[k])-(grav[k]/V))],
                                        [-(beta[k]*Thrust)/(grav_e*Isp)                               ]])
    
-        fu[k,:] = numpy.array([0.0,(pi[0]*Thrust*((beta_max - beta_min)/2)*cosu2)/(grav_e * Isp * (1-s_f))])
-        fp[k,0] =(Thrust * beta[k])/(grav_e * Isp * (1-s_f))
+        fu[k,:] = numpy.array([0.0,(pi[0]*Thrust*bExp*cosu2)/(grav_e * Isp * (1-s_f))])
+        fp[k,0] = (Thrust * beta[k])/(grav_e * Isp * (1-s_f))
     
-    Grads['phix'] = phix.copy()
-    Grads['phiu'] = phiu.copy()
-    Grads['phip'] = phip.copy()
-    Grads['fx'] = fx.copy()
-    Grads['fu'] = fu.copy()
-    Grads['fp'] = fp.copy()
-#    Grads['gx'] = gx.copy()
-#    Grads['gp'] = gp.copy()
-    Grads['psix'] = psix.copy()
-    Grads['psip'] = psip.copy()        
+    Grads['phix'] = phix
+    Grads['phiu'] = phiu
+    Grads['phip'] = phip
+    Grads['fx'] = fx
+    Grads['fu'] = fu
+    Grads['fp'] = fp
+#    Grads['gx'] = gx
+#    Grads['gp'] = gp
+    Grads['psix'] = psix
+    Grads['psip'] = psip
     return Grads
     
 def calcI(sizes,x,u,pi,constants,restrictions):

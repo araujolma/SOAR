@@ -488,7 +488,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         C *= dt
         C -= -psipTr.dot(mu)
         
-        print("Integrating ODE for A...")
+        print("Integrating ODE for A [i = "+str(i)+"] ...")
         # integrate equation for A:                
         A = odeint(calcADotRest,numpy.zeros(n),t,args= (t,phix,phiu,phip,B,C,aux))
 
@@ -636,3 +636,4 @@ if __name__ == "__main__":
 	        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 	    x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
 	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+

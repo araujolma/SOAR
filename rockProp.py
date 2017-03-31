@@ -19,42 +19,31 @@ from scipy.integrate import odeint
 from utils import interpV#, interpM, ddt
 #import prob_rocket_sgra
 
-def getRockTraj(printInfo=False):#,constants,boundary,restrictions):
+def getRockTraj(printInfo=False, constants=dict(), boundary=dict(), restrictions=dict()):
     
     dt = 1e-3#7.0e-4#1.0/(N-1)
     pi = numpy.pi
 
     # example rocket single stage to orbit L=0 D=0
-    
-    h_final = 463     # km
-    V_final = 7.633   # km/s
-    GM = 398600.4415       # km^3 s^-2
-    Isp = 450              # s
-    s_f = 0.05              
-    efes = 1 - s_f
-    r_e = 6371             # km
-    grav_e = 9.8e-3
-    alpha_min = -2*(numpy.pi)/180  # in rads
-    alpha_max = 2*(numpy.pi)/180   # in rads
-    beta_min = 0
-    beta_max = 1
-#    h_final = boundary['h_final']
-#    V_final = boundary['V_final']
-#    grav_e = constants['grav_e']
-#    Thrust = constants['Thrust']
-#    Isp = constants['Isp']
-#    r_e = constants['r_e']
-#    GM = constants['GM']
-#    s_f = constants['s_f']
-#    alpha_min = restrictions['alpha_min']
-#    alpha_max = restrictions['alpha_max']
-#    beta_min = restrictions['beta_min'] 
-#    beta_max = restrictions['beta_max']
+            
+    h_final = boundary.get('h_final',463.0) # km
+    V_final = boundary.get('V_final',7.633) # km/s
+    grav_e = constants.get('grav_e',9.8e-3) # km/s²
+    Thrust = constants.get('Thrust',40.0)   # kg * km / s²
+    Isp = constants.get('Isp',450.0)        # s
+    r_e = constants.get('r_e',6371.0)       # km
+    GM = constants.get('GM',398600.4415)    # km^3/s²
+    s_f = constants.get('s_f',.05)
+    efes = 1-s_f
+    alpha_min = restrictions.get('alpha_min',-2.0*pi/180) # rad
+    alpha_max = restrictions.get('alpha_max',2.0*pi/180)  # rad
+    beta_min = restrictions.get('beta_min',0.0)
+    beta_max = restrictions.get('beta_max',1.0)
     
     ##########################################################################
-    fator_V = 1.05  #1.05 # Ajust to find a final V
-    tf = 440.0            # Adjust to find a final gamma
-    tAoA = 2.0      #2.0  # Adjust to find a final h
+    fator_V = 1.05#1.041  #1.05 # Ajust to find a final V
+    tf = 440.0#439.7      #440  # Adjust to find a final gamma
+    tAoA = 2.0 #2.12      #2.0  # Adjust to find a final h
     
     Mu = 100.0
     Dv1 = 1.3*numpy.sqrt(2.0*GM*(1/r_e - 1/(r_e+h_final)))
@@ -76,13 +65,8 @@ def getRockTraj(printInfo=False):#,constants,boundary,restrictions):
     if printInfo:
         print("Mu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0)
 
-
-    Thrust = 40.0e3 # thrust in N
-    Thrust *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
-
     tb1 = Mp1 * grav_e * Isp / Thrust
     tb2 = Mp2 * grav_e * Isp / Thrust
-    tb = tb1 + tb2
 
     t = numpy.arange(0,tf+dt,dt)
     Nt = numpy.size(t)
@@ -237,7 +221,7 @@ def plotRockTraj(t,x,r_e,tb,ts2):
 
 
 #def mdlDer(x,t,tVec,alphaProg,betaProg,Thrust,Isp,grav_e,r_e):
-def mdlDer(x,t,tVec,u1Prog,u2Prog,Thrust,Isp,grav_e,r_e,alpha_min,alpha_max,beta_min,beta_max):
+def mdlDer(x, t, tVec, u1Prog, u2Prog, Thrust, Isp, grav_e, r_e, alpha_min, alpha_max, beta_min, beta_max):
     h,v,gama,M = x[0],x[1],x[2],x[3]
 #    betat = interpV(t,tVec,betaProg)
 #    alphat = interpV(t,tVec,alphaProg)
@@ -255,6 +239,6 @@ def mdlDer(x,t,tVec,u1Prog,u2Prog,Thrust,Isp,grav_e,r_e,alpha_min,alpha_max,beta
     -btm*M/grav_e/Isp])
 
 if __name__ == "__main__":
-    getRockTraj(printInfo=True)
+    t,x,u,pi = getRockTraj(printInfo=True)
 
 
