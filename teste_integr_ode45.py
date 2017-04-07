@@ -7,7 +7,6 @@ Created on Fri Apr  7 15:05:16 2017
 
 import numpy
 import matplotlib.pyplot as plt
-import souza
 from scipy.integrate import ode
 #from numpy.linalg import norm
 from utils import interpV#, interpM, ddt
@@ -116,7 +115,7 @@ def main ():
 	x0 = numpy.array([0,1.0e-6,90*pi/180,M0])
 
 	#mdlDer arguments definition
-	args1 = souza.arg
+	args1 = arg
 
 	args1.tVec = t
 	args1.alfaProg = alfa  
@@ -143,8 +142,8 @@ def main ():
 	tt = []
 	xx = []
 
-	tp = []
-	xp = []
+	tp = [] # Phase-transition times
+	xp = [] # Phase-transition states
 
 	# Integration using rk45 separated by phases
 	# First burning until the attitude maneuver
@@ -238,34 +237,36 @@ def main ():
 	########################################  
      #  Displaing results
 
-	plt.grid(True)
- 
+	plt.figure() 
+	plt.hold(True) 
 	plt.plot(tt,xx[:,0],'.-b')
-	plt.hold(True)
 	plt.plot(tp,xp[:,0],'.r')
 	plt.hold(False) 
 	plt.xlabel("Time [s]")
 	plt.ylabel("h [km]")
 	plt.show()
  
+	plt.figure() 
+	plt.hold(True) 
 	plt.plot(tt,xx[:,1],'.-b')
-	plt.hold(True)
 	plt.plot(tp,xp[:,1],'.r')
 	plt.hold(False) 
 	plt.xlabel("Time [s]")
 	plt.ylabel("V [km/s]")
 	plt.show()
- 
+
+	plt.figure() 
+	plt.hold(True) 
 	plt.plot(tt,xx[:,2],'.-b')
-	plt.hold(True)
 	plt.plot(tp,xp[:,2],'.r')
 	plt.hold(False) 
 	plt.xlabel("Time [s]")
 	plt.ylabel("gamma [deg]")
 	plt.show()
- 
+
+	plt.figure() 
+	plt.hold(True) 
 	plt.plot(tt,xx[:,3],'.-b')
-	plt.hold(True)
 	plt.plot(tp,xp[:,3],'.r')
 	plt.hold(False) 
 	plt.xlabel("Time [s]")
@@ -420,6 +421,18 @@ def mdlDer(t,x,args):
 	btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
 	-btm*M/g0/Isp])
 
-main()
+class arg():
+    
+    def __init__(self, tVec, alfaProg, betaProg, T, Isp, g0, R):
+        self.tVec = tVec
+        self.alfaProg = alfaProg  
+        self.betaProg = betaProg
+        self.T = T
+        self.Isp = Isp
+        self.g0 = g0
+        self.R = R
+        self.t_ode
+        self.x_ode
 
+main()
 
