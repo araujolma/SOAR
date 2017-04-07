@@ -21,7 +21,7 @@ from utils import interpV#, interpM, ddt
 
 def getRockTraj(printInfo=False, constants=dict(), boundary=dict(), restrictions=dict()):
     
-    dt = 1e-3#7.0e-4#1.0/(N-1)
+    dt = 7.0e-4  #1e-3  #7.0e-4  #1.0/(N-1)
     pi = numpy.pi
 
     # example rocket single stage to orbit L=0 D=0
@@ -41,12 +41,13 @@ def getRockTraj(printInfo=False, constants=dict(), boundary=dict(), restrictions
     beta_max = restrictions.get('beta_max',1.0)
     
     ##########################################################################
-    fator_V = 1.05#1.041  #1.05 # Ajust to find a final V
-    tf = 440.0#439.7      #440  # Adjust to find a final gamma
-    tAoA = 2.0 #2.12      #2.0  # Adjust to find a final h
+    fator_V = 1.06#1.05  #1.041  #1.05 # Ajust to find a final V
+    tf = 480.0  #440.0  #439.7      #440  # Adjust to find a final gamma
+    tAoA = 0.5  #2.0  #2.12      #2.0  # Adjust to find a final h
+    fdv1 = 1.4                  # Adjust to find a final h
     
     Mu = 100.0
-    Dv1 = 1.3*numpy.sqrt(2.0*GM*(1/r_e - 1/(r_e+h_final)))
+    Dv1 = fdv1*numpy.sqrt(2.0*GM*(1/r_e - 1/(r_e+h_final)))
     Dv2 = V_final
 
     ##########################################################################
@@ -84,7 +85,13 @@ def getRockTraj(printInfo=False, constants=dict(), boundary=dict(), restrictions
     beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2    
     
     tvar = 0.0
-    tAoA1 = .01*tf
+    ##########################################################################
+	# Chossing tAoA1 as a fraction of tf results in code bad behavior
+	# So a fixed generic number is used
+    tAoA1 = .01*440
+    #tAoA1 = .01*tf
+	##########################################################################
+
     tAoA2 = tAoA1 + tAoA
     for i in range(Nt):
         tvar += dt
