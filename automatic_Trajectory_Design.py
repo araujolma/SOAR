@@ -16,26 +16,67 @@ pi = numpy.pi
 
 def main ():
 
-	h_final = 463     # km
-	Mu = 100.0        # Payload mass [kg]		
+	h_final = 463.0     # km
+	Mu = 110.0        # Payload mass [kg]		
 
 	fator_V = 1.06    # Ajust to find a final V
 	tf = 480.0        # Ajust to find a final gamma
 	tAoA = 0.5        #Ajust to find a final h
 
-	factors = fator_V,tf,tAoA
+	fsup = numpy.array([1.1,500.0,2])
+	finf = numpy.array([0.9,400.0,0.1])
+
+	factors = numpy.array([fator_V,tf,tAoA])
+
+	# Results without automatic adjustment
+	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"plot")
+	h,v,gama,M = numpy.transpose(xx0[-1,:])
+	orbitResults(h,v,gama)
+	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
+	
+
+	# Aplication of the simplitied bisection method
+	df = (fsup - finf)/100
+	factors1 = factors
+	factors2 = factors + df
+	errors1, tt, xx = trajectoryDesing(factors1,h_final,Mu,"design") # inicialization
+	continuing = True
+	count = 0.0
+	Nmax = 20
+	while continuing and (count < Nmax):
+				
+		errors2, tt, xx = trajectoryDesing(factors2,h_final,Mu,"design")
+		factors3 = factors1 - errors1*(factors2 - factors1)/(errors2 - errors1)
 		
-	tt,xx,uu,tp,xp,up = trajectoryDesing(factors,h_final,Mu,"plot")	
+		# boundary verification		
+		onInterval(factors3,finf,fsup)
+		
+		# error calculation
+		errors3, tt, xx = trajectoryDesing(factors3,h_final,Mu,"design")		
+		verify = abs(errors3) < 1.0
+		
+		if verify[0] and verify[1] and verify[2]:
+			continuing = False			
+			
+		else:
+			errors1 = errors2
+			errors2 = errors3
+			factors1 = factors2
+			factors2 = factors3			
+			count += 1
+			print("\n\rIteration: ",count)
 	
-	########################################  
-     #  Displaing results
-	plotResults(tt,xx,uu,tp,xp,up)
+	print("\n\rFinal factors: ",factors3)		
+	print("\n\rFinal errors: ",errors3,"\n\r")
+	h,v,gama,M = numpy.transpose(xx)
+	orbitResults(h,v,gama)	
+		
+	# Results with automatic adjustment
+	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors3,h_final,Mu,"plot")
+	h,v,gama,M = numpy.transpose(xx0[-1,:])
+	orbitResults(h,v,gama)
+	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
 
-	# Orbit calculation
-	h,v,gama,M = xx[-1,:]
-
-	orbitResults(h,v,gama,R,GM)	
-	
 	return None
 	
 def trajectoryDesing(factors,h_final,Mu,typeResult):	
@@ -70,14 +111,12 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	LamMax = 1/(1-efes)
 	Lam1 = numpy.exp(Dv1/g0/Isp)
 	Lam2 = numpy.exp(Dv2/g0/Isp)
-	print("Dv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
-
+	
 	Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
 	Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
 	Mp = Mp1 + Mp2;
 	Me = (1-efes)*Mp/efes
 	M0 = Mu + Mp + Me
-	print("Mu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0)
 
 
 	T = 40.0e3 # thrust in N
@@ -111,53 +150,59 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
      # ode set:
      #         atol: absolute tolerance
      #         rtol: relative tolerance
-	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = 1.0e-6,rtol = 1.0e-8)
+	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = 1.0e-9,rtol = 1.0e-10)
 	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
 	# Phase times, incluiding the initial time in the begining
 	tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
 	
-	# Integration using rk45 separated by phases
-	# Automatic multiphase integration
-	tt,xx,tp,xp = totalIntegration(tphases,ode45)
 	
 	if (typeResult == "design"):
-	
-		h,v,gamma,M = xx[-1,:]
-		errors = ((h - h_final), (v - V_final), (gamma - gamma_final))
-		return errors
+		# Integration using rk45 separated by phases
+		# Trajetory design parameters
+		# fator_V,tf,tAoA = factors
+		# Automatic multiphase integration
+		tt,xx,tp,xp = totalIntegration(tphases,ode45,False)
+		h,v,gamma,M = xx
+		errors = ((v - V_final)/0.001, (gamma - gamma_final)/0.001, (h - h_final)/1.0)
+		errors = numpy.array(errors)
+		return errors, tt, xx
 		
-	elif (typeResult == "plot"):
-	
-		########################################
-		# Alpha and beta results (controls)
-	
+	elif (typeResult == "plot"):		
+		# Integration using rk45 separated by phases
+		# Automatic multiphase integration
+		print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
+		print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
+		tt,xx,tp,xp = totalIntegration(tphases,ode45,True)
 		uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
 		up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
-		ans = (tt,xx,uu,tp,xp,up)
-	
-		return ans 
+		ans = (tt,xx,uu,tp,xp,up)	
+		return ans
 		
 	else:
 		
 		return None
 
-def totalIntegration(tphases,ode45):
+def totalIntegration(tphases,ode45,flagAppend):
 
-	def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
+	def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp,flagAppend):
 	
 		tph = t_final - t_initial
 		ode45.first_step = tph/Nref     
 		stop1 = False
 		while not stop1:
 			ode45.integrate(t_final)
-			tt.append(ode45.t)
-			xx.append(ode45.y)
+			if flagAppend:
+				tt.append(ode45.t)
+				xx.append(ode45.y)
 			if ode45.t >= t_final:
 				stop1 = True
-	
-		tp.append(ode45.t)
-		xp.append(ode45.y)		
+		if flagAppend:
+			tp.append(ode45.t)
+			xp.append(ode45.y)
+		else:
+			tt = ode45.t
+			xx = ode45.y
 			
 		return tt,xx,tp,xp
 
@@ -166,7 +211,7 @@ def totalIntegration(tphases,ode45):
 	tt,xx,tp,xp = [],[],[],[]
 
 	for ii in range(1,len(tphases)):
-		tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp)	
+		tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp,flagAppend)
 
 	tt = numpy.array(tt)
 	xx = numpy.array(xx)
@@ -175,6 +220,15 @@ def totalIntegration(tphases,ode45):
 		
 	return tt,xx,tp,xp
 
+def onInterval(f,fmin,fmax):
+	
+	for ii in range(0,len(f)):
+		if (f[ii] < fmin[ii]):
+			f[ii] = fmin[ii]
+		elif (f[ii] > fmax[ii]):
+			f[ii] = fmax[ii]
+	
+	return f
 
 def plotResults(tt,xx,uu,tp,xp,up):
 
@@ -238,7 +292,7 @@ def plotResults(tt,xx,uu,tp,xp,up):
 				
 	return None
 
-def orbitResults(h,v,gama,R,GM):
+def orbitResults(h,v,gama):
 
 	r = R + h
 	cosGama = numpy.cos(gama)
