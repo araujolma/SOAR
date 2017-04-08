@@ -65,47 +65,16 @@ def main ():
 	tb2 = Mp2 * g0 * Isp / T
 	tb = tb1 + tb2
 
-	t = numpy.arange(0,tf+dt,dt)
-	Nt = numpy.size(t)
+	tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
 
-	beta = numpy.zeros((Nt,1))
-	tvar = 0.0
-	i = 0
-	while tvar <= tf:
-		if tvar < tb1:
-			beta[i] = 1#1.0
-		elif tvar > (tf - tb2):
-			beta[i] = 1#1.0
-		i += 1
-		tvar += dt
-
-	alfa = numpy.zeros((Nt,1))
-	tvar = 0.0
 
 	##########################################################################
 	# Chossing tAoA1 as a fraction of tf results in code bad behavior
 	# So a fixed generic number is used
 	tAoA1 = .01*440
-
-	##########################################################################
 	tAoA2 = tAoA1 + tAoA
-	for i in range(Nt):
-		tvar += dt
-		if tvar > tAoA1 and tvar < tAoA2:
-			alfa[i] = -AoAmax*pi/180#-21*pi/180
 
-
-	plt.plot(t,alfa*180/pi)
-	plt.grid(True)
-	plt.xlabel("Time [s]")
-	plt.ylabel("Angle of attack [deg]")
-	plt.show()
-
-	plt.plot(t,beta)
-	plt.grid(True)
-	plt.xlabel("Time [s]")
-	plt.ylabel("Thrust profile [-]")
-	plt.show()
+	tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
 
 	##########################################################################
 	#Integration
@@ -123,7 +92,7 @@ def main ():
                                          atol = 1.0e-6,\
                                          rtol = 1.0e-8,\
                                          first_step = 0.001)
-	ode45.set_initial_value(x0, t0).set_f_params((t,alfa,beta,T,Isp,g0,R))
+	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
 	# Output variables
 	tt = []
@@ -147,9 +116,18 @@ def main ():
 	tp = numpy.array(tp)
 	xp = numpy.array(xp) 
 	
+	########################################
+	# Alpha and beta results
+		
+	aa = tabAlpha.multValue(tt)
+	bb = tabBeta.multValue(tt)
+	
+	ap = tabAlpha.multValue(tp);
+	bp = tabBeta.multValue(tp);
+	
 	########################################  
      #  Displaing results
-	plotResults(tt,xx,tp,xp)
+	plotResults(tt,xx,tp,xp,aa,bb,ap,bp)
 
 	# Orbit calculation
 	h,v,gama,M = xx[-1,:]
@@ -177,7 +155,7 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
 		
 	return tt,xx,tp,xp,next_tini
 
-def plotResults(tt,xx,tp,xp):
+def plotResults(tt,xx,tp,xp,aa,bb,ap,bp):
 
 	plt.figure() 
 	plt.hold(True) 
@@ -213,7 +191,25 @@ def plotResults(tt,xx,tp,xp):
 	plt.hold(False) 
 	plt.xlabel("Time [s]")
 	plt.ylabel("m [kg]")
-	plt.show()    
+	plt.show()
+	
+	plt.figure() 
+	plt.hold(True) 
+	plt.plot(tt,aa,'.-b')
+	plt.plot(tp,ap,'.r')
+	plt.hold(False) 
+	plt.xlabel("Time [s]")
+	plt.ylabel("Alpha [rad]")
+	plt.show()
+	
+	plt.figure() 
+	plt.hold(True) 
+	plt.plot(tt,bb,'.-b')
+	plt.plot(tp,bp,'.r')
+	plt.hold(False) 
+	plt.xlabel("Time [s]")
+	plt.ylabel("Beta [-]")
+	plt.show()
     
 	return None
 
@@ -302,14 +298,13 @@ def plotRockTraj(t,x,R,tb,tb2):
 	plt.show()
 
 	return None
-
-
+	
 def mdlDer(t,x,arg):
        
 	h,v,gama,M = x[0],x[1],x[2],x[3]
-	tVec,alfaProg,betaProg,T,Isp,g0,R = arg 
-	betat = interpV(t,tVec,betaProg)
-	alfat = interpV(t,tVec,alfaProg)
+	alfaProg,betaProg,T,Isp,g0,R = arg 
+	betat = betaProg.value(t)
+	alfat = alfaProg.value(t)
     
 	btm = betat*T/M
 	sinGama = numpy.sin(gama)
@@ -318,7 +313,7 @@ def mdlDer(t,x,arg):
 	return numpy.array([v*sinGama,\
 	btm*numpy.cos(alfat) - g*sinGama,\
 	btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
-	-btm*M/g0/Isp])
+	-btm*M/g0/Isp])	
 	
 def interpV(t,tVec,xVec):
 	
@@ -327,7 +322,30 @@ def interpV(t,tVec,xVec):
 	ans = numpy.empty(Nsize)
 	for k in range(Nsize):
 		ans[k] = numpy.interp(t,tVec,xVec[:,k])
-	return ans	
+	return ans
+	
+class retPulse():
+	
+	def __init__(self,t1,t2,v1,v2):
+		self.t1 = t1
+		self.t2 = t2
+		self.v1 = v1
+		self.v2 = v2
+		
+	def value(self,t):
+		if (t < self.t1):
+			return self.v1
+		elif (t < self.t2):
+			return self.v2
+		else:
+			return self.v1
+			
+	def multValue(self,t):
+		N = len(t)
+		ans = numpy.full((N,1),self.v1)
+		for ii in range(0,N):
+			if (t[ii] >= self.t1) and (t[ii] < self.t2):
+				ans[ii] = self.v2
+		return ans			
 
 main()
-
