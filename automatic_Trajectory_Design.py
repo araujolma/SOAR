@@ -17,7 +17,7 @@ pi = numpy.pi
 def main ():
 
 	h_final = 463.0     # km
-	Mu = 110.0        # Payload mass [kg]		
+	Mu = 90.0        # Payload mass [kg]		
 
 	fator_V = 1.06    # Ajust to find a final V
 	tf = 480.0        # Ajust to find a final gamma
@@ -64,7 +64,7 @@ def main ():
 			factors1 = factors2
 			factors2 = factors3			
 			count += 1
-			print("\n\rIteration: ",count)
+			print("\n\rBisection iteration: ",count)
 	
 	print("\n\rFinal factors: ",factors3)		
 	print("\n\rFinal errors: ",errors3,"\n\r")
@@ -73,6 +73,12 @@ def main ():
 		
 	# Results with automatic adjustment
 	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors3,h_final,Mu,"plot")
+	h,v,gama,M = numpy.transpose(xx0[-1,:])
+	orbitResults(h,v,gama)
+	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
+	
+	# Results with automatic adjustment
+	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors3,h_final,Mu,"orbital")
 	h,v,gama,M = numpy.transpose(xx0[-1,:])
 	orbitResults(h,v,gama)
 	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
@@ -118,7 +124,6 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	Me = (1-efes)*Mp/efes
 	M0 = Mu + Mp + Me
 
-
 	T = 40.0e3 # thrust in N
 	T *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
 
@@ -126,8 +131,10 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	tb2 = Mp2 * g0 * Isp / T
 
 	# thrust program
-	tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
-
+	#tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
+	tVec = numpy.array([tb1,(tf-tb2),tf,tf*1.1])
+	vVec = numpy.array([1.0,0.0,1.0,0.0])
+	tabBeta = retPulse2(tVec,vVec)
 
 	##########################################################################
 	# Attitude program definition
@@ -137,7 +144,12 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	tAoA2 = tAoA1 + tAoA
 
 	# Attitude program
-	tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
+	#tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
+	tVec = numpy.array([tAoA1,tAoA2,tf])
+	vVec = numpy.array([0.0,-AoAmax*pi/180,0.0])
+	tabAlpha = retPulse2(tVec,vVec)
+
+	
 
 	##########################################################################
 	#Integration
@@ -154,7 +166,14 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
 	# Phase times, incluiding the initial time in the begining
-	tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
+	
+	if (typeResult == "orbital"):
+	
+		tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf,2*pi*(R + h_final)/V_final])
+		
+	else:
+		
+		tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
 	
 	
 	if (typeResult == "design"):
@@ -168,7 +187,7 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 		errors = numpy.array(errors)
 		return errors, tt, xx
 		
-	elif (typeResult == "plot"):		
+	elif (typeResult == "plot") or (typeResult == "orbital"):		
 		# Integration using rk45 separated by phases
 		# Automatic multiphase integration
 		print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
@@ -212,6 +231,8 @@ def totalIntegration(tphases,ode45,flagAppend):
 
 	for ii in range(1,len(tphases)):
 		tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp,flagAppend)
+		if flagAppend:
+			print("Phase integration iteration:",ii)
 
 	tt = numpy.array(tt)
 	xx = numpy.array(xx)
@@ -425,6 +446,35 @@ class retPulse():
 		for ii in range(0,N):
 			if (t[ii] >= self.t1) and (t[ii] < self.t2):
 				ans[ii] = self.v2
+		return ans
+		
+class retPulse2():
+	
+	def __init__(self,tVec,vVec):
+		self.tVec = tVec		
+		self.vVec = vVec
+		
+	def value(self,t):
+		ii = 0
+		stop = False
+		while not stop:
+			if (t >= self.tVec[-1]):
+				ans = self.vVec[-1]
+				stop = True
+			elif (t < self.tVec[ii]):
+				ans = self.vVec[ii]
+				stop = True
+			else:
+				ii = ii + 1
+				
+		return ans
+							
+	def multValue(self,t):
+		N = len(t)
+		ans = numpy.full((N,1),self.vVec[0])
+		for jj in range(0,N):
+			ans[jj] = self.value(t[jj])
+
 		return ans			
 
 main()
