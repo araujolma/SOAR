@@ -100,15 +100,12 @@ def main ():
 	########################################
 	# Alpha and beta results
 		
-	aa = tabAlpha.multValue(tt)
-	bb = tabBeta.multValue(tt)
-	
-	ap = tabAlpha.multValue(tp);
-	bp = tabBeta.multValue(tp);
+	uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
+	up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
 	
 	########################################  
      #  Displaing results
-	plotResults(tt,xx,tp,xp,aa,bb,ap,bp)
+	plotResults(tt,xx,uu,tp,xp,up)
 
 	# Orbit calculation
 	h,v,gama,M = xx[-1,:]
@@ -150,62 +147,120 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
 		
 	return tt,xx,tp,xp
 
-def plotResults(tt,xx,tp,xp,aa,bb,ap,bp):
+def plotResults(tt,xx,uu,tp,xp,up):
 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,0],'.-b')
-	plt.plot(tp,xp[:,0],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("h [km]")
-	plt.show()
- 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,1],'.-b')
-	plt.plot(tp,xp[:,1],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("V [km/s]")
-	plt.show()
-
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,2],'.-b')
-	plt.plot(tp,xp[:,2],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("gamma [deg]")
-	plt.show()
-
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,3],'.-b')
-	plt.plot(tp,xp[:,3],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("m [kg]")
-	plt.show()
-	
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,aa,'.-b')
-	plt.plot(tp,ap,'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("Alpha [rad]")
-	plt.show()
-	
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,bb,'.-b')
-	plt.plot(tp,bp,'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("Beta [-]")
-	plt.show()
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,0],'.-b')
+#	plt.plot(tp,xp[:,0],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("h [km]")
+#	plt.show()
+# 
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,1],'.-b')
+#	plt.plot(tp,xp[:,1],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("V [km/s]")
+#	plt.show()
+#
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,2],'.-b')
+#	plt.plot(tp,xp[:,2],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("gamma [deg]")
+#	plt.show()
+#
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,3],'.-b')
+#	plt.plot(tp,xp[:,3],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("m [kg]")
+#	plt.show()
+#	
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,aa,'.-b')
+#	plt.plot(tp,ap,'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("Alpha [rad]")
+#	plt.show()
+#	
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,bb,'.-b')
+#	plt.plot(tp,bp,'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("Beta [-]")
+#	plt.show()
     
+	ii = 0
+	plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("h [km]")
+	
+	ii = 1
+	plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("V [km/s]")
+	
+	ii = 2
+	plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
+	plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("gamma [deg]")
+	
+	ii = 3
+	plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("m [kg]")
+	
+	ii = 0
+	plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,uu[:,ii],'.-b')
+	plt.plot(tp,up[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("alfa [rad]")
+	
+	ii = 1
+	plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,uu[:,ii],'.-b')
+	plt.plot(tp,up[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.xlabel("t")
+	plt.ylabel("beta [adim]")
+	
+	#plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+	plt.show()				
+				
 	return None
 
 def orbitResults(h,v,gama,R,GM):
