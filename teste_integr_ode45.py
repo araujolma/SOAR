@@ -87,34 +87,15 @@ def main ():
      # ode set:
      #         atol: absolute tolerance
      #         rtol: relative tolerance
-	ode45 = ode(mdlDer).set_integrator('dopri5',\
-                                         nsteps=1,\
-                                         atol = 1.0e-6,\
-                                         rtol = 1.0e-8,\
-                                         first_step = 0.001)
+	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = 1.0e-6,rtol = 1.0e-8)
 	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
-	# Output variables
-	tt = []
-	xx = []
-
-	tp = [] # Phase-transition times
-	xp = [] # Phase-transition states
-
-	tphases = numpy.array([tAoA1,tAoA2,tb1,(tf-tb2),tf])
+	# Phase times, incluiding the initial time in the begining
+	tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
 	
 	# Integration using rk45 separated by phases
-
-	Nref = 5.0 # Number of interval divisions for determine first step 
-
 	# Automatic multiphase integration
-	for ii in range(0,5):
-		tt,xx,tp,xp,next_tini = phaseIntegration(t0,tphases[ii],Nref,ode45,tt,xx,tp,xp)
-		
-	tt = numpy.array(tt)
-	xx = numpy.array(xx)
-	tp = numpy.array(tp)
-	xp = numpy.array(xp) 
+	tt,xx,tp,xp = totalIntegration(tphases,ode45)
 	
 	########################################
 	# Alpha and beta results
@@ -136,6 +117,22 @@ def main ():
 
 	return None
 
+def totalIntegration(tphases,ode45):
+
+	Nref = 5.0 # Number of interval divisions for determine first step 	
+	# Output variables
+	tt,xx,tp,xp = [],[],[],[]
+
+	for ii in range(1,len(tphases)):
+		tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp)	
+
+	tt = numpy.array(tt)
+	xx = numpy.array(xx)
+	tp = numpy.array(tp)
+	xp = numpy.array(xp) 		
+		
+	return tt,xx,tp,xp
+	
 def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
 
 	tph = t_final - t_initial
@@ -149,11 +146,9 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
 			stop1 = True
 
 	tp.append(ode45.t)
-	xp.append(ode45.y)	
-
-	next_tini = t_final		
+	xp.append(ode45.y)		
 		
-	return tt,xx,tp,xp,next_tini
+	return tt,xx,tp,xp
 
 def plotResults(tt,xx,tp,xp,aa,bb,ap,bp):
 
