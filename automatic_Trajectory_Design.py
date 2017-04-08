@@ -5,31 +5,27 @@ Created on Sat Apr  8 10:39:23 2017
 @author: carlos
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Apr  7 15:05:16 2017
-
-@author: Carlos Souza
-"""
-
 import numpy
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
-#from numpy.linalg import norm
-#from utils import interpV#, interpM, ddt
 
+# Global variables
 GM = 398600.4415       # km^3 s^-2
 R = 6371               # km
+pi = numpy.pi
 
 def main ():
 
-	fator_V = 1.06 # Ajust to find a final V
-	tf = 480.0 # Ajust to find a final gamma
-	tAoA = 0.5 #Ajust to find a final h
-	
+	h_final = 463     # km
+	Mu = 100.0        # Payload mass [kg]		
+
+	fator_V = 1.06    # Ajust to find a final V
+	tf = 480.0        # Ajust to find a final gamma
+	tAoA = 0.5        #Ajust to find a final h
+
 	factors = fator_V,tf,tAoA
-	
-	tt,xx,uu,tp,xp,up = trajectoryDesing(factors,"plot")	
+		
+	tt,xx,uu,tp,xp,up = trajectoryDesing(factors,h_final,Mu,"plot")	
 	
 	########################################  
      #  Displaing results
@@ -42,9 +38,7 @@ def main ():
 	
 	return None
 	
-def trajectoryDesing(factors,typeResult):	
-
-	pi = numpy.pi
+def trajectoryDesing(factors,h_final,Mu,typeResult):	
 
 	# example rocket single stage to orbit L=0 D=0
 	# initial state condition
@@ -54,11 +48,9 @@ def trajectoryDesing(factors,typeResult):
 	# Initial mass definied in bellow	
 	
 	# final state condition
-	h_final = 463     # km
-	V_final = 7.633   # km/s
+	V_final = numpy.sqrt(GM/(R+h_final))   # km/s Circular velocity
 	gamma_final = 0.0 # rad
-	
-	Mu = 100.0             # Payload mass [kg]		
+		
 	Isp = 450              # s
 	efes = .95
 	g0 = 9.8e-3            # [km s^-2] gravity acceleration on earth surface
@@ -131,7 +123,9 @@ def trajectoryDesing(factors,typeResult):
 	
 	if (typeResult == "design"):
 	
-		return None
+		h,v,gamma,M = xx[-1,:]
+		errors = ((h - h_final), (v - V_final), (gamma - gamma_final))
+		return errors
 		
 	elif (typeResult == "plot"):
 	
