@@ -26,9 +26,12 @@ from scipy.integrate import ode
 GM = 398600.4415       # km^3 s^-2
 R = 6371               # km
 pi = numpy.pi
+totalTranjectorySimulationCounter = 0
+
 
 def main ():
 
+	global totalTranjectorySimulationCounter
 	tol = 1e-5			# Tolerance factor
 
 	# Free parameters
@@ -58,7 +61,7 @@ def main ():
 	# Initital guess
 	factors = (fsup + finf)/2#numpy.array([fator_V,tf,tAoA])
 
-	# Initital display of vehicle trajectory without orbital phase
+	# Initital display of vehicle trajectory
 	displayResults(factors,h_final,Mu,tol)
 
 	# Automatic adjustament
@@ -66,6 +69,9 @@ def main ():
 		
 	# Results with automatic adjustment 
 	displayResults(new_factors,h_final,Mu,tol)
+
+	print("\n\rTotal number of trajectory simulations", totalTranjectorySimulationCounter)
+	input("Press any key to finish...")
 
 	return None
 
@@ -336,6 +342,7 @@ def totalIntegration(tphases,ode45,flagAppend):
 			
 		return tt,xx,tp,xp
 
+	global totalTranjectorySimulationCounter
 	Nref = 5.0 # Number of interval divisions for determine first step 	
 	# Output variables
 	tt,xx,tp,xp = [],[],[],[]
@@ -349,7 +356,9 @@ def totalIntegration(tphases,ode45,flagAppend):
 	xx = numpy.array(xx)
 	tp = numpy.array(tp)
 	xp = numpy.array(xp) 		
-		
+	
+	totalTranjectorySimulationCounter += 1
+	
 	return tt,xx,tp,xp
 
 def displayResults(factors,h_final,Mu,tol):
@@ -505,7 +514,7 @@ class retPulse2():
 		NVec = len(self.tVec)
 		stop = False
 		while not stop:
-			if (t < self.tVec[ii]):
+			if (t <= self.tVec[ii]):
 				ans = self.vVec[ii]
 				stop = True
 			else:
