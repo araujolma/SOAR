@@ -9,7 +9,7 @@ import numpy
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 #from numpy.linalg import norm
-from utils import interpV#, interpM, ddt
+#from utils import interpV#, interpM, ddt
 
 def main ():
 	N = 5000 + 1
@@ -65,47 +65,16 @@ def main ():
 	tb2 = Mp2 * g0 * Isp / T
 	tb = tb1 + tb2
 
-	t = numpy.arange(0,tf+dt,dt)
-	Nt = numpy.size(t)
+	tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
 
-	beta = numpy.zeros((Nt,1))
-	tvar = 0.0
-	i = 0
-	while tvar <= tf:
-		if tvar < tb1:
-			beta[i] = 1#1.0
-		elif tvar > (tf - tb2):
-			beta[i] = 1#1.0
-		i += 1
-		tvar += dt
-
-	alfa = numpy.zeros((Nt,1))
-	tvar = 0.0
 
 	##########################################################################
 	# Chossing tAoA1 as a fraction of tf results in code bad behavior
 	# So a fixed generic number is used
 	tAoA1 = .01*440
-
-	##########################################################################
 	tAoA2 = tAoA1 + tAoA
-	for i in range(Nt):
-		tvar += dt
-		if tvar > tAoA1 and tvar < tAoA2:
-			alfa[i] = -AoAmax*pi/180#-21*pi/180
 
-
-	plt.plot(t,alfa*180/pi)
-	plt.grid(True)
-	plt.xlabel("Time [s]")
-	plt.ylabel("Angle of attack [deg]")
-	plt.show()
-
-	plt.plot(t,beta)
-	plt.grid(True)
-	plt.xlabel("Time [s]")
-	plt.ylabel("Thrust profile [-]")
-	plt.show()
+	tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
 
 	##########################################################################
 	#Integration
@@ -114,200 +83,188 @@ def main ():
 	t0 = 0.0
 	x0 = numpy.array([0,1.0e-6,90*pi/180,M0])
 
-	#mdlDer arguments definition
-	args1 = arg
-
-	args1.tVec = t
-	args1.alfaProg = alfa  
-	args1.betaProg = beta
-	args1.T = T
-	args1.Isp = Isp
-	args1.g0 = g0
-	args1.R = R 
-
-	#teste = mdlDer(t0,x0,args1)
-
      # Integrator setting
      # ode set:
      #         atol: absolute tolerance
      #         rtol: relative tolerance
-	ode45 = ode(mdlDer).set_integrator('dopri5',\
-                                         nsteps=1,\
-                                         atol = 1.0e-6,\
-                                         rtol = 1.0e-8,\
-                                         first_step = 0.001)
-	ode45.set_initial_value(x0, t0).set_f_params(args1)
+	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = 1.0e-6,rtol = 1.0e-8)
+	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
-	# Output variables
-	tt = []
-	xx = []
-
-	tp = [] # Phase-transition times
-	xp = [] # Phase-transition states
-
+	# Phase times, incluiding the initial time in the begining
+	tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
+	
 	# Integration using rk45 separated by phases
-	# First burning until the attitude maneuver
-
-	Nref = 5.0 # Number of interval divisions for determine first step 
-
-     # First burning before attitude maneuver
-	t_initial = t0
-	t_final = tAoA1
-	tph = t_final - t_initial
-	ode45.first_step = tph/Nref     
-	stop1 = False
-	while not stop1:
-		ode45.integrate(t_final)
-		tt.append(ode45.t)
-		xx.append(ode45.y)
-		if ode45.t >= t_final:
-			stop1 = True
-
-	tp.append(ode45.t)
-	xp.append(ode45.y)
- 
-	# First burning and attitude maneuver   
-	t_initial = t_final
-	t_final = tAoA2
-	tph = t_final - t_initial
-	ode45.first_step = tph/Nref     
-	stop1 = False
-	while not stop1:
-		ode45.integrate(t_final)
-		tt.append(ode45.t)
-		xx.append(ode45.y)
-		if ode45.t >= t_final:
-			stop1 = True
-
-	tp.append(ode45.t)
-	xp.append(ode45.y)
-   
-	# End of the first burning
-	t_initial = t_final
-	t_final = tb1
-	tph = t_final - t_initial
-	ode45.first_step = tph/Nref     
-	stop1 = False
-	while not stop1:
-		ode45.integrate(t_final)
-		tt.append(ode45.t)
-		xx.append(ode45.y)
-		if ode45.t >= t_final:
-			stop1 = True
-   
-	tp.append(ode45.t)
-	xp.append(ode45.y)
- 
-	# Coasting  
-	t_initial = t_final
-	t_final = (tf - tb2)
-	tph = t_final - t_initial
-	ode45.first_step = tph/Nref     
-	stop1 = False
-	while not stop1:
-		ode45.integrate(t_final)
-		tt.append(ode45.t)
-		xx.append(ode45.y)
-		if ode45.t >= t_final:
-			stop1 = True
-	tp.append(ode45.t)
-	xp.append(ode45.y)   
-
-	# Second burning
-	t_initial = t_final
-	t_final = tf
-	tph = t_final - t_initial
-	ode45.first_step = tph/Nref     
-	stop1 = False
-	while not stop1:
-		ode45.integrate(t_final)
-		tt.append(ode45.t)
-		xx.append(ode45.y)
-		if ode45.t >= t_final:
-			stop1 = True
-
-	tp.append(ode45.t)
-	xp.append(ode45.y)   
+	# Automatic multiphase integration
+	tt,xx,tp,xp = totalIntegration(tphases,ode45)
+	
+	########################################
+	# Alpha and beta results
 		
-	tt = numpy.array(tt)
-	xx = numpy.array(xx)
-	tp = numpy.array(tp)
-	xp = numpy.array(xp) 
+	uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
+	up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
 	
 	########################################  
      #  Displaing results
+	plotResults(tt,xx,uu,tp,xp,up)
 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,0],'.-b')
-	plt.plot(tp,xp[:,0],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("h [km]")
-	plt.show()
- 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,1],'.-b')
-	plt.plot(tp,xp[:,1],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("V [km/s]")
-	plt.show()
+	# Orbit calculation
+	h,v,gama,M = xx[-1,:]
 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,2],'.-b')
-	plt.plot(tp,xp[:,2],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("gamma [deg]")
-	plt.show()
+	orbitResults(h,v,gama,R,GM)
 
-	plt.figure() 
-	plt.hold(True) 
-	plt.plot(tt,xx[:,3],'.-b')
-	plt.plot(tp,xp[:,3],'.r')
-	plt.hold(False) 
-	plt.xlabel("Time [s]")
-	plt.ylabel("m [kg]")
-	plt.show()
+	return None
 
-	#x0 = numpy.array([0,1.0e-6,90*pi/180,M0])
-	#x = odeint(mdlDer,x0,t,args=(t,alfa,beta,T,Isp,g0,R))
+def totalIntegration(tphases,ode45):
 
-#	plt.subplot2grid((6,4),(0,0),colspan=4)
-#	plt.plot(t,x[:,0],)
-#	plt.grid(True)
+	Nref = 5.0 # Number of interval divisions for determine first step 	
+	# Output variables
+	tt,xx,tp,xp = [],[],[],[]
+
+	for ii in range(1,len(tphases)):
+		tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp)	
+
+	tt = numpy.array(tt)
+	xx = numpy.array(xx)
+	tp = numpy.array(tp)
+	xp = numpy.array(xp) 		
+		
+	return tt,xx,tp,xp
+	
+def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp):
+
+	tph = t_final - t_initial
+	ode45.first_step = tph/Nref     
+	stop1 = False
+	while not stop1:
+		ode45.integrate(t_final)
+		tt.append(ode45.t)
+		xx.append(ode45.y)
+		if ode45.t >= t_final:
+			stop1 = True
+
+	tp.append(ode45.t)
+	xp.append(ode45.y)		
+		
+	return tt,xx,tp,xp
+
+def plotResults(tt,xx,uu,tp,xp,up):
+
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,0],'.-b')
+#	plt.plot(tp,xp[:,0],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
 #	plt.ylabel("h [km]")
-#	plt.subplot2grid((6,4),(1,0),colspan=4)
-#	plt.plot(t,x[:,1],'g')
-#	plt.grid(True)
+#	plt.show()
+# 
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,1],'.-b')
+#	plt.plot(tp,xp[:,1],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
 #	plt.ylabel("V [km/s]")
-#	plt.subplot2grid((6,4),(2,0),colspan=4)
-#	plt.plot(t,x[:,2]*180.0/pi,'r')
-#	plt.grid(True)
-#	plt.ylabel("gamma [deg]")
-#	plt.subplot2grid((6,4),(3,0),colspan=4)
-#	plt.plot(t,x[:,3],'m')
-#	plt.grid(True)
-#	plt.ylabel("m [kg]")
-#	#plt.subplot2grid((6,4),(4,0),colspan=4)
-#	#plt.plot(t,u[:,0],'k')
-#	#plt.grid(True)
-#	#plt.ylabel("alfa [rad]")
-#	#plt.subplot2grid((6,4),(5,0),colspan=4)
-#	#plt.plot(t,u[:,1],'c')
-#	#plt.grid(True)
-#	#plt.xlabel("t")
-#	#plt.ylabel("beta [adim]")
-#	plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 #	plt.show()
 #
-#	plotRockTraj(t,x,R,tb1,tf-tb2)
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,2],'.-b')
+#	plt.plot(tp,xp[:,2],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("gamma [deg]")
+#	plt.show()
+#
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,xx[:,3],'.-b')
+#	plt.plot(tp,xp[:,3],'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("m [kg]")
+#	plt.show()
+#	
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,aa,'.-b')
+#	plt.plot(tp,ap,'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("Alpha [rad]")
+#	plt.show()
+#	
+#	plt.figure() 
+#	plt.hold(True) 
+#	plt.plot(tt,bb,'.-b')
+#	plt.plot(tp,bp,'.r')
+#	plt.hold(False) 
+#	plt.xlabel("Time [s]")
+#	plt.ylabel("Beta [-]")
+#	plt.show()
+    
+	ii = 0
+	plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("h [km]")
+	
+	ii = 1
+	plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("V [km/s]")
+	
+	ii = 2
+	plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
+	plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("gamma [deg]")
+	
+	ii = 3
+	plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,xx[:,ii],'.-b')
+	plt.plot(tp,xp[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("m [kg]")
+	
+	ii = 0
+	plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,uu[:,ii],'.-b')
+	plt.plot(tp,up[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.ylabel("alfa [rad]")
+	
+	ii = 1
+	plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
+	plt.hold(True)
+	plt.plot(tt,uu[:,ii],'.-b')
+	plt.plot(tp,up[:,ii],'.r')
+	plt.hold(False)
+	plt.grid(True)
+	plt.xlabel("t")
+	plt.ylabel("beta [adim]")
+	
+	#plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+	plt.show()				
+				
+	return None
 
-	# colocar aqui módulo de calculo de órbita
-	h,v,gama,M = xx[-1,:]
+def orbitResults(h,v,gama,R,GM):
+
 	r = R + h
 	cosGama = numpy.cos(gama)
 	sinGama = numpy.sin(gama)
@@ -324,8 +281,7 @@ def main ():
 	print("Final altitude:",h)
 	ph = a * (1.0 - e) - R
 	print("Perigee altitude:",ph)
-
-
+	
 	return None
 
 def plotRockTraj(t,x,R,tb,tb2):
@@ -392,26 +348,14 @@ def plotRockTraj(t,x,R,tb,tb2):
 	plt.show()
 
 	return None
-
-
-def mdlDer(t,x,args):
+	
+def mdlDer(t,x,arg):
+       
+	h,v,gama,M = x[0],x[1],x[2],x[3]
+	alfaProg,betaProg,T,Isp,g0,R = arg 
+	betat = betaProg.value(t)
+	alfat = alfaProg.value(t)
     
-	h = x[0]
-	v = x[1]
-	gama = x[2]
-	M = x[3]    
-    
-	tVec = args.tVec
-	alfaProg = args.alfaProg  
-	betaProg = args.betaProg
-	T = args.T
-	Isp = args.Isp
-	g0 = args.g0
-	R = args.R
- 
-	betat = interpV(t,tVec,betaProg)
-	alfat = interpV(t,tVec,alfaProg)
-
 	btm = betat*T/M
 	sinGama = numpy.sin(gama)
 	g = g0*(R/(R+h))**2
@@ -419,20 +363,40 @@ def mdlDer(t,x,args):
 	return numpy.array([v*sinGama,\
 	btm*numpy.cos(alfat) - g*sinGama,\
 	btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
-	-btm*M/g0/Isp])
+	-btm*M/g0/Isp])	
+	
+def interpV(t,tVec,xVec):
+	
+	Nsize = xVec.shape[1]
 
-class arg():
-    
-    def __init__(self, tVec, alfaProg, betaProg, T, Isp, g0, R):
-        self.tVec = tVec
-        self.alfaProg = alfaProg  
-        self.betaProg = betaProg
-        self.T = T
-        self.Isp = Isp
-        self.g0 = g0
-        self.R = R
-        self.t_ode
-        self.x_ode
+	ans = numpy.empty(Nsize)
+	for k in range(Nsize):
+		ans[k] = numpy.interp(t,tVec,xVec[:,k])
+	return ans
+	
+class retPulse():
+	
+	def __init__(self,t1,t2,v1,v2):
+		self.t1 = t1
+		self.t2 = t2
+		self.v1 = v1
+		self.v2 = v2
+		
+	def value(self,t):
+		if (t < self.t1):
+			return self.v1
+		elif (t < self.t2):
+			return self.v2
+		else:
+			return self.v1
+			
+	def multValue(self,t):
+		N = len(t)
+		ans = numpy.full((N,1),self.v1)
+		for ii in range(0,N):
+			if (t[ii] >= self.t1) and (t[ii] < self.t2):
+				ans[ii] = self.v2
+		return ans			
 
 main()
 
