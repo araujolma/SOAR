@@ -1,8 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Apr  8 10:39:23 2017
+Created on Sun Apr  9 11:34:54 2017
 
 @author: carlos
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Apr  9 09:51:21 2017
+
+@author: carlos
+
+Status:
+	Converging for several free parameters values
+	However still presents some divergences
+	Need more checks for bad conditioned settings
+
 """
 
 import numpy
@@ -16,76 +29,176 @@ pi = numpy.pi
 
 def main ():
 
-	h_final = 463.0     # km
-	Mu = 90.0        # Payload mass [kg]		
+	tol = 1e-5			# Tolerance factor
 
-	fator_V = 1.06    # Ajust to find a final V
-	tf = 480.0        # Ajust to find a final gamma
-	tAoA = 0.5        #Ajust to find a final h
+	# Free parameters
+	h_final = 463.0 	# km
+	Mu = 100.0	 	     # Payload mass [kg]		
 
-	fsup = numpy.array([1.1,500.0,2])
-	finf = numpy.array([0.9,400.0,0.1])
+################
+#	Factors:
 
-	factors = numpy.array([fator_V,tf,tAoA])
+#	fator_V      # Ajust to find a final V
+#	tf           # Ajust to find a final gamma
+#	fdv1         # Ajust to find a final h
 
-	# Results without automatic adjustment
-	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"plot")
-	h,v,gama,M = numpy.transpose(xx0[-1,:])
-	orbitResults(h,v,gama)
-	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
-	
+#	Errors:
 
-	# Aplication of the simplitied bisection method
-	df = (fsup - finf)/100
-	factors1 = factors
-	factors2 = factors + df
-	errors1, tt, xx = trajectoryDesing(factors1,h_final,Mu,"design") # inicialization
-	continuing = True
-	count = 0.0
-	Nmax = 20
-	while continuing and (count < Nmax):
-				
-		errors2, tt, xx = trajectoryDesing(factors2,h_final,Mu,"design")
-		factors3 = factors1 - errors1*(factors2 - factors1)/(errors2 - errors1)
+#	(v - V_final)/0.01
+#	(gamma - gamma_final)/0.01
+#	(h - h_final)/10
+
+
+################
+
+	# Factors intervals
+	fsup = numpy.array([1.5,600.0,1.6]) # Superior limit
+	finf = numpy.array([0.5,400.0,1.3]) # Inferior limit
+
+	# Initital guess
+	factors = (fsup + finf)/2#numpy.array([fator_V,tf,tAoA])
+
+	# Initital display of vehicle trajectory without orbital phase
+	displayResults(factors,h_final,Mu,tol)
+
+	# Automatic adjustament
+	new_factors = bisection0(fsup,finf,h_final,Mu,tol)
 		
-		# boundary verification		
-		onInterval(factors3,finf,fsup)
-		
-		# error calculation
-		errors3, tt, xx = trajectoryDesing(factors3,h_final,Mu,"design")		
-		verify = abs(errors3) < 1.0
-		
-		if verify[0] and verify[1] and verify[2]:
-			continuing = False			
-			
-		else:
-			errors1 = errors2
-			errors2 = errors3
-			factors1 = factors2
-			factors2 = factors3			
-			count += 1
-			print("\n\rBisection iteration: ",count)
-	
-	print("\n\rFinal factors: ",factors3)		
-	print("\n\rFinal errors: ",errors3,"\n\r")
-	h,v,gama,M = numpy.transpose(xx)
-	orbitResults(h,v,gama)	
-		
-	# Results with automatic adjustment
-	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors3,h_final,Mu,"plot")
-	h,v,gama,M = numpy.transpose(xx0[-1,:])
-	orbitResults(h,v,gama)
-	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
-	
-	# Results with automatic adjustment
-	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors3,h_final,Mu,"orbital")
-	h,v,gama,M = numpy.transpose(xx0[-1,:])
-	orbitResults(h,v,gama)
-	plotResults(tt0,xx0,uu0,tp0,xp0,up0)
+	# Results with automatic adjustment 
+	displayResults(new_factors,h_final,Mu,tol)
 
 	return None
+
+
+def bisection0(fsup,finf,h_final,Mu,tol):
 	
-def trajectoryDesing(factors,h_final,Mu,typeResult):	
+	def bisection1(fsup,finf,f3,h_final,Mu,tol):
+
+		####################################################################
+		# Bissection speed and gamma loop	
+	
+		print("\n\####################################################\n\r")
+		print("\n\rBisection1 initializing")	
+	
+		# Initializing parameters
+		factors1 = (fsup + finf)/2		
+		df = (fsup - finf)/10
+
+		# Making the 3 factor variarions null		
+		factors1[2] = f3 + 0.0
+		df[2] = df[2]*0.0
+				
+		factors2 = factors1 + df
+		errors1, tt, xx = trajectoryDesing(factors1,h_final,Mu,"design",tol)
+		continuing = True
+		count = 0
+		Nmax = 50
+		
+		# Loop
+		while continuing and (count < Nmax):
+						
+			# Error update
+			errors2, tt, xx = trajectoryDesing(factors2,h_final,Mu,"design",tol)		
+			
+			# Still needs step and factors verifications like bissec0
+			der = (factors2 - factors1)/(errors2 - errors1)				
+			step = errors2*der
+			step[2] = step[2]*0.0
+			
+			factors3 = factors2 - step		
+			errors3, tt, xx = trajectoryDesing(factors3,h_final,Mu,"design",tol)
+					
+			verify = abs(errors3) < tol
+			if verify[0] and verify[1]:
+				continuing = False			
+				
+			else:
+				errors1 = errors2
+				errors2 = errors3
+				factors1 = factors2
+				factors2 = factors3
+				count += 1
+
+		if count == Nmax:
+			print("\n\rBisec1 total iteractions: ", count," (max)")
+		else:
+			print("\n\rBisec1 total iteractions: ", count)	
+		h,v,gama,M = numpy.transpose(xx)
+		orbitResults(h,v,gama)
+		
+		errorh = errors3[2]
+		
+		return errorh,factors3
+	
+	##########################################################################
+	# Bisection altitude loop
+	print("\n\####################################################\n\r")
+	print("\n\rBisection0 initializing")
+	
+	# Step limiter
+	df = abs( (fsup[2] - finf[2])/10 )	
+	
+	# fators initilization
+	step = df.copy();	
+	f1 = (fsup[2] + finf[2])/2
+	f2 = f1 + step
+	e1,factors = bisection1(fsup,finf,f1,h_final,Mu,tol)
+	count = 0.0	
+	stop = False
+	
+	# Loop
+	while not stop:		
+		
+		# bisection1: Error update from speed and gamma loop
+		e2,factors = bisection1(fsup,finf,f2,h_final,Mu,tol)
+		
+		# Checkings
+		
+		# Division and step check
+		de = (e2 - e1)
+		if abs(de) < tol*1e-2:
+			
+			step = df
+			
+		else:		
+			der = (f2 - f1)/de
+			step = e2*der			
+			if step > df:
+				step = 0.0 + df
+			elif step < -df:
+				step = 0.0 - df
+	
+		# Factor definition and check
+		f3 = f2 - step
+		
+		if f3 > fsup[2]:
+			f3 = 0.0 + fsup[2]
+		elif f3 < finf[2]:
+			f3 = 0.0 + finf[2]
+		
+		# Parameters update
+		f1 = f2.copy()
+		f2 = f3.copy()
+		e1 = e2.copy()
+		count += 1
+
+		# Display		
+		print("\n\####################################################\n\r")
+		print("\n\rBisec0 iteration: ",count)
+		print("Errors:   ",e2)
+		print("Sup limits: %6.4f, %6.4f, %6.4f" % (   fsup[0],   fsup[1],   fsup[2]))
+		print("Factors   : %6.4f, %6.4f, %6.4f" % (factors[0],factors[1],factors[2]))
+		print("Inf limits: %6.4f, %6.4f, %6.4f" % (   finf[0],   finf[1],   finf[2]))
+
+		# Loop checks
+		if count == 30:
+			stop = True
+		if abs(e2) < tol:
+			stop = True	
+			
+	return factors
+	
+def trajectoryDesing(factors,h_final,Mu,typeResult,tol):	
 
 	# example rocket single stage to orbit L=0 D=0
 	# initial state condition
@@ -100,18 +213,21 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 		
 	Isp = 450              # s
 	efes = .95
-	g0 = 9.8e-3            # [km s^-2] gravity acceleration on earth surface
-	AoAmax = 2.0           # graus
+	g0 = GM/(R**2) #9.8e-3   # [km s^-2] gravity acceleration on earth surface
+	AoAmax = 3.0           # graus
+
+	torb = 2*pi*(R + h_final)/V_final
 
 	##########################################################################
      # Trajetory design parameters
-	fator_V,tf,tAoA = factors
-	fdv1 = 1.4 #Ajust to find a final h
+	fator_V,tf,fdv1 = factors
+	#fdv1 = 1.4 #Ajust to find a final h
+	tAoA = 2.0        #Ajust to find a final h
 
 	##########################################################################
 	# Initial mass definition and thrust programm
 	Dv1 = fdv1*numpy.sqrt(2.0*GM*(1/R - 1/(R+h_final)))
-	Dv2 = V_final
+	Dv2 = V_final.copy()
 
 	Dv2 = Dv2*fator_V
 	LamMax = 1/(1-efes)
@@ -149,8 +265,6 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	vVec = numpy.array([0.0,-AoAmax*pi/180,0.0])
 	tabAlpha = retPulse2(tVec,vVec)
 
-	
-
 	##########################################################################
 	#Integration
 
@@ -162,14 +276,14 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
      # ode set:
      #         atol: absolute tolerance
      #         rtol: relative tolerance
-	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = 1.0e-9,rtol = 1.0e-10)
+	ode45 = ode(mdlDer).set_integrator('dopri5',nsteps=1,atol = tol/10,rtol = tol/100)
 	ode45.set_initial_value(x0, t0).set_f_params((tabAlpha,tabBeta,T,Isp,g0,R))
 
 	# Phase times, incluiding the initial time in the begining
 	
 	if (typeResult == "orbital"):
 	
-		tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf,2*pi*(R + h_final)/V_final])
+		tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf,torb])
 		
 	else:
 		
@@ -178,29 +292,26 @@ def trajectoryDesing(factors,h_final,Mu,typeResult):
 	
 	if (typeResult == "design"):
 		# Integration using rk45 separated by phases
-		# Trajetory design parameters
-		# fator_V,tf,tAoA = factors
 		# Automatic multiphase integration
+		# Light running
 		tt,xx,tp,xp = totalIntegration(tphases,ode45,False)
 		h,v,gamma,M = xx
-		errors = ((v - V_final)/0.001, (gamma - gamma_final)/0.001, (h - h_final)/1.0)
+		errors = ((v - V_final)/0.01, (gamma - gamma_final)/0.01, (h - h_final)/10)
 		errors = numpy.array(errors)
-		return errors, tt, xx
+		ans = errors, tt, xx		
 		
 	elif (typeResult == "plot") or (typeResult == "orbital"):		
 		# Integration using rk45 separated by phases
 		# Automatic multiphase integration
+		# Full running
 		print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
 		print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
 		tt,xx,tp,xp = totalIntegration(tphases,ode45,True)
 		uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
 		up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
-		ans = (tt,xx,uu,tp,xp,up)	
-		return ans
+		ans = (tt,xx,uu,tp,xp,up)				
 		
-	else:
-		
-		return None
+	return ans
 
 def totalIntegration(tphases,ode45,flagAppend):
 
@@ -241,76 +352,83 @@ def totalIntegration(tphases,ode45,flagAppend):
 		
 	return tt,xx,tp,xp
 
-def onInterval(f,fmin,fmax):
-	
-	for ii in range(0,len(f)):
-		if (f[ii] < fmin[ii]):
-			f[ii] = fmin[ii]
-		elif (f[ii] > fmax[ii]):
-			f[ii] = fmax[ii]
-	
-	return f
+def displayResults(factors,h_final,Mu,tol):
 
-def plotResults(tt,xx,uu,tp,xp,up):
-
-	ii = 0
-	plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,xx[:,ii],'.-b')
-	plt.plot(tp,xp[:,ii],'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.ylabel("h [km]")
+	def plotResults(tt,xx,uu,tp,xp,up,typeFig):
 	
-	ii = 1
-	plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,xx[:,ii],'.-b')
-	plt.plot(tp,xp[:,ii],'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.ylabel("V [km/s]")
+		ii = 0
+		plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,xx[:,ii],'.-b')
+		plt.plot(tp,xp[:,ii],'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.ylabel("h [km]")
+		
+		ii = 1
+		plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,xx[:,ii],'.-b')
+		plt.plot(tp,xp[:,ii],'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.ylabel("V [km/s]")
+		
+		ii = 2
+		plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
+		plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.ylabel("gamma [deg]")
+		
+		ii = 3
+		plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,xx[:,ii],'.-b')
+		plt.plot(tp,xp[:,ii],'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.ylabel("m [kg]")
+		
+		ii = 0
+		plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,uu[:,ii],'.-b')
+		plt.plot(tp,up[:,ii],'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.ylabel("alfa [rad]")
+		
+		ii = 1
+		plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
+		plt.hold(True)
+		plt.plot(tt,uu[:,ii],'.-b')
+		plt.plot(tp,up[:,ii],'.r')
+		plt.hold(False)
+		plt.grid(True)
+		plt.xlabel("t")
+		plt.ylabel("beta [adim]")
+		
+		plt.show()				
+					
+		return None
+		
+	# Results without orbital phase
+	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"plot",tol)
+	h,v,gama,M = numpy.transpose(xx0[-1,:])
+	eec = orbitResults(h,v,gama)
+	plotResults(tt0,xx0,uu0,tp0,xp0,up0,"rocket traj")
 	
-	ii = 2
-	plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
-	plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.ylabel("gamma [deg]")
-	
-	ii = 3
-	plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,xx[:,ii],'.-b')
-	plt.plot(tp,xp[:,ii],'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.ylabel("m [kg]")
-	
-	ii = 0
-	plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,uu[:,ii],'.-b')
-	plt.plot(tp,up[:,ii],'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.ylabel("alfa [rad]")
-	
-	ii = 1
-	plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
-	plt.hold(True)
-	plt.plot(tt,uu[:,ii],'.-b')
-	plt.plot(tp,up[:,ii],'.r')
-	plt.hold(False)
-	plt.grid(True)
-	plt.xlabel("t")
-	plt.ylabel("beta [adim]")
-	
-	#plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-	plt.show()				
-				
+	# Results with orbital phase
+	if abs(eec-1) > 0.1:	
+		# The eccentricity test avoid simultaitons too close of the singularity
+		tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"orbital",tol)
+		h,v,gama,M = numpy.transpose(xx0[-1,:])
+		orbitResults(h,v,gama)
+		plotResults(tt0,xx0,uu0,tp0,xp0,up0,"orbital")
+		
 	return None
 
 def orbitResults(h,v,gama):
@@ -330,75 +448,12 @@ def orbitResults(h,v,gama):
 
 	print("Final altitude:",h)
 	ph = a * (1.0 - e) - R
-	print("Perigee altitude:",ph)
+	print("Perigee altitude:",ph)	
+	ah = 2*(a - R) - ph		
+	print("Apogee altitude:",ah)
 	
-	return None
+	return e
 
-def plotRockTraj(t,x,R,tb,tb2):
-
-	pi = numpy.pi
-	cos = numpy.cos
-	sin = numpy.sin
-
-	N = len(t)
-	print("N =",N)
-	dt = t[1]-t[0]
-	X = numpy.empty(numpy.shape(t))
-	Z = numpy.empty(numpy.shape(t))
-
-	sigma = 0.0
-	X[0] = 0.0
-	Z[0] = 0.0
-	for i in range(1,N):
-		v = x[i,1]
-		gama = x[i,2]
-		dsigma = v * cos(gama) / (R+x[i,0])
-		sigma += dsigma*dt
-
-		X[i] = X[i-1] + dt * v * cos(gama-sigma)
-		Z[i] = Z[i-1] + dt * v * sin(gama-sigma)
-
-
-
-	print("sigma =",sigma)
-	# get burnout point
-	itb = int(tb/dt) - 1
-	itb2 = int(tb2/dt) - 1
-	h,v,gama,M = x[itb,:]
-	print("itb =",itb)
-	print("State @burnout time:")
-	print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
-	", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
-
-
-	plt.plot(X,Z)
-	plt.grid(True)
-	plt.hold(True)
-	# Draw burnout point
-	#plt.plot(X[:itb],Z[:itb],'r')
-	#plt.plot(X[itb],Z[itb],'or')
-
-#	plt.plot([0.0,0.0],[-1.0,0.0],'k')
-#	plt.plot([0.0,sin(sigma)],[-1.0,-1.0+cos(sigma)],'k')
-	s = numpy.arange(0,1.01,.01)*sigma
-	x = R * cos(.5*pi - s)
-	z = R * (sin(.5*pi - s) - 1.0)
-	#z = -1 + numpy.sqrt(1-x**2)
-	plt.plot(x,z,'k')
-	plt.plot(X[:itb],Z[:itb],'r')
-	plt.plot(X[itb],Z[itb],'or')
-	plt.plot(X[itb2:],Z[itb2:],'g')
-	plt.plot(X[itb2],Z[itb2],'og')
-	plt.plot(X[1]-1,Z[1],'ok')
-	plt.xlabel("X [km]")
-	plt.ylabel("Z [km]")
-
-	plt.axis('equal')
-	plt.title("Rocket trajectory on Earth")
-	plt.show()
-
-	return None
-	
 def mdlDer(t,x,arg):
        
 	h,v,gama,M = x[0],x[1],x[2],x[3]
@@ -414,15 +469,6 @@ def mdlDer(t,x,arg):
 	btm*numpy.cos(alfat) - g*sinGama,\
 	btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
 	-btm*M/g0/Isp])	
-	
-def interpV(t,tVec,xVec):
-	
-	Nsize = xVec.shape[1]
-
-	ans = numpy.empty(Nsize)
-	for k in range(Nsize):
-		ans[k] = numpy.interp(t,tVec,xVec[:,k])
-	return ans
 	
 class retPulse():
 	
@@ -456,16 +502,17 @@ class retPulse2():
 		
 	def value(self,t):
 		ii = 0
+		NVec = len(self.tVec)
 		stop = False
 		while not stop:
-			if (t >= self.tVec[-1]):
-				ans = self.vVec[-1]
-				stop = True
-			elif (t < self.tVec[ii]):
+			if (t < self.tVec[ii]):
 				ans = self.vVec[ii]
 				stop = True
 			else:
 				ii = ii + 1
+				if ii == NVec:
+					ans = self.vVec[-1]
+					stop = True
 				
 		return ans
 							
