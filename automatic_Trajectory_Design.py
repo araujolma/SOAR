@@ -26,12 +26,12 @@ from scipy.integrate import ode
 GM = 398600.4415       # km^3 s^-2
 R = 6371               # km
 pi = numpy.pi
-totalTranjectorySimulationCounter = 0
+totalTrajectorySimulationCounter = 0
 
 
 def main ():
 
-	global totalTranjectorySimulationCounter
+	global totalTrajectorySimulationCounter
 	tol = 1e-5			# Tolerance factor
 
 	# Free parameters
@@ -70,7 +70,7 @@ def main ():
 	# Results with automatic adjustment 
 	displayResults(new_factors,h_final,Mu,tol)
 
-	print("\n\rTotal number of trajectory simulations", totalTranjectorySimulationCounter)
+	print("\n\rTotal number of trajectory simulations", totalTrajectorySimulationCounter)
 	input("Press any key to finish...")
 
 	return None
@@ -95,7 +95,7 @@ def bisection0(fsup,finf,h_final,Mu,tol):
 		df[2] = df[2]*0.0
 				
 		factors2 = factors1 + df
-		errors1, tt, xx = trajectoryDesing(factors1,h_final,Mu,"design",tol)
+		errors1, tt, xx = trajectoryDesign(factors1,h_final,Mu,"design",tol)
 		continuing = True
 		count = 0
 		Nmax = 50
@@ -104,7 +104,7 @@ def bisection0(fsup,finf,h_final,Mu,tol):
 		while continuing and (count < Nmax):
 						
 			# Error update
-			errors2, tt, xx = trajectoryDesing(factors2,h_final,Mu,"design",tol)		
+			errors2, tt, xx = trajectoryDesign(factors2,h_final,Mu,"design",tol)		
 			
 			# Still needs step and factors verifications like bissec0
 			der = (factors2 - factors1)/(errors2 - errors1)				
@@ -112,7 +112,7 @@ def bisection0(fsup,finf,h_final,Mu,tol):
 			step[2] = step[2]*0.0
 			
 			factors3 = factors2 - step		
-			errors3, tt, xx = trajectoryDesing(factors3,h_final,Mu,"design",tol)
+			errors3, tt, xx = trajectoryDesign(factors3,h_final,Mu,"design",tol)
 					
 			verify = abs(errors3) < tol
 			if verify[0] and verify[1]:
@@ -204,7 +204,7 @@ def bisection0(fsup,finf,h_final,Mu,tol):
 			
 	return factors
 	
-def trajectoryDesing(factors,h_final,Mu,typeResult,tol):	
+def trajectoryDesign(factors,h_final,Mu,typeResult,tol):	
 
 	# example rocket single stage to orbit L=0 D=0
 	# initial state condition
@@ -342,7 +342,7 @@ def totalIntegration(tphases,ode45,flagAppend):
 			
 		return tt,xx,tp,xp
 
-	global totalTranjectorySimulationCounter
+	global totalTrajectorySimulationCounter
 	Nref = 5.0 # Number of interval divisions for determine first step 	
 	# Output variables
 	tt,xx,tp,xp = [],[],[],[]
@@ -357,7 +357,7 @@ def totalIntegration(tphases,ode45,flagAppend):
 	tp = numpy.array(tp)
 	xp = numpy.array(xp) 		
 	
-	totalTranjectorySimulationCounter += 1
+	totalTrajectorySimulationCounter += 1
 	
 	return tt,xx,tp,xp
 
@@ -425,15 +425,15 @@ def displayResults(factors,h_final,Mu,tol):
 		return None
 		
 	# Results without orbital phase
-	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"plot",tol)
+	tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesign(factors,h_final,Mu,"plot",tol)
 	h,v,gama,M = numpy.transpose(xx0[-1,:])
 	eec = orbitResults(h,v,gama)
 	plotResults(tt0,xx0,uu0,tp0,xp0,up0,"rocket traj")
 	
 	# Results with orbital phase
 	if abs(eec-1) > 0.1:	
-		# The eccentricity test avoid simultaitons too close of the singularity
-		tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesing(factors,h_final,Mu,"orbital",tol)
+		# The eccentricity test avoids simulations too close of the singularity
+		tt0,xx0,uu0,tp0,xp0,up0 = trajectoryDesign(factors,h_final,Mu,"orbital",tol)
 		h,v,gama,M = numpy.transpose(xx0[-1,:])
 		orbitResults(h,v,gama)
 		plotResults(tt0,xx0,uu0,tp0,xp0,up0,"orbital")
