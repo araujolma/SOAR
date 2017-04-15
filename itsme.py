@@ -288,7 +288,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
         # Integration using rk45 separated by phases
         # Automatic multiphase integration
         # Light running
-        tt,xx,tp,xp = totalIntegration(tphases,ode45,False)
+        tt,xx,tp,xp = totalIntegration(tphases,ode45,t0,x0,False)
         h,v,gamma,M = xx
         errors = ((v - V_final)/0.01, (gamma - gamma_final)/0.01, (h - h_final)/10)
         errors = numpy.array(errors)
@@ -300,7 +300,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
         # Full running
         print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
         print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
-        tt,xx,tp,xp = totalIntegration(tphases,ode45,True)
+        tt,xx,tp,xp = totalIntegration(tphases,ode45,t0,x0,True)
         uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
         up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
         ans = (tt,xx,uu,tp,xp,up)                
@@ -329,12 +329,12 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp,flagAppend):
     return tt,xx,tp,xp
 
 
-def totalIntegration(tphases,ode45,flagAppend):
+def totalIntegration(tphases,ode45,t0,x0,flagAppend):
 
     global totalTrajectorySimulationCounter
     Nref = 5.0 # Number of interval divisions for determine first step     
     # Output variables
-    tt,xx,tp,xp = [],[],[],[]
+    tt,xx,tp,xp = [t0],[x0],[t0],[x0]
 
     for ii in range(1,len(tphases)):
         tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp,flagAppend)
@@ -350,9 +350,7 @@ def totalIntegration(tphases,ode45,flagAppend):
     
     return tt,xx,tp,xp
 
-def plotResults(tt,xx,uu,tp,xp,up,typeFig):
-
-    # TODO: what does typeFig do? No reference to it in this code!
+def plotResults(tt,xx,uu,tp,xp,up):
     
     ii = 0
     plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
@@ -420,7 +418,7 @@ def displayResults(factors,h_final,Mu,tol):
     tt0,xx0,uu0,tp0,xp0,up0 = trajectorySimulate(factors,h_final,Mu,"plot",tol)
     h,v,gama,M = numpy.transpose(xx0[-1,:])
     eec = orbitResults(h,v,gama)
-    plotResults(tt0,xx0,uu0,tp0,xp0,up0,"rocket traj")
+    plotResults(tt0,xx0,uu0,tp0,xp0,up0)
     
     # Results with orbital phase
     if abs(eec-1) > 0.1:    
@@ -428,7 +426,7 @@ def displayResults(factors,h_final,Mu,tol):
         tt0,xx0,uu0,tp0,xp0,up0 = trajectorySimulate(factors,h_final,Mu,"orbital",tol)
         h,v,gama,M = numpy.transpose(xx0[-1,:])
         orbitResults(h,v,gama)
-        plotResults(tt0,xx0,uu0,tp0,xp0,up0,"orbital")
+        plotResults(tt0,xx0,uu0,tp0,xp0,up0)
         
     return None
 
@@ -532,10 +530,6 @@ class retPulse2():
 if __name__ == "__main__":
         
     print("itsme: Inital Trajectory Setup Module")
-    
-    # Global variables
-    global totalTrajectorySimulationCounter
-    totalTrajectorySimulationCounter = 0
     
     tol = 1e-5        # Tolerance factor
 
