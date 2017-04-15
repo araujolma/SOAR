@@ -19,150 +19,174 @@ def its(fsup,finf,h_final,Mu,tol):
 	# initial_trajectory_setup
 	
 	def bisection1(fsup,finf,factors1,f3,h_final,Mu,tol):
-
 		####################################################################
 		# Bissection speed and gamma loop	
-	
-		# Initializing parameters
-		df = abs( (fsup - finf)/5 )
 
-		# Making the 3 factor variarions null		
-		factors1[2] = f3 + 0.0
-		df[2] = df[2]*0.0
-				
-		factors2 = factors1 + df
-		errors1, tt, xx = trajectorySimulate(factors1,h_final,Mu,"design",tol)
-		continuing = True
+		# Initializing parameters
+		# Loop initialization
+		stop = False
 		count = 0
 		Nmax = 50
+		
+		# Fators initilization
+		df = abs( (fsup - finf)/5 )
+		# Making the 3 factor variarions null		
+		factors1[2] = f3 + 0.0
+		df[2] = 0.0		
+		factors2 = factors1 + df
+		errors1, tt, xx = trajectorySimulate(factors1,h_final,Mu,"design",tol)		
 		step = df + 0.0
 		factors3 = factors2 + 0.0
 
 		# Loop
-		while continuing and (count < Nmax):
+		while (not stop) and (count <= Nmax):
 						
 			# Error update
-			errors2, tt, xx = trajectorySimulate(factors2,h_final,Mu,"design",tol)		
+			errors2, _, _ = trajectorySimulate(factors2,h_final,Mu,"design",tol)					
 			
-			der = (factors2 - factors1)/(errors2 - errors1)
-
-			for ii in range(0,2):
-				# Verifications
-				if der[ii] == 0:
-					step[ii] = 0
+			converged = abs(errors2) < tol
+			if converged[0] and converged[1]:
+				stop = True
+				# Display information
+				print("\n\####################################################")
+				if count == Nmax:
+					print("Bisection1 total iteractions: ", count," (max)")
 				else:
-					step[ii] = errors2[ii]*der[ii]
-				
-				if step[ii] > df[ii]:
-					step[ii] = df[ii] + 0.0
-				elif step[ii] < -df[ii]:
-					step[ii] = -df[ii] + 0.0
-				
-				factors3[ii] = factors2[ii] - step[ii]
-				
-				if factors3[ii] > fsup[ii]:
-					factors3[ii] = fsup[ii] + 0.0
-				elif factors3[ii] < finf[ii]:
-					factors3[ii] = finf[ii] + 0.0
+					print("Bisection1 total iteractions: ", count)
+				num = "8.6e"
+				print(("Errors    : %"+num+", %"+num) % ( errors2[0],  errors2[1]))
+				print(("Sup limits: %"+num+", %"+num+", %"+num) % (    fsup[0],     fsup[1],     fsup[2]))
+				print(("Factors   : %"+num+", %"+num+", %"+num) % (factors2[0], factors2[1], factors2[2]))
+				print(("Inf limits: %"+num+", %"+num+", %"+num) % (    finf[0],     finf[1],     finf[2]))
+				# Define output
+				errorh = errors2[2]
+			else:				
+				de = (errors2 - errors1)
+				for ii in range(0,2):
+					# Division and step check				
+					if de[ii] == 0:
+						step[ii] = 0
+					else:
+						step[ii] = errors2[ii]*(factors2[ii] - factors1[ii])/de[ii]
 					
-			verify = abs(errors2) < tol
-			if verify[0] and verify[1]:
-				continuing = False			
-				
-			else:
+					if step[ii] > df[ii]:
+						step[ii] = df[ii] + 0.0
+					elif step[ii] < -df[ii]:
+						step[ii] = -df[ii] + 0.0
+					# if end
+					
+					# factor check
+					factors3[ii] = factors2[ii] - step[ii]
+					
+					if factors3[ii] > fsup[ii]:
+						factors3[ii] = fsup[ii] + 0.0
+					elif factors3[ii] < finf[ii]:
+						factors3[ii] = finf[ii] + 0.0
+					#if end
+					
+				# for end
 				errors1 = errors2 + 0.0
 				factors1 = factors2 + 0.0
 				factors2 = factors3 + 0.0
 				count += 1
-
-		print("\n\####################################################")
-		if count == Nmax:
-			print("Bisection1 total iteractions: ", count," (max)")
-		else:
-			print("Bisection1 total iteractions: ", count)
-
-		print("Errors    : %6.4e, %6.4e" % ( errors2[0],  errors2[1]))
-		print("Sup limits: %6.4e, %6.4e, %6.4e" % (    fsup[0],     fsup[1],     fsup[2]))
-		print("Factors   : %6.4e, %6.4e, %6.4e" % (factors2[0], factors2[1], factors2[2]))
-		print("Inf limits: %6.4e, %6.4e, %6.4e" % (    finf[0],     finf[1],     finf[2]))
-		
-		errorh = errors2[2]
+			#if end
+		#while end
 		
 		return errorh,factors2
+	# bissection1 end
 	
 	def bisection0(fsup,finf,h_final,Mu,tol):
 		
 		##########################################################################
 		# Bisection altitude loop
+
+		# Parameters initialization				
+		# Loop initialization
+		stop = False
+		count = 0		
+		Nmax = 50
 		
-		# Step limiter
-		df = abs( (fsup[2] - finf[2])/5 )	
-		
-		# fators initilization
+		# Fators initilization
+		df = abs( (fsup[2] - finf[2])/5 )
 		factors = (fsup + finf)/2
 		step = df.copy();	
-		f1 = (fsup[2] + finf[2])/2
-		f2 = f1 + step
+		f1 = (fsup[2] + finf[2])/2		
 		e1,factors = bisection1(fsup,finf,factors,f1,h_final,Mu,tol)
-		count = 0	
-		stop = False
+		f2 = f1 + step		
 		
 		# Loop
-		while not stop:		
+		while (not stop) and (count <= Nmax):		
 			
 			# bisection1: Error update from speed and gamma loop
 			e2,factors = bisection1(fsup,finf,factors,f2,h_final,Mu,tol)
 			
-			# Checkings
-			
-			# Division and step check
-			de = (e2 - e1)
-			if abs(de) < tol*1e-2:
-				
-				step = df
-				
-			else:		
-				der = (f2 - f1)/de
-				step = e2*der			
-				if step > df:
-					step = 0.0 + df
-				elif step < -df:
-					step = 0.0 - df
-		
-			# Factor definition and check
-			f3 = f2 - step
-			
-			if f3 > fsup[2]:
-				f3 = 0.0 + fsup[2]
-			elif f3 < finf[2]:
-				f3 = 0.0 + finf[2]
-			
-			# Parameters update
-			f1 = f2.copy()
-			f2 = f3.copy()
-			e1 = e2.copy()
-			count += 1
-	
-			# Display		
-			print("\n\####################################################")
-			print("Bisection0 iteration: ",count)
-			print("Error     : %6.4e" % e2)
-			print("Sup limits: %6.4e, %6.4e, %6.4e" % (   fsup[0],   fsup[1],   fsup[2]))
-			print("Factors   : %6.4e, %6.4e, %6.4e" % (factors[0],factors[1],        f2))
-			print("Inf limits: %6.4e, %6.4e, %6.4e" % (   finf[0],   finf[1],   finf[2]))
-	
 			# Loop checks
-			if count == 30:
+			if  (abs(e2) < tol):
 				stop = True
-			if abs(e2) < tol:
-				stop = True	
+				# Display final information
+				num = "8.6e"
+				print("\n\####################################################")
+				print("Bisection0 final iteration: ",count)
+				print(("Error     : %"+num) % e2)
+				print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
+				print(("Factors   : %"+num+", %"+num+", %"+num) % (factors[0],factors[1],        f2))
+				print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))
+				
+			else:
+				# Calculation of the new factor				
+				# Checkings				
+				# Division and step check
+				de = (e2 - e1)
+				if abs(de) < tol*1e-2:					
+					step = df
+					
+				else:		
+					der = (f2 - f1)/de
+					step = e2*der			
+					if step > df:
+						step = 0.0 + df
+					elif step < -df:
+						step = 0.0 - df
+			
+				# Factor definition and check
+				f3 = f2 - step
+				
+				if f3 > fsup[2]:
+					f3 = 0.0 + fsup[2]
+				elif f3 < finf[2]:
+					f3 = 0.0 + finf[2]
+				
+				# Parameters update
+				f1 = f2.copy()
+				f2 = f3.copy()
+				e1 = e2.copy()
+				count += 1
+	
+				# Display information
+				num = "8.6e"
+				print("\n\####################################################")
+				print("Bisection0 iteration: ",count)
+				print(("Error     : %"+num) % e2)
+				print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
+				print(("Factors   : %"+num+", %"+num+", %"+num) % (factors[0],factors[1],        f2))
+				print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))	
+			# if end
 				
 		return factors
-	
+	# bissection0 end
 	
 	factors = bisection0(fsup,finf,h_final,Mu,tol)
+	errors, tt, xx = trajectorySimulate(factors,h_final,Mu,"design",tol)	
+	num = "8.6e"
+	print("\n\####################################################")
+	print("ITS the end (lol)")
+	print(("Error     : %"+num+", %"+num+", %"+num) % ( errors[0], errors[1], errors[2]))
+	print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
+	print(("Factors   : %"+num+", %"+num+", %"+num) % (factors[0],factors[1],factors[2]))
+	print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))
+	tt,xx,uu,_,_,_ = trajectorySimulate(factors,h_final,Mu,"plot",tol)
 	
-	return factors
+	return factors,tt,xx,uu
 
 	
 def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
@@ -269,7 +293,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
 		h,v,gamma,M = xx
 		errors = ((v - V_final)/0.01, (gamma - gamma_final)/0.01, (h - h_final)/10)
 		errors = numpy.array(errors)
-		ans = errors, tt, xx		
+		ans = errors, tt, xx	
 		
 	elif (typeResult == "plot") or (typeResult == "orbital"):		
 		# Integration using rk45 separated by phases
@@ -543,7 +567,7 @@ if __name__ == "__main__":
 	displayResults(factors,h_final,Mu,tol)
 
 	# Automatic adjustament
-	new_factors = its(fsup,finf,h_final,Mu,tol)
+	new_factors,_,_,_ = its(fsup,finf,h_final,Mu,tol)
 		
 	# Results with automatic adjustment 
 	displayResults(new_factors,h_final,Mu,tol)
