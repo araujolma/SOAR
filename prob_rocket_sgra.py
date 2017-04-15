@@ -5,7 +5,7 @@ Created on Wed Jan 18 14:02:30 2017
 @author: munizlgmn
 """
 
-import numpy, rockProp
+import numpy, rockProp, itsme
 from scipy.interpolate import interp1d
 
 # ##################
@@ -118,14 +118,36 @@ def declProb(opt=dict()):
         pi = 1100*numpy.ones((p,1))
         
     elif initMode == 'extSol':
+        
+        # OLD VERSION:
+        
+#        # adapt solution        
+#        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)        
+#        for i in range(n):
+#            f_x = interp1d(t_rp, x_rp[:,i])
+#            x[:,i] = f_x(t)
+#        for i in range(m):
+#            f_u = interp1d(t_rp,u_rp[:,i])
+#            u[:,i] = f_u(t)
+
+
+        # NEW VERSION:
+
         # adapt solution        
-        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)        
+        fsup = numpy.array([1.5,600.0,1.6]) # Superior limit
+        finf = numpy.array([0.5,400.0,1.3]) # Inferior limit
+
+        # Automatic adjustament
+        new_factors,t_rp,x_rp,u_rp = itsme.its(fsup,finf,h_final,100.0,1.0e-5)
+        pi = t_rp[-1]
+        t_rp = t_rp/pi
         for i in range(n):
             f_x = interp1d(t_rp, x_rp[:,i])
             x[:,i] = f_x(t)
         for i in range(m):
             f_u = interp1d(t_rp,u_rp[:,i])
             u[:,i] = f_u(t)
+
                    
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)   
