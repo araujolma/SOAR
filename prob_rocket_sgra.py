@@ -36,9 +36,9 @@ def declProb(opt=dict()):
     q = 3  # (Miele 1970)  # 7 (Miele 2003)     
 
 # Earth constants
-    grav_e = 9.8e-3        # km/s^2
     r_e = 6371.0           # km
     GM = 398600.4415       # km^3 s^-2
+    grav_e = GM/r_e/r_e#9.8e-3        # km/s^2
     
 # rocket constants     
     Thrust = 40.0          # kg km/s²  1.3*m_initial # N
@@ -139,7 +139,7 @@ def declProb(opt=dict()):
 
         # Automatic adjustament
         new_factors,t_rp,x_rp,u_rp = itsme.its(fsup,finf,h_final,100.0,1.0e-5)
-        pi = t_rp[-1]
+        pi = numpy.array([t_rp[-1]])
         t_rp = t_rp/pi
         for i in range(n):
             f_x = interp1d(t_rp, x_rp[:,i])
@@ -148,10 +148,17 @@ def declProb(opt=dict()):
             f_u = interp1d(t_rp,u_rp[:,i])
             u[:,i] = f_u(t)
 
+        # Perform inverse transformations for u:            
+        a1 = (alpha_max + alpha_min)/2
+        a2 = (alpha_max - alpha_min)/2
+        b1 = (beta_max + beta_min)/2
+        b2 = (beta_max - beta_min)/2
+        u[:,0] = numpy.arcsin((u[:,0]-a1)/a2)
+        u[:,1] = numpy.arcsin((u[:,1]-b1)/b2)      
                    
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)   
-
+    print("\nInitialization complete.\n")
     return sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions
     
     
@@ -271,7 +278,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     psix = array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
     psip = array([[0.0],[0.0],[0.0]])
     
-#   calculate variables alpha and beta
+#   calculate variables (arrays) alpha and beta
     aExp = .5*(alpha_max - alpha_min)
     alpha = (alpha_max + alpha_min)/2 + sin(u1)*aExp
     bExp = .5*(beta_max - beta_min)

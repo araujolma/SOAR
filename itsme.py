@@ -48,9 +48,9 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,tol):
             # Display information
             print("\n\####################################################")
             if count == Nmax:
-                print("bisecSpeedAndAng total iteractions: ", count," (max)")
+                print("bisecSpeedAndAng total iterations: ", count," (max)")
             else:
-                print("bisecSpeedAndAng total iteractions: ", count)
+                print("bisecSpeedAndAng total iterations: ", count)
             num = "8.6e"
             print(("Errors    : %"+num+", %"+num) % ( errors2[0],  errors2[1]))
             print(("Sup limits: %"+num+", %"+num+", %"+num) % (    fsup[0],     fsup[1],     fsup[2]))
@@ -212,7 +212,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     Isp = 450              # s
     efes = .95
     g0 = GM/(R**2) #9.8e-3   # [km s^-2] gravity acceleration on earth surface
-    AoAmax = 3.0           # graus
+    AoAmax = 2.0#3.0           # graus
 
     torb = 2*pi*(R + h_final)/V_final
 
@@ -391,11 +391,11 @@ def plotResults(tt,xx,uu,tp,xp,up):
     ii = 0
     plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
     plt.hold(True)
-    plt.plot(tt,uu[:,ii],'.-b')
-    plt.plot(tp,up[:,ii],'.r')
+    plt.plot(tt,uu[:,ii]*180/numpy.pi,'.-b')
+    plt.plot(tp,up[:,ii]*180/numpy.pi,'.r')
     plt.hold(False)
     plt.grid(True)
-    plt.ylabel("alfa [rad]")
+    plt.ylabel("alfa [deg]")
     
     ii = 1
     plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)

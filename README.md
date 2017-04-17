@@ -34,4 +34,7 @@ Hence, the rockProp.py module was written to provide a trajectory that correspon
 @munizlgmn: first aerodynamic model
 @TBD: Implement maximum acceleration limitation, staging…
 
+# MINOR TODO’S
+@araujolma: encapsulate all constants in a dictionary to be passed in function calls.
+
 
