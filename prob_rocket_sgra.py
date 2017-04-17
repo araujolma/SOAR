@@ -5,7 +5,7 @@ Created on Wed Jan 18 14:02:30 2017
 @author: munizlgmn
 """
 
-import numpy, rockProp
+import numpy, rockProp, itsme
 from scipy.interpolate import interp1d
 
 # ##################
@@ -36,9 +36,9 @@ def declProb(opt=dict()):
     q = 3  # (Miele 1970)  # 7 (Miele 2003)     
 
 # Earth constants
-    grav_e = 9.8e-3        # km/s^2
     r_e = 6371.0           # km
     GM = 398600.4415       # km^3 s^-2
+    grav_e = GM/r_e/r_e#9.8e-3        # km/s^2
     
 # rocket constants     
     Thrust = 40.0          # kg km/s²  1.3*m_initial # N
@@ -118,18 +118,47 @@ def declProb(opt=dict()):
         pi = 1100*numpy.ones((p,1))
         
     elif initMode == 'extSol':
+        
+        # OLD VERSION:
+        
+#        # adapt solution        
+#        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)        
+#        for i in range(n):
+#            f_x = interp1d(t_rp, x_rp[:,i])
+#            x[:,i] = f_x(t)
+#        for i in range(m):
+#            f_u = interp1d(t_rp,u_rp[:,i])
+#            u[:,i] = f_u(t)
+
+
+        # NEW VERSION:
+
         # adapt solution        
-        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)        
+        fsup = numpy.array([1.5,600.0,1.6]) # Superior limit
+        finf = numpy.array([0.5,400.0,1.3]) # Inferior limit
+
+        # Automatic adjustament
+        new_factors,t_rp,x_rp,u_rp = itsme.its(fsup,finf,h_final,100.0,1.0e-5)
+        pi = numpy.array([t_rp[-1]])
+        t_rp = t_rp/pi
         for i in range(n):
             f_x = interp1d(t_rp, x_rp[:,i])
             x[:,i] = f_x(t)
         for i in range(m):
             f_u = interp1d(t_rp,u_rp[:,i])
             u[:,i] = f_u(t)
+
+        # Perform inverse transformations for u:            
+        a1 = (alpha_max + alpha_min)/2
+        a2 = (alpha_max - alpha_min)/2
+        b1 = (beta_max + beta_min)/2
+        b2 = (beta_max - beta_min)/2
+        u[:,0] = numpy.arcsin((u[:,0]-a1)/a2)
+        u[:,1] = numpy.arcsin((u[:,1]-b1)/b2)      
                    
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)   
-
+    print("\nInitialization complete.\n")
     return sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions
     
     
@@ -249,7 +278,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     psix = array([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0]])        
     psip = array([[0.0],[0.0],[0.0]])
     
-#   calculate variables alpha and beta
+#   calculate variables (arrays) alpha and beta
     aExp = .5*(alpha_max - alpha_min)
     alpha = (alpha_max + alpha_min)/2 + sin(u1)*aExp
     bExp = .5*(beta_max - beta_min)

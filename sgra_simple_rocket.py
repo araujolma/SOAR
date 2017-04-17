@@ -65,17 +65,17 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions):
     phi = calcPhi(sizes,x,u,pi,constants,restrictions)
     psi = calcPsi(sizes,x,boundary)
     dx = ddt(sizes,x)
-    #dx = x.copy()
+
     P = 0.0    
     for t in range(1,N-1):
-    #    dx[t,:] = x[t,:]-x[t-1,:]
         P += norm(dx[t,:]-phi[t,:])**2
     P += .5*norm(dx[0,:]-phi[0,:])**2
     P += .5*norm(dx[N-1,:]-phi[N-1,:])**2
     
     P *= 1.0/(N-1)
-    
-    P += norm(psi)
+    Ppsi = norm(psi)
+    print("P_int = {:.4E}".format(P)+", P_psi = {:.4E}".format(Ppsi))
+    P += Ppsi
     return P
     
 def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions):
@@ -392,10 +392,10 @@ def calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions):
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
-    print("In rest.")
+    print("\nIn rest.")
     
     P0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
-    print("P0 =",P0)    
+    print("P0 = {:.4E}".format(P0))    
     
     # get sizes
     N = sizes['N']
@@ -579,7 +579,7 @@ def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions):
     plt.ylabel("u2 [-]")
     ######################################
     alpha = (alpha_max + alpha_min)/2 + numpy.sin(u[:,0])*(alpha_max - alpha_min)/2
-    alpha = alpha*180/numpy.pi
+    alpha *= 180/numpy.pi
     plt.subplot2grid((8,4),(6,0),colspan=5)
     plt.plot(t,alpha,'b')
     plt.grid(True)
@@ -602,38 +602,40 @@ def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions):
 # MAIN SEGMENT:
 # ##################
 if __name__ == "__main__":
-	opt = dict()
-	opt['initMode'] = 'extSol'#'default'#'extSol'
+    opt = dict()
+    opt['initMode'] = 'extSol'#'default'#'extSol'
 
-	# declare problem:
-	sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
-	Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-#	phix = Grads['phix']
-#	phiu = Grads['phiu']
-#	psix = Grads['psix']
-#	psip = Grads['psip']
-	
-	print("Proposed initial guess:")
-	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
-	
-	tolP = tol['P']
-	tolQ = tol['Q']
-	
-	# first restoration step:
-	
-	while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
-	    x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
-	
-	print("\nAfter first rounds of restoration:")
-	plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
-	
-	Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
-	# first gradient step:
-	while Q > tolQ:
-	    while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
-	        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-	        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
-	    x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
-	    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+    # declare problem:
+    sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
+    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
+    psi = calcPsi(sizes,x,boundary)
+    dx = ddt(sizes,x)
+#    phix = Grads['phix']
+#    phiu = Grads['phiu']
+#    psix = Grads['psix']
+#    psip = Grads['psip']
+    
+    print("\nProposed initial guess:")
+    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 
+    tolP = tol['P']
+    tolQ = tol['Q']
+    
+    # first restoration step:
+    while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
+        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+
+    print("\nAfter first rounds of restoration:")
+    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+
+    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
+
+    # first gradient step:
+    while Q > tolQ:
+        while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
+            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+            plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
+        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
