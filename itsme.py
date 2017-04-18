@@ -55,9 +55,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,tol):
             print(("Errors    : %"+num+", %"+num) % ( errors2[0],  errors2[1]))
             print(("Sup limits: %"+num+", %"+num+", %"+num) % (    fsup[0],     fsup[1],     fsup[2]))
             print(("Factors   : %"+num+", %"+num+", %"+num) % (factors2[0], factors2[1], factors2[2]))
-            print(("Inf limits: %"+num+", %"+num+", %"+num) % (    finf[0],     finf[1],     finf[2]))
-            # Define output
-            errorh = errors2[2]
+            print(("Inf limits: %"+num+", %"+num+", %"+num) % (    finf[0],     finf[1],     finf[2]))            
         else:                
             de = (errors2 - errors1)
             for ii in range(0,2):
@@ -89,7 +87,8 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,tol):
             count += 1
         #if end
     #while end
-    
+    # Define output
+    errorh = errors2[2]
     return errorh,factors2
 # bisecSpeedAndAng end
 
@@ -198,23 +197,24 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     R = 6371               # km
     pi = numpy.pi    
 
-    # example rocket single stage to orbit L=0 D=0
-    # initial state condition
+    # A example rocket single stage to orbit L=0 D=0
+    # Initial state condition
     h_initial = 0.0            # km
     V_initial = 1.0e-6         # km/s
     gamma_initial = 90*pi/180  # rad
     # Initial mass definied in bellow    
     
-    # final state condition
+    # Final state condition
     V_final = numpy.sqrt(GM/(R+h_final))   # km/s Circular velocity
     gamma_final = 0.0 # rad
-        
+      
+    # Additional parameters
     Isp = 450              # s
     efes = .95
     g0 = GM/(R**2) #9.8e-3   # [km s^-2] gravity acceleration on earth surface
-    AoAmax = 2.0#3.0           # graus
-
-    torb = 2*pi*(R + h_final)/V_final
+    AoAmax = 2.0#3.0           # graus    
+    torb = 2*pi*(R + h_final)/V_final # Time of one orbit using the final velocity
+    softness = 0.2 # softness of the transions of propulsive curve
 
     ##########################################################################
     # Trajetory design parameters
@@ -225,7 +225,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     ##########################################################################
     # Initial mass definition and thrust programm
     Dv1 = fdv1*numpy.sqrt(2.0*GM*(1/R - 1/(R+h_final)))
-    Dv2 = V_final.copy()
+    Dv2 = V_final.copy()/(1 - softness)
 
     Dv2 = Dv2*fator_V
     LamMax = 1/(1-efes)
@@ -241,14 +241,15 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     T = 40.0e3 # thrust in N
     T *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
 
-    tb1 = Mp1 * g0 * Isp / T
-    tb2 = Mp2 * g0 * Isp / T
+    tb1 = ( Mp1 * g0 * Isp / T ) / ( 1 - softness )
+    tb2 = ( Mp2 * g0 * Isp / T ) / ( 1 - softness )
 
     # thrust program
     #tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
-    tVec = numpy.array([tb1,(tf-tb2),tf,tf*1.1])
-    vVec = numpy.array([1.0,0.0,1.0,0.0])
-    tabBeta = retPulse2(tVec,vVec)
+    #tVec = numpy.array([tb1,(tf-tb2),tf,tf*1.1])
+    #vVec = numpy.array([1.0,0.0,1.0,0.0])
+    #tabBeta = retPulse2(tVec,vVec)
+    tabBeta = retSoftPulse(tb1,(tf-tb2),tf,1.0,0.0,softness)
 
     ##########################################################################
     # Attitude program definition
@@ -495,7 +496,55 @@ class retPulse():
             if (t[ii] >= self.t1) and (t[ii] < self.t2):
                 ans[ii] = self.v2
         return ans
+
+class retSoftPulse():
+    
+    def __init__(self,t1,t2,t3,v1,v2,softness):
+        self.t1 = t1
+        self.t2 = t2
+        self.t3 = t3
         
+        self.v1 = v1
+        self.v2 = v2
+        
+        self.f = softness
+        
+        self.d1 = t1 # width of retangular and soft part 
+        self.c1 = self.d1*self.f # width of the soft part
+        self.r1 = self.d1 - self.c1 # width of the retangular part
+        self.fr1 = self.r1 # final of the retangular part
+        
+        self.d2 = t3 - t2 # width of retangular and soft part
+        self.c2 = self.d2*self.f # width of the soft part
+        self.r2 = self.d2 - self.c2 # width of the retangular part
+        self.ir2 = self.t2 + self.c2 # start of the retangular part
+        
+        self.dv21 = v2 - v1        
+        
+    def value(self,t):
+        if (t <= self.fr1):
+            return self.v1
+        elif (t <= self.t1):
+            cos = numpy.cos( numpy.pi*(t - self.fr1)/(self.c1) )
+            return self.dv21*(1 - cos)/2 + self.v1
+        elif (t <= self.t2):
+            return self.v2
+        elif (t <= self.ir2):    
+            cos = numpy.cos( numpy.pi*(t - self.t2)/(self.c2) )
+            return -self.dv21*(1 - cos)/2 + self.v2
+        elif (t <= self.t3):
+            return self.v1
+        else:
+            return 0.0
+            
+    def multValue(self,t):
+        N = len(t)
+        ans = numpy.full((N,1),0.0)
+        for jj in range(0,N):
+            ans[jj] = self.value(t[jj])
+
+        return ans
+    
 class retPulse2():
     
     def __init__(self,tVec,vVec):
@@ -531,7 +580,7 @@ if __name__ == "__main__":
         
     print("itsme: Inital Trajectory Setup Module")
     
-    tol = 1e-5        # Tolerance factor
+    tol = 1e-6        # Tolerance factor
 
     # Free parameters
     h_final = 463.0     # km
@@ -554,8 +603,8 @@ if __name__ == "__main__":
     ################
 
     # Factors intervals
-    fsup = numpy.array([1.5,600.0,1.6]) # Superior limit
-    finf = numpy.array([0.5,400.0,1.3]) # Inferior limit
+    fsup = numpy.array([0.53 + 0.3,377 + 100,0.91 + 0.3]) # Superior limit
+    finf = numpy.array([0.53 - 0.3,377 - 100,0.91 - 0.3]) # Inferior limit
 
     # Initital guess
     factors = (fsup + finf)/2#numpy.array([fator_V,tf,tAoA])
