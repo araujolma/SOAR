@@ -59,20 +59,47 @@ def calcADotRest(A,t,tVec,phixVec,phiuVec,phipVec,B,C,aux):
     return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C) + auxt
 
 def calcP(sizes,x,u,pi,constants,boundary,restrictions):
-
+    print("\nIn calcP.")
     N = sizes['N']
     
+    dt = 1.0/(N-1)
+
     phi = calcPhi(sizes,x,u,pi,constants,restrictions)
     psi = calcPsi(sizes,x,boundary)
     dx = ddt(sizes,x)
-
+    vetP = numpy.empty(N)
+    vetIP = numpy.empty(N)
     P = 0.0    
-    for t in range(1,N-1):
-        P += norm(dx[t,:]-phi[t,:])**2
     P += .5*norm(dx[0,:]-phi[0,:])**2
-    P += .5*norm(dx[N-1,:]-phi[N-1,:])**2
+    vetP[0] = .5*norm(dx[0,:]-phi[0,:])**2
+    vetIP[0] = P
     
-    P *= 1.0/(N-1)
+    for t in range(1,N-1):
+        vetP[t] = norm(dx[t,:]-phi[t,:])**2
+        P += norm(dx[t,:]-phi[t,:])**2
+        vetIP[t] = P
+    
+    P += .5*norm(dx[N-1,:]-phi[N-1,:])**2
+    vetP[N-1] = .5*norm(dx[N-1,:]-phi[N-1,:])**2
+    vetIP[N-1] = P
+    
+    P *= dt
+    vetP *= dt
+    vetIP *= dt
+        
+    tInutil = numpy.arange(0,1.0+dt,dt)
+    
+    plt.plot(tInutil,vetP)
+    plt.grid(True)
+    plt.title("Integrand of P")
+    plt.show()
+    
+    plt.plot(tInutil,vetIP)
+    plt.grid(True)
+    plt.title("Partially integrated P")
+    plt.show()
+
+    
     Ppsi = norm(psi)
     print("P_int = {:.4E}".format(P)+", P_psi = {:.4E}".format(Ppsi))
     P += Ppsi
@@ -363,14 +390,13 @@ def grad(sizes,x,u,pi,t,Q0,restrictions):
     return nx,nu,np,lam,mu,Q
 
 def calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions):
-
+    
     alfa = 1.0    
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    
     P0 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    print("P =",P0)
+    print("For alfa = 1, P = {:.4E}".format(P0))
 
     P = P0
     alfa = .8
@@ -379,7 +405,7 @@ def calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions):
     np = pi + alfa * C
     nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
     cont = 0
-    while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 5:
+    while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 15:
         cont += 1
         P = nP
         alfa *= .5
@@ -387,7 +413,7 @@ def calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions):
         nu = u + alfa * B
         np = pi + alfa * C
         nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-        print("alfa =",alfa,"P =",nP)
+        print("alfa =",alfa,"P = {:.4E}".format(nP))
         
     return alfa
 
@@ -523,21 +549,13 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         mu += K[i]*arrayM[i,:]
     
 #    alfa = 1.0#2.0#
+
+    plotSol(sizes,t,A,B,C,lam,mu,constants,boundary,restrictions)
     print("Calculating step...")
-    alfa = calcStepRest(x,u,p,A,B,C,constants,boundary,restrictions)
+    alfa = calcStepRest(x,u,pi,A,B,C,constants,boundary,restrictions)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-#    while calcP(sizes,nx,nu,np) > P0:
-#        alfa *= .8#.5
-#        nx = x + alfa * A
-#        nu = u + alfa * B
-#        np = pi + alfa * C
-#    print("alfa =",alfa)
-    
-    # incorporation of A, B into the solution
-#    x += alfa * A
-#    u += alfa * B
 
     print("Leaving rest with alfa =",alfa)    
     return nx,nu,np,lam,mu
@@ -597,6 +615,35 @@ def plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions):
     print("pi =",pi)#, ", lambda =",lam,", mu =",mu)
 #
 
+def mdlDerAlt(x,t,T,Isp,g0,R):
+    h,v,gama,M = x[0],x[1],x[2],x[3]
+    
+    # Hardcoded pra caralho... Paciencia.
+    if t > 0.00986635420668*463.052:
+        if t > .0143397080138*463.052:
+            alfat = 0.0
+        else:
+            alfat = -2.0*numpy.pi/180.0
+    else: 
+        alfat = 0.0
+    
+    if t > .300769789581*463.052:
+        if t > .842470461769*463.052:
+            betat = 1.0
+        else:
+            betat = 0.0
+    else:
+        betat = 1.0
+
+        
+    btm = betat*T/M
+    sinGama = numpy.sin(gama)
+    g = g0*(R/(R+h))**2
+
+    return numpy.array([v*sinGama,\
+    btm*numpy.cos(alfat) - g*sinGama,\
+    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama),\
+    -btm*M/g0/Isp])  
 
 # ##################
 # MAIN SEGMENT:
@@ -607,16 +654,80 @@ if __name__ == "__main__":
 
     # declare problem:
     sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    psi = calcPsi(sizes,x,boundary)
-    dx = ddt(sizes,x)
+    
+    
+    x0 = x.copy()
+    u0 = u.copy()
+    pi0 = pi.copy()
+    
+    print("\nProposed initial guess:")
+    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+
+    print("\nRe-integrating solution with odeint...\n")
+    T = constants['Thrust']
+    g0 = constants['grav_e']
+    Isp = constants['Isp']
+    R = constants['r_e']
+    
+    
+    uAlt = u.copy()
+    k=0
+    for tk in t: 
+        if tk > 0.00986635420668:
+            if tk > .0143397080138:
+                uAlt[k,0] = 0.0
+            else:
+                uAlt[k,0] = -2.0*numpy.pi/180.0
+        else: 
+            uAlt[k,0] = 0.0
+        
+        if tk > .300769789581:
+            if tk > .842470461769:
+                uAlt[k,1] = 1.0
+            else:
+                uAlt[k,1] = 0.0
+        else:
+            uAlt[k,1] = 1.0
+        
+        k+=1
+    
+    alpha_max = restrictions['alpha_max']
+    alpha_min = restrictions['alpha_min']
+    beta_max = restrictions['beta_max']
+    beta_min = restrictions['beta_min']
+
+    a1 = (alpha_max + alpha_min)/2
+    a2 = (alpha_max - alpha_min)/2
+    b1 = (beta_max + beta_min)/2
+    b2 = (beta_max - beta_min)/2
+    uAlt[:,0] = numpy.arcsin((uAlt[:,0]-a1)/a2)
+    uAlt[:,1] = numpy.arcsin((uAlt[:,1]-b1)/b2) 
+    
+    tVec = t*pi0[0]    
+    xInt = odeint(mdlDerAlt,x0[0,:],tVec,args=(T,Isp,g0,R))    
+
+    print("\nRe-integrated solution:\n")
+    plotSol(sizes,t,xInt,uAlt,pi0,lam,mu,constants,boundary,restrictions)
+
+    x = xInt.copy()
+
+    #print("\nDeu certo!")    
+    
+    Grads = calcGrads(sizes,xInt,uAlt,pi,constants,restrictions)
+    phi = calcPhi(sizes,xInt,uAlt,pi,constants,restrictions)
+    psi = calcPsi(sizes,xInt,boundary)
+    
+    dxInt = ddt(sizes,xInt)
+    err = dxInt-phi
+
 #    phix = Grads['phix']
 #    phiu = Grads['phiu']
 #    psix = Grads['psix']
 #    psip = Grads['psip']
     
     print("\nProposed initial guess:")
+    x = xInt
+    u = uAlt
     plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 
     tolP = tol['P']
@@ -625,7 +736,7 @@ if __name__ == "__main__":
     # first restoration step:
     while calcP(sizes,x,u,pi,constants,boundary,restrictions) > tolP:
         x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-    plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
+        plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 
     print("\nAfter first rounds of restoration:")
     plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
