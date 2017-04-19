@@ -214,7 +214,7 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     g0 = GM/(R**2) #9.8e-3   # [km s^-2] gravity acceleration on earth surface
     AoAmax = 2.0#3.0           # graus    
     torb = 2*pi*(R + h_final)/V_final # Time of one orbit using the final velocity
-    softness = 0.2 # softness of the transions of propulsive curve
+    softness = 0.3 # softness of the transions of propulsive curve
 
     ##########################################################################
     # Trajetory design parameters
@@ -241,8 +241,8 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     T = 40.0e3 # thrust in N
     T *= 1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
 
-    tb1 = ( Mp1 * g0 * Isp / T ) / ( 1 - softness )
-    tb2 = ( Mp2 * g0 * Isp / T ) / ( 1 - softness )
+    tb1 = ( Mp1 * g0 * Isp / T ) * ( 1 + softness/2 )
+    tb2 = ( Mp2 * g0 * Isp / T ) * ( 1 + softness/2 )
 
     # thrust program
     #tabBeta = retPulse(tb1,(tf-tb2),1.0,0.0)
@@ -281,9 +281,9 @@ def trajectorySimulate(factors,h_final,Mu,typeResult,tol):
     # Phase times, incluiding the initial time in the begining
     
     if (typeResult == "orbital"):
-        tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf,torb])        
+        tphases = numpy.array([t0,tAoA1,tAoA2,tb1*(1-softness),tb1,(tf-tb2),(tf-tb2) + tb2*softness,tf,torb])        
     else:        
-        tphases = numpy.array([t0,tAoA1,tAoA2,tb1,(tf-tb2),tf])
+        tphases = numpy.array([t0,tAoA1,tAoA2,tb1*(1-softness),tb1,(tf-tb2),(tf-tb2) + tb2*softness,tf])
     
     if (typeResult == "design"):
         # Integration using rk45 separated by phases
@@ -333,7 +333,7 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp,flagAppend):
 def totalIntegration(tphases,ode45,t0,x0,flagAppend):
 
     global totalTrajectorySimulationCounter
-    Nref = 5.0 # Number of interval divisions for determine first step     
+    Nref = 20.0 # Number of interval divisions for determine first step     
     # Output variables
     tt,xx,tp,xp = [t0],[x0],[t0],[x0]
 
@@ -603,8 +603,13 @@ if __name__ == "__main__":
     ################
 
     # Factors intervals
-    fsup = numpy.array([0.53 + 0.3,377 + 100,0.91 + 0.3]) # Superior limit
-    finf = numpy.array([0.53 - 0.3,377 - 100,0.91 - 0.3]) # Inferior limit
+#    fsup = numpy.array([0.53 + 0.3,377 + 100,0.91 + 0.3]) # Superior limit
+#    finf = numpy.array([0.53 - 0.3,377 - 100,0.91 - 0.3]) # Inferior limit
+
+    # Factors intervals
+    fsup = numpy.array([0.68 + 0.3,486 + 100,1.77 + 0.3]) # Superior limit
+    finf = numpy.array([0.68 - 0.3,486 - 100,1.77 - 0.3]) # Inferior limit
+
 
     # Initital guess
     factors = (fsup + finf)/2#numpy.array([fator_V,tf,tAoA])
