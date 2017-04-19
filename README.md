@@ -35,6 +35,8 @@ Hence, the rockProp.py module was written to provide a trajectory that correspon
 @TBD: Implement maximum acceleration limitation, staging…
 
 # MINOR TODO’S
+@araujolma: Create option in plotSol to announce solution and correction
 @araujolma: encapsulate all constants in a dictionary to be passed in function calls.
+
 
 

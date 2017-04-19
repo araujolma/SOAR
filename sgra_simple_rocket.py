@@ -656,68 +656,67 @@ if __name__ == "__main__":
     sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
     
     
-    x0 = x.copy()
-    u0 = u.copy()
-    pi0 = pi.copy()
-    
+#    x0 = x.copy()
+#    u0 = u.copy()
+#    pi0 = pi.copy()
     print("\nProposed initial guess:")
     plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 
-    print("\nRe-integrating solution with odeint...\n")
-    T = constants['Thrust']
-    g0 = constants['grav_e']
-    Isp = constants['Isp']
-    R = constants['r_e']
-    
-    
-    uAlt = u.copy()
-    k=0
-    for tk in t: 
-        if tk > 0.00986635420668:
-            if tk > .0143397080138:
-                uAlt[k,0] = 0.0
-            else:
-                uAlt[k,0] = -2.0*numpy.pi/180.0
-        else: 
-            uAlt[k,0] = 0.0
-        
-        if tk > .300769789581:
-            if tk > .842470461769:
-                uAlt[k,1] = 1.0
-            else:
-                uAlt[k,1] = 0.0
-        else:
-            uAlt[k,1] = 1.0
-        
-        k+=1
-    
-    alpha_max = restrictions['alpha_max']
-    alpha_min = restrictions['alpha_min']
-    beta_max = restrictions['beta_max']
-    beta_min = restrictions['beta_min']
-
-    a1 = (alpha_max + alpha_min)/2
-    a2 = (alpha_max - alpha_min)/2
-    b1 = (beta_max + beta_min)/2
-    b2 = (beta_max - beta_min)/2
-    uAlt[:,0] = numpy.arcsin((uAlt[:,0]-a1)/a2)
-    uAlt[:,1] = numpy.arcsin((uAlt[:,1]-b1)/b2) 
-    
-    tVec = t*pi0[0]    
-    xInt = odeint(mdlDerAlt,x0[0,:],tVec,args=(T,Isp,g0,R))    
-
-    print("\nRe-integrated solution:\n")
-    plotSol(sizes,t,xInt,uAlt,pi0,lam,mu,constants,boundary,restrictions)
-
-    x = xInt.copy()
+#    print("\nRe-integrating solution with odeint...\n")
+#    T = constants['Thrust']
+#    g0 = constants['grav_e']
+#    Isp = constants['Isp']
+#    R = constants['r_e']
+#    
+#    
+#    uAlt = u.copy()
+#    k=0
+#    for tk in t: 
+#        if tk > 0.00986635420668:
+#            if tk > .0143397080138:
+#                uAlt[k,0] = 0.0
+#            else:
+#                uAlt[k,0] = -2.0*numpy.pi/180.0
+#        else: 
+#            uAlt[k,0] = 0.0
+#        
+#        if tk > .300769789581:
+#            if tk > .842470461769:
+#                uAlt[k,1] = 1.0
+#            else:
+#                uAlt[k,1] = 0.0
+#        else:
+#            uAlt[k,1] = 1.0
+#        
+#        k+=1
+#    
+#    alpha_max = restrictions['alpha_max']
+#    alpha_min = restrictions['alpha_min']
+#    beta_max = restrictions['beta_max']
+#    beta_min = restrictions['beta_min']
+#
+#    a1 = (alpha_max + alpha_min)/2
+#    a2 = (alpha_max - alpha_min)/2
+#    b1 = (beta_max + beta_min)/2
+#    b2 = (beta_max - beta_min)/2
+#    uAlt[:,0] = numpy.arcsin((uAlt[:,0]-a1)/a2)
+#    uAlt[:,1] = numpy.arcsin((uAlt[:,1]-b1)/b2) 
+#    
+#    tVec = t*pi0[0]    
+#    xInt = odeint(mdlDerAlt,x0[0,:],tVec,args=(T,Isp,g0,R))    
+#
+#    print("\nRe-integrated solution:\n")
+#    plotSol(sizes,t,xInt,uAlt,pi0,lam,mu,constants,boundary,restrictions)
+#
+#    x = xInt.copy()
 
     #print("\nDeu certo!")    
     
-    Grads = calcGrads(sizes,xInt,uAlt,pi,constants,restrictions)
-    phi = calcPhi(sizes,xInt,uAlt,pi,constants,restrictions)
-    psi = calcPsi(sizes,xInt,boundary)
+    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
+    psi = calcPsi(sizes,x,boundary)
     
-    dxInt = ddt(sizes,xInt)
+    dxInt = ddt(sizes,x)
     err = dxInt-phi
 
 #    phix = Grads['phix']
@@ -726,8 +725,8 @@ if __name__ == "__main__":
 #    psip = Grads['psip']
     
     print("\nProposed initial guess:")
-    x = xInt
-    u = uAlt
+#    x = xInt
+#    u = uAlt
     plotSol(sizes,t,x,u,pi,lam,mu,constants,boundary,restrictions)
 
     tolP = tol['P']

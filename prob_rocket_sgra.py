@@ -134,41 +134,42 @@ def declProb(opt=dict()):
 
         # NEW VERSION:
 
-        # adapt solution
-        fsup = numpy.array([1.5,600.0,1.6]) # Superior limit
-        finf = numpy.array([0.5,400.0,1.3]) # Inferior limit
+    # Factors intervals
+        fsup = numpy.array([0.68 + 0.3,486 + 100,1.77 + 0.3]) # Superior limit
+        finf = numpy.array([0.68 - 0.3,486 - 100,1.77 - 0.3]) # Inferior limit
+
 
         # Automatic adjustament
-        new_factors,t_rp,x_rp,u_rp = itsme.its(fsup, finf, h_final, 100.0, 1.0e-5)
+        new_factors,t_rp,x_rp,u_rp = itsme.its(fsup, finf, h_final, 100.0, 1.0e-10)
         pi = numpy.array([t_rp[-1]])
         t_rp = t_rp/pi
         for i in range(n):
             f_x = interp1d(t_rp, x_rp[:,i])
             x[:,i] = f_x(t)
 
-        # Get proper transition times
-        tAlfaLow = 0.0
-        tAlfaHigh = 0.0
-        tBetaLow = 0.0
-        tBetaHigh = 0.0
-
-        N_rp = len(t_rp)
-
-        for k in range(N_rp):
-            if tAlfaLow == 0.0:
-                # find tAlfaLow
-                if u_rp[k,0] < 0.0:
-                    tAlfaLow = t_rp[k]#/N_rp
-            if tAlfaHigh == 0.0:
-                # find tAlfaHigh
-                if tAlfaLow>0 and u_rp[k,0] == 0.0:
-                    tAlfaHigh = t_rp[k]#/N_rp
-            if tBetaLow == 0.0:
-                if u_rp[k,1] < 0.5:
-                    tBetaLow = t_rp[k]#/N_rp
-            if tBetaHigh == 0.0:
-                if tBetaLow>0.0 and u_rp[k,1] > .5:
-                    tBetaHigh = t_rp[k]#/N_rp
+#        # Get proper transition times
+#        tAlfaLow = 0.0
+#        tAlfaHigh = 0.0
+#        tBetaLow = 0.0
+#        tBetaHigh = 0.0
+#
+#        N_rp = len(t_rp)
+#
+#        for k in range(N_rp):
+#            if tAlfaLow == 0.0:
+#                # find tAlfaLow
+#                if u_rp[k,0] < 0.0:
+#                    tAlfaLow = t_rp[k]#/N_rp
+#            if tAlfaHigh == 0.0:
+#                # find tAlfaHigh
+#                if tAlfaLow>0 and u_rp[k,0] == 0.0:
+#                    tAlfaHigh = t_rp[k]#/N_rp
+#            if tBetaLow == 0.0:
+#                if u_rp[k,1] < 0.5:
+#                    tBetaLow = t_rp[k]#/N_rp
+#            if tBetaHigh == 0.0:
+#                if tBetaLow>0.0 and u_rp[k,1] > .5:
+#                    tBetaHigh = t_rp[k]#/N_rp
 
         print("\nUn-interpolated control profiles:")
 
@@ -184,10 +185,10 @@ def declProb(opt=dict()):
         plt.title("u[1,:]")
         plt.show()
 
-        print("tAlfaLow =",tAlfaLow)
-        print("tAlfaHigh =",tAlfaHigh)
-        print("tBetaLow =",tBetaLow)
-        print("tBetaHigh =",tBetaHigh)
+#        print("tAlfaLow =",tAlfaLow)
+#        print("tAlfaHigh =",tAlfaHigh)
+#        print("tBetaLow =",tBetaLow)
+#        print("tBetaHigh =",tBetaHigh)
 
         for i in range(m):
             f_u = interp1d(t_rp,u_rp[:,i])

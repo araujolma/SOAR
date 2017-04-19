@@ -580,7 +580,7 @@ if __name__ == "__main__":
         
     print("itsme: Inital Trajectory Setup Module")
     
-    tol = 1e-6        # Tolerance factor
+    tol = 1e-7        # Tolerance factor
 
     # Free parameters
     h_final = 463.0     # km
