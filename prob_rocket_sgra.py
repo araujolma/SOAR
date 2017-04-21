@@ -145,10 +145,9 @@ def declProb(opt=dict()):
 
         # NEW VERSION:
 
-        # Factors intervals
-        fsup = numpy.array([0.68 + 0.3,486 + 100,1.77 + 0.3]) # Superior limit
-        finf = numpy.array([0.68 - 0.3,486 - 100,1.77 - 0.3]) # Inferior limit
-
+        # Factors instervals for aerodynamics
+        fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
+        finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustament
         new_factors,t_rp,x_rp,u_rp = itsme.its(fsup, finf, h_final, 100.0, 1.0e-10)
