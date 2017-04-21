@@ -54,7 +54,7 @@ def funDict(h_final):
     
     return con
 
-def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,tol):
+def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     ####################################################################
     # Bissection speed and gamma loop    
 
@@ -130,7 +130,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,tol):
     return errorh,factors2
 # bisecSpeedAndAng end
 
-def bisecAltitude(fsup,finf,h_final,Mu,tol):
+def bisecAltitude(fsup,finf,h_final,Mu,con,tol):
         
     ##########################################################################
     # Bisection altitude loop
@@ -146,14 +146,14 @@ def bisecAltitude(fsup,finf,h_final,Mu,tol):
     factors = (fsup + finf)/2
     step = df.copy()    
     f1 = (fsup[2] + finf[2])/2        
-    e1,factors = bisecSpeedAndAng(fsup,finf,factors,f1,h_final,Mu,tol)
+    e1,factors = bisecSpeedAndAng(fsup,finf,factors,f1,h_final,Mu,con,tol)
     f2 = f1 + step        
     
     # Loop
     while (not stop) and (count <= Nmax):        
         
         # bisecSpeedAndAng: Error update from speed and gamma loop
-        e2,factors = bisecSpeedAndAng(fsup,finf,factors,f2,h_final,Mu,tol)
+        e2,factors = bisecSpeedAndAng(fsup,finf,factors,f2,h_final,Mu,con,tol)
         
         # Loop checks
         if  (abs(e2) < tol):
@@ -214,8 +214,9 @@ def its(fsup,finf,h_final,Mu,tol):
     
     ###########################
     # initial_trajectory_setup
-       
-    factors = bisecAltitude(fsup,finf,h_final,Mu,tol)
+    
+    con = funDict(h_final)
+    factors = bisecAltitude(fsup,finf,h_final,Mu,con,tol)
     errors, tt, xx = trajectorySimulate(factors,h_final,Mu,con,"design",tol)    
     num = "8.6e"
     print("\n\####################################################")
