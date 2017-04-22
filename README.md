@@ -30,12 +30,13 @@ As it turns out, SGRA requires an initial guess very close to an actual solution
 Hence, the rockProp.py module was written to provide a trajectory that corresponds to a propagated solution of the problem. However, just guessing the control profiles to match a given orbit was found too hard, and the automatic_Trajectory_Design was written to solve this problem.
 
 
-# MAJOR TODO’S
+- MAJOR TODO’S
 @munizlgmn: first aerodynamic model
 @TBD: Implement maximum acceleration limitation, staging…
 
-# MINOR TODO’S
+- MINOR TODO’S
 @araujolma: Create option in plotSol to announce solution and correction
+
 @araujolma: encapsulate all constants in a dictionary to be passed in function calls.
 
 
