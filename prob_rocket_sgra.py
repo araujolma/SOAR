@@ -43,14 +43,14 @@ def declProb(opt=dict()):
     grav_e = GM/r_e/r_e#9.8e-3        # km/s^2
 
 # rocket constants
-    Thrust = 40.0          # kg km/s²  1.3*m_initial # N
-    Isp = 450.0            # s
+    Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
+    Isp = 450.0                   # s
     s_f = 0.05
-    CL0 = -0.03             # (B0 Miele 1998)
-    CL1 = 0.8               # (B1 Miele 1998)
-    CD0 = 0.05              # (A0 Miele 1998)
-    CD2 = 0.5               # (A2 Miele 1998)
-    s_ref = numpy.pi*(0.5)**2
+    CL0 = -0.03                   # (B0 Miele 1998)
+    CL1 = 0.8                     # (B1 Miele 1998)
+    CD0 = 0.05                    # (A0 Miele 1998)
+    CD2 = 0.5                     # (A2 Miele 1998)
+    s_ref = numpy.pi*(0.0005)**2  # km^2
 
  # restrictions
     alpha_min = -2*(numpy.pi)/180  # in rads
