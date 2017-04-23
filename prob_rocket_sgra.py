@@ -15,7 +15,7 @@ from atmosphere import rho
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 5000 + 1#20000 + 1 #
+    N = 1000 + 1#20000 + 1 #
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -131,63 +131,25 @@ def declProb(opt=dict()):
 
     elif initMode == 'extSol':
 
-        # OLD VERSION:
-
-#        # adapt solution
-#        t_rp,x_rp,u_rp,pi = rockProp.getRockTraj(boundary=boundary, constants=constants, restrictions=restrictions)
-#        for i in range(n):
-#            f_x = interp1d(t_rp, x_rp[:,i])
-#            x[:,i] = f_x(t)
-#        for i in range(m):
-#            f_u = interp1d(t_rp,u_rp[:,i])
-#            u[:,i] = f_u(t)
-
-
-        # NEW VERSION:
-
         # Factors instervals for aerodynamics
         fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
-        # Automatic adjustament
-        new_factors,t_rp,x_rp,u_rp = itsme.its(fsup, finf, h_final, 100.0, 1.0e-10)
-        pi = numpy.array([t_rp[-1]])
-        t_rp = t_rp/pi
+        # Automatic adjustment
+        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-10)
+        
+        # Solutions must be made compatible: t_its is dimensional, 
+        # u_its consists of the actual controls (alpha and beta), etc.
+        # Besides, all arrays are in a different time discretization
+        
+        pi = numpy.array([t_its[-1]])
+        t_its = t_its/pi
         for i in range(n):
-            f_x = interp1d(t_rp, x_rp[:,i])
+            f_x = interp1d(t_its, x_its[:,i])
             x[:,i] = f_x(t)
 
-#        # Get proper transition times
-#        tAlfaLow = 0.0
-#        tAlfaHigh = 0.0
-#        tBetaLow = 0.0
-#        tBetaHigh = 0.0
-#
-#        N_rp = len(t_rp)
-#
-#        for k in range(N_rp):
-#            if tAlfaLow == 0.0:
-#                # find tAlfaLow
-#                if u_rp[k,0] < 0.0:
-#                    tAlfaLow = t_rp[k]#/N_rp
-#            if tAlfaHigh == 0.0:
-#                # find tAlfaHigh
-#                if tAlfaLow>0 and u_rp[k,0] == 0.0:
-#                    tAlfaHigh = t_rp[k]#/N_rp
-#            if tBetaLow == 0.0:
-#                if u_rp[k,1] < 0.5:
-#                    tBetaLow = t_rp[k]#/N_rp
-#            if tBetaHigh == 0.0:
-#                if tBetaLow>0.0 and u_rp[k,1] > .5:
-#                    tBetaHigh = t_rp[k]#/N_rp
-
-#        print("tAlfaLow =",tAlfaLow)
-#        print("tAlfaHigh =",tAlfaHigh)
-#        print("tBetaLow =",tBetaLow)
-#        print("tBetaHigh =",tBetaHigh)
-
         for i in range(m):
-            f_u = interp1d(t_rp,u_rp[:,i])
+            f_u = interp1d(t_its,u_its[:,i])
             u[:,i] = f_u(t)
 
         # Perform inverse transformations for u:
@@ -205,41 +167,41 @@ def declProb(opt=dict()):
     ###
     print("\nUn-interpolated solution from Souza's propagation:")
 
-    plt.plot(t_rp,x_rp[:,0])
+    plt.plot(t_its,x_its[:,0])
     plt.grid(True)
     plt.ylabel("h [km]")
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.show()
 
-    plt.plot(t_rp,x_rp[:,1],'g')
+    plt.plot(t_its,x_its[:,1],'g')
     plt.grid(True)
     plt.ylabel("V [km/s]")
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.show()
 
-    plt.plot(t_rp,x_rp[:,2]*180/numpy.pi,'r')
+    plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
     plt.grid(True)
     plt.ylabel("gamma [deg]")
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.show()
 
-    plt.plot(t_rp,x_rp[:,3],'m')
+    plt.plot(t_its,x_its[:,3],'m')
     plt.grid(True)
     plt.ylabel("m [kg]")
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.show()
 
     print("\nUn-interpolated control profiles:")
 
-    plt.plot(t_rp,u_rp[:,0]*180/numpy.pi,'k')
+    plt.plot(t_its,u_its[:,0]*180/numpy.pi,'k')
     plt.grid(True)
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.ylabel("Attack angle [deg]")
     plt.show()
 
-    plt.plot(t_rp,u_rp[:,1],'c')
+    plt.plot(t_its,u_its[:,1],'c')
     plt.grid(True)
-    plt.xlabel("t_rp [-]")
+    plt.xlabel("t_its [-]")
     plt.ylabel("Thrust profile [-]")
     plt.show()
     ###
@@ -279,12 +241,23 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     CD = CD0 + CD2*(alpha)**2
 
     # calculate L and D
-    L = numpy.zeros(N)
-    D = numpy.zeros(N)
-    for k in range(N):
-        L[k] = 0.5 * CL[k] * rho(x[k,0]) * s_ref * (x[k,1])**2
-        D[k] = 0.5 * CD[k] * rho(x[k,0]) * s_ref * (x[k,1])**2
+#    L = numpy.zeros(N)
+ #   D = numpy.zeros(N)
+  #  for k in range(N):
+   #     L[k] = 0.5 * CL[k] * rho(x[k,0]) * s_ref * (x[k,1])**2
+    #    D[k] = 0.5 * CD[k] * rho(x[k,0]) * s_ref * (x[k,1])**2
 
+    # TODO: making atmosphere.rho vectorized (array compatible) would increase 
+    # performance significantly!
+    
+    dens = numpy.empty(N)
+    for k in range(N):
+        dens[k] = rho(x[k,0])
+    
+    pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref    
+    L = CL * pDynTimesSref
+    D = CD * pDynTimesSref
+    
     # calculate r
     r = r_e + x[:,0]
 
@@ -295,8 +268,9 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     phi = numpy.empty((N,n))
 
     # example rocket single stage to orbit with Lift and Drag
-    phi[:,0] = pi[0] * x[:,1] * sin(x[:,2])
-    phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sin(x[:,2]))
+    sinGama = sin(x[:,2])
+    phi[:,0] = pi[0] * x[:,1] * sinGama
+    phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
     phi[0,2] = 0.0
     for k in range(1,N):
         phi[k,2] = pi[0] * ((beta[k] * Thrust * sin(alpha[k]) + L[k])/(x[k,3] * x[k,1]) + cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
@@ -501,17 +475,17 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.ylabel("h [km]")
     if opt.get('mode','sol') == 'sol':
         I = calcI(sizes,x,u,pi,constants,restrictions)
-        titlStr = "|I = {:.4E}|".format(I)
+        titlStr = "Current solution: |I = {:.4E}|".format(I)
         if opt.get('dispP',False):
             P = opt['P']
             titlStr = titlStr + "|P = {:.4E}|".format(P)
         if opt.get('dispQ',False):
             Q = opt['Q']
             titlStr = titlStr + "|Q = {:.4E}|".format(Q)
-    elif opt.get('mode','var') == 'var':
+    elif opt['mode'] == 'var':
         titlStr = "Proposed variations"
     else:
-        titlStr = " "
+        titlStr = opt['mode']
     #
     plt.title(titlStr)
     plt.subplot2grid((8,4),(1,0),colspan=5)

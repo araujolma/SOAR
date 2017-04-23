@@ -9,6 +9,7 @@ Created on Thu Dec 15 15:33:27 2016
 
 
 import numpy
+import datetime
 import matplotlib.pyplot as plt
 
 from scipy.integrate import odeint
@@ -390,22 +391,24 @@ def grad(sizes,x,u,pi,t,Q0,restrictions):
 
 def calcStepRest(t,x,u,pi,A,B,C,constants,boundary,restrictions):
 
+    P0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+    
     alfa = 1.0
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P0 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    print("For alfa = 1, P = {:.4E}".format(P0))
+    P1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
+    print("For alfa = 1, P = {:.4E}".format(P1))
 
-    P = P0
+    P = P1
     alfa = .8
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
     nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
 
-    cont = 0
-    while (nP-P)/P < -.05 and alfa > 1.0e-11 and cont < 15:
+    cont = 0; keepSearch = True
+    while keepSearch: #(nP-P)/P < -.05 or P > P0: #alfa > 1.0e-11 and cont < 15:
         cont += 1
         P = nP
         alfa *= .5
@@ -414,8 +417,10 @@ def calcStepRest(t,x,u,pi,A,B,C,constants,boundary,restrictions):
         np = pi + alfa * C
         nP = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
 
-        plotSol(sizes,t,x,u,pi,constants,restrictions)
-        print("alfa =",alfa,"P = {:.4E}".format(nP))
+        plotSol(sizes,t,nx,nu,np,constants,restrictions)
+        print("alfa =",alfa,", P = {:.4E}".format(nP)," (P0 = {:.4E})".format(P0))
+        if nP < P0:
+            keepSearch = (nP-P)/P < -.05 and alfa > 1.0e-11
 
     return alfa
 
@@ -484,6 +489,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     arrayL = arrayA.copy()
     arrayM = numpy.empty((q+1,q))
 
+    opt = dict()
+
     print("Beginning loop for solutions...")
     for i in range(q+1):
         mu = 0.0*mu
@@ -500,13 +507,13 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         for k in range(N):
             lam[k,:] = auxLam[N-k-1,:]
             B[k,:] = phiuTr[k,:,:].dot(lam[k,:])
-
-#        plt.plot(t,lam)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("lambda")
-#        plt.show()
-
+        
+        while B.max() > numpy.pi or B.min() < - numpy.pi:
+            lam *= .1
+            mu *= .1
+            B *= .1
+            print("mu =",mu)
+        
         # equation for Ci (75-4)
         C = numpy.zeros(p)
         for k in range(1,N-1):
@@ -516,21 +523,23 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         C *= dt
         C -= -psipTr.dot(mu)
 
+        opt['mode'] = 'states:Lambda'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,opt)
+
         print("Integrating ODE for A [i = "+str(i)+"] ...")
         # integrate equation for A:
         A = odeint(calcADotRest,numpy.zeros(n),t,args= (t,phix,phiu,phip,B,C,aux))
-
+        
         # store solution in arrays
         arrayA[i,:,:] = A
         arrayB[i,:,:] = B
         arrayC[i,:] = C
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
-
-        opt = dict()
+        
         opt['mode'] = 'var'
         plotSol(sizes,t,A,B,C,constants,restrictions,opt)
-
+        
         # Matrix for linear system (89)
         M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
         #M[1:,i] += psip.dot(C)#psip * C
@@ -554,10 +563,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-#    alfa = 1.0#2.0#
     optPlot = dict()
     optPlot['mode'] = 'var'
     plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+
     print("Calculating step...")
     alfa = calcStepRest(t,x,u,pi,A,B,C,constants,boundary,restrictions)
     nx = x + alfa * A
@@ -571,6 +580,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 # MAIN SEGMENT:
 # ##################
 if __name__ == "__main__":
+    print('--------------------------------------------------------------------------------')
+    print('\nThis is SGRA_SIMPLE_ROCKET.py!')
+    print(datetime.datetime.now())
+    
     opt = dict()
     opt['initMode'] = 'extSol'#'default'#'extSol'
 
@@ -607,6 +620,7 @@ if __name__ == "__main__":
 
     # first restoration rounds:
     NIterRest = 0
+    histP[0] = P
     while P > tolP and NIterRest < MaxIterRest:
         NIterRest += 1
         x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
@@ -615,12 +629,15 @@ if __name__ == "__main__":
         histP[NIterRest] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
 
-        plt.plot(uman[0:NIterRest],histP[0:NIterRest],'o')
+        plt.plot(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)],'o')
         plt.grid()
         plt.title("Convergence of P")
         plt.ylabel("P")
         plt.xlabel("Iterations")
         plt.show()
+        
+        print("\a")
+        input("So far, so good?")
 
     print("\nAfter first rounds of restoration:")
     Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
