@@ -15,7 +15,7 @@ from atmosphere import rho
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 1000 + 1#20000 + 1 #
+    N = 2000 + 1#20000 + 1 #
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -136,7 +136,7 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
         
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
@@ -475,13 +475,13 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.ylabel("h [km]")
     if opt.get('mode','sol') == 'sol':
         I = calcI(sizes,x,u,pi,constants,restrictions)
-        titlStr = "Current solution: |I = {:.4E}|".format(I)
+        titlStr = "Current solution: I = {:.4E}".format(I)
         if opt.get('dispP',False):
             P = opt['P']
-            titlStr = titlStr + "|P = {:.4E}|".format(P)
+            titlStr = titlStr + " P = {:.4E} ".format(P)
         if opt.get('dispQ',False):
             Q = opt['Q']
-            titlStr = titlStr + "|Q = {:.4E}|".format(Q)
+            titlStr = titlStr + " Q = {:.4E} ".format(Q)
     elif opt['mode'] == 'var':
         titlStr = "Proposed variations"
     else:
@@ -514,12 +514,18 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     alpha *= 180/numpy.pi
     plt.subplot2grid((8,4),(6,0),colspan=5)
     plt.plot(t,alpha,'b')
+    plt.hold(True)
+    plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
+    plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
     plt.grid(True)
     plt.xlabel("t")
     plt.ylabel("alpha [deg]")
     beta = (beta_max + beta_min)/2 + numpy.sin(u[:,1])*(beta_max - beta_min)/2
     plt.subplot2grid((8,4),(7,0),colspan=5)
     plt.plot(t,beta,'b')
+    plt.hold(True)
+    plt.plot(t,beta*0+beta_max,'-.k')
+    plt.plot(t,beta*0+beta_min,'-.k')
     plt.grid(True)
     plt.xlabel("t")
     plt.ylabel("beta [-]")
