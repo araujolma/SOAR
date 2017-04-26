@@ -15,7 +15,7 @@ from atmosphere import rho
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 2000 + 1#20000 + 1 #
+    N = 20000 + 1#20000 + 1 #
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -136,7 +136,7 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
+        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
         
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
