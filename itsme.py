@@ -37,15 +37,15 @@ def funDict(h_final):
     con['gamma_final'] = 0.0 # rad
     
     #Vehicle parameters
-    con['Isp'] = 450              # s
-    con['efes'] = .95
-    con['T'] = 40.0e3*1.0e-3 # thrust in kg * km / s^2 [for compatibility purposes...]
-    con['softness'] = 0.3 # softness of the transions of propulsive curve
+    con['Isp'] = 450               # s
+    con['efes'] = .95              # [-]
+    con['T'] = 40.0e3*1.0e-3       # thrust in kg * km / s² [for compatibility purposes...]
+    con['softness'] = 0.3          # softness of the transions of propulsive curve
     con['CL0'] = -0.03             # (B0 Miele 1998)
     con['CL1'] = 0.8               # (B1 Miele 1998)
     con['CD0'] = 0.05              # (A0 Miele 1998)
     con['CD2'] = 0.5               # (A2 Miele 1998)
-    con['s_ref'] = con['pi']*(0.5**2)
+    con['s_ref'] = con['pi']*( (0.5e-3)**2) #km²
     
     # Trajectory parameters
     con['AoAmax'] = 2.0#3.0           # graus    
@@ -422,7 +422,39 @@ def plotResults(tt,xx,uu,tp,xp,up,con):
     plt.xlabel("t")
     plt.ylabel("beta [adim]")
     
-    plt.show()                
+    plt.show()           
+
+    # Aed plots
+    LL, DD, CCL, CCD, QQ = calcAedTab(tt,xx,uu,con)
+    
+    ii = 0
+    plt.subplot2grid((6,2),(0,0),rowspan=2,colspan=2)
+    plt.hold(True)
+    plt.plot(tt,LL,'.-b')
+    plt.plot(tt,DD,'.-r')
+    plt.hold(False)
+    plt.grid(True)
+    plt.ylabel("L and D [kN]")
+    
+    ii = 1
+    plt.subplot2grid((6,2),(2,0),rowspan=2,colspan=2)
+    plt.hold(True)
+    plt.plot(tt,CCL,'.-b')
+    plt.plot(tt,CCD,'.-r')
+    plt.hold(False)
+    plt.grid(True)
+    plt.ylabel("CL and CD [-]")
+    
+    ii = 2
+    plt.subplot2grid((6,2),(4,0),rowspan=2,colspan=2)
+    plt.hold(True)
+    plt.plot(tt,QQ,'.-b')
+    plt.hold(False)
+    plt.grid(True)
+    plt.ylabel("qdin [kPa]")
+    
+    
+    plt.show()  
                 
     return None
 
@@ -509,11 +541,28 @@ def aed(h,v,alfat,con):
     CL = con['CL0'] + con['CL1']*alfat
     CD = con['CD0'] + con['CD2']*(alfat**2)
 
-    qdin = 0.5 * rho(h*1.0e3) * (v**2)
+    qdin = 0.5 * rho(h) * (v**2)
     L = qdin * con['s_ref'] * CL
     D = qdin * con['s_ref'] * CD
     
     return L,D,CL,CD,qdin
+
+def calcAedTab(tt,xx,uu,con):
+
+    LL = tt.copy()
+    DD = tt.copy()
+    CCL = tt.copy()
+    CCD = tt.copy()
+    QQ = tt.copy()
+    for ii in range( 0, len(tt) ):
+        L,D,CL,CD,qdin = aed(xx[ii,0],xx[ii,1],uu[ii,0],con)
+        LL[ii] = L
+        DD[ii] = D
+        CCL[ii] = CL
+        CCD[ii] = CD
+        QQ[ii] = qdin
+        
+    return LL, DD, CCL, CCD, QQ
     
     
 class retPulse():
@@ -646,8 +695,8 @@ if __name__ == "__main__":
     ################
 
     # Factors instervals for aerodynamics
-    fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
-    finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
+    fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.4]) # Superior limit
+    finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.4]) # Inferior limit
  
     # Initital display of vehicle trajectory
     factors = (fsup + finf)/2
