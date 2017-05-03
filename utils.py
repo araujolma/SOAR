@@ -33,7 +33,7 @@ def interpM(t,tVec,xVec):
 
 def ddt(sizes,vec):
 	N = sizes['N']
-	dt = 1.0/N
+	dt = 1.0/(N-1)
 	
 	dvec = vec.copy()
 	dvec[0] = (vec[1]-vec[0])/dt

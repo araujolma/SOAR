@@ -636,6 +636,31 @@ class retSoftPulse():
             ans[jj] = self.value(t[jj])
 
         return ans
+
+class cosSoftPulse():
+    
+    def __init__(self,t1,t2,v1,v2):
+        self.t1 = t1
+        self.t2 = t2
+        
+        self.v1 = v1
+        self.v2 = v2
+        
+    def value(self,t):
+        if (t >= self.t1) and (t <= self.t2):
+            ans = (self.v2 - self.v1) * (1 - numpy.cos(numpy.pi * (t - self.t1)  / (self.t2 - self.t1))) / 2 + self.v1
+            return ans
+        else:
+            return self.v1
+            
+    def multValue(self,t):
+        N = len(t)
+        ans = numpy.full((N,1),0.0)
+        for jj in range(0,N):
+            ans[jj] = self.value(t[jj])
+
+        return ans
+
     
 class retPulse2():
     
