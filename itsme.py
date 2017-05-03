@@ -50,7 +50,7 @@ def funDict(h_final):
     # Trajectory parameters
     con['AoAmax'] = 2.0#3.0           # graus    
     con['torb'] = 2*con['pi']*(con['R'] + h_final)/con['V_final'] # Time of one orbit using the final velocity
-    con['tAoA'] = 2.0
+    con['tAoA'] = 4.0
     
     return con
 
@@ -274,9 +274,12 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
 
     # Attitude program
     #tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
-    tVec = numpy.array([tAoA1,tAoA2,tf])
-    vVec = numpy.array([0.0,-con['AoAmax']*con['d2r'],0.0])
-    tabAlpha = retPulse2(tVec,vVec)
+#==============================================================================
+#     tVec = numpy.array([tAoA1,tAoA2,tf])
+#     vVec = numpy.array([0.0,-con['AoAmax']*con['d2r'],0.0])
+#     tabAlpha = retPulse2(tVec,vVec)
+#==============================================================================
+    tabAlpha = cosSoftPulse(tAoA1,tAoA2,0,-con['AoAmax']*con['d2r'])
 
     ##########################################################################
     #Integration
@@ -648,7 +651,7 @@ class cosSoftPulse():
         
     def value(self,t):
         if (t >= self.t1) and (t <= self.t2):
-            ans = (self.v2 - self.v1) * (1 - numpy.cos(numpy.pi * (t - self.t1)  / (self.t2 - self.t1))) / 2 + self.v1
+            ans = (self.v2 - self.v1) * (1 - numpy.cos(2*numpy.pi * (t - self.t1)  / (self.t2 - self.t1))) / 2 + self.v1
             return ans
         else:
             return self.v1
@@ -697,7 +700,7 @@ if __name__ == "__main__":
         
     print("itsme: Inital Trajectory Setup Module")
     
-    tol = 1e-7        # Tolerance factor
+    tol = 1e-8        # Tolerance factor
 
     # Free parameters
     h_final = 463.0     # km
@@ -720,8 +723,8 @@ if __name__ == "__main__":
     ################
 
     # Factors instervals for aerodynamics
-    fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.4]) # Superior limit
-    finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.4]) # Inferior limit
+    fsup = numpy.array([0.6 + 0.3,500 + 100,2.0 + 0.4]) # Superior limit
+    finf = numpy.array([0.6 - 0.3,500 - 100,2.0 - 0.4]) # Inferior limit
  
     # Initital display of vehicle trajectory
     factors = (fsup + finf)/2
