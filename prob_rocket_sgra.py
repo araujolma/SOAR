@@ -332,6 +332,7 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
 #    for k in range(0,N):
 #        phi[k,2] = pi[0] * ((beta[k] * Thrust * sin(alpha[k]) + L[k])/(x[k,3] * x[k,1]) + cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
     phi[:,2] = pi[0] * ((beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] ))
+    phi[0,2] = 0.0
     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
 
     return phi
@@ -464,28 +465,28 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         # Expanded notation:
         DAlfaDu1 = aExp*cosu1
         DBetaDu2 = bExp*cosu2
-#        if k==0:
-#            phix[k,:,:] = pi[0]*array([[0.0                                                             ,sinGama   ,V*cosGama         ,0.0                            ],
-#                                       [2*GM*sinGama/(r[k]**3) - (0.5*CD[k]*del_rho[k]*s_ref*(V)**2)/m  ,0.0       ,-grav[k]*cosGama  ,-beta[k]*Thrust*cosAlpha/(m**2)],
-#                                       [0.0                                                             ,0.0       ,0.0               ,0.0                            ],
-#                                       [0.0                                                             ,0.0       ,0.0               ,0.0                            ]])
-#
-#            phiu[k,:,:] = pi[0]*array([[0.0                           ,0.0                          ],
-#                                       [beta[k]*Thrust*DCosAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
-#                                       [0.0                           ,0.0                          ],
-#                                       [0.0                           ,-Thrust*DBetaDu2/(grav_e*Isp)]])
+        if k<10:
+            phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
+                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
+                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ],
+                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ]])
 
-#        else:
-        phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
-                                   [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
-                                   [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
-                                   [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
- 
-        phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
-                                   [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*aExp*cosu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-                                   [(beta[k]*Thrust*cosAlpha*DAlfaDu1 + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
-                                   [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
- 
+            phiu[k,:,:] = pi[0]*array([[0.0                                  ,0.0                          ],
+                                       [-beta[k]*Thrust*sinAlpha*DAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
+                                       [0.0                                  ,0.0                          ],
+                                       [0.0                                  ,-Thrust*DBetaDu2/(grav_e*Isp)]])
+
+        else:
+            phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
+                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
+                                       [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
+                                       [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
+     
+            phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
+                                       [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*aExp*cosu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1 + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+                                       [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
+        #
         phip[k,:,:] = array([[V*sinGama                                                           ],
                             [fVel/m - grav[k]*sinGama                   ],
                             [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V))],

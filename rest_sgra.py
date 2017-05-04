@@ -1,41 +1,17 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec 15 15:33:27 2016
-
+Created on Wed May  3 18:17:45 2017
+rest_sgra: functions for performing restoration
 @author: levi
 """
 
-# a file for solving rocket single stage to orbit
-
-
-import numpy, time, datetime
+import numpy
 import matplotlib.pyplot as plt
 
-from scipy.integrate import odeint
-from numpy.linalg import norm
+from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
-from utils import interpV, interpM, ddt
-from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
-#from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
-
-
-# ##################
-# SOLUTION DOMAIN:
-# ##################
-
-def calcLamDotGrad(lam,t,tVec,fxInv,phixInv):
-    fxt = interpV(t,tVec,fxInv)
-    phixt = interpM(t,tVec,phixInv)
-
-    return phixt.dot(lam) - fxt
-
-def calcADotGrad(A,t,tVec,phixVec,phiuVec,phipVec,B,C):
-    phixt = interpM(t,tVec,phixVec)
-    phiut = interpM(t,tVec,phiuVec)
-    phipt = interpM(t,tVec,phipVec)
-    Bt = interpV(t,tVec,B)
-
-    return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C)
+from utils import ddt
 
 def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
     #print("\nIn calcP.")
@@ -121,285 +97,16 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         plt.show()
         
         
-        
         plt.plot(tPlot,vetIP)
         plt.grid(True)
         plt.title("Partially integrated P")
         plt.show()
 
     Pint = P
-    Ppsi = norm(psi)**2
+    Ppsi = psi.transpose().dot(psi)#norm(psi)**2
     P += Ppsi
     #print("P = {:.4E}".format(P)+": P_int = {:.4E}".format(Pint)+", P_psi = {:.4E}".format(Ppsi))
     return P,Pint,Ppsi
-
-def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions):
-    # Q expression from (15)
-
-    N = sizes['N']
-    p = sizes['p']
-    dt = 1.0/(N-1)
-
-    # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-    phix = Grads['phix']
-    phiu = Grads['phiu']
-    phip = Grads['phip']
-    fx = Grads['fx']
-    fu = Grads['fu']
-    fp = Grads['fp']
-    psix = Grads['psix']
-    #psip = Grads['psip']
-    dlam = ddt(sizes,lam)
-    Qx = 0.0
-    Qu = 0.0
-    Qp = 0.0
-    Qt = 0.0
-    Q = 0.0
-    auxVecIntQ = numpy.zeros(p)
-    isnan = 0
-    for k in range(1,N-1):
-#        dlam[k,:] = lam[k,:]-lam[k-1,:]
-        Qx += norm(dlam[k,:] - fx[k,:] + phix[k,:,:].transpose().dot(lam[k,:]))**2
-        Qu += norm(fu[k,:]-phiu[k,:,:].transpose().dot(lam[k,:]))**2
-        auxVecIntQ += fp[k,:] - phip[k,:,:].transpose().dot(lam[k,:])
-        if numpy.math.isnan(Qx) or numpy.math.isnan(Qu):
-            isnan+=1
-            if isnan == 1:
-                print("k_nan=",k)
-   #
-    Qx += .5*(norm(dlam[0,:] - fx[0,:] + phix[0,:,:].transpose().dot(lam[0,:]))**2)
-    Qx += .5*(norm(dlam[N-1,:] - fx[N-1,:] + phix[N-1,:,:].transpose().dot(lam[N-1,:]))**2)
-
-    Qu += .5*norm(fu[0,:]-phiu[0,:,:].transpose().dot(lam[0,:]))**2
-    Qu += .5*norm(fu[N-1,:]-phiu[N-1,:,:].transpose().dot(lam[N-1,:]))**2
-
-    Qx *= dt
-    Qu *= dt
-
-    auxVecIntQ += .5*(fp[0,:] - phip[0,:,:].transpose().dot(lam[0,:]))
-    auxVecIntQ += .5*(fp[N-1,:] - phip[N-1,:,:].transpose().dot(lam[N-1,:]))
-
-    auxVecIntQ *= dt
-    Qp = norm(auxVecIntQ)
-    Qt = norm(lam[N-1,:] + psix.transpose().dot(mu))
-#"Qx =",Qx)
-
-    Q = Qx + Qu + Qp + Qt
-    print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+", Qt = {:.4E}".format(Qt))
-
-    return Q
-
-def calcStepGrad(x,u,pi,lam,mu,A,B,C,restrictions):
-
-    # "Trissection" method
-    alfa = 1.0
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-
-    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
-    nQ = .9*oldQ
-#    print("Q =",Q)
-    alfaMin = 0.0
-    alfaMax = 1.0
-    cont = 0
-    while (nQ-oldQ)/oldQ < -.05 and cont < 5:
-        oldQ = nQ
-
-        dalfa = (alfaMax-alfaMin)/3.0
-        alfaList = numpy.array([alfaMin,alfaMin+dalfa,alfaMax-dalfa,alfaMax])
-        QList = numpy.empty(numpy.shape(alfaList))
-
-        for j in range(4):
-            alfa = alfaList[j]
-
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-
-            Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
-            QList[j] = Q
-        #
-        print("QList:",QList)
-        minQ = QList[0]
-        indxMinQ = 0
-
-        for j in range(1,4):
-            if QList[j] < minQ:
-                indxMinQ = j
-                minQ = QList[j]
-        #
-
-        alfa = alfaList[indxMinQ]
-        nQ = QList[indxMinQ]
-        print("nQ =",nQ)
-        if indxMinQ == 0:
-            alfaMin = alfaList[0]
-            alfaMax = alfaList[1]
-        elif indxMinQ == 1:
-            if QList[0] < QList[2]:
-                alfaMin = alfaList[0]
-                alfaMax = alfaList[1]
-            else:
-                alfaMin = alfaList[1]
-                alfaMax = alfaList[2]
-        elif indxMinQ == 2:
-            if QList[1] < QList[3]:
-                alfaMin = alfaList[1]
-                alfaMax = alfaList[2]
-            else:
-                alfaMin = alfaList[2]
-                alfaMax = alfaList[3]
-        elif indxMinQ == 3:
-            alfaMin = alfaList[2]
-            alfaMax = alfaList[3]
-
-        cont+=1
-    #
-
-    return .5*(alfaMin+alfaMax)
-
-def grad(sizes,x,u,pi,t,Q0,restrictions):
-    print("In grad.")
-
-    print("Q0 =",Q0)
-    # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
-    # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-
-    phix = Grads['phix']
-    phiu = Grads['phiu']
-    phip = Grads['phip']
-    fx = Grads['fx']
-    fu = Grads['fu']
-    fp = Grads['fp']
-    psix = Grads['psix']
-    psip = Grads['psip']
-    dt = Grads['dt']
-
-    # prepare time reversed/transposed versions of the arrays
-    psixTr = psix.transpose()
-    fxInv = fx.copy()
-    phixInv = phix.copy()
-    phiuTr = numpy.empty((N,m,n))
-    phipTr = numpy.empty((N,p,n))
-    for k in range(N):
-        fxInv[k,:] = fx[N-k-1,:]
-        phixInv[k,:,:] = phix[N-k-1,:,:].transpose()
-        phiuTr[k,:,:] = phiu[k,:,:].transpose()
-        phipTr[k,:,:] = phip[k,:,:].transpose()
-    psipTr = psip.transpose()
-
-    # Prepare array mu and arrays for linear combinations of A,B,C,lam
-    mu = numpy.zeros(q)
-    M = numpy.ones((q+1,q+1))
-
-    arrayA = numpy.empty((q+1,N,n))
-    arrayB = numpy.empty((q+1,N,m))
-    arrayC = numpy.empty((q+1,p))
-    arrayL = arrayA.copy()
-    arrayM = numpy.empty((q+1,q))
-
-    for i in range(q+1):
-        mu = 0.0*mu
-        if i<q:
-            mu[i] = 1.0
-
-        #print("mu =",mu)
-        # integrate equation (38) backwards for lambda
-        auxLamInit = - psixTr.dot(mu)
-        
-        #auxLam = numpy.empty((N,n))
-        #auxLam[0,:] = auxLamInit
-        #for k in range(N-1):
-        #    auxLam[k+1,:] = auxLam[k,:] + dt*(phixInv[k,:,:].dot(auxLam[k-1,:]))
-        
-        auxLam = odeint(calcLamDotGrad,auxLamInit,t,args=(t,fxInv, phixInv))
-
-        # Calculate B
-        B = -fu
-        lam = auxLam.copy()
-        for k in range(N):
-            lam[k,:] = auxLam[N-k-1,:]
-            B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
-
-        # Calculate C
-        C = numpy.zeros(p)
-        for k in range(1,N-1):
-            C += fp[k,:] - phipTr[k,:,:].dot(lam[k,:])
-        C += .5*(fp[0,:] - phipTr[0,:,:].dot(lam[0,:]))
-        C += .5*(fp[N-1,:] - phipTr[N-1,:,:].dot(lam[N-1,:]))
-        C *= -dt
-        C -= -psipTr.dot(mu)
-
-#        plt.plot(t,B)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("B")
-#        plt.show()
-#
-        # integrate diff equation for A
-#        A = numpy.zeros((N,n))
-#        for k in range(N-1):
-#            A[k+1,:] = A[k,:] + dt*(phix[k,:,:].dot(A[k,:]) +  \
-#                                    phiu[k,:,:].dot(B[k,:]) + \
-#                                    phip[k,:].dot(C[k,:]))
-
-        A = odeint(calcADotGrad,numpy.zeros(n),t, args=(t,phix,phiu,phip,B,C))
-
-#        plt.plot(t,A)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("A")
-#        plt.show()
-
-        arrayA[i,:,:] = A
-        arrayB[i,:,:] = B
-        arrayC[i,:] = C
-        arrayL[i,:,:] = lam
-        arrayM[i,:] = mu
-        M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
-    #
-
-    # Calculations of weights k:
-
-    col = numpy.zeros(q+1)
-    col[0] = 1.0
-    K = numpy.linalg.solve(M,col)
-    print("K =",K)
-
-    # summing up linear combinations
-    A = 0.0*A
-    B = 0.0*B
-    C = 0.0*C
-    lam = 0.0*lam
-    mu = 0.0*mu
-    for i in range(q+1):
-        A += K[i]*arrayA[i,:,:]
-        B += K[i]*arrayB[i,:,:]
-        C += K[i]*arrayC[i,:]
-        lam += K[i]*arrayL[i,:,:]
-        mu += K[i]*arrayM[i,:]
-
-    # Calculation of alfa
-    alfa = calcStepGrad(x,u,pi,lam,mu,A,B,C,restrictions)
-
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
-
-    print("Leaving grad with alfa =",alfa)
-
-    return nx,nu,np,lam,mu,Q
-
 
 def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     
@@ -495,7 +202,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
 
     dt = Grads['dt']
-#    dt6 = dt/6
+    dt6 = dt/6
     phix = Grads['phix']
     phiu = Grads['phiu']
     phip = Grads['phip']
@@ -542,24 +249,31 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             # integrate equation (75-2) backwards
             auxLamInit = - psixTr.dot(mu)
 
-    
+            
             auxLam = numpy.empty((N,n))
             auxLam[0,:] = auxLamInit
+            
+            # Euler's method
             for k in range(N-1):
-                derk = phixInv[k,:,:].dot(auxLam[k,:])
-                aux = auxLam[k,:] + dt*derk
-                auxLam[k+1,:] = auxLam[k,:] + \
-                                .5*dt*(derk + phixInv[k+1,:,:].dot(aux))
-
+                auxLam[k+1,:] = auxLam[k,:] + dt * phixInv[k,:,:].dot(auxLam[k,:])
+            
+            # Heun's method
 #            for k in range(N-1):
-#                phixInv_k = phixInv[k,:,:]
-#                phixInv_kp1 = phixInv[k+1,:,:]
-#                phixInv_kpm = .5*(phixInv_k+phixInv_kp1)
-#                k1 = phixInv_k.dot(auxLam[k,:])  
-#                k2 = phixInv_kpm.dot(auxLam[k,:]+.5*dt*k1)  
-#                k3 = phixInv_kpm.dot(auxLam[k,:]+.5*dt*k2)
-#                k4 = phixInv_kp1.dot(auxLam[k,:]+dt*k3)  
-#                auxLam[k+1,:] = auxLam[k,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
+#                derk = phixInv[k,:,:].dot(auxLam[k,:])
+#                aux = auxLam[k,:] + dt*derk
+#                auxLam[k+1,:] = auxLam[k,:] + \
+#                                .5*dt*(derk + phixInv[k+1,:,:].dot(aux))
+
+            # RK4 method (with interpolation...)
+#            for k in range(N-1):
+#               phixInv_k = phixInv[k,:,:]
+#               phixInv_kp1 = phixInv[k+1,:,:]
+#               phixInv_kpm = .5*(phixInv_k+phixInv_kp1)
+#               k1 = phixInv_k.dot(auxLam[k,:])  
+#               k2 = phixInv_kpm.dot(auxLam[k,:]+.5*dt*k1)  
+#               k3 = phixInv_kpm.dot(auxLam[k,:]+.5*dt*k2)
+#               k4 = phixInv_kp1.dot(auxLam[k,:]+dt*k3)  
+#               auxLam[k+1,:] = auxLam[k,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
     
             # equation for Bi (75-3)
             B = numpy.empty((N,m))
@@ -568,6 +282,24 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
                 lam[k,:] = auxLam[N-k-1,:]                    
                 B[k,:] = phiuTr[k,:,:].dot(lam[k,:])
             
+            
+            ##################################################################
+            # TESTING LAMBDA DIFFERENTIAL EQUATION
+            
+            dlam = ddt(sizes,lam)
+            erroLam = numpy.empty((N,n))
+            for k in range(N):
+                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
+            print("\nLambda Error:")
+            optPlot['mode'] = 'states:LambdaError'
+            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                    constants,restrictions,optPlot)
+            optPlot['mode'] = 'states:LambdaError (zoom)'
+            N1 = 20
+            plotSol(sizes,t[0:N1],erroLam[0:N1,:],numpy.zeros((N1,m)),\
+                    numpy.zeros(p),constants,restrictions,optPlot)
+            
+            ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
             lam *= scal
             mu *= scal
@@ -687,7 +419,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 
     optPlot['mode'] = 'var'
     plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'states: lambda'
+    optPlot['mode'] = 'proposed (states: lambda)'
     plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
@@ -778,6 +510,7 @@ def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
     n = sizes['n']
     m = sizes['m']
     p = sizes['p']
+    q = sizes['q']
 
     #print("Calc phi...")
     # calculate phi and psi
@@ -792,7 +525,7 @@ def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
     dt = Grads['dt']
     phix = Grads['phix']
     
-    lam = 0*x        
+    lam = 0*x; mu = numpy.zeros(q)        
     B = numpy.zeros((N,m))
     C = numpy.zeros(p)
 
@@ -814,132 +547,3 @@ def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
 
     print("Leaving oderest with alfa =",alfa)
     return nx,u,pi,lam,mu
-
-# ##################
-# MAIN SEGMENT:
-# ##################
-if __name__ == "__main__":
-    print('--------------------------------------------------------------------------------')
-    print('\nThis is SGRA_SIMPLE_ROCKET_ALT.py!')
-    print(datetime.datetime.now())
-    print('\n')
-    
-    opt = dict()
-    opt['initMode'] = 'extSol'#'default'#'extSol'
-
-    # declare problem:
-    sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
-
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    psi = calcPsi(sizes,x,boundary)
-#    phix = Grads['phix']
-#    phiu = Grads['phiu']
-#    psix = Grads['psix']
-#    psip = Grads['psip']
-
-    print("\nProposed initial guess:\n")
-
-    P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
-    print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
-    optPlot = dict()
-    optPlot['P'] = P
-    optPlot['Q'] = Q
-    optPlot['mode'] = 'sol'
-    optPlot['dispP'] = True
-    optPlot['dispQ'] = False
-    plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-
-    psi = calcPsi(sizes,x,boundary)
-    print("psi =",psi)
-    #input("Everything ok?")
-
-    tolP = tol['P']
-    tolQ = tol['Q']
-
-    MaxIterRest = 10000
-    histP = numpy.zeros(MaxIterRest)
-    histPint = histP.copy()
-    histPpsi = histP.copy()
-    uman = numpy.linspace(0,MaxIterRest,MaxIterRest+1) #um a n
-
-    # first restoration rounds:
-    NIterRest = 0
-    #mustOdeRest = True
-    nOdeRest = 0#10
-    histP[0] = P; histPint[0] = Pint; histPpsi[0] = Ppsi
-    print("\nBeginning first restoration rounds...\n")
-    while P > tolP and NIterRest < MaxIterRest:
-        NIterRest += 1
-
-#        if Ppsi/Pint < 1e-5:
-#            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#        else:
-#            x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)
-        
-#        if nOdeRest>0: #Pint > 1e-5:#NIterRest % 3 == 0:
-#            x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#            nOdeRest-=1
-#            if nOdeRest==0:
-#                print("Back to normal restoration.\n")
-#        else: 
-#            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#            if Ppsi/Pint < 1e-5:
-#                nOdeRest = 100
-#                print("Ready for fast restoration!\n")
-
-        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
-#        x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
-
-        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
-        optPlot['P'] = P
-        histP[NIterRest] = P
-        histPint[NIterRest] = Pint
-        histPpsi[NIterRest] = Ppsi
-
-        #if NIterRest % 50 == 0:
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-        
-        plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
-        plt.hold(True)
-        plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
-        plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
-        plt.grid()
-        plt.title("Convergence of P. black: P_int, red: P_psi, blue: P")
-        plt.ylabel("P")
-        plt.xlabel("Iterations")
-        plt.show()
-    
- #           print("\a")
-#            time.sleep(.2)
-        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-        psi = calcPsi(sizes,x,boundary)
-        print("psi =",psi)
-        #    print(datetime.datetime.now())
-        print("\a So far, so good?")
-#            time.sleep(0.2)
-        #    print("\a")
-        #time.sleep(5.0)
-        input("\nPress any key to continue...")
-
-    print("\nAfter first rounds of restoration:")
-    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
-    optPlot['Q'] = Q; optPlot['dispQ'] = True
-    plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-
-    # Gradient rounds:
-    while Q > tolQ:
-        while P > tolP:
-            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-            P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
-            optPlot['P'] = P
-            plotSol(sizes,t,x,u,pi,constants,restrictions, optPlot)
-        #
-        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
-        optPlot['Q'] = Q
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-    #
-#
