@@ -10,6 +10,7 @@ import numpy
 import matplotlib.pyplot as plt
 
 from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
+#from prob_test import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
 
@@ -62,39 +63,41 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         plt.title("Integrand of P (zoom)")
         plt.show()
         
-        print("\nStates and controls on the region of maxP:")
-#        plt.subplot2grid((8,4),(0,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
-        plt.grid(True)
-        plt.ylabel("h [km]")
-        plt.show()        
-#        plt.subplot2grid((8,4),(1,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-        plt.grid(True)
-        plt.ylabel("V [km/s]")
-        plt.show()
-#        plt.subplot2grid((8,4),(2,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-        plt.grid(True)
-        plt.ylabel("gamma [deg]")
-        plt.show()
-#        plt.subplot2grid((8,4),(3,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-        plt.grid(True)
-        plt.ylabel("m [kg]")
-        plt.show()
-#        plt.subplot2grid((8,4),(4,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-        plt.grid(True)
-        plt.ylabel("u1 [-]")
-        plt.show()
-#        plt.subplot2grid((8,4),(5,0),colspan=5)
-        plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-        plt.grid(True)
-        plt.xlabel("t")
-        plt.ylabel("u2 [-]")
-#        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.show()
+        n = sizes['n']; m = sizes['m']
+        if n==4 and m==2:
+            print("\nStates and controls on the region of maxP:")
+
+            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
+            plt.grid(True)
+            plt.ylabel("h [km]")
+            plt.show()        
+    
+            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("V [km/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
+            plt.grid(True)
+            plt.ylabel("gamma [deg]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
+            plt.grid(True)
+            plt.ylabel("m [kg]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
+            plt.grid(True)
+            plt.xlabel("t")
+            plt.ylabel("u2 [-]")
+    
+            plt.show()
         
         
         plt.plot(tPlot,vetIP)
@@ -202,7 +205,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
 
     dt = Grads['dt']
-    dt6 = dt/6
+    #dt6 = dt/6
     phix = Grads['phix']
     phiu = Grads['phiu']
     phip = Grads['phip']
@@ -244,7 +247,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         print("\nIntegrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0
+            mu[i] = 1.0e-10
 
             # integrate equation (75-2) backwards
             auxLamInit = - psixTr.dot(mu)
@@ -253,16 +256,21 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             auxLam = numpy.empty((N,n))
             auxLam[0,:] = auxLamInit
             
-            # Euler's method
+            # Euler implicit
+            I = numpy.eye(n)
             for k in range(N-1):
-                auxLam[k+1,:] = auxLam[k,:] + dt * phixInv[k,:,:].dot(auxLam[k,:])
+                auxLam[k+1,:] = numpy.linalg.solve(I-dt*phixInv[k+1,:],auxLam[k,:])
+            
+            # Euler's method
+#            for k in range(N-1):
+#                auxLam[k+1,:] = auxLam[k,:] + dt * phixInv[k,:,:].dot(auxLam[k,:])
             
             # Heun's method
-#            for k in range(N-1):
-#                derk = phixInv[k,:,:].dot(auxLam[k,:])
-#                aux = auxLam[k,:] + dt*derk
-#                auxLam[k+1,:] = auxLam[k,:] + \
-#                                .5*dt*(derk + phixInv[k+1,:,:].dot(aux))
+            #for k in range(N-1):
+            #    derk = phixInv[k,:,:].dot(auxLam[k,:])
+            #    aux = auxLam[k,:] + dt*derk
+            #    auxLam[k+1,:] = auxLam[k,:] + \
+            #                    .5*dt*(derk + phixInv[k+1,:,:].dot(aux))
 
             # RK4 method (with interpolation...)
 #            for k in range(N-1):
@@ -288,16 +296,29 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             
             dlam = ddt(sizes,lam)
             erroLam = numpy.empty((N,n))
+            normErroLam = numpy.empty(N)
             for k in range(N):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
             print("\nLambda Error:")
             optPlot['mode'] = 'states:LambdaError'
             plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
                     constants,restrictions,optPlot)
             optPlot['mode'] = 'states:LambdaError (zoom)'
-            N1 = 20
-            plotSol(sizes,t[0:N1],erroLam[0:N1,:],numpy.zeros((N1,m)),\
+            N1 = 0#int(N/100)-10
+            N2 = 20##N1+20
+            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
                     numpy.zeros(p),constants,restrictions,optPlot)
+
+            plt.semilogy(normErroLam)
+            plt.grid()
+            plt.title("ErroLam")
+            plt.show()
+            
+            plt.semilogy(normErroLam[N1:N2])
+            plt.grid()
+            plt.title("ErroLam (zoom)")
+            plt.show()
             
             ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
@@ -319,7 +340,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
             
             optPlot['mode'] = 'states:Lambda (zoom)'
-            plotSol(sizes,t[0:10],lam[0:10,:],B[0:10,:],C,constants,restrictions,optPlot)
+            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
             
             
             #print("Integrating ODE for A ["+str(i)+"/"+str(q)+"] ...")

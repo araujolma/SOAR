@@ -69,7 +69,7 @@ def calcXdot(sizes,x,u,constants,restrictions):
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 20000+1#5000000 + 1 #1000 + 1#
+    N = 20000+1#20000+1#5000000 + 1 #1000 + 1#
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -89,7 +89,7 @@ def declProb(opt=dict()):
     n = 4
     m = 2
     p = 1
-    q = 3  # (Miele 1970)  # 7 (Miele 2003)
+    q = 3
 
 # Earth constants
     r_e = 6371.0           # km
@@ -113,7 +113,7 @@ def declProb(opt=dict()):
     beta_max = 1
 
 # tolerances
-    tolP = 1.0e-8
+    tolP = 1.0e-7#8
     tolQ = 1.0e-5
 
 # prepare boundary conditions
@@ -328,9 +328,6 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     sinGama = sin(x[:,2])
     phi[:,0] = pi[0] * x[:,1] * sinGama
     phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
-#    phi[0,2] = 0.0
-#    for k in range(0,N):
-#        phi[k,2] = pi[0] * ((beta[k] * Thrust * sin(alpha[k]) + L[k])/(x[k,3] * x[k,1]) + cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
     phi[:,2] = pi[0] * ((beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] ))
     phi[0,2] = 0.0
     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
@@ -465,12 +462,12 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         # Expanded notation:
         DAlfaDu1 = aExp*cosu1
         DBetaDu2 = bExp*cosu2
-        if k<10:
+        if k<int(N/100):# 1:#
             phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
                                        [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
                                        [0.0                                                  ,0.0                       ,0.0               ,0.0      ],
                                        [0.0                                                  ,0.0                       ,0.0               ,0.0      ]])
-
+        
             phiu[k,:,:] = pi[0]*array([[0.0                                  ,0.0                          ],
                                        [-beta[k]*Thrust*sinAlpha*DAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
                                        [0.0                                  ,0.0                          ],

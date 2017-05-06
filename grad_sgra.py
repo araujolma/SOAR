@@ -13,7 +13,7 @@ from numpy.linalg import norm
 #from utils_alt import ddt
 from utils import interpV, interpM, ddt
 from prob_rocket_sgra import calcGrads
-#from prob_test import declProb, calcPsi, calcGrads, plotSol
+#from prob_test import calcGrads
 
 
 

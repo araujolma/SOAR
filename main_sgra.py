@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
-    input("Everything ok?")
+    #input("Everything ok?")
 
     tolP = tol['P']
     tolQ = tol['Q']
@@ -123,8 +123,9 @@ if __name__ == "__main__":
         print("\a So far, so good?")
 #            time.sleep(0.2)
         #    print("\a")
-        #time.sleep(5.0)
-        input("\nPress any key to continue...")
+        #
+        time.sleep(5.0)
+       # input("\nPress any key to continue...")
 
     print("\nAfter first rounds of restoration:")
     Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
