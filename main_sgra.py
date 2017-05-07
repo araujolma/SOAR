@@ -39,9 +39,10 @@ if __name__ == "__main__":
 #    psix = Grads['psix']
 #    psip = Grads['psip']
 
+    print("##################################################################")
     print("\nProposed initial guess:\n")
 
-    P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+    P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
     print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
               ", Ppsi = {:.4E}".format(Ppsi)+"\n")
     Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
@@ -55,6 +56,7 @@ if __name__ == "__main__":
 
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
+    print("##################################################################")
     #input("Everything ok?")
 
     tolP = tol['P']
@@ -91,57 +93,60 @@ if __name__ == "__main__":
 #                nOdeRest = 100
 #                print("Ready for fast restoration!\n")
 
-        x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
-#        x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
+        x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
+#        x,u,pi,lamR,muR = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
 
-        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
+        print("> P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+          ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         histP[NIterRest] = P
         histPint[NIterRest] = Pint
-        histPpsi[NIterRest] = Ppsi
-
-        #if NIterRest % 50 == 0:
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-        
-        plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
-        plt.hold(True)
-        plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
-        plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
-        plt.grid()
-        plt.title("Convergence of P. black: P_int, red: P_psi, blue: P")
-        plt.ylabel("P")
-        plt.xlabel("Iterations")
-        plt.show()
+        histPpsi[NIterRest] = Ppsi           
+            
+    print("\nConvergence report:")
     
+    plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
+    plt.hold(True)
+    plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
+    plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
+    plt.grid()
+    plt.title("Convergence of P. black: P_int, red: P_psi, blue: P")
+    plt.ylabel("P")
+    plt.xlabel("Iterations")
+    plt.show()
+
  #           print("\a")
 #            time.sleep(.2)
-        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-        psi = calcPsi(sizes,x,boundary)
-        print("psi =",psi)
-        #    print(datetime.datetime.now())
-        print("\a So far, so good?")
-#            time.sleep(0.2)
-        #    print("\a")
-        #
-        time.sleep(5.0)
-       # input("\nPress any key to continue...")
 
     print("\nAfter first rounds of restoration:")
-    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
+    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,True)
     optPlot['Q'] = Q; optPlot['dispQ'] = True
     plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+    print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+          ", Ppsi = {:.4E}".format(Ppsi)+"\n")
+    psi = calcPsi(sizes,x,boundary)
+    print("psi =",psi)
 
+#    input("Ok?")
+    print("\n################################################################")
+    print("\a")
+    print("\nBeginning gradient rounds...")
+    
     # Gradient rounds:
     while Q > tolQ:
         while P > tolP:
-            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+            x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
             P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
             optPlot['P'] = P
-            plotSol(sizes,t,x,u,pi,constants,restrictions, optPlot)
+            plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         #
-        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,restrictions)
+        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,restrictions)
         optPlot['Q'] = Q
+        P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+        optPlot['P'] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+        print("\a")
+        input("So far so good?")
     #
 #

@@ -7,12 +7,13 @@ Created on Wed May  3 18:27:55 2017
 """
 
 import numpy
+import matplotlib.pyplot as plt
 
 from scipy.integrate import odeint
 from numpy.linalg import norm
 #from utils_alt import ddt
 from utils import interpV, interpM, ddt
-from prob_rocket_sgra import calcGrads
+from prob_rocket_sgra import calcGrads, plotSol
 #from prob_test import calcGrads
 
 
@@ -31,10 +32,12 @@ def calcADotGrad(A,t,tVec,phixVec,phiuVec,phipVec,B,C):
 
     return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C)
 
-def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions):
+def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     # Q expression from (15)
 
     N = sizes['N']
+    n = sizes['n']
+    m = sizes['m']
     p = sizes['p']
     dt = 1.0/(N-1)
 
@@ -47,56 +50,117 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions):
     fu = Grads['fu']
     fp = Grads['fp']
     psix = Grads['psix']
-    #psip = Grads['psip']
+    psip = Grads['psip']
     dlam = ddt(sizes,lam)
     Qx = 0.0
     Qu = 0.0
     Qp = 0.0
     Qt = 0.0
     Q = 0.0
-    auxVecIntQ = numpy.zeros(p)
-    isnan = 0
-    for k in range(1,N-1):
-#        dlam[k,:] = lam[k,:]-lam[k-1,:]
-        Qx += norm(dlam[k,:] - fx[k,:] + phix[k,:,:].transpose().dot(lam[k,:]))**2
-        Qu += norm(fu[k,:]-phiu[k,:,:].transpose().dot(lam[k,:]))**2
-        auxVecIntQ += fp[k,:] - phip[k,:,:].transpose().dot(lam[k,:])
-        if numpy.math.isnan(Qx) or numpy.math.isnan(Qu):
-            isnan+=1
-            if isnan == 1:
-                print("k_nan=",k)
-   #
-    Qx += .5*(norm(dlam[0,:] - fx[0,:] + phix[0,:,:].transpose().dot(lam[0,:]))**2)
-    Qx += .5*(norm(dlam[N-1,:] - fx[N-1,:] + phix[N-1,:,:].transpose().dot(lam[N-1,:]))**2)
-
-    Qu += .5*norm(fu[0,:]-phiu[0,:,:].transpose().dot(lam[0,:]))**2
-    Qu += .5*norm(fu[N-1,:]-phiu[N-1,:,:].transpose().dot(lam[N-1,:]))**2
-
+    auxVecIntQp = numpy.zeros(p)
+    
+    errQx = numpy.empty((N,n)); normErrQx = numpy.empty(N)
+    errQu = numpy.empty((N,m)); normErrQu = numpy.empty(N)
+    errQp = numpy.empty((N,p)); #normErrQp = numpy.empty(N)
+    
+    for k in range(N):
+        errQx[k,:] = dlam[k,:] - fx[k,:] + phix[k,:,:].transpose().dot(lam[k,:])
+        errQu[k,:] = fu[k,:]-phiu[k,:,:].transpose().dot(lam[k,:])
+        errQp[k,:] = fp[k,:] - phip[k,:,:].transpose().dot(lam[k,:])
+        
+        normErrQx[k] = errQx[k,:].transpose().dot(errQx[k,:])
+        normErrQu[k] = errQu[k,:].transpose().dot(errQu[k,:])
+        
+        Qx += normErrQx[k]
+        Qu += normErrQu[k]
+        auxVecIntQp += errQp[k,:]
+    #
+    Qx -= .5*(normErrQx[0]+normErrQx[N-1])
+    Qu -= .5*(normErrQu[0]+normErrQu[N-1])
     Qx *= dt
     Qu *= dt
 
-    auxVecIntQ += .5*(fp[0,:] - phip[0,:,:].transpose().dot(lam[0,:]))
-    auxVecIntQ += .5*(fp[N-1,:] - phip[N-1,:,:].transpose().dot(lam[N-1,:]))
+    auxVecIntQp -= .5*(errQp[0,:]+errQp[N-1,:])
+    auxVecIntQp *= dt
+    
+    auxVecIntQp += psip.transpose().dot(mu)
 
-    auxVecIntQ *= dt
-    Qp = norm(auxVecIntQ)
+    Qp = auxVecIntQp.transpose().dot(auxVecIntQp)
     Qt = norm(lam[N-1,:] + psix.transpose().dot(mu))
-#"Qx =",Qx)
 
     Q = Qx + Qu + Qp + Qt
     print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+", Qt = {:.4E}".format(Qt))
+
+    if mustPlot:
+        tPlot = numpy.arange(0,1.0+dt,dt)
+        
+        plt.plot(tPlot,normErrQx)
+        plt.grid(True)
+        plt.title("Integrand of Qx")
+        plt.show()
+        
+        plt.plot(tPlot,normErrQu)
+        plt.grid(True)
+        plt.title("Integrand of Qu")
+        plt.show()
+
+        # for zoomed version:
+#        indMaxP = vetP.argmax()
+#        ind1 = numpy.array([indMaxP-10,0]).max()
+#        ind2 = numpy.array([indMaxP+10,N-1]).min()
+#        plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
+#        plt.grid(True)
+#        plt.title("Integrand of P (zoom)")
+#        plt.show()
+        
+#        n = sizes['n']; m = sizes['m']
+#        if n==4 and m==2:
+#            print("\nStates and controls on the region of maxP:")#
+#
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
+#            plt.grid(True)
+#            plt.ylabel("h [km]")
+#            plt.show()        
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
+#            plt.grid(True)
+#            plt.ylabel("V [km/s]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
+#            plt.grid(True)
+#            plt.ylabel("gamma [deg]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
+#            plt.grid(True)
+#            plt.ylabel("m [kg]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
+#            plt.grid(True)
+#            plt.ylabel("u1 [-]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
+#            plt.grid(True)
+#            plt.xlabel("t")
+#            plt.ylabel("u2 [-]")
+#    
+#            plt.show()
 
     return Q
 
 def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
 
+    print("\nIn calcStepGrad.\n")
     # "Trissection" method
     alfa = 1.0
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
 
-    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
+    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
     nQ = .9*oldQ
 #    print("Q =",Q)
     alfaMin = 0.0
@@ -197,6 +261,8 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
 
     # Prepare array mu and arrays for linear combinations of A,B,C,lam
     mu = numpy.zeros(q)
+    auxLam = 0*x
+    lam = 0*x
     M = numpy.ones((q+1,q+1))
 
     arrayA = numpy.empty((q+1,N,n))
@@ -205,64 +271,112 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
     arrayL = arrayA.copy()
     arrayM = numpy.empty((q+1,q))
 
+    optPlot = dict()
     for i in range(q+1):
+        
+        print("Integrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
+        
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0
+            mu[i] = 1.0e-10
 
-        #print("mu =",mu)
+
         # integrate equation (38) backwards for lambda
-        auxLamInit = - psixTr.dot(mu)
+        auxLam[0,:] = - psixTr.dot(mu)
+        # Euler implicit
+        I = numpy.eye(n)
+        for k in range(N-1):
+            auxLam[k+1,:] = numpy.linalg.solve(I-dt*phixInv[k+1,:],\
+                  auxLam[k,:]-fxInv[k,:]*dt)
+        #
         
         #auxLam = numpy.empty((N,n))
         #auxLam[0,:] = auxLamInit
         #for k in range(N-1):
         #    auxLam[k+1,:] = auxLam[k,:] + dt*(phixInv[k,:,:].dot(auxLam[k-1,:]))
         
-        auxLam = odeint(calcLamDotGrad,auxLamInit,t,args=(t,fxInv, phixInv))
 
         # Calculate B
         B = -fu
-        lam = auxLam.copy()
         for k in range(N):
             lam[k,:] = auxLam[N-k-1,:]
             B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
 
+
+        ##################################################################
+        # TESTING LAMBDA DIFFERENTIAL EQUATION
+        if i<q: #otherwise, there's nothing to test here...
+            dlam = ddt(sizes,lam)
+            erroLam = numpy.empty((N,n))
+            normErroLam = numpy.empty(N)
+            for k in range(N):
+                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+            print("\nLambda Error:")
+            optPlot['mode'] = 'states:LambdaError'
+            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                    constants,restrictions,optPlot)
+    #            optPlot['mode'] = 'states:LambdaError (zoom)'
+    #            N1 = 0#int(N/100)-10
+    #            N2 = 20##N1+20
+    #            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+    #                    numpy.zeros(p),constants,restrictions,optPlot)
+    #
+            plt.semilogy(normErroLam)
+            plt.grid()
+            plt.title("ErroLam")
+            plt.show()
+    #            
+    #            plt.semilogy(normErroLam[N1:N2])
+    #            plt.grid()
+    #            plt.title("ErroLam (zoom)")
+    #            plt.show()
+        
+        ##################################################################            
+        
+#        scal = 1.0/((numpy.absolute(B)).max())
+#        lam *= scal
+#        mu *= scal
+#        B *= scal
+        
         # Calculate C
         C = numpy.zeros(p)
         for k in range(1,N-1):
             C += fp[k,:] - phipTr[k,:,:].dot(lam[k,:])
         C += .5*(fp[0,:] - phipTr[0,:,:].dot(lam[0,:]))
         C += .5*(fp[N-1,:] - phipTr[N-1,:,:].dot(lam[N-1,:]))
-        C *= -dt
+        C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
 
-#        plt.plot(t,B)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("B")
-#        plt.show()
-#
+
+        optPlot['mode'] = 'states:Lambda'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+
         # integrate diff equation for A
-#        A = numpy.zeros((N,n))
-#        for k in range(N-1):
-#            A[k+1,:] = A[k,:] + dt*(phix[k,:,:].dot(A[k,:]) +  \
-#                                    phiu[k,:,:].dot(B[k,:]) + \
-#                                    phip[k,:].dot(C[k,:]))
-
-        A = odeint(calcADotGrad,numpy.zeros(n),t, args=(t,phix,phiu,phip,B,C))
-
-#        plt.plot(t,A)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("A")
-#        plt.show()
-
+        A = numpy.zeros((N,n))
+        for k in range(N-1):
+            derk = phix[k,:,:].dot(A[k,:]) + phiu[k,:,:].dot(B[k,:]) + \
+            phip[k,:,:].dot(C)
+            aux = A[k,:] + dt*derk
+            A[k+1,:] = A[k,:] + .5*dt*(derk + \
+                               phix[k+1,:,:].dot(aux) + \
+                               phiu[k+1,:,:].dot(B[k+1,:]) + \
+                               phip[k+1,:,:].dot(C))
+                
+        #A = numpy.zeros((N,n))
+        #for k in range(N-1):
+        #    A[k+1,:] = A[k,:] + dt*(phix[k,:,:].dot(A[k,:]) +  \
+        #                            phiu[k,:,:].dot(B[k,:]) + \
+        #                            phip[k,:].dot(C[k,:]))
         arrayA[i,:,:] = A
         arrayB[i,:,:] = B
         arrayC[i,:] = C
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
+        
+        optPlot['mode'] = 'var'
+        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+
         M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
     #
 
@@ -270,6 +384,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
 
     col = numpy.zeros(q+1)
     col[0] = 1.0
+    
+    print("M =",M)
+    print("col =",col)
     K = numpy.linalg.solve(M,col)
     print("K =",K)
 
@@ -286,8 +403,14 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
+    optPlot['mode'] = 'var'
+    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    optPlot['mode'] = 'proposed (states: lambda)'
+    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+
+
     # Calculation of alfa
-    alfa = calcStepGrad(x,u,pi,lam,mu,A,B,C,restrictions)
+    alfa = calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions)
 
     nx = x + alfa * A
     nu = u + alfa * B

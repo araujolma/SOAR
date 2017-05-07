@@ -112,8 +112,9 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
     return P,Pint,Ppsi
 
 def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
-    
+
     P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+#    print("In calcStepRest, P0 = {:.4E}".format(P0))
     
     alfa = .8
     #print("\nalfa =",alfa)
@@ -123,11 +124,11 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
     
     alfa = 1.0
-    print("\nalfa =",alfa)
+#    print("\nalfa =",alfa)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,True)
+    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,False)
     
     alfa = 1.2
     #print("\nalfa =",alfa)
@@ -140,7 +141,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     if P1 >= P1m or P1 >= P0:
         # alfa = 1.0 is too much. Reduce alfa.
         # TODO: improve this!
-        nP = P1m
+        nP = P1; alfa=1
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
@@ -151,8 +152,8 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             np = pi + alfa * C
             nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
                                    restrictions)
-            print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                  " (P0 = {:.4E})".format(P0))
+#            print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+#                  " (P0 = {:.4E})".format(P0))
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
@@ -173,12 +174,11 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                 np = pi + alfa * C
                 nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
                                    restrictions)
-                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                #      " (P0 = {:.4E})".format(P0))
+ #               print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+ #                     " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P
                 #if nPint < Pint0:
             alfa /= 1.2
-
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
@@ -244,7 +244,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 
     #print("Beginning loop for solutions...")
     for i in range(q+1):
-        print("\nIntegrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
+#        print("\nIntegrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         mu = 0.0*mu
         if i<q:
             mu[i] = 1.0e-10
@@ -294,31 +294,31 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             ##################################################################
             # TESTING LAMBDA DIFFERENTIAL EQUATION
             
-            dlam = ddt(sizes,lam)
-            erroLam = numpy.empty((N,n))
-            normErroLam = numpy.empty(N)
-            for k in range(N):
-                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
-                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
-            print("\nLambda Error:")
-            optPlot['mode'] = 'states:LambdaError'
-            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-                    constants,restrictions,optPlot)
-            optPlot['mode'] = 'states:LambdaError (zoom)'
-            N1 = 0#int(N/100)-10
-            N2 = 20##N1+20
-            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
-                    numpy.zeros(p),constants,restrictions,optPlot)
-
-            plt.semilogy(normErroLam)
-            plt.grid()
-            plt.title("ErroLam")
-            plt.show()
-            
-            plt.semilogy(normErroLam[N1:N2])
-            plt.grid()
-            plt.title("ErroLam (zoom)")
-            plt.show()
+#            dlam = ddt(sizes,lam)
+#            erroLam = numpy.empty((N,n))
+#            normErroLam = numpy.empty(N)
+#            for k in range(N):
+#                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
+#                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+#            print("\nLambda Error:")
+#            optPlot['mode'] = 'states:LambdaError'
+#            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+#                    constants,restrictions,optPlot)
+#            optPlot['mode'] = 'states:LambdaError (zoom)'
+#            N1 = 0#int(N/100)-10
+#            N2 = 20##N1+20
+#            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+#                    numpy.zeros(p),constants,restrictions,optPlot)
+#
+#            plt.semilogy(normErroLam)
+#            plt.grid()
+#            plt.title("ErroLam")
+#            plt.show()
+#            
+#            plt.semilogy(normErroLam[N1:N2])
+#            plt.grid()
+#            plt.title("ErroLam (zoom)")
+#            plt.show()
             
             ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
@@ -336,11 +336,11 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             C *= dt
             C -= -psipTr.dot(mu)
             
-            optPlot['mode'] = 'states:Lambda'
-            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-            
-            optPlot['mode'] = 'states:Lambda (zoom)'
-            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
+#            optPlot['mode'] = 'states:Lambda'
+#            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+#            
+#            optPlot['mode'] = 'states:Lambda (zoom)'
+#            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
             
             
             #print("Integrating ODE for A ["+str(i)+"/"+str(q)+"] ...")
@@ -411,8 +411,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+#        optPlot['mode'] = 'var'
+#        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         
         # Matrix for linear system (89)
@@ -420,10 +420,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     #
 
     # Calculations of weights k:
-    print("M =",M)
-    print("col =",col)
+#    print("M =",M)
+#    print("col =",col)
     K = numpy.linalg.solve(M,col)
-    print("K =",K)
+#    print("K =",K)
 
     # summing up linear combinations
     A = 0.0*A
@@ -438,10 +438,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'proposed (states: lambda)'
-    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+#    optPlot['mode'] = 'var'
+#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+#    optPlot['mode'] = 'proposed (states: lambda)'
+#    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")
@@ -450,7 +450,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     nu = u + alfa * B
     np = pi + alfa * C
 
-    print("Leaving rest with alfa =",alfa)
+#    print("Leaving rest with alfa =",alfa)
     return nx,nu,np,lam,mu
 
 def calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
