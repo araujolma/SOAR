@@ -112,8 +112,9 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
     return P,Pint,Ppsi
 
 def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
-    
+
     P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+#    print("In calcStepRest, P0 = {:.4E}".format(P0))
     
     alfa = .8
     #print("\nalfa =",alfa)
@@ -140,7 +141,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     if P1 >= P1m or P1 >= P0:
         # alfa = 1.0 is too much. Reduce alfa.
         # TODO: improve this!
-        nP = P1m
+        nP = P1; alfa=1
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
@@ -173,12 +174,11 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                 np = pi + alfa * C
                 nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
                                    restrictions)
-                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                #      " (P0 = {:.4E})".format(P0))
+ #               print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+ #                     " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P
                 #if nPint < Pint0:
             alfa /= 1.2
-
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):

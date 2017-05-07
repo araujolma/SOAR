@@ -294,6 +294,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         #auxLam[0,:] = auxLamInit
         #for k in range(N-1):
         #    auxLam[k+1,:] = auxLam[k,:] + dt*(phixInv[k,:,:].dot(auxLam[k-1,:]))
+        
 
         # Calculate B
         B = -fu
@@ -301,10 +302,42 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
             lam[k,:] = auxLam[N-k-1,:]
             B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
 
-        scal = 1.0/((numpy.absolute(B)).max())
-        lam *= scal
-        mu *= scal
-        B *= scal
+
+        ##################################################################
+        # TESTING LAMBDA DIFFERENTIAL EQUATION
+        if i<q: #otherwise, there's nothing to test here...
+            dlam = ddt(sizes,lam)
+            erroLam = numpy.empty((N,n))
+            normErroLam = numpy.empty(N)
+            for k in range(N):
+                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+            print("\nLambda Error:")
+            optPlot['mode'] = 'states:LambdaError'
+            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                    constants,restrictions,optPlot)
+    #            optPlot['mode'] = 'states:LambdaError (zoom)'
+    #            N1 = 0#int(N/100)-10
+    #            N2 = 20##N1+20
+    #            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+    #                    numpy.zeros(p),constants,restrictions,optPlot)
+    #
+            plt.semilogy(normErroLam)
+            plt.grid()
+            plt.title("ErroLam")
+            plt.show()
+    #            
+    #            plt.semilogy(normErroLam[N1:N2])
+    #            plt.grid()
+    #            plt.title("ErroLam (zoom)")
+    #            plt.show()
+        
+        ##################################################################            
+        
+#        scal = 1.0/((numpy.absolute(B)).max())
+#        lam *= scal
+#        mu *= scal
+#        B *= scal
         
         # Calculate C
         C = numpy.zeros(p)
@@ -312,7 +345,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
             C += fp[k,:] - phipTr[k,:,:].dot(lam[k,:])
         C += .5*(fp[0,:] - phipTr[0,:,:].dot(lam[0,:]))
         C += .5*(fp[N-1,:] - phipTr[N-1,:,:].dot(lam[N-1,:]))
-        C *= -dt
+        C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
 
 

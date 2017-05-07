@@ -97,7 +97,7 @@ if __name__ == "__main__":
 #        x,u,pi,lamR,muR = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
 
         P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
-        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+        print("> P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
           ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         histP[NIterRest] = P
@@ -146,5 +146,7 @@ if __name__ == "__main__":
         P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
         optPlot['P'] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+        print("\a")
+        input("So far so good?")
     #
 #
