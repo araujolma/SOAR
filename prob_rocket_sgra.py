@@ -21,7 +21,7 @@ def calcXdot(sizes,x,u,constants,restrictions):
     CL1 = constants['CL1']
     CD0 = constants['CD0']
     CD2 = constants['CD2']
-    s_ref = constants['s_ref']
+    s_ref = constants['s_ref']    
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
     beta_min = restrictions['beta_min']
@@ -105,7 +105,8 @@ def declProb(opt=dict()):
     CD0 = 0.05                    # (A0 Miele 1998)
     CD2 = 0.5                     # (A2 Miele 1998)
     s_ref = numpy.pi*(0.0005)**2  # km^2
-
+    f_scal = 1e-4
+    
  # restrictions
     alpha_min = -2*(numpy.pi)/180  # in rads
     alpha_max = 2*(numpy.pi)/180   # in rads
@@ -147,6 +148,7 @@ def declProb(opt=dict()):
     constants['CD0'] = CD0
     constants['CD2'] = CD2
     constants['s_ref'] = s_ref
+    constants['cost_scaling_factor'] = f_scal
 
 # prepare restrictions
     restrictions = dict()
@@ -356,12 +358,12 @@ def calcF(sizes,x,u,pi,constants,restrictions):
     beta_max = restrictions['beta_max']
     #u1 = u[:,0]
     u2 = u[:,1]
+
     # calculate variable beta
     beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
 
     # example rocket single stage to orbit with Lift and Drag
     f = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * beta
-
     return f
 
 def calcGrads(sizes,x,u,pi,constants,restrictions):
@@ -389,6 +391,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     CD0 = constants['CD0']
     CD2 = constants['CD2']
     s_ref = constants['s_ref']
+    f_scal = constants['cost_scaling_factor']
 
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
@@ -488,8 +491,11 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                             [fVel/m - grav[k]*sinGama                   ],
                             [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V))],
                             [-(beta[k]*Thrust)/(grav_e*Isp)                                       ]])
-
+    
+        #print("fu without scaling = ",fu)
         fu[k,:] = array([0.0,(pi[0]*Thrust*DBetaDu2)/(grav_e * Isp * (1-s_f))])
+        fu *= f_scal
+        #print("fu with scaling = ",fu)
         fp[k,0] = (Thrust * beta[k])/(grav_e * Isp * (1-s_f))
 #==============================================================================
 
@@ -506,11 +512,16 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     return Grads
 
 def calcI(sizes,x,u,pi,constants,restrictions):
-
-    # example rocket single stage to orbit with Lift and Drag
+    N = sizes['N']
+    dt = 1.0/(N-1)
+    I = 0.0
+# example rocket single stage to orbit with Lift and Drag    
     f = calcF(sizes,x,u,pi,constants,restrictions)
-    I = f.sum()
-
+    for t in range(1,N-1):
+        I += f[t]
+    I += 0.5*f[0]
+    I += 0.5*f[N-1]
+    I *= dt        
     return I
 
 def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
