@@ -288,8 +288,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         for k in range(N-1):
             auxLam[k+1,:] = numpy.linalg.solve(I-dt*phixInv[k+1,:],\
                   auxLam[k,:]-fxInv[k,:]*dt)
-        #
-        
+                
         #auxLam = numpy.empty((N,n))
         #auxLam[0,:] = auxLamInit
         #for k in range(N-1):
@@ -298,9 +297,12 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
 
         # Calculate B
         B = -fu
+        print("fu with scaling = ",fu)
         for k in range(N):
-            lam[k,:] = auxLam[N-k-1,:]
+            lam[k,:] = auxLam[N-k-1,:]            
             B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
+        phiuTlam_aux = B + fu
+        print("phiuTr.lambda = ",phiuTlam_aux)
 
 
         ##################################################################
