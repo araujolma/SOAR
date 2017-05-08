@@ -111,7 +111,7 @@ if __name__ == "__main__":
     plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
     plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
     plt.grid()
-    plt.title("Convergence of P. black: P_int, red: P_psi, blue: P")
+    plt.title("==Convergence of P==\n Black: P_int\n Red: P_psi\n Blue: P")
     plt.ylabel("P")
     plt.xlabel("Iterations")
     plt.show()
