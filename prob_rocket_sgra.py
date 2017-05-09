@@ -98,6 +98,7 @@ def declProb(opt=dict()):
 
 # rocket constants
     Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
+    scal = 1.0/2.5e3
     Isp = 450.0                   # s
     s_f = 0.05
     CL0 = -0.03                   # (B0 Miele 1998)
@@ -138,6 +139,7 @@ def declProb(opt=dict()):
     constants = dict()
     constants['grav_e'] = grav_e
     constants['Thrust'] = Thrust
+    constants['costScalingFactor'] = scal
     constants['Isp'] = Isp
     constants['r_e'] = r_e
     constants['GM'] = GM
@@ -346,12 +348,11 @@ def calcPsi(sizes,x,boundary):
     return psi
 
 def calcF(sizes,x,u,pi,constants,restrictions):
-    N = sizes['N']
-    f = numpy.empty(N)
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
     Isp = constants['Isp']
     s_f = constants['s_f']
+    scal = constants['costScalingFactor']
     beta_min = restrictions['beta_min']
     beta_max = restrictions['beta_max']
     #u1 = u[:,0]
@@ -360,7 +361,7 @@ def calcF(sizes,x,u,pi,constants,restrictions):
     beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
 
     # example rocket single stage to orbit with Lift and Drag
-    f = ((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * beta
+    f = scal*((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * beta
 
     return f
 
@@ -379,8 +380,9 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     array = numpy.array
 
     grav_e = constants['grav_e']
-    Thrust = constants['Thrust']
+    Thrust = constants['Thrust'] 
     Isp = constants['Isp']
+    scal = constants['costScalingFactor']
     r_e = constants['r_e']
     GM = constants['GM']
     s_f = constants['s_f']
@@ -481,13 +483,13 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
      
             phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
                                        [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*aExp*cosu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1 + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
                                        [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
         #
-        phip[k,:,:] = array([[V*sinGama                                                           ],
-                            [fVel/m - grav[k]*sinGama                   ],
-                            [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V))],
-                            [-(beta[k]*Thrust)/(grav_e*Isp)                                       ]])
+        phip[k,:,:] = array([[V*sinGama                                   ],
+                             [fVel/m - grav[k]*sinGama                    ],
+                             [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V)) ],
+                             [-(beta[k]*Thrust)/(grav_e*Isp)              ]])
 
         fu[k,:] = array([0.0,(pi[0]*Thrust*DBetaDu2)/(grav_e * Isp * (1-s_f))])
         fp[k,0] = (Thrust * beta[k])/(grav_e * Isp * (1-s_f))
@@ -496,9 +498,9 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     Grads['phix'] = phix
     Grads['phiu'] = phiu
     Grads['phip'] = phip
-    Grads['fx'] = fx
-    Grads['fu'] = fu
-    Grads['fp'] = fp
+    Grads['fx'] = fx*scal
+    Grads['fu'] = fu*scal
+    Grads['fp'] = fp*scal
 #    Grads['gx'] = gx
 #    Grads['gp'] = gp
     Grads['psix'] = psix
@@ -508,8 +510,11 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
 def calcI(sizes,x,u,pi,constants,restrictions):
 
     # example rocket single stage to orbit with Lift and Drag
+    N = sizes['N']
     f = calcF(sizes,x,u,pi,constants,restrictions)
     I = f.sum()
+    I -= .5*(f[0]+f[N-1])
+    I *= 1.0/(N-1)
 
     return I
 

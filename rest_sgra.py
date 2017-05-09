@@ -157,6 +157,8 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
+#        return 1.0
+    
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 
             # Better not to waste time and return 1.0 
@@ -176,7 +178,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                                    restrictions)
  #               print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
  #                     " (P0 = {:.4E})".format(P0))
-                keepSearch = nP<P
+                keepSearch = ((nP<P) and alfa < 2.0)
                 #if nPint < Pint0:
             alfa /= 1.2
     return alfa
@@ -450,7 +452,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     nu = u + alfa * B
     np = pi + alfa * C
 
-#    print("Leaving rest with alfa =",alfa)
+    print("Leaving rest with alfa =",alfa)
     return nx,nu,np,lam,mu
 
 def calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
@@ -558,9 +560,9 @@ def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
         aux = A[k,:] + dt*derk
         A[k+1,:] = A[k,:] + .5*dt*( derk + phix[k+1,:].dot(aux) + err[k+1,:])
 
-    optPlot = dict()    
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+#    optPlot = dict()    
+#    optPlot['mode'] = 'var'
+#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
     #print("Calculating step...")
     alfa = calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions)

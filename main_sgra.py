@@ -77,7 +77,7 @@ if __name__ == "__main__":
     while P > tolP and NIterRest < MaxIterRest:
         NIterRest += 1
 
-#        if Ppsi/Pint < 1e-5:
+#        if Ppsi/Pint > 1e-15:
 #            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
 #        else:
 #            x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
 #        else: 
 #            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
 #            if Ppsi/Pint < 1e-5:
-#                nOdeRest = 100
+#                nOdeRest = 10
 #                print("Ready for fast restoration!\n")
 
         x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
@@ -134,18 +134,33 @@ if __name__ == "__main__":
     print("\nBeginning gradient rounds...")
     
     # Gradient rounds:
+    NIterGrad = 0
+    histQ = histP*0.0; histQ[0] = Q
     while Q > tolQ:
         while P > tolP:
+            print("\nPerforming restoration...")
             x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-            P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+            P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions)
             optPlot['P'] = P
             plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+            print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+                  ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         #
         x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,restrictions)
-        optPlot['Q'] = Q
-        P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+        NIterGrad+=1
+        optPlot['Q'] = Q; histQ[NIterGrad] = Q
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+          ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+        
+        plt.semilogy(uman[0:(NIterGrad+1)],histQ[0:(NIterGrad+1)])
+        plt.grid()
+        plt.title("Convergence of Q.")
+        plt.ylabel("Q")
+        plt.xlabel("Iterations")
+        plt.show()
         print("\a")
         input("So far so good?")
     #

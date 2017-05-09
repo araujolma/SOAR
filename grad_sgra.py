@@ -154,73 +154,139 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
 def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
 
     print("\nIn calcStepGrad.\n")
-    # "Trissection" method
-    alfa = 1.0
+    
+    Q0 = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,True)
+#    print("In calcStepRest, P0 = {:.4E}".format(P0))
+    
+    alfa = .8
+    print("\nalfa =",alfa)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-
-    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-    nQ = .9*oldQ
-#    print("Q =",Q)
-    alfaMin = 0.0
-    alfaMax = 1.0
-    cont = 0
-    while (nQ-oldQ)/oldQ < -.05 and cont < 5:
-        oldQ = nQ
-
-        dalfa = (alfaMax-alfaMin)/3.0
-        alfaList = numpy.array([alfaMin,alfaMin+dalfa,alfaMax-dalfa,alfaMax])
-        QList = numpy.empty(numpy.shape(alfaList))
-
-        for j in range(4):
-            alfa = alfaList[j]
-
+    Q1m = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+    
+    alfa = 1.0
+    print("\nalfa =",alfa)
+    nx = x + alfa * A
+    nu = u + alfa * B
+    np = pi + alfa * C
+    Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+    
+    alfa = 1.2
+    print("\nalfa =",alfa)
+    nx = x + alfa * A
+    nu = u + alfa * B
+    np = pi + alfa * C
+    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+    
+        
+    if Q1 >= Q1m or Q1 >= Q0:
+        # alfa = 1.0 is too much. Reduce alfa.
+        nQ = Q1; alfa=1
+        cont = 0; keepSearch = (nQ>Q0)
+        while keepSearch and alfa > 1.0e-15:
+            cont += 1
+            Q = nQ
+            alfa *= .8
             nx = x + alfa * A
             nu = u + alfa * B
             np = pi + alfa * C
-
-            Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
-            QList[j] = Q
-        #
-        print("QList:",QList)
-        minQ = QList[0]
-        indxMinQ = 0
-
-        for j in range(1,4):
-            if QList[j] < minQ:
-                indxMinQ = j
-                minQ = QList[j]
-        #
-
-        alfa = alfaList[indxMinQ]
-        nQ = QList[indxMinQ]
-        print("nQ =",nQ)
-        if indxMinQ == 0:
-            alfaMin = alfaList[0]
-            alfaMax = alfaList[1]
-        elif indxMinQ == 1:
-            if QList[0] < QList[2]:
-                alfaMin = alfaList[0]
-                alfaMax = alfaList[1]
-            else:
-                alfaMin = alfaList[1]
-                alfaMax = alfaList[2]
-        elif indxMinQ == 2:
-            if QList[1] < QList[3]:
-                alfaMin = alfaList[1]
-                alfaMax = alfaList[2]
-            else:
-                alfaMin = alfaList[2]
-                alfaMax = alfaList[3]
-        elif indxMinQ == 3:
-            alfaMin = alfaList[2]
-            alfaMax = alfaList[3]
-
-        cont+=1
-    #
-
-    return .5*(alfaMin+alfaMax)
+            nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+            print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
+                  " (Q0 = {:.4E})".format(Q0))
+            if nQ < Q0:
+                keepSearch = ((nQ-Q)/Q < -.05)
+    else:
+        if Q1 <= Q1M:
+            # alfa = 1.0 is likely to be best value. 
+            # Better not to waste time and return 1.0 
+            return 1.0
+        else:
+            # There is still a descending gradient here. Increase alfa!
+            nQ = Q1M
+            cont = 0; keepSearch = True#(nPint>Pint1M)
+            while keepSearch:
+                cont += 1
+                Q= nQ
+                alfa *= 1.2
+                nx = x + alfa * A
+                nu = u + alfa * B
+                np = pi + alfa * C
+                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
+                      " (Q0 = {:.4E})".format(Q0))
+                keepSearch = nQ<Q
+                #if nPint < Pint0:
+            alfa /= 1.2
+    return alfa
+    
+#    # "Trissection" method
+#    alfa = 1.0
+#    nx = x + alfa * A
+#    nu = u + alfa * B
+#    np = pi + alfa * C
+#
+#    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+#    nQ = .9*oldQ
+##    print("Q =",Q)
+#    alfaMin = 0.0
+#    alfaMax = 1.0
+#    cont = 0
+#    while (nQ-oldQ)/oldQ < -.05 and cont < 5:
+#        oldQ = nQ
+#
+#        dalfa = (alfaMax-alfaMin)/3.0
+#        alfaList = numpy.array([alfaMin,alfaMin+dalfa,alfaMax-dalfa,alfaMax])
+#        QList = numpy.empty(numpy.shape(alfaList))
+#
+#        for j in range(4):
+#            alfa = alfaList[j]
+#
+#            nx = x + alfa * A
+#            nu = u + alfa * B
+#            np = pi + alfa * C
+#
+#            Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
+#            QList[j] = Q
+#        #
+#        print("QList:",QList)
+#        minQ = QList[0]
+#        indxMinQ = 0
+#
+#        for j in range(1,4):
+#            if QList[j] < minQ:
+#                indxMinQ = j
+#                minQ = QList[j]
+#        #
+#
+#        alfa = alfaList[indxMinQ]
+#        nQ = QList[indxMinQ]
+#        print("nQ =",nQ)
+#        if indxMinQ == 0:
+#            alfaMin = alfaList[0]
+#            alfaMax = alfaList[1]
+#        elif indxMinQ == 1:
+#            if QList[0] < QList[2]:
+#                alfaMin = alfaList[0]
+#                alfaMax = alfaList[1]
+#            else:
+#                alfaMin = alfaList[1]
+#                alfaMax = alfaList[2]
+#        elif indxMinQ == 2:
+#            if QList[1] < QList[3]:
+#                alfaMin = alfaList[1]
+#                alfaMax = alfaList[2]
+#            else:
+#                alfaMin = alfaList[2]
+#                alfaMax = alfaList[3]
+#        elif indxMinQ == 3:
+#            alfaMin = alfaList[2]
+#            alfaMax = alfaList[3]
+#
+#        cont+=1
+#    #
+#
+#    return .5*(alfaMin+alfaMax)
 
 def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
     print("In grad.")
@@ -418,5 +484,4 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
     Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
 
     print("Leaving grad with alfa =",alfa)
-
     return nx,nu,np,lam,mu,Q
