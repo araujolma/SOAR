@@ -9,28 +9,10 @@ Created on Wed May  3 18:27:55 2017
 import numpy
 import matplotlib.pyplot as plt
 
-from scipy.integrate import odeint
-from numpy.linalg import norm
 #from utils_alt import ddt
-from utils import interpV, interpM, ddt
+from utils import ddt
 from prob_rocket_sgra import calcGrads, plotSol
-#from prob_test import calcGrads
-
-
-
-def calcLamDotGrad(lam,t,tVec,fxInv,phixInv):
-    fxt = interpV(t,tVec,fxInv)
-    phixt = interpM(t,tVec,phixInv)
-
-    return phixt.dot(lam) - fxt
-
-def calcADotGrad(A,t,tVec,phixVec,phiuVec,phipVec,B,C):
-    phixt = interpM(t,tVec,phixVec)
-    phiut = interpM(t,tVec,phiuVec)
-    phipt = interpM(t,tVec,phipVec)
-    Bt = interpV(t,tVec,B)
-
-    return phixt.dot(A) + phiut.dot(Bt) + phipt.dot(C)
+#from prob_test import calcGrads, plotSol
 
 def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     # Q expression from (15)
@@ -86,7 +68,9 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     auxVecIntQp += psip.transpose().dot(mu)
 
     Qp = auxVecIntQp.transpose().dot(auxVecIntQp)
-    Qt = norm(lam[N-1,:] + psix.transpose().dot(mu))
+    
+    errQt = lam[N-1,:] + psix.transpose().dot(mu)
+    Qt = errQt.transpose().dot(errQt)
 
     Q = Qx + Qu + Qp + Qt
     print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+", Qt = {:.4E}".format(Qt))
@@ -182,7 +166,7 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
         
     if Q1 >= Q1m or Q1 >= Q0:
         # alfa = 1.0 is too much. Reduce alfa.
-        nQ = Q1; alfa=1
+        nQ = Q1; alfa=.8
         cont = 0; keepSearch = (nQ>Q0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
@@ -377,7 +361,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
             normErroLam = numpy.empty(N)
             for k in range(N):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
-                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
             print("\nLambda Error:")
             optPlot['mode'] = 'states:LambdaError'
             plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
@@ -388,10 +372,13 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
     #            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
     #                    numpy.zeros(p),constants,restrictions,optPlot)
     #
-            plt.semilogy(normErroLam)
-            plt.grid()
-            plt.title("ErroLam")
-            plt.show()
+            maxNormErroLam = normErroLam.max()
+            print("maxNormErroLam =",maxNormErroLam)
+            if maxNormErroLam > 0:
+                plt.semilogy(normErroLam)
+                plt.grid()
+                plt.title("ErroLam")
+                plt.show()
     #            
     #            plt.semilogy(normErroLam[N1:N2])
     #            plt.grid()

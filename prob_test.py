@@ -20,13 +20,13 @@ def declProb(opt=dict()):
 
 
 # matrix sizes
-    n = 3
+    n = 2
     m = 1
     p = 1
-    q = 1  # (Miele 1970)  # 7 (Miele 2003)
+    q = 2  # (Miele 1970)  # 7 (Miele 2003)
 
 # tolerances
-    tolP = 1.0e-8
+    tolP = 1.0e-7
     tolQ = 1.0e-5
 
 # prepare sizes
@@ -42,13 +42,26 @@ def declProb(opt=dict()):
     tol['P'] = tolP
     tol['Q'] = tolQ
 
+    pi = 4.0*numpy.ones(p)
+    
     x = numpy.zeros((N,n))
-    #u = numpy.ones((N,m))
-    u = numpy.zeros((N,m))
-
-    #x[:,0] = t.copy()
-    pi = numpy.ones(p)
-
+    u = .5*numpy.pi*numpy.ones((N,m))
+    x[500:750,1] = t[0:250]
+    x[500:750,0] = .5*t[0:250]*t[0:250]
+    for i in range(250):
+        x[750+i,1] = t[250-i]   
+        u[750+i] = -.5*numpy.pi
+        x[750+i,0] = -.5*t[250-i]*t[250-i] + 2*x[749,0]
+    u[0:500] = 0
+    
+    x *= pi 
+    
+    u[1000] = -.5*numpy.pi
+    x[1000,0] = 1.0
+    x[1000,1] = 0.0
+    
+    
+    
     lam = x.copy()
     mu = numpy.zeros(q)
     constants = dict()
@@ -62,29 +75,28 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     n = sizes['n']
 
     sin = numpy.sin
-    cos = numpy.cos
 
     # calculate phi:
     phi = numpy.empty((N,n))
 
-    # example rocket single stage to orbit with Lift and Drag
-    phi[:,0] = pi[0] * x[:,2] * cos(u[:,0])
-    phi[:,1] = pi[0] * x[:,2] * sin(u[:,0])
-    phi[:,2] = pi[0] * sin(u[:,0])
+    # dr/dt = pi * v
+    # dv/dt = pi * u
+    phi[:,0] = pi[0] * x[:,1]
+    phi[:,1] = pi[0] * sin(u[:,0])
 
     return phi
 
 def calcPsi(sizes,x,boundary):
     N = sizes['N']
 
-    psi = numpy.array([x[N-1,0]-1.0])
+    psi = numpy.array([x[N-1,0]-1.0,x[N-1,1]])
 
     return psi
 
 def calcF(sizes,x,u,pi,constants,restrictions):
     N = sizes['N']
 
-    f = numpy.ones(N)
+    f = pi[0]*numpy.ones(N)
 
     return f
 
@@ -113,25 +125,20 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     fp = numpy.ones((N,p))
 
     # Gradients from example rocket single stage to orbit with Lift and Drag
-    psix = array([[1.0,0.0,0.0]])
-    psip = array([[0.0]])
+    psix = array([[1.0,0.0],[0.0,1.0]])
+    psip = array([[0.0],[0.0]])
 
     # atmosphere: numerical gradient
 
     for k in range(N):
-        sinUk = sin(u[k,0])
-        cosUk = cos(u[k,0])
-        phix[k,:,:] = pi[0]*array([[0.0, 0.0, cosUk],
-                                   [0.0, 0.0, sinUk],
-                                   [0.0, 0.0, 0.0]])
+        phix[k,:,:] = pi[0]*array([[0.0, 1.0],
+                                   [0.0, 0.0]])
 
-        phiu[k,:,:] = pi[0]*array([[-x[k,2]*sinUk],
-                                   [x[k,2]*cosUk],
-                                   [cosUk]])
+        phiu[k,:,:] = pi[0]*array([[0.0],
+                                   [cos(u[k])]])
 
-        phip[k,:,:] = array([[x[k,2]*cosUk],
-                             [x[k,2]*sinUk],
-                             [sinUk]])
+        phip[k,:,:] = array([[x[k,1]],
+                             [sin(u[k])]])
 
     Grads['phix'] = phix
     Grads['phiu'] = phiu
@@ -146,10 +153,11 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     return Grads
 
 def calcI(sizes,x,u,pi,constants,restrictions):
-
-    # example rocket single stage to orbit with Lift and Drag
+    N = sizes['N']
     f = calcF(sizes,x,u,pi,constants,restrictions)
-    I = f.sum()
+    I = .5*(f[0]+f[N-1])
+    I += f[1:(N-1)].sum()
+    I *= 1.0/(N-1)
 
     return I
 
@@ -179,10 +187,6 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.grid(True)
     plt.ylabel("y")
     plt.subplot2grid((8,4),(2,0),colspan=5)
-    plt.plot(t,x[:,2],'r')
-    plt.grid(True)
-    plt.ylabel("z")
-    plt.subplot2grid((8,4),(3,0),colspan=5)
     plt.plot(t,u[:,0],'k')
     plt.grid(True)
     plt.ylabel("u1 [-]")

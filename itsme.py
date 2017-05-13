@@ -48,9 +48,9 @@ def funDict(h_final):
     con['s_ref'] = con['pi']*( (0.5e-3)**2) #km²
     
     # Trajectory parameters
-    con['AoAmax'] = 2.0#3.0           # graus    
+    con['AoAmax'] = .5#1.0#2.0#3.0           # graus    
     con['torb'] = 2*con['pi']*(con['R'] + h_final)/con['V_final'] # Time of one orbit using the final velocity
-    con['tAoA'] = 4.0
+    con['tAoA'] = 10.0#4.0
     
     return con
 

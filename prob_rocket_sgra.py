@@ -69,7 +69,8 @@ def calcXdot(sizes,x,u,constants,restrictions):
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 20000+1#20000+1#5000000 + 1 #1000 + 1#
+    N = 2000+1#20000+1#5000000 + 1 #1000 + 1#
+    N0 = int(3*N/500) # calculated for ~3s of no maneuver 
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -98,7 +99,7 @@ def declProb(opt=dict()):
 
 # rocket constants
     Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
-    scal = 1.0/2.5e3
+    scal = 7.5e-4# 1.0/2.5e3
     Isp = 450.0                   # s
     s_f = 0.05
     CL0 = -0.03                   # (B0 Miele 1998)
@@ -130,6 +131,7 @@ def declProb(opt=dict()):
 # prepare sizes
     sizes = dict()
     sizes['N'] = N
+    sizes['N0'] = N0
     sizes['n'] = n
     sizes['m'] = m
     sizes['p'] = p
@@ -192,7 +194,7 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-9)
                     
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
@@ -263,6 +265,28 @@ def declProb(opt=dict()):
     plt.xlabel("t_its [-]")
     plt.ylabel("Attack angle [deg]")
     plt.show()
+    
+#    plt.plot(t_its[0:15],(numpy.sin(u_its[0:15,0])*a2 + a1)*180/numpy.pi,'k')
+#    plt.grid(True)
+#    plt.xlabel("t_its (zoom) [-] ")
+#    plt.ylabel("Attack angle (zoom) [deg]")
+#    plt.show()
+  
+#    plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'k')
+#    plt.grid(True)
+#    plt.xlabel("t [-]")
+#    plt.ylabel("Attack angle [deg] (interp)")
+#    plt.show()
+    
+#    plt.plot(t[0:1000],(numpy.sin(u[0:1000,0])*a2 + a1)*180/numpy.pi,'k')
+#    plt.grid(True)
+#    plt.xlabel("t (zoom) [-] ")
+#    plt.ylabel("Attack angle [deg] (zoom)")
+#    plt.show()
+
+#    for cont in range(len(t_its)):
+#        print(t_its[cont])
+#    input("Eigirardi! Melhor não!")
 
     plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
     plt.grid(True)
@@ -277,6 +301,7 @@ def declProb(opt=dict()):
 
 def calcPhi(sizes,x,u,pi,constants,restrictions):
     N = sizes['N']
+    N0 = sizes['N0']
     n = sizes['n']
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
@@ -332,6 +357,8 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
     phi[:,2] = pi[0] * ((beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] ))
     phi[0,2] = 0.0
+    #for k in range(N0):
+    #    phi[k,2] = 0.0
     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
 
     return phi
@@ -373,6 +400,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     m = sizes['m']
     p = sizes['p']
     #q = sizes['q']
+    N0 = sizes['N0']
 
     # Pre-assign functions
     sin = numpy.sin
@@ -464,7 +492,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         # Expanded notation:
         DAlfaDu1 = aExp*cosu1
         DBetaDu2 = bExp*cosu2
-        if k<int(N/100):# 1:#
+        if k < N0:# calculated for 3s of no maneuver 
             phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
                                        [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
                                        [0.0                                                  ,0.0                       ,0.0               ,0.0      ],

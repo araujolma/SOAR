@@ -9,7 +9,7 @@ rest_sgra: functions for performing restoration
 import numpy
 import matplotlib.pyplot as plt
 
-from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
+from prob_rocket_sgra import calcPhi,calcPsi,calcGrads#,plotSol
 #from prob_test import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
@@ -128,7 +128,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,False)
+    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)#,True)
     
     alfa = 1.2
     #print("\nalfa =",alfa)
@@ -151,36 +151,37 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             nu = u + alfa * B
             np = pi + alfa * C
             nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-#            print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-#                  " (P0 = {:.4E})".format(P0))
+                                   restrictions)#,True)
+            #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+            #      " (P0 = {:.4E})".format(P0))
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
-#        return 1.0
+        # no "overdrive!"
+        return 1.0
     
-        if P1 <= P1M:
-            # alfa = 1.0 is likely to be best value. 
-            # Better not to waste time and return 1.0 
-            return 1.0
-        else:
-            # There is still a descending gradient here. Increase alfa!
-            nP = P1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            while keepSearch:
-                cont += 1
-                P = nP
-                alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
- #               print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
- #                     " (P0 = {:.4E})".format(P0))
-                keepSearch = ((nP<P) and alfa < 2.0)
-                #if nPint < Pint0:
-            alfa /= 1.2
+#        if P1 <= P1M:
+#            # alfa = 1.0 is likely to be best value. 
+#            # Better not to waste time and return 1.0 
+#            return 1.0
+#        else:
+#            # There is still a descending gradient here. Increase alfa!
+#            nP = P1M
+#            cont = 0; keepSearch = True#(nPint>Pint1M)
+#            while keepSearch:
+#                cont += 1
+#                P = nP
+#                alfa *= 1.2
+#                nx = x + alfa * A
+#                nu = u + alfa * B
+#                np = pi + alfa * C
+#                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
+#                                   restrictions)#,True)
+#                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+#                #      " (P0 = {:.4E})".format(P0))
+#                keepSearch = ( nP<P and alfa < 1.5)#2.0)#nP<P #
+#                #if nPint < Pint0:
+#            alfa /= 1.2
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
@@ -296,31 +297,34 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             ##################################################################
             # TESTING LAMBDA DIFFERENTIAL EQUATION
             
-#            dlam = ddt(sizes,lam)
-#            erroLam = numpy.empty((N,n))
-#            normErroLam = numpy.empty(N)
-#            for k in range(N):
-#                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
-#                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
-#            print("\nLambda Error:")
-#            optPlot['mode'] = 'states:LambdaError'
-#            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-#                    constants,restrictions,optPlot)
-#            optPlot['mode'] = 'states:LambdaError (zoom)'
-#            N1 = 0#int(N/100)-10
-#            N2 = 20##N1+20
-#            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
-#                    numpy.zeros(p),constants,restrictions,optPlot)
-#
-#            plt.semilogy(normErroLam)
-#            plt.grid()
-#            plt.title("ErroLam")
-#            plt.show()
-#            
-#            plt.semilogy(normErroLam[N1:N2])
-#            plt.grid()
-#            plt.title("ErroLam (zoom)")
-#            plt.show()
+            dlam = ddt(sizes,lam)
+            erroLam = numpy.empty((N,n))
+            normErroLam = numpy.empty(N)
+            for k in range(N):
+                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+            maxNormErroLam = normErroLam.max()
+            print("maxNormErroLam =",maxNormErroLam)
+            #print("\nLambda Error:")
+            #
+            #optPlot['mode'] = 'states:LambdaError'
+            #plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+            #        constants,restrictions,optPlot)
+            #optPlot['mode'] = 'states:LambdaError (zoom)'
+            #N1 = 0#int(N/100)-10
+            #N2 = 20##N1+20
+            #plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+            #        numpy.zeros(p),constants,restrictions,optPlot)
+
+            #plt.semilogy(normErroLam)
+            #plt.grid()
+            #plt.title("ErroLam")
+            #plt.show()
+            
+            #plt.semilogy(normErroLam[N1:N2])
+            #plt.grid()
+            #plt.title("ErroLam (zoom)")
+            #plt.show()
             
             ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
@@ -422,10 +426,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     #
 
     # Calculations of weights k:
-#    print("M =",M)
-#    print("col =",col)
+    #print("M =",M)
+    #print("col =",col)
     K = numpy.linalg.solve(M,col)
-#    print("K =",K)
+    #print("K =",K)
 
     # summing up linear combinations
     A = 0.0*A
@@ -442,8 +446,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 
 #    optPlot['mode'] = 'var'
 #    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-#    optPlot['mode'] = 'proposed (states: lambda)'
-#    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    #optPlot['mode'] = 'proposed (states: lambda)'
+    #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")
