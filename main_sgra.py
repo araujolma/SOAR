@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 
-from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
-#from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
+#from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
+from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from rest_sgra import calcP, rest, oderest
 from grad_sgra import calcQ, grad
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
     print("##################################################################")
-    #input("Everything ok?")
+    input("Everything ok?")
 
     tolP = tol['P']
     tolQ = tol['Q']
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     nOdeRest = 0#10
     histP[0] = P; histPint[0] = Pint; histPpsi[0] = Ppsi
     print("\nBeginning first restoration rounds...\n")
-    while P > tolP and NIterRest < MaxIterRest:
+    while P > tolP and NIterRest < (MaxIterRest-1):
         NIterRest += 1
 
 #        if Ppsi/Pint > 1e-15:
@@ -96,15 +96,15 @@ if __name__ == "__main__":
         x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
 #        x,u,pi,lamR,muR = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
 
-        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions)#,True)
         print("> P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
           ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         histP[NIterRest] = P
         histPint[NIterRest] = Pint
         histPpsi[NIterRest] = Ppsi  
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
-        input("What now?")
+        #plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
+        #input("What now?")
             
     print("\nConvergence report:")
     
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 #    plt.grid(True)
 #    plt.title('This is the beginning of the problem...')
 #    plt.show()
-    #input("ok?")
+    input("ok?")
     
     print("\nBeginning gradient rounds...")
     
@@ -160,15 +160,15 @@ if __name__ == "__main__":
             histP[NIterRest] = P
             histPint[NIterRest] = Pint
             histPpsi[NIterRest] = Ppsi
-            plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+            #plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
             print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
                   ", Ppsi = {:.4E}".format(Ppsi)+"\n")
 
-#            plt.plot(u[0:241,0])
-#            plt.grid(True)
-#            plt.title('This is the beginning of the problem...')
-#            plt.show()
-            input("what now?")
+            #plt.plot(u[0:241,0])
+            #plt.grid(True)
+            #plt.title('This is the beginning of the problem...')
+            #plt.show()
+            #input("what now?")
         #
         print("\nRestoration report:")
         plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
@@ -200,4 +200,8 @@ if __name__ == "__main__":
         print("\a")
         #input("So far so good?")
     #
+    
+    print("\n\n\nDONE!\n\n")
+    print("This is the final solution:")
+    plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
 #

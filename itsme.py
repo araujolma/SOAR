@@ -534,7 +534,7 @@ def mdlDer(t,x,arg):
 #     for k in range(1,N):
 #         phi[k,2] = pi[0] * ((beta[k] * Thrust * sin(alpha[k]) + L[k])/(x[k,3] * x[k,1]) + cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
 #     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
-
+    
     return numpy.array([v*sinGama,\
     btm*numpy.cos(alfat) - g*sinGama - (D/M),\
     btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)),\

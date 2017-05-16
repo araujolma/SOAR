@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 from utils import ddt
-from prob_rocket_sgra import calcGrads, plotSol
-#from prob_test import calcGrads, plotSol
+#from prob_rocket_sgra import calcGrads, plotSol
+from prob_test import calcGrads, plotSol
 
 def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     # Q expression from (15)
@@ -455,7 +455,10 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         C += K[i]*arrayC[i,:]
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
-
+    
+    if (B>numpy.pi).any() or (B>-numpy.pi).any():
+        print("\nProblems in grad: corrections will result in control overflow.")
+    
     optPlot['mode'] = 'var'
     plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
     optPlot['mode'] = 'proposed (states: lambda)'

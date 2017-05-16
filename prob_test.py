@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 1000 + 1#20000 + 1 #
+    N = 20000 + 1#20000 + 1 #
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -43,24 +43,34 @@ def declProb(opt=dict()):
     tol['Q'] = tolQ
 
     pi = 4.0*numpy.ones(p)
-    
+
+#    x = numpy.zeros((N,n))
+#    u = numpy.zeros((N,m))
+
+
     x = numpy.zeros((N,n))
-    u = .5*numpy.pi*numpy.ones((N,m))
-    x[500:750,1] = t[0:250]
-    x[500:750,0] = .5*t[0:250]*t[0:250]
-    for i in range(250):
-        x[750+i,1] = t[250-i]   
-        u[750+i] = -.5*numpy.pi
-        x[750+i,0] = -.5*t[250-i]*t[250-i] + 2*x[749,0]
-    u[0:500] = 0
+    u = .4*numpy.pi*numpy.ones((N,m))
+
     
-    x *= pi 
-    
-    u[1000] = -.5*numpy.pi
-    x[1000,0] = 1.0
-    x[1000,1] = 0.0
-    
-    
+#    x = numpy.zeros((N,n))
+#    u = .5*numpy.pi*numpy.ones((N,m))
+#    
+#    Nmet = int((N-1)/2)
+#    N1q = int((N-1)/4)
+#    N3q = N1q+Nmet
+#    x[Nmet:N3q,1] = t[0:N1q]
+#    x[Nmet:N3q,0] = 2*t[0:N1q]*t[0:N1q]
+#    for i in range(N1q):
+#        x[N3q+i,1] = t[N1q-i]   
+#        u[N3q+i] = -.5*numpy.pi
+#        x[N3q+i,0] = -2*t[N1q-i]*t[N1q-i] + 2*x[N3q-1,0]
+#    u[0:Nmet] = 0
+#    
+#    x *= pi 
+#    
+#    u[N-1] = -.5*numpy.pi
+#    x[N-1,0] = 1.0
+#    x[N-1,1] = 0.0
     
     lam = x.copy()
     mu = numpy.zeros(q)
@@ -123,12 +133,9 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     fx = numpy.zeros((N,n))
     fu = numpy.zeros((N,m))
     fp = numpy.ones((N,p))
-
-    # Gradients from example rocket single stage to orbit with Lift and Drag
+    
     psix = array([[1.0,0.0],[0.0,1.0]])
     psip = array([[0.0],[0.0]])
-
-    # atmosphere: numerical gradient
 
     for k in range(N):
         phix[k,:,:] = pi[0]*array([[0.0, 1.0],

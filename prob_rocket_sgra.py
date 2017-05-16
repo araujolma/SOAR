@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from atmosphere import rho
 
-def calcXdot(sizes,x,u,constants,restrictions):
+def calcXdot(sizes,t,x,u,constants,restrictions):
     n = sizes['n']
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
@@ -62,6 +62,9 @@ def calcXdot(sizes,x,u,constants,restrictions):
     dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + cos(x[2]) * ( x[1]/r  -  grav/x[1] )
     dx[3] = -(beta * Thrust)/(grav_e * Isp)
 
+#    if t < 3:
+#        print(t)
+#        dx[2] = 0.0
     return dx
 
 # ##################
@@ -69,7 +72,7 @@ def calcXdot(sizes,x,u,constants,restrictions):
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 2000+1#20000+1#5000000 + 1 #1000 + 1#
+    N = 20000+1#20000+1#5000000 + 1 #1000 + 1#
     N0 = int(3*N/500) # calculated for ~3s of no maneuver 
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
@@ -194,7 +197,7 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-9)
+        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
                     
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
@@ -222,10 +225,11 @@ def declProb(opt=dict()):
         dt = pi[0]/(N-1); dt6 = dt/6
         x[0,:] = x_its[0,:]
         for i in range(N-1):
-            k1 = calcXdot(sizes,x[i,:],u[i,:],constants,restrictions)  
-            k2 = calcXdot(sizes,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-            k3 = calcXdot(sizes,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
-            k4 = calcXdot(sizes,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
+            tt = i * dt
+            k1 = calcXdot(sizes,tt,x[i,:],u[i,:],constants,restrictions)  
+            k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
+            k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
+            k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
             x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
 
     lam = 0.0*x.copy()
@@ -266,34 +270,16 @@ def declProb(opt=dict()):
     plt.ylabel("Attack angle [deg]")
     plt.show()
     
-#    plt.plot(t_its[0:15],(numpy.sin(u_its[0:15,0])*a2 + a1)*180/numpy.pi,'k')
-#    plt.grid(True)
-#    plt.xlabel("t_its (zoom) [-] ")
-#    plt.ylabel("Attack angle (zoom) [deg]")
-#    plt.show()
-  
-#    plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'k')
-#    plt.grid(True)
-#    plt.xlabel("t [-]")
-#    plt.ylabel("Attack angle [deg] (interp)")
-#    plt.show()
-    
-#    plt.plot(t[0:1000],(numpy.sin(u[0:1000,0])*a2 + a1)*180/numpy.pi,'k')
-#    plt.grid(True)
-#    plt.xlabel("t (zoom) [-] ")
-#    plt.ylabel("Attack angle [deg] (zoom)")
-#    plt.show()
-
-#    for cont in range(len(t_its)):
-#        print(t_its[cont])
-#    input("Eigirardi! Melhor não!")
-
     plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
     plt.grid(True)
     plt.xlabel("t_its [-]")
     plt.ylabel("Thrust profile [-]")
     plt.show()
     ###
+    
+    print("Interpolated solution:")
+#    optPlot = dict()
+    plotSol(sizes,t,x,u,pi,constants,restrictions,{})
 
     print("\nInitialization complete.\n")
     return sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions
@@ -554,7 +540,7 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     beta_max = restrictions['beta_max']
 
     plt.subplot2grid((8,4),(0,0),colspan=5)
-    plt.plot(t,x[:,0],)
+    plt.plot(t,x[:,0])
     plt.grid(True)
     plt.ylabel("h [km]")
     if opt.get('mode','sol') == 'sol':
