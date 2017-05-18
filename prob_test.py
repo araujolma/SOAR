@@ -44,12 +44,12 @@ def declProb(opt=dict()):
 
     pi = 4.0*numpy.ones(p)
 
-    x = numpy.zeros((N,n))
-    u = numpy.zeros((N,m))
-
-
     #x = numpy.zeros((N,n))
-    #u = .4*numpy.pi*numpy.ones((N,m))
+    #u = numpy.zeros((N,m))
+
+
+    x = numpy.zeros((N,n))
+    u = numpy.ones((N,m))
 
     
 #    x = numpy.zeros((N,n))

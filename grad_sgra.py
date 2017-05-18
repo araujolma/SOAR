@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 from utils import ddt
-#from prob_rocket_sgra import calcGrads, plotSol
-from prob_test import calcGrads, plotSol
+from prob_rocket_sgra import calcGrads, plotSol
+#from prob_test import calcGrads, plotSol
 
 def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     # Q expression from (15)
@@ -156,12 +156,12 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
     np = pi + alfa * C
     Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
     
-    #alfa = 1.2
-    #print("\nalfa =",alfa)
-    #nx = x + alfa * A
-    #nu = u + alfa * B
-    #np = pi + alfa * C
-    #Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+    alfa = 1.2
+    print("\nalfa =",alfa)
+    nx = x + alfa * A
+    nu = u + alfa * B
+    np = pi + alfa * C
+    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
     
         
     if Q1 >= Q1m or Q1 >= Q0:
@@ -182,30 +182,30 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
                 keepSearch = ((nQ-Q)/Q < -.05)
     else:
         
-        return 1.0
+#        return 1.0
         
-#        if Q1 <= Q1M:
-#            # alfa = 1.0 is likely to be best value. 
-#            # Better not to waste time and return 1.0 
-#            return 1.0
-#        else:
-#            # There is still a descending gradient here. Increase alfa!
-#            nQ = Q1M
-#            cont = 0; keepSearch = True#(nPint>Pint1M)
-#            while keepSearch:
-#                cont += 1
-#                Q= nQ
-#                alfa *= 1.2
-#                nx = x + alfa * A
-#                nu = u + alfa * B
-#                np = pi + alfa * C
-#                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+        if Q1 <= Q1M:
+            # alfa = 1.0 is likely to be best value. 
+            # Better not to waste time and return 1.0 
+            return 1.0
+        else:
+            # There is still a descending gradient here. Increase alfa!
+            nQ = Q1M
+            cont = 0; keepSearch = True#(nPint>Pint1M)
+            while keepSearch:
+                cont += 1
+                Q= nQ
+                alfa *= 1.2
+                nx = x + alfa * A
+                nu = u + alfa * B
+                np = pi + alfa * C
+                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
 #                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
 #                      " (Q0 = {:.4E})".format(Q0))
-#                keepSearch = nQ<Q
-#                #if nPint < Pint0:
-#            alfa /= 1.2
-#    return alfa
+                keepSearch = nQ<Q
+                #if nPint < Pint0:
+            alfa /= 1.2
+    return alfa
     
 #    # "Trissection" method
 #    alfa = 1.0
@@ -331,7 +331,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0e-10
+            mu[i] = 1.0#1.0e-10
 
 
         # integrate equation (38) backwards for lambda

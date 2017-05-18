@@ -9,8 +9,8 @@ rest_sgra: functions for performing restoration
 import numpy
 import matplotlib.pyplot as plt
 
-#from prob_rocket_sgra import calcPhi,calcPsi,calcGrads#,plotSol
-from prob_test import calcPhi,calcPsi,calcGrads,plotSol
+from prob_rocket_sgra import calcPhi,calcPsi,calcGrads#,plotSol
+#from prob_test import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
 

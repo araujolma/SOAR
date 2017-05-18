@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 
-#from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
-from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
+from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
+#from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from rest_sgra import calcP, rest#, oderest
 from grad_sgra import calcQ, grad
 
