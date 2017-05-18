@@ -6,14 +6,14 @@ MAIN_SGRA: the module (script?) for running the gradient-restoration algorithm
 @author: levi
 """
 
-import numpy, time, datetime
+import numpy, datetime#, time
 import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 
 #from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
-from rest_sgra import calcP, rest, oderest
+from rest_sgra import calcP, rest#, oderest
 from grad_sgra import calcQ, grad
 
 # ##################
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
     print("##################################################################")
-    input("Everything ok?")
+    #input("Everything ok?")
 
     tolP = tol['P']
     tolQ = tol['Q']
@@ -103,8 +103,8 @@ if __name__ == "__main__":
         histP[NIterRest] = P
         histPint[NIterRest] = Pint
         histPpsi[NIterRest] = Ppsi  
-        #plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
-        #input("What now?")
+        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
+        input("What now?")
             
     print("\nConvergence report:")
     
@@ -133,11 +133,11 @@ if __name__ == "__main__":
     print("\n################################################################")
     print("\a")
     
-#    plt.plot(u[0:241,0])
-#    plt.grid(True)
-#    plt.title('This is the beginning of the problem...')
-#    plt.show()
-    input("ok?")
+    plt.plot(u[0:241,0])
+    plt.grid(True)
+    plt.title('This is the beginning of the problem...')
+    plt.show()
+    #input("ok?")
     
     print("\nBeginning gradient rounds...")
     
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 #        plt.grid(True)
 #        plt.title('This is the beginning of the problem...')
 #        plt.show()
-        
+       
         while P > tolP:
             print("\nPerforming restoration...")
             x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
@@ -164,10 +164,10 @@ if __name__ == "__main__":
             print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
                   ", Ppsi = {:.4E}".format(Ppsi)+"\n")
 
-            #plt.plot(u[0:241,0])
-            #plt.grid(True)
-            #plt.title('This is the beginning of the problem...')
-            #plt.show()
+#            plt.plot(u[0:241,0])
+#            plt.grid(True)
+#            plt.title('This is the beginning of the problem...')
+#            plt.show()
             #input("what now?")
         #
         print("\nRestoration report:")
@@ -180,6 +180,8 @@ if __name__ == "__main__":
         plt.ylabel("P")
         plt.xlabel("Iterations")
         plt.show()
+
+        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         
         x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,restrictions)
         NIterGrad+=1
@@ -198,10 +200,13 @@ if __name__ == "__main__":
         plt.xlabel("Iterations")
         plt.show()
         print("\a")
-        #input("So far so good?")
+        input("So far so good?")
     #
-    
+    print("\a")
     print("\n\n\nDONE!\n\n")
+    print("\a")
     print("This is the final solution:")
+    print("\a")
     plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+    print("\a")
 #

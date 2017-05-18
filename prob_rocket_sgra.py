@@ -62,9 +62,9 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + cos(x[2]) * ( x[1]/r  -  grav/x[1] )
     dx[3] = -(beta * Thrust)/(grav_e * Isp)
 
-#    if t < 3:
+    if t < 3:
 #        print(t)
-#        dx[2] = 0.0
+        dx[2] = 0.0
     return dx
 
 # ##################
@@ -343,8 +343,8 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
     phi[:,2] = pi[0] * ((beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] ))
     phi[0,2] = 0.0
-    #for k in range(N0):
-    #    phi[k,2] = 0.0
+    for k in range(N0):
+        phi[k,2] = 0.0
     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
 
     return phi

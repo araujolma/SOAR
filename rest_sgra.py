@@ -10,7 +10,7 @@ import numpy
 import matplotlib.pyplot as plt
 
 #from prob_rocket_sgra import calcPhi,calcPsi,calcGrads#,plotSol
-from prob_test import calcPhi,calcPsi,calcGrads#,plotSol
+from prob_test import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
 
@@ -158,30 +158,30 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                 keepSearch = ((nP-P)/P < -.05)
     else:
         # no "overdrive!"
-        return 1.0
+#        return 1.0
     
-#        if P1 <= P1M:
-#            # alfa = 1.0 is likely to be best value. 
-#            # Better not to waste time and return 1.0 
-#            return 1.0
-#        else:
-#            # There is still a descending gradient here. Increase alfa!
-#            nP = P1M
-#            cont = 0; keepSearch = True#(nPint>Pint1M)
-#            while keepSearch:
-#                cont += 1
-#                P = nP
-#                alfa *= 1.2
-#                nx = x + alfa * A
-#                nu = u + alfa * B
-#                np = pi + alfa * C
-#                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-#                                   restrictions)#,True)
-#                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-#                #      " (P0 = {:.4E})".format(P0))
-#                keepSearch = ( nP<P and alfa < 1.5)#2.0)#nP<P #
-#                #if nPint < Pint0:
-#            alfa /= 1.2
+        if P1 <= P1M:
+            # alfa = 1.0 is likely to be best value. 
+            # Better not to waste time and return 1.0 
+            return 1.0
+        else:
+            # There is still a descending gradient here. Increase alfa!
+            nP = P1M
+            cont = 0; keepSearch = True#(nPint>Pint1M)
+            while keepSearch:
+                cont += 1
+                P = nP
+                alfa *= 1.2
+                nx = x + alfa * A
+                nu = u + alfa * B
+                np = pi + alfa * C
+                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
+                                   restrictions)#,True)
+                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+                #      " (P0 = {:.4E})".format(P0))
+                keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
+                #if nPint < Pint0:
+            alfa /= 1.2
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
@@ -444,8 +444,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-#    optPlot['mode'] = 'var'
-#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    #optPlot['mode'] = 'var'
+    #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
     #optPlot['mode'] = 'proposed (states: lambda)'
     #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 

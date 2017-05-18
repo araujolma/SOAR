@@ -44,12 +44,12 @@ def declProb(opt=dict()):
 
     pi = 4.0*numpy.ones(p)
 
-#    x = numpy.zeros((N,n))
-#    u = numpy.zeros((N,m))
-
-
     x = numpy.zeros((N,n))
-    u = .4*numpy.pi*numpy.ones((N,m))
+    u = numpy.zeros((N,m))
+
+
+    #x = numpy.zeros((N,n))
+    #u = .4*numpy.pi*numpy.ones((N,m))
 
     
 #    x = numpy.zeros((N,n))
@@ -84,15 +84,13 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     N = sizes['N']
     n = sizes['n']
 
-    sin = numpy.sin
-
     # calculate phi:
     phi = numpy.empty((N,n))
 
     # dr/dt = pi * v
     # dv/dt = pi * u
     phi[:,0] = pi[0] * x[:,1]
-    phi[:,1] = pi[0] * sin(u[:,0])
+    phi[:,1] = pi[0] * numpy.tanh(u[:,0])#numpy.sin(u[:,0])
 
     return phi
 
@@ -120,8 +118,9 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     #q = sizes['q']
 
     # Pre-assign functions
-    sin = numpy.sin
-    cos = numpy.cos
+    #sin = numpy.sin
+    #cos = numpy.cos
+    tanh = numpy.tanh
     array = numpy.array
 
     Grads['dt'] = 1.0/(N-1)
@@ -141,12 +140,17 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         phix[k,:,:] = pi[0]*array([[0.0, 1.0],
                                    [0.0, 0.0]])
 
+#        phiu[k,:,:] = pi[0]*array([[0.0],
+#                                   [cos(u[k])]])
+#
+#        phip[k,:,:] = array([[x[k,1]],
+#                             [sin(u[k])]])
+
         phiu[k,:,:] = pi[0]*array([[0.0],
-                                   [cos(u[k])]])
+                                   [1.0-tanh(u[k])**2]])
 
         phip[k,:,:] = array([[x[k,1]],
-                             [sin(u[k])]])
-
+                             [tanh(u[k])]])
     Grads['phix'] = phix
     Grads['phiu'] = phiu
     Grads['phip'] = phip
@@ -197,6 +201,10 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.plot(t,u[:,0],'k')
     plt.grid(True)
     plt.ylabel("u1 [-]")
+    plt.subplot2grid((8,4),(3,0),colspan=5)
+    plt.plot(t,numpy.tanh(u[:,0]),'r')
+    plt.grid(True)
+    plt.ylabel("contr [-]")
 
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.show()

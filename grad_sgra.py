@@ -156,12 +156,12 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
     np = pi + alfa * C
     Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
     
-    alfa = 1.2
-    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+    #alfa = 1.2
+    #print("\nalfa =",alfa)
+    #nx = x + alfa * A
+    #nu = u + alfa * B
+    #np = pi + alfa * C
+    #Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
     
         
     if Q1 >= Q1m or Q1 >= Q0:
@@ -181,28 +181,31 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
             if nQ < Q0:
                 keepSearch = ((nQ-Q)/Q < -.05)
     else:
-        if Q1 <= Q1M:
-            # alfa = 1.0 is likely to be best value. 
-            # Better not to waste time and return 1.0 
-            return 1.0
-        else:
-            # There is still a descending gradient here. Increase alfa!
-            nQ = Q1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            while keepSearch:
-                cont += 1
-                Q= nQ
-                alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
-                      " (Q0 = {:.4E})".format(Q0))
-                keepSearch = nQ<Q
-                #if nPint < Pint0:
-            alfa /= 1.2
-    return alfa
+        
+        return 1.0
+        
+#        if Q1 <= Q1M:
+#            # alfa = 1.0 is likely to be best value. 
+#            # Better not to waste time and return 1.0 
+#            return 1.0
+#        else:
+#            # There is still a descending gradient here. Increase alfa!
+#            nQ = Q1M
+#            cont = 0; keepSearch = True#(nPint>Pint1M)
+#            while keepSearch:
+#                cont += 1
+#                Q= nQ
+#                alfa *= 1.2
+#                nx = x + alfa * A
+#                nu = u + alfa * B
+#                np = pi + alfa * C
+#                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+#                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
+#                      " (Q0 = {:.4E})".format(Q0))
+#                keepSearch = nQ<Q
+#                #if nPint < Pint0:
+#            alfa /= 1.2
+#    return alfa
     
 #    # "Trissection" method
 #    alfa = 1.0
@@ -456,7 +459,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
     
-    if (B>numpy.pi).any() or (B>-numpy.pi).any():
+    if (B>numpy.pi).any() or (B<-numpy.pi).any():
         print("\nProblems in grad: corrections will result in control overflow.")
     
     optPlot['mode'] = 'var'
