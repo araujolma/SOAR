@@ -28,12 +28,13 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     beta_max = restrictions['beta_max']
     sin = numpy.sin
     cos = numpy.cos
+    tanh = numpy.tanh
     u1 = u[0]
     u2 = u[1]
 
     # calculate variables alpha and beta
-    alpha = (alpha_max + alpha_min)/2 + sin(u1)*(alpha_max - alpha_min)/2
-    beta = (beta_max + beta_min)/2 + sin(u2)*(beta_max - beta_min)/2
+    alpha = (alpha_max + alpha_min)/2 + tanh(u1)*(alpha_max - alpha_min)/2
+    beta = (beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
 
     # calculate variables CL and CD
     CL = CL0 + CL1*alpha
@@ -211,9 +212,52 @@ def declProb(opt=dict()):
         a2 = (alpha_max - alpha_min)/2
         b1 = (beta_max + beta_min)/2
         b2 = (beta_max - beta_min)/2
-        u_its[:,0] = numpy.arcsin((u_its[:,0]-a1)/a2)
-        u_its[:,1] = numpy.arcsin((u_its[:,1]-b1)/b2)
-    
+        
+        u_its[:,0] -= a1
+        u_its[:,0] *= 1.0/a2
+        
+        u_its[:,1] -= b1
+        u_its[:,1] *= 1.0/b2
+        
+        plt.plot(u_its[:,0])
+        plt.grid(True)
+        plt.show()
+        
+        plt.plot(u_its[:,1])
+        plt.grid(True)
+        plt.show()
+
+        # Basic saturation
+        for k in range(len(t_its)):
+            if u_its[k,0] > 0.9999:
+                u_its[k,0] = 0.9999
+            if u_its[k,1] > 0.9999:
+                u_its[k,1] = 0.9999
+            if u_its[k,0] < -0.9999:
+                u_its[k,0] = -0.9999
+            if u_its[k,1] < -0.9999:
+                u_its[k,1] = -0.9999
+        
+        u_its[:,0] = numpy.arctanh(u_its[:,0])
+        u_its[:,1] = numpy.arctanh(u_its[:,1])
+        
+        plt.plot(u_its[:,0])
+        plt.grid(True)
+        plt.show()
+        
+        plt.plot(u_its[:,1])
+        plt.grid(True)
+        plt.show()
+        
+        plt.plot(numpy.tanh(u_its[:,0]))
+        plt.grid(True)
+        plt.show()
+        
+        plt.plot(numpy.tanh(u_its[:,1]))
+        plt.grid(True)
+        plt.show()
+
+        input("Eigirardi!")    
 #        for i in range(n):
 #            f_x = interp1d(t_its, x_its[:,i])
 #            x[:,i] = f_x(t)
@@ -264,13 +308,13 @@ def declProb(opt=dict()):
 
     print("\nUn-interpolated control profiles:")
 
-    plt.plot(t_its,(numpy.sin(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
+    plt.plot(t_its,(numpy.tanh(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
     plt.grid(True)
     plt.xlabel("t_its [-]")
     plt.ylabel("Attack angle [deg]")
     plt.show()
     
-    plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
+    plt.plot(t_its,(numpy.tanh(u_its[:,1])*b2 + b1),'c')
     plt.grid(True)
     plt.xlabel("t_its [-]")
     plt.ylabel("Thrust profile [-]")
@@ -305,12 +349,13 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     beta_max = restrictions['beta_max']
     sin = numpy.sin
     cos = numpy.cos
+    tanh = numpy.tanh
     u1 = u[:,0]
     u2 = u[:,1]
 
     # calculate variables alpha and beta
-    alpha = (alpha_max + alpha_min)/2 + sin(u1)*(alpha_max - alpha_min)/2
-    beta = (beta_max + beta_min)/2 + sin(u2)*(beta_max - beta_min)/2
+    alpha = (alpha_max + alpha_min)/2 + tanh(u1)*(alpha_max - alpha_min)/2
+    beta = (beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
 
     # calculate variables CL and CD
     CL = CL0 + CL1*alpha
@@ -371,7 +416,7 @@ def calcF(sizes,x,u,pi,constants,restrictions):
     #u1 = u[:,0]
     u2 = u[:,1]
     # calculate variable beta
-    beta = (beta_max + beta_min)/2 + numpy.sin(u2)*(beta_max - beta_min)/2
+    beta = (beta_max + beta_min)/2 + numpy.tanh(u2)*(beta_max - beta_min)/2
 
     # example rocket single stage to orbit with Lift and Drag
     f = scal*((Thrust * pi[0])/(grav_e * (1-s_f) * Isp)) * beta
@@ -391,6 +436,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     # Pre-assign functions
     sin = numpy.sin
     cos = numpy.cos
+    tanh = numpy.tanh
     array = numpy.array
 
     grav_e = constants['grav_e']
@@ -433,9 +479,9 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
 
     # Calculate variables (arrays) alpha and beta
     aExp = .5*(alpha_max - alpha_min)
-    alpha = (alpha_max + alpha_min)/2 + sin(u1)*aExp
+    alpha = (alpha_max + alpha_min)/2 + tanh(u1)*aExp
     bExp = .5*(beta_max - beta_min)
-    beta = (beta_max + beta_min)/2 + sin(u2)*bExp
+    beta = (beta_max + beta_min)/2 + tanh(u2)*bExp
 
     # calculate variables CL and CD
     CL = CL0 + CL1*alpha
@@ -466,8 +512,8 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         sinAlpha = sin(alpha[k])
         cosAlpha = cos(alpha[k])
  
-        cosu1 = cos(u1[k])
-        cosu2 = cos(u2[k])
+        #cosu1 = cos(u1[k])
+        #cosu2 = cos(u2[k])
  
         r2 = r[k]**2; r3 = r2*r[k]
         V = x[k,1]; V2 = V*V
@@ -476,8 +522,8 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         fNor = beta[k]*Thrust*sinAlpha+L[k] # forces normal to velocity
  
         # Expanded notation:
-        DAlfaDu1 = aExp*cosu1
-        DBetaDu2 = bExp*cosu2
+        DAlfaDu1 = aExp*(1-tanh(u1[k])**2)
+        DBetaDu2 = bExp*(1-tanh(u2[k])**2)
         if k < N0:# calculated for 3s of no maneuver 
             phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
                                        [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
@@ -496,8 +542,8 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                                        [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
      
             phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
-                                       [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*aExp*cosu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+                                       [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
                                        [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
         #
         phip[k,:,:] = array([[V*sinGama                                   ],
@@ -580,7 +626,7 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.xlabel("t")
     plt.ylabel("u2 [-]")
     ######################################
-    alpha = (alpha_max + alpha_min)/2 + numpy.sin(u[:,0])*(alpha_max - alpha_min)/2
+    alpha = (alpha_max + alpha_min)/2 + numpy.tanh(u[:,0])*(alpha_max - alpha_min)/2
     alpha *= 180/numpy.pi
     plt.subplot2grid((8,4),(6,0),colspan=5)
     plt.plot(t,alpha,'b')
@@ -590,7 +636,7 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.grid(True)
     plt.xlabel("t")
     plt.ylabel("alpha [deg]")
-    beta = (beta_max + beta_min)/2 + numpy.sin(u[:,1])*(beta_max - beta_min)/2
+    beta = (beta_max + beta_min)/2 + numpy.tanh(u[:,1])*(beta_max - beta_min)/2
     plt.subplot2grid((8,4),(7,0),colspan=5)
     plt.plot(t,beta,'b')
     #plt.hold(True)

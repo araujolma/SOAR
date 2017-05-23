@@ -9,8 +9,9 @@ rest_sgra: functions for performing restoration
 import numpy
 import matplotlib.pyplot as plt
 
-from prob_rocket_sgra import calcPhi,calcPsi,calcGrads#,plotSol
+#from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
 #from prob_test import calcPhi,calcPsi,calcGrads,plotSol
+from prob_pend import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
 
@@ -158,7 +159,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                 keepSearch = ((nP-P)/P < -.05)
     else:
         # no "overdrive!"
-#        return 1.0
+        return 1.0
     
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 
@@ -250,7 +251,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 #        print("\nIntegrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0e-10
+            mu[i] = 1.0e-5#10
 
             # integrate equation (75-2) backwards
             auxLamInit = - psixTr.dot(mu)
@@ -426,10 +427,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     #
 
     # Calculations of weights k:
-    #print("M =",M)
+    print("M =",M)
     #print("col =",col)
     K = numpy.linalg.solve(M,col)
-    #print("K =",K)
+    print("K =",K)
 
     # summing up linear combinations
     A = 0.0*A
@@ -444,10 +445,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    #optPlot['mode'] = 'var'
-    #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    #optPlot['mode'] = 'proposed (states: lambda)'
-    #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    optPlot['mode'] = 'var'
+    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    optPlot['mode'] = 'proposed (states: lambda)'
+    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")

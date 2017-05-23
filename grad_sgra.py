@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 from utils import ddt
-from prob_rocket_sgra import calcGrads, plotSol
+#from prob_rocket_sgra import calcGrads, plotSol
 #from prob_test import calcGrads, plotSol
+from prob_pend import calcGrads, plotSol
 
 def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     # Q expression from (15)
