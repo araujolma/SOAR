@@ -192,8 +192,32 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
-                    
+        new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+        
+        # @Object test (Apague-me depois) 
+        tObj = numpy.arange(0.0,t_its[-1],1)
+        # Example of scalar evaluation
+        scalarAlpha = tabAlpha.value(4.5)
+        print("Example of scalar evaluation:",scalarAlpha)
+        
+        # Example of vetorial evaluation: multValue
+        alphaObj = tabAlpha.multValue(tObj)
+        
+        plt.plot(tObj,alphaObj,'.-b')
+        plt.grid(True)
+        plt.ylabel("alphaObj ")
+        plt.xlabel("tObj")
+        plt.show()
+        
+        betaObj = tabBeta.multValue(tObj)
+        
+        plt.plot(tObj,betaObj,'.-r')
+        plt.grid(True)
+        plt.ylabel("betaObj ")
+        plt.xlabel("tObj")
+        plt.show()
+        # end of object test
+                
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
         # Besides, all arrays are in a different time discretization
@@ -216,6 +240,7 @@ def declProb(opt=dict()):
         for i in range(m):
             f_u = interp1d(t_its,u_its[:,i])
             u[:,i] = f_u(t)
+            
         
         dt = pi[0]/(N-1); dt6 = dt/6
         x[0,:] = x_its[0,:]
