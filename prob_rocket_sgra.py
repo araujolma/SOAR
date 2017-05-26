@@ -63,7 +63,7 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + cos(x[2]) * ( x[1]/r  -  grav/x[1] )
     dx[3] = -(beta * Thrust)/(grav_e * Isp)
 
-    if t < 3:
+    if t < 3.0:
 #        print(t)
         dx[2] = 0.0
     return dx
@@ -190,7 +190,20 @@ def declProb(opt=dict()):
                 if k>4999:
                     u[k,1] = (numpy.pi/2)*0.27
         pi = 1100*numpy.ones((p,1))
-
+        
+    elif initMode == 'crazy':
+        pis2 = numpy.pi*0.5
+        pi = numpy.array([300.0])
+        dt = pi[0]/(N-1); dt6 = dt/6
+        x[0,:] = numpy.array([0.0,1.0e-6,pis2,2000.0])
+        for i in range(N-1):
+            tt = i * dt
+            k1 = calcXdot(sizes,tt,x[i,:],u[i,:],constants,restrictions)  
+            k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
+            k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
+            k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
+            x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
+        
     elif initMode == 'extSol':
 
         # Factors instervals for aerodynamics
@@ -219,43 +232,51 @@ def declProb(opt=dict()):
         u_its[:,1] -= b1
         u_its[:,1] *= 1.0/b2
         
-        plt.plot(u_its[:,0])
+        plt.plot(t_its,u_its[:,0])
         plt.grid(True)
         plt.show()
         
-        plt.plot(u_its[:,1])
+        plt.plot(t_its,u_its[:,1])
         plt.grid(True)
         plt.show()
 
         # Basic saturation
-        for k in range(len(t_its)):
-            if u_its[k,0] > 0.9999:
-                u_its[k,0] = 0.9999
-            if u_its[k,1] > 0.9999:
-                u_its[k,1] = 0.9999
-            if u_its[k,0] < -0.9999:
-                u_its[k,0] = -0.9999
-            if u_its[k,1] < -0.9999:
-                u_its[k,1] = -0.9999
+        for j in range(2):
+            for k in range(len(t_its)):
+                if u_its[k,j] > 0.99999:
+                    u_its[k,j] = 0.99999
+                if u_its[k,j] < -0.99999:
+                    u_its[k,j] = -0.99999
         
         u_its[:,0] = numpy.arctanh(u_its[:,0])
         u_its[:,1] = numpy.arctanh(u_its[:,1])
         
-        plt.plot(u_its[:,0])
+        plt.plot(t_its,u_its[:,0])
         plt.grid(True)
         plt.show()
         
-        plt.plot(u_its[:,1])
+        plt.plot(t_its,u_its[:,1])
         plt.grid(True)
         plt.show()
         
-        plt.plot(numpy.tanh(u_its[:,0]))
+        plt.plot(t_its,numpy.tanh(u_its[:,0]))
         plt.grid(True)
         plt.show()
         
-        plt.plot(numpy.tanh(u_its[:,1]))
+        plt.plot(t_its,numpy.tanh(u_its[:,1]))
         plt.grid(True)
         plt.show()
+
+        for k in range(len(t_its)):
+            print("k =",k,", t =",t_its[k],"beta =",u_its[k,1])
+
+#        plt.plot(t_its[16000:],numpy.tanh(u_its[16000:,0]))
+#        plt.grid(True)
+#        plt.show()
+#        
+#        plt.plot(t_its[16000:],numpy.tanh(u_its[16000:,1]))
+#        plt.grid(True)
+#        plt.show()
 
         input("Eigirardi!")    
 #        for i in range(n):
@@ -275,53 +296,53 @@ def declProb(opt=dict()):
             k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
             k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
             x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
-
+    
+        ###
+        print("\nUn-interpolated solution from Souza's propagation:")
+    
+        plt.plot(t_its,x_its[:,0])
+        plt.grid(True)
+        plt.ylabel("h [km]")
+        plt.xlabel("t_its [-]")
+        plt.show()
+    
+        plt.plot(t_its,x_its[:,1],'g')
+        plt.grid(True)
+        plt.ylabel("V [km/s]")
+        plt.xlabel("t_its [-]")
+        plt.show()
+    
+        plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
+        plt.grid(True)
+        plt.ylabel("gamma [deg]")
+        plt.xlabel("t_its [-]")
+        plt.show()
+    
+        plt.plot(t_its,x_its[:,3],'m')
+        plt.grid(True)
+        plt.ylabel("m [kg]")
+        plt.xlabel("t_its [-]")
+        plt.show()
+    
+        print("\nUn-interpolated control profiles:")
+    
+        plt.plot(t_its,(numpy.tanh(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
+        plt.grid(True)
+        plt.xlabel("t_its [-]")
+        plt.ylabel("Attack angle [deg]")
+        plt.show()
+        
+        plt.plot(t_its,(numpy.tanh(u_its[:,1])*b2 + b1),'c')
+        plt.grid(True)
+        plt.xlabel("t_its [-]")
+        plt.ylabel("Thrust profile [-]")
+        plt.show()
+        ###
+    
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)
-
-    ###
-    print("\nUn-interpolated solution from Souza's propagation:")
-
-    plt.plot(t_its,x_its[:,0])
-    plt.grid(True)
-    plt.ylabel("h [km]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,1],'g')
-    plt.grid(True)
-    plt.ylabel("V [km/s]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
-    plt.grid(True)
-    plt.ylabel("gamma [deg]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,3],'m')
-    plt.grid(True)
-    plt.ylabel("m [kg]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    print("\nUn-interpolated control profiles:")
-
-    plt.plot(t_its,(numpy.tanh(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
-    plt.grid(True)
-    plt.xlabel("t_its [-]")
-    plt.ylabel("Attack angle [deg]")
-    plt.show()
     
-    plt.plot(t_its,(numpy.tanh(u_its[:,1])*b2 + b1),'c')
-    plt.grid(True)
-    plt.xlabel("t_its [-]")
-    plt.ylabel("Thrust profile [-]")
-    plt.show()
-    ###
-    
-    print("Interpolated solution:")
+    print("Proposed solution:")
 #    optPlot = dict()
     plotSol(sizes,t,x,u,pi,constants,restrictions,{})
 

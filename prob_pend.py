@@ -43,35 +43,19 @@ def declProb(opt=dict()):
     tol['P'] = tolP
     tol['Q'] = tolQ
 
-    pi = 1.5*numpy.ones(p)
-
-    #x = numpy.zeros((N,n))
-    #u = numpy.zeros((N,m))
-
+    pi = 1.0*numpy.ones(p)
 
     x = numpy.zeros((N,n))
-    u = numpy.ones((N,m))
-
+#    x[:,0] = .01*numpy.sin(100*2*numpy.pi*t)
+    # initial guesses with frequencies less than 100 end up converging!
+    x[:,0] = .01*numpy.sin(200*2*numpy.pi*t)
     
-#    x = numpy.zeros((N,n))
-#    u = .5*numpy.pi*numpy.ones((N,m))
-#    
-#    Nmet = int((N-1)/2)
-#    N1q = int((N-1)/4)
-#    N3q = N1q+Nmet
-#    x[Nmet:N3q,1] = t[0:N1q]
-#    x[Nmet:N3q,0] = 2*t[0:N1q]*t[0:N1q]
-#    for i in range(N1q):
-#        x[N3q+i,1] = t[N1q-i]   
-#        u[N3q+i] = -.5*numpy.pi
-#        x[N3q+i,0] = -2*t[N1q-i]*t[N1q-i] + 2*x[N3q-1,0]
-#    u[0:Nmet] = 0
-#    
-#    x *= pi 
-#    
-#    u[N-1] = -.5*numpy.pi
-#    x[N-1,0] = 1.0
-#    x[N-1,1] = 0.0
+    u = numpy.zeros((N,m))
+
+
+    #x = .5*numpy.pi*numpy.ones((N,n))
+    #x[:,0] = .5*numpy.pi*numpy.arange(0.0,1.0+dt,dt)
+    #u = numpy.zeros((N,m))
     
     lam = x.copy()
     mu = numpy.zeros(q)

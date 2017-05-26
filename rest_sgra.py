@@ -9,9 +9,9 @@ rest_sgra: functions for performing restoration
 import numpy
 import matplotlib.pyplot as plt
 
-#from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
+from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
 #from prob_test import calcPhi,calcPsi,calcGrads,plotSol
-from prob_pend import calcPhi,calcPsi,calcGrads,plotSol
+#from prob_pend import calcPhi,calcPsi,calcGrads,plotSol
 #from utils_alt import ddt
 from utils import ddt
 
@@ -57,8 +57,8 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         
         # for zoomed version:
         indMaxP = vetP.argmax()
-        ind1 = numpy.array([indMaxP-10,0]).max()
-        ind2 = numpy.array([indMaxP+10,N-1]).min()
+        ind1 = numpy.array([indMaxP-15,0]).max()
+        ind2 = numpy.array([indMaxP+15,N-1]).min()
         plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
         plt.grid(True)
         plt.title("Integrand of P (zoom)")
@@ -97,10 +97,19 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
             plt.grid(True)
             plt.xlabel("t")
             plt.ylabel("u2 [-]")
-    
             plt.show()
         
         
+            plt.plot(tPlot[ind1:ind2],(numpy.tanh(u[ind1:ind2,0])*2.0)*180/numpy.pi,'k')
+            plt.grid(True)
+            plt.ylabel("alfa [deg]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],numpy.tanh(u[ind1:ind2,1])*.5+.5,'c')
+            plt.grid(True)
+            plt.xlabel("t")
+            plt.ylabel("beta [-]")
+            plt.show()
         plt.plot(tPlot,vetIP)
         plt.grid(True)
         plt.title("Partially integrated P")
@@ -251,7 +260,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 #        print("\nIntegrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0e-5#10
+            mu[i] = 1.0e-10
 
             # integrate equation (75-2) backwards
             auxLamInit = - psixTr.dot(mu)
@@ -445,10 +454,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'proposed (states: lambda)'
-    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+#    optPlot['mode'] = 'var'
+#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+#    optPlot['mode'] = 'proposed (states: lambda)'
+#    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")

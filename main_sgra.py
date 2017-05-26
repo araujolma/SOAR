@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 
-#from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
-from prob_pend import declProb, calcPhi, calcPsi, calcGrads, plotSol
+from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
+#from prob_pend import declProb, calcPhi, calcPsi, calcGrads, plotSol
 #from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from rest_sgra import calcP, rest#, oderest
 from grad_sgra import calcQ, grad
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print('\n')
     
     opt = dict()
-    opt['initMode'] = 'extSol'#'default'#'extSol'
+    opt['initMode'] = 'extSol'#'crazy'#'default'#'extSol'
 
     # declare problem:
     sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
