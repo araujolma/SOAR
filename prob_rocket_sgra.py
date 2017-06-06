@@ -112,10 +112,16 @@ def declProb(opt=dict()):
     alpha_max = 2*(numpy.pi)/180   # in rads
     beta_min = 0
     beta_max = 1
+    
+# Perform inverse transformations for u:
+    a1 = (alpha_max + alpha_min)/2
+    a2 = (alpha_max - alpha_min)/2
+    b1 = (beta_max + beta_min)/2
+    b2 = (beta_max - beta_min)/2
 
 # tolerances
-    tolP = 1.0e-7#8
-    tolQ = 1.0e-5
+    tolP = 1.0e-3#7#8
+    tolQ = 1.0e-2#5
 
 # prepare boundary conditions
     boundary = dict()
@@ -166,28 +172,73 @@ def declProb(opt=dict()):
     initMode = opt.get('initMode','default')
     x = numpy.zeros((N,n))
     u = numpy.zeros((N,m))
+    u[:,1] = (1.5*numpy.pi)*numpy.ones(N)    
 
     if initMode == 'default':
         # artesanal handicraft with L and D (Miele 2003)
-        x[:,0] = h_final*numpy.sin(numpy.pi*t.copy()/2)
+        x[:,0] = h_final*numpy.sin(numpy.pi*t/2)
         x[:,1] = 3.793*numpy.exp(0.7256*t) -1.585 -3.661*numpy.cos(3.785*t+0.9552)
-        #x[:,1] = V_final*numpy.sin(numpy.pi*t.copy()/2)
-        #x[:,1] = 1.0e3*(-0.4523*t.copy()**5 + 1.2353*t.copy()**4-1.1884*t.copy()**3+0.4527*t.copy()**2-0.0397*t.copy())
-        x[:,2] = (numpy.pi/2)*(numpy.exp(-(t.copy()**2)/0.017))+0.06419
-        x[:,3] = m_initial*((0.7979*numpy.exp(-(t.copy()**2)/0.02))+0.1901*numpy.cos(t.copy()))
-        #x[:,3] = m_initial*(1.0-0.89*t.copy())
-        #x[:,3] = m_initial*(-2.9*t.copy()**3 + 6.2*t.copy()**2 - 4.2*t.copy() + 1)
+        #x[:,1] = V_final*numpy.sin(numpy.pi*t/2)
+        #x[:,1] = 1.0e3*(-0.4523*(t**5) + 1.2353*(t**4)-1.1884*(t**3)+0.4527*(t**2)-0.0397*t)
+        x[:,2] = (numpy.pi/2)*(numpy.exp(-(t**2)/0.017))+0.06419
+        x[:,3] = m_initial*((0.7979*numpy.exp(-(t**2)/0.02))+0.1901*numpy.cos(t))
+        #x[:,3] = m_initial*(1.0-0.89*t)
+        #x[:,3] = m_initial*(-2.9*(t**3) + 6.2*(t**2) - 4.2*t + 1)
         for k in range(N):
-            if k<910:
+            if k<int(0.2*N):
+                u[k,0] = -numpy.pi/2*t[k]
+            if k<int(0.16*N):
                 u[k,1] = (numpy.pi/2)
             else:
-                if k>4999:
-                    u[k,1] = (numpy.pi/2)*0.27
+                if k<int(0.36*N):
+                    u[k,1] = -5.1*(numpy.pi/2)*(t[k]-0.36)
+                if k>int(0.9*N):
+                    u[k,1] = 1.25*((numpy.pi))*(t[k]+4.92)
         pi = 1100*numpy.ones((p,1))
+      
+        ###
+        print("\nArtesanal Handicraft First Guess:")        
+        plotSolza(sizes,t,x,u,pi,constants,restrictions,False)
+#        plt.plot(t,x[:,0])
+#        plt.grid(True)
+#        plt.ylabel("h [km]")
+#        plt.xlabel("t [-]")
+#        plt.show()
+#    
+#        plt.plot(t,x[:,1],'g')
+#        plt.grid(True)
+#        plt.ylabel("V [km/s]")
+#        plt.xlabel("t [-]")
+#        plt.show()
+#    
+#        plt.plot(t,x[:,2]*180/numpy.pi,'r')
+#        plt.grid(True)
+#        plt.ylabel("gamma [deg]")
+#        plt.xlabel("t [-]")
+#        plt.show()
+#    
+#        plt.plot(t,x[:,3],'m')
+#        plt.grid(True)
+#        plt.ylabel("m [kg]")
+#        plt.xlabel("t [-]")
+#        plt.show()
+#                
+#        plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'k')
+#        plt.grid(True)
+#        plt.xlabel("t [-]")
+#        plt.ylabel("Attack angle [deg]")
+#        plt.show()
+#    
+#        plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+#        plt.grid(True)
+#        plt.xlabel("t [-]")
+#        plt.ylabel("Thrust profile [-]")
+#        plt.show()
+    ###
 
     elif initMode == 'extSol':
 
-        # Factors instervals for aerodynamics
+        # Factors intervals for aerodynamics
         fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
@@ -226,10 +277,6 @@ def declProb(opt=dict()):
         t_its = t_its/pi
 
         # Perform inverse transformations for u:
-        a1 = (alpha_max + alpha_min)/2
-        a2 = (alpha_max - alpha_min)/2
-        b1 = (beta_max + beta_min)/2
-        b2 = (beta_max - beta_min)/2
         u_its[:,0] = numpy.arcsin((u_its[:,0]-a1)/a2)
         u_its[:,1] = numpy.arcsin((u_its[:,1]-b1)/b2)
     
@@ -249,53 +296,54 @@ def declProb(opt=dict()):
             k2 = calcXdot(sizes,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
             k3 = calcXdot(sizes,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
             k4 = calcXdot(sizes,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
-            x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
+            x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4)
+            
+        ###
+        #print("\nUn-interpolated solution from Souza's propagation:")  
+        print("\nSouza's First Guess:")
+        plotSolza(sizes,t_its,x_its,u_its,pi,constants,restrictions,False)
+
+#        plt.plot(t_its,x_its[:,0])
+#        plt.grid(True)
+#        plt.ylabel("h [km]")
+#        plt.xlabel("t_its [-]")
+#        plt.show()
+#    
+#        plt.plot(t_its,x_its[:,1],'g')
+#        plt.grid(True)
+#        plt.ylabel("V [km/s]")
+#        plt.xlabel("t_its [-]")
+#        plt.show()
+#    
+#        plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
+#        plt.grid(True)
+#        plt.ylabel("gamma [deg]")
+#        plt.xlabel("t_its [-]")
+#        plt.show()
+#    
+#        plt.plot(t_its,x_its[:,3],'m')
+#        plt.grid(True)
+#        plt.ylabel("m [kg]")
+#        plt.xlabel("t_its [-]")
+#        plt.show()
+#    
+#        print("\nUn-interpolated control profiles:")
+#    
+#        plt.plot(t_its,(numpy.sin(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
+#        plt.grid(True)
+#        plt.xlabel("t_its [-]")
+#        plt.ylabel("Attack angle [deg]")
+#        plt.show()
+#    
+#        plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
+#        plt.grid(True)
+#        plt.xlabel("t_its [-]")
+#        plt.ylabel("Thrust profile [-]")
+#        plt.show()
+    ###
 
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)
-
-    ###
-    print("\nUn-interpolated solution from Souza's propagation:")
-
-    plt.plot(t_its,x_its[:,0])
-    plt.grid(True)
-    plt.ylabel("h [km]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,1],'g')
-    plt.grid(True)
-    plt.ylabel("V [km/s]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
-    plt.grid(True)
-    plt.ylabel("gamma [deg]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    plt.plot(t_its,x_its[:,3],'m')
-    plt.grid(True)
-    plt.ylabel("m [kg]")
-    plt.xlabel("t_its [-]")
-    plt.show()
-
-    print("\nUn-interpolated control profiles:")
-
-    plt.plot(t_its,(numpy.sin(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
-    plt.grid(True)
-    plt.xlabel("t_its [-]")
-    plt.ylabel("Attack angle [deg]")
-    plt.show()
-
-    plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
-    plt.grid(True)
-    plt.xlabel("t_its [-]")
-    plt.ylabel("Thrust profile [-]")
-    plt.show()
-    ###
-
     print("\nInitialization complete.\n")
     return sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions
 
@@ -620,4 +668,104 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.show()
     print("pi =",pi,"\n")
-#
+
+def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
+    
+    alpha_min = restrictions['alpha_min']
+    alpha_max = restrictions['alpha_max']
+    beta_min = restrictions['beta_min']
+    beta_max = restrictions['beta_max']
+    
+    a1 = (alpha_max + alpha_min)/2
+    a2 = (alpha_max - alpha_min)/2
+    b1 = (beta_max + beta_min)/2
+    b2 = (beta_max - beta_min)/2
+    
+    if compare==False:
+        x_initial = x
+        u_initial = u
+        
+        plt.plot(t,x[:,0],'y')
+        plt.grid(True)
+        plt.ylabel("h [km]")
+        plt.xlabel("t [-]")
+        plt.show()
+    
+        plt.plot(t,x[:,1],'g')
+        plt.grid(True)
+        plt.ylabel("V [km/s]")
+        plt.xlabel("t [-]")
+        plt.show()
+    
+        plt.plot(t,x[:,2]*180/numpy.pi,'r')
+        plt.grid(True)
+        plt.ylabel("gamma [deg]")
+        plt.xlabel("t [-]")
+        plt.show()
+    
+        plt.plot(t,x[:,3],'m')
+        plt.grid(True)
+        plt.ylabel("m [kg]")
+        plt.xlabel("t [-]")
+        plt.show()
+                
+        plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
+        plt.grid(True)
+        plt.xlabel("t [-]")
+        plt.ylabel("Attack angle [deg]")
+        plt.show()
+    
+        plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+        plt.grid(True)
+        plt.xlabel("t [-]")
+        plt.ylabel("Thrust profile [-]")
+        plt.show()        
+        
+    else:
+        plt.semilogy(t,x_initial[:,0])
+        plt.hold(True)
+        plt.semilogy(t,x[:,0],'y')
+        plt.grid()
+        plt.ylabel("h [km]")
+        plt.xlabel("t [-]")
+        plt.show()
+        
+        plt.semilogy(t,x_initial[:,1])
+        plt.hold(True)
+        plt.semilogy(t,x[:,1],'g')
+        plt.grid()
+        plt.ylabel("V [km/s]")
+        plt.xlabel("t [-]")
+        plt.show()
+        
+        plt.semilogy(t,x_initial[:,2]*180/numpy.pi)
+        plt.hold(True)
+        plt.semilogy(t,x[:,2]*180/numpy.pi,'r')    
+        plt.grid()
+        plt.ylabel("gamma [deg]")
+        plt.xlabel("t [-]")
+        plt.show()
+        
+        plt.semilogy(t,x_initial[:,3],'m')
+        plt.hold(True)
+        plt.semilogy(t,x[:,3],'m')
+        plt.grid()
+        plt.ylabel("m [kg]")
+        plt.xlabel("t [-]")
+        plt.show()
+                    
+        plt.semilogy(t,(numpy.sin(u_initial[:,0])*a2 + a1)*180/numpy.pi)
+        plt.hold(True)
+        plt.semilogy(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
+        plt.grid()
+        plt.xlabel("t [-]")
+        plt.ylabel("Attack angle [deg]")
+        plt.show()
+        
+        plt.semilogy(t,(numpy.sin(u_initial[:,1])*b2 + b1))
+        plt.hold(True)
+        plt.semilogy(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+        plt.grid()
+        plt.xlabel("t [-]")
+        plt.ylabel("Thrust profile [-]")
+        plt.show()
