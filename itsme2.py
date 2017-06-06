@@ -48,9 +48,10 @@ def funDict(h_final):
     con['s_ref'] = con['pi']*( (0.5e-3)**2) #km²
     
     # Trajectory parameters
-    con['AoAmax'] = 2.0#3.0           # graus    
+    con['AoAmax'] = 1.2#3.0           # graus    
     con['torb'] = 2*con['pi']*(con['R'] + h_final)/con['V_final'] # Time of one orbit using the final velocity
-    con['tAoA'] = 4.0
+    con['tAoA1'] = 3.5
+    con['tAoA'] = 7.5
     
     return con
 
@@ -70,7 +71,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     factors1[2] = f3 + 0.0
     df[2] = 0.0        
     factors2 = factors1 + df
-    errors1, tt, xx, _, _ = trajectorySimulate(factors1,h_final,Mu,con,"design",tol)        
+    errors1, tt, xx = trajectorySimulate(factors1,h_final,Mu,con,"design",tol)        
     step = df + 0.0
     factors3 = factors2 + 0.0
 
@@ -78,7 +79,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     while (not stop) and (count <= Nmax):
                     
         # Error update
-        errors2, _, _, _, _ = trajectorySimulate(factors2,h_final,Mu,con,"design",tol)                    
+        errors2, _, _ = trajectorySimulate(factors2,h_final,Mu,con,"design",tol)                    
         
         converged = abs(errors2) < tol
         if converged[0] and converged[1]:
@@ -217,7 +218,7 @@ def its(fsup,finf,h_final,Mu,tol):
     
     con = funDict(h_final)
     factors = bisecAltitude(fsup,finf,h_final,Mu,con,tol)
-    errors, tt, xx, tabAlpha, tabBeta = trajectorySimulate(factors,h_final,Mu,con,"design",tol) 
+    errors, tt, xx = trajectorySimulate(factors,h_final,Mu,con,"design",tol)    
     num = "8.6e"
     print("\n\####################################################")
     print("ITS the end (lol)") #mongolice... haha
@@ -227,8 +228,7 @@ def its(fsup,finf,h_final,Mu,tol):
     print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))
     tt,xx,uu,_,_,_ = trajectorySimulate(factors,h_final,Mu,con,"plot",tol)
     
-    
-    return factors,tt,xx,uu,tabAlpha,tabBeta
+    return factors,tt,xx,uu
 
     
 def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
@@ -270,7 +270,7 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     # Attitude program definition
     # Chossing tAoA1 as a fraction of tf results in code bad behavior
     # So a fixed generic number is used
-    tAoA1 = 4.4 # [s], maneuver initiates 4.4 seconds from lift off
+    tAoA1 = con['tAoA1'] # [s], maneuver initiates 4.4 seconds from lift off
     tAoA2 = tAoA1 + con['tAoA']
 
     # Attitude program
@@ -311,7 +311,7 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
         h,v,gamma,M = xx
         errors = ((v - con['V_final'])/0.01, (gamma - con['gamma_final'])/0.01, (h - h_final)/10)
         errors = numpy.array(errors)
-        ans = errors, tt, xx, tabAlpha, tabBeta  
+        ans = errors, tt, xx    
         
     elif (typeResult == "plot") or (typeResult == "orbital"):        
         # Integration using rk45 separated by phases
@@ -536,9 +536,14 @@ def mdlDer(t,x,arg):
 #         phi[k,2] = pi[0] * ((beta[k] * Thrust * sin(alpha[k]) + L[k])/(x[k,3] * x[k,1]) + cos(x[k,2]) * ( x[k,1]/r[k]  -  grav[k]/x[k,1] ))
 #     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
 
+    if t <= con['tAoA1']:
+        gamma_dot = 0.0
+    else:
+        gamma_dot = btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M))
+
     return numpy.array([v*sinGama,\
     btm*numpy.cos(alfat) - g*sinGama - (D/M),\
-    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)),\
+    gamma_dot,\
     -btm*M/g0/Isp])    
 
 def aed(h,v,alfat,con):    
@@ -724,8 +729,8 @@ if __name__ == "__main__":
     ################
 
     # Factors instervals for aerodynamics
-    fsup = numpy.array([0.6 + 0.3,500 + 100,2.0 + 0.4]) # Superior limit
-    finf = numpy.array([0.6 - 0.3,500 - 100,2.0 - 0.4]) # Inferior limit
+    fsup = numpy.array([0.58 + 0.3,505.0 + 100,2.04 + 0.4]) # Superior limit
+    finf = numpy.array([0.58 - 0.3,505.0 - 100,2.04 - 0.4]) # Inferior limit
  
     # Initital display of vehicle trajectory
     factors = (fsup + finf)/2
@@ -733,7 +738,7 @@ if __name__ == "__main__":
     displayResults(factors,h_final,Mu,con,tol)
 
     # Automatic adjustament
-    new_factors,_,_,_,tabAlpha,tabBeta = its(fsup,finf,h_final,Mu,tol)
+    new_factors,t,x,u = its(fsup,finf,h_final,Mu,tol)
         
     # Results with automatic adjustment 
     displayResults(new_factors,h_final,Mu,con,tol)
