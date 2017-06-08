@@ -40,8 +40,10 @@ if __name__ == "__main__":
 #    psix = Grads['psix']
 #    psip = Grads['psip']
 
+    input("E aí?")
     print("##################################################################")
     print("\nProposed initial guess:\n")
+
 
     P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
     print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
@@ -77,23 +79,7 @@ if __name__ == "__main__":
     print("\nBeginning first restoration rounds...\n")
     while P > tolP and NIterRest < (MaxIterRest-1):
         NIterRest += 1
-
-#        if Ppsi/Pint > 1e-15:
-#            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#        else:
-#            x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)
         
-#        if nOdeRest>0: #Pint > 1e-5:#NIterRest % 3 == 0:
-#            x,u,pi,lam,mu = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#            nOdeRest-=1
-#            if nOdeRest==0:
-#                print("Back to normal restoration.\n")
-#        else: 
-#            x,u,pi,lam,mu = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-#            if Ppsi/Pint < 1e-5:
-#                nOdeRest = 10
-#                print("Ready for fast restoration!\n")
-
         x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
 #        x,u,pi,lamR,muR = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
 
@@ -106,7 +92,7 @@ if __name__ == "__main__":
         histPpsi[NIterRest] = Ppsi  
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
         print("\a")
-        input("What now?")
+        #input("What now?")
             
     print("\nConvergence report:")
     
@@ -157,7 +143,7 @@ if __name__ == "__main__":
             print("\nPerforming restoration...")
             x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
             NIterRest+=1
-            P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions)#,True)
+            P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
             optPlot['P'] = P
             histP[NIterRest] = P
             histPint[NIterRest] = Pint
@@ -170,7 +156,7 @@ if __name__ == "__main__":
 #            plt.grid(True)
 #            plt.title('This is the beginning of the problem...')
 #            plt.show()
-            #input("what now?")
+            input("what now?")
         #
         print("\nRestoration report:")
         plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])

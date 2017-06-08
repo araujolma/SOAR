@@ -58,7 +58,7 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         # for zoomed version:
         indMaxP = vetP.argmax()
         ind1 = numpy.array([indMaxP-15,0]).max()
-        ind2 = numpy.array([indMaxP+15,N-1]).min()
+        ind2 = numpy.array([indMaxP+15,N]).min()
         plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
         plt.grid(True)
         plt.title("Integrand of P (zoom)")
@@ -110,6 +110,73 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
             plt.xlabel("t")
             plt.ylabel("beta [-]")
             plt.show()
+            
+            print("\nResidual on the region of maxP:")
+
+            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,0])
+            plt.grid(True)
+            plt.ylabel("res_hDot [km/s]")
+            plt.show()        
+    
+            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("res_vDot [km/s/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
+            plt.grid(True)
+            plt.ylabel("res_gammaDot [deg/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,3],'m')
+            plt.grid(True)
+            plt.ylabel("res_mDot [kg/s]")
+            plt.show()
+            
+            print("\nState time derivatives on the region of maxP:")
+
+            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,0])
+            plt.grid(True)
+            plt.ylabel("hDot [km/s]")
+            plt.show()        
+    
+            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("vDot [km/s/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,2]*180/numpy.pi,'r')
+            plt.grid(True)
+            plt.ylabel("gammaDot [deg/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,3],'m')
+            plt.grid(True)
+            plt.ylabel("mDot [kg/s]")
+            plt.show()
+            
+            print("\nPHI on the region of maxP:")
+
+            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,0])
+            plt.grid(True)
+            plt.ylabel("hDot [km/s]")
+            plt.show()        
+    
+            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("vDot [km/s/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,2]*180/numpy.pi,'r')
+            plt.grid(True)
+            plt.ylabel("gammaDot [deg/s]")
+            plt.show()
+    
+            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,3],'m')
+            plt.grid(True)
+            plt.ylabel("mDot [kg/s]")
+            plt.show()
+            
         plt.plot(tPlot,vetIP)
         plt.grid(True)
         plt.title("Partially integrated P")
@@ -427,8 +494,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-#        optPlot['mode'] = 'var'
-#        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        #optPlot['mode'] = 'var'
+        #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         
         # Matrix for linear system (89)
@@ -454,10 +521,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-#    optPlot['mode'] = 'var'
-#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-#    optPlot['mode'] = 'proposed (states: lambda)'
-#    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    optPlot['mode'] = 'var'
+    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    optPlot['mode'] = 'proposed (states: lambda)'
+    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")

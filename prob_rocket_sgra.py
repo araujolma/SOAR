@@ -33,8 +33,8 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     u2 = u[1]
 
     # calculate variables alpha and beta
-    alpha = (alpha_max + alpha_min)/2 + tanh(u1)*(alpha_max - alpha_min)/2
-    beta = (beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
+    alpha = u1#(alpha_max + alpha_min)/2 + tanh(u1)*(alpha_max - alpha_min)/2
+    beta = u2#(beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
 
     # calculate variables CL and CD
     CL = CL0 + CL1*alpha
@@ -103,7 +103,7 @@ def declProb(opt=dict()):
 
 # rocket constants
     Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
-    scal = 7.5e-4# 1.0/2.5e3
+    scal = 1.0e-2#7.5e-4# 1.0/2.5e3
     Isp = 450.0                   # s
     s_f = 0.05
     CL0 = -0.03                   # (B0 Miele 1998)
@@ -211,14 +211,43 @@ def declProb(opt=dict()):
         finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
 
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
+#        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
+
+        ###################################
+        new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+        
+        # @Object test (Apague-me depois) 
+#        tObj = numpy.arange(0.0,t_its[-1],1)
+#        # Example of scalar evaluation
+#        scalarAlpha = tabAlpha.value(4.5)
+#        print("Example of scalar evaluation:",scalarAlpha)
+#        
+#        # Example of vetorial evaluation: multValue
+#        alphaObj = tabAlpha.multValue(tObj)
+#        
+#        plt.plot(tObj,alphaObj,'.-b')
+#        plt.grid(True)
+#        plt.ylabel("alphaObj ")
+#        plt.xlabel("tObj")
+#        plt.show()
+#        
+#        betaObj = tabBeta.multValue(tObj)
+#        
+#        plt.plot(tObj,betaObj,'.-r')
+#        plt.grid(True)
+#        plt.ylabel("betaObj ")
+#        plt.xlabel("tObj")
+#        plt.show()
+        
+        # end of object test
+        ####################################
                     
         # Solutions must be made compatible: t_its is dimensional, 
         # u_its consists of the actual controls (alpha and beta), etc.
         # Besides, all arrays are in a different time discretization
         
         pi = numpy.array([t_its[-1]])
-        t_its = t_its/pi
+        t_its = t_its/pi[0]
 
         # Perform inverse transformations for u:
         a1 = (alpha_max + alpha_min)/2
@@ -278,26 +307,45 @@ def declProb(opt=dict()):
 #        plt.grid(True)
 #        plt.show()
 
-        input("Eigirardi!")    
+        #input("Eigirardi!")    
 #        for i in range(n):
 #            f_x = interp1d(t_its, x_its[:,i])
 #            x[:,i] = f_x(t)
         
-        for i in range(m):
-            f_u = interp1d(t_its,u_its[:,i])
-            u[:,i] = f_u(t)
-        
-        dt = pi[0]/(N-1); dt6 = dt/6
+#        for i in range(m):
+#            f_u = interp1d(t_its,u_its[:,i])
+#            u[:,i] = f_u(t)
+
+        dt = pi[0]/(N-1); dt6 = dt/6.0
         x[0,:] = x_its[0,:]
+        uip1 = numpy.array([tabAlpha.value(0.0),tabBeta.value(0.0)])
         for i in range(N-1):
             tt = i * dt
-            k1 = calcXdot(sizes,tt,x[i,:],u[i,:],constants,restrictions)  
-            k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-            k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
-            k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
+            ui = uip1
+            u[i,:] = ui
+            uipm = numpy.array([tabAlpha.value(tt+.5*dt),tabBeta.value(tt+.5*dt)])
+            uip1 = numpy.array([tabAlpha.value(tt+dt),tabBeta.value(tt+dt)])
+            if i == N-2:
+                print("Bypassing here...")
+                uip1 = ui
+            k1 = calcXdot(sizes,tt,x[i,:],ui,constants,restrictions)  
+            k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,uipm,constants,restrictions)
+            k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,uipm,constants,restrictions)  
+            k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,uip1,constants,restrictions)
             x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
-    
+            if i>19990:
+                print("\ni =",i)
+                print("ui =",ui)
+                print("uip1 =",uip1)
+                print("k1 =",k1)
+                print("k2 =",k2)
+                print("k3 =",k3)
+                print("k4 =",k4)
+                print(x[i,:])
+                print(x[i+1,:]-x[i,:])
+                print(x[i+1,:])
         ###
+        u[N-1,:] = u[N-2,:]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
         print("\nUn-interpolated solution from Souza's propagation:")
     
         plt.plot(t_its,x_its[:,0])
@@ -341,11 +389,29 @@ def declProb(opt=dict()):
     
     lam = 0.0*x.copy()
     mu = numpy.zeros(q)
+
+    # calculate transformed controls    
+#    u[:,0] = tabAlpha.multValue(t[:]*pi[0])
+    u[:,0] -= a1
+    u[:,0] *= 1.0/a2
+#    u[:,1] = tabBeta.multValue(t[:]*pi[0])        
+    u[:,1] -= b1
+    u[:,1] *= 1.0/b2
+    
+    # safety saturation
+    for j in range(2):
+        for k in range(N):
+            if u[k,j] > 0.99999:
+                u[k,j] = 0.99999
+            if u[k,j] < -0.99999:
+                u[k,j] = -0.99999
+        
+    u = numpy.arctanh(u)
     
     print("Proposed solution:")
 #    optPlot = dict()
     plotSol(sizes,t,x,u,pi,constants,restrictions,{})
-
+    
     print("\nInitialization complete.\n")
     return sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions
 
@@ -567,6 +633,17 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                                        [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
                                        [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
         #
+
+#        phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
+#             [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
+#             [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
+#             [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
+#    
+#        phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
+#             [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+#             [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+#             [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
+        
         phip[k,:,:] = array([[V*sinGama                                   ],
                              [fVel/m - grav[k]*sinGama                    ],
                              [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V)) ],

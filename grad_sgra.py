@@ -195,14 +195,14 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
             cont = 0; keepSearch = True#(nPint>Pint1M)
             while keepSearch:
                 cont += 1
-                Q= nQ
+                Q = nQ
                 alfa *= 1.2
                 nx = x + alfa * A
                 nu = u + alfa * B
                 np = pi + alfa * C
                 nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-#                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
-#                      " (Q0 = {:.4E})".format(Q0))
+                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
+                      " (Q0 = {:.4E})".format(Q0))
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
@@ -332,7 +332,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0#1.0e-10
+            mu[i] = 1.0#e-5#1.0e-10
 
 
         # integrate equation (38) backwards for lambda
@@ -459,6 +459,35 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         C += K[i]*arrayC[i,:]
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
+    
+    
+    ##########################################
+    
+    dlam = ddt(sizes,lam)
+    erroLam = numpy.empty((N,n))
+    normErroLam = numpy.empty(N)
+    for k in range(N):
+        erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
+        normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
+    print("\nFINAL Lambda Error:")
+    optPlot['mode'] = 'states:LambdaError'
+    plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+            constants,restrictions,optPlot)
+#            optPlot['mode'] = 'states:LambdaError (zoom)'
+#            N1 = 0#int(N/100)-10
+#            N2 = 20##N1+20
+#            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+#                    numpy.zeros(p),constants,restrictions,optPlot)
+#
+    maxNormErroLam = normErroLam.max()
+    print("FINAL maxNormErroLam =",maxNormErroLam)
+    if maxNormErroLam > 0:
+        plt.semilogy(normErroLam)
+        plt.grid()
+        plt.title("ErroLam")
+        plt.show()
+
+    ##########################################
     
     if (B>numpy.pi).any() or (B<-numpy.pi).any():
         print("\nProblems in grad: corrections will result in control overflow.")
