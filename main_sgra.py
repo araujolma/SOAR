@@ -97,7 +97,6 @@ if __name__ == "__main__":
     print("\nConvergence report:")
     
     plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
-    plt.hold(True)
     plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
     plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
     plt.grid()
@@ -118,6 +117,9 @@ if __name__ == "__main__":
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
 
+    print("\n################################################################")
+    print("\n################################################################")
+    print("\n################################################################")
     print("\n################################################################")
     print("\a")
     
@@ -156,11 +158,10 @@ if __name__ == "__main__":
 #            plt.grid(True)
 #            plt.title('This is the beginning of the problem...')
 #            plt.show()
-            input("what now?")
+            #input("what now?")
         #
         print("\nRestoration report:")
         plt.semilogy(uman[0:(NIterRest+1)],histP[0:(NIterRest+1)])
-        plt.hold(True)
         plt.semilogy(uman[0:(NIterRest+1)],histPint[0:(NIterRest+1)],'k')
         plt.semilogy(uman[0:(NIterRest+1)],histPpsi[0:(NIterRest+1)],'r')
         plt.grid()
@@ -171,15 +172,16 @@ if __name__ == "__main__":
 
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         
-        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,restrictions)
+        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,boundary,restrictions)
         NIterGrad+=1
         optPlot['Q'] = Q; histQ[NIterGrad] = Q
-        print("After grad:\n")
+        print("\nAfter grad:\n")
         P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
         print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
           ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+        print("mu =",mu,"\n")
         
         plt.semilogy(uman[0:(NIterGrad+1)],histQ[0:(NIterGrad+1)])
         plt.grid()

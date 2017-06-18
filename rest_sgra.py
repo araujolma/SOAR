@@ -44,7 +44,7 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
 #    P += .5*(func[N-1,:].dot(func[N-1,:].transpose()))
 
     P *= dt
-    vetP *= dt
+    #vetP *= dt
     vetIP *= dt
 
     if mustPlot:
@@ -57,8 +57,8 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         
         # for zoomed version:
         indMaxP = vetP.argmax()
-        ind1 = numpy.array([indMaxP-15,0]).max()
-        ind2 = numpy.array([indMaxP+15,N]).min()
+        ind1 = numpy.array([indMaxP-20,0]).max()
+        ind2 = numpy.array([indMaxP+20,N]).min()
         plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
         plt.grid(True)
         plt.title("Integrand of P (zoom)")
@@ -100,7 +100,7 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
             plt.show()
         
         
-            plt.plot(tPlot[ind1:ind2],(numpy.tanh(u[ind1:ind2,0])*2.0)*180/numpy.pi,'k')
+            plt.plot(tPlot[ind1:ind2],numpy.tanh(u[ind1:ind2,0])*2.0,'k')
             plt.grid(True)
             plt.ylabel("alfa [deg]")
             plt.show()

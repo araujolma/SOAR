@@ -22,13 +22,15 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     CD0 = constants['CD0']
     CD2 = constants['CD2']
     s_ref = constants['s_ref']
-    alpha_min = restrictions['alpha_min']
-    alpha_max = restrictions['alpha_max']
-    beta_min = restrictions['beta_min']
-    beta_max = restrictions['beta_max']
+    DampCent = constants['DampCent']
+    DampSlop = constants['DampSlop']
+    #alpha_min = restrictions['alpha_min']
+    #alpha_max = restrictions['alpha_max']
+    #beta_min = restrictions['beta_min']
+    #beta_max = restrictions['beta_max']
     sin = numpy.sin
     cos = numpy.cos
-    tanh = numpy.tanh
+    
     u1 = u[0]
     u2 = u[1]
 
@@ -60,12 +62,13 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     sinGama = sin(x[2])
     dx[0] = x[1] * sinGama
     dx[1] = (beta * Thrust * cos(alpha) - D)/x[3] - grav * sinGama
-    dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + cos(x[2]) * ( x[1]/r  -  grav/x[1] )
+    dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + \
+            cos(x[2]) * ( x[1]/r  -  grav/x[1] )
+    dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
     dx[3] = -(beta * Thrust)/(grav_e * Isp)
-
-    if t < 3.0:
+    #if t < 3.0:
 #        print(t)
-        dx[2] = 0.0
+    #    dx[2] = 0.0
     return dx
 
 # ##################
@@ -73,8 +76,10 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
 # ##################
 def declProb(opt=dict()):
 # time discretization
-    N = 20000+1#20000+1#5000000 + 1 #1000 + 1#
-    N0 = int(3*N/500) # calculated for ~3s of no maneuver 
+    N = 50000+1#20000+1#5000000 + 1 #1000 + 1#
+    #N0 = int(3*N/500) # calculated for ~3s of no maneuver 
+    DampCent = 3.0
+    DampSlop = 3.0
     dt = 1.0/(N-1)
     t = numpy.arange(0,1.0+dt,dt)
 
@@ -103,7 +108,7 @@ def declProb(opt=dict()):
 
 # rocket constants
     Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
-    scal = 1.0e-2#7.5e-4# 1.0/2.5e3
+    scal = 1.0e-3#7.5e-4# 1.0/2.5e3
     Isp = 450.0                   # s
     s_f = 0.05
     CL0 = -0.03                   # (B0 Miele 1998)
@@ -135,7 +140,7 @@ def declProb(opt=dict()):
 # prepare sizes
     sizes = dict()
     sizes['N'] = N
-    sizes['N0'] = N0
+    #sizes['N0'] = N0
     sizes['n'] = n
     sizes['m'] = m
     sizes['p'] = p
@@ -155,6 +160,8 @@ def declProb(opt=dict()):
     constants['CD0'] = CD0
     constants['CD2'] = CD2
     constants['s_ref'] = s_ref
+    constants['DampCent'] = DampCent
+    constants['DampSlop'] = DampSlop
 
 # prepare restrictions
     restrictions = dict()
@@ -333,17 +340,17 @@ def declProb(opt=dict()):
             k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,uipm,constants,restrictions)  
             k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,uip1,constants,restrictions)
             x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
-            if i>19990:
-                print("\ni =",i)
-                print("ui =",ui)
-                print("uip1 =",uip1)
-                print("k1 =",k1)
-                print("k2 =",k2)
-                print("k3 =",k3)
-                print("k4 =",k4)
-                print(x[i,:])
-                print(x[i+1,:]-x[i,:])
-                print(x[i+1,:])
+#            if i>19990:
+#                print("\ni =",i)
+#                print("ui =",ui)
+#                print("uip1 =",uip1)
+#                print("k1 =",k1)
+#                print("k2 =",k2)
+#                print("k3 =",k3)
+#                print("k4 =",k4)
+#                print(x[i,:])
+#                print(x[i+1,:]-x[i,:])
+#                print(x[i+1,:])
         ###
         u[N-1,:] = u[N-2,:]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
         print("\nUn-interpolated solution from Souza's propagation:")
@@ -418,7 +425,7 @@ def declProb(opt=dict()):
 
 def calcPhi(sizes,x,u,pi,constants,restrictions):
     N = sizes['N']
-    N0 = sizes['N0']
+    #N0 = sizes['N0']
     n = sizes['n']
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
@@ -430,6 +437,8 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     CD0 = constants['CD0']
     CD2 = constants['CD2']
     s_ref = constants['s_ref']
+    DampCent = constants['DampCent']
+    DampSlop = constants['DampSlop']
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
     beta_min = restrictions['beta_min']
@@ -474,9 +483,14 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     phi[:,0] = pi[0] * x[:,1] * sinGama
     phi[:,1] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
     phi[:,2] = pi[0] * ((beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] ))
-    phi[0,2] = 0.0
-    for k in range(N0):
-        phi[k,2] = 0.0
+#    phi[0,2] = 0.0
+#    for k in range(N0):
+#        phi[k,2] = 0.0
+    dt = 1.0/(N-1)
+    t = pi[0]*numpy.arange(0,1.0+dt,dt)
+    phi[:,2] = pi[0] * ( (beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + 
+                          cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] )) * \
+               .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
     phi[:,3] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
 
     return phi
@@ -518,7 +532,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     m = sizes['m']
     p = sizes['p']
     #q = sizes['q']
-    N0 = sizes['N0']
+    #N0 = sizes['N0']
 
     # Pre-assign functions
     sin = numpy.sin
@@ -538,6 +552,8 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     CD0 = constants['CD0']
     CD2 = constants['CD2']
     s_ref = constants['s_ref']
+    DampCent = constants['DampCent']
+    DampSlop = constants['DampSlop']
 
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
@@ -607,48 +623,50 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
         m = x[k,3]; m2 = m*m
         fVel = beta[k]*Thrust*cosAlpha-D[k] # forces on velocity direction
         fNor = beta[k]*Thrust*sinAlpha+L[k] # forces normal to velocity
- 
+        fdg = .5*(1.0+numpy.tanh(DampSlop*(k*pi[0]/(N-1)-DampCent)))
+#        print("k =",k,", fdg =",fdg)
+#        input("?")
         # Expanded notation:
         DAlfaDu1 = aExp*(1-tanh(u1[k])**2)
         DBetaDu2 = bExp*(1-tanh(u2[k])**2)
-        if k < N0:# calculated for 3s of no maneuver 
-            phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
-                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
-                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ],
-                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ]])
-        
-            phiu[k,:,:] = pi[0]*array([[0.0                                  ,0.0                          ],
-                                       [-beta[k]*Thrust*sinAlpha*DAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
-                                       [0.0                                  ,0.0                          ],
-                                       [0.0                                  ,-Thrust*DBetaDu2/(grav_e*Isp)]])
-
-        else:
-            phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
-                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
-                                       [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
-                                       [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
-     
-            phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
-                                       [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
-                                       [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
+#        if k < N0:# calculated for 3s of no maneuver 
+#            phix[k,:,:] = pi[0]*array([[0.0                                                  ,sinGama                   ,V*cosGama         ,0.0      ],
+#                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
+#                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ],
+#                                       [0.0                                                  ,0.0                       ,0.0               ,0.0      ]])
+#        
+#            phiu[k,:,:] = pi[0]*array([[0.0                                  ,0.0                          ],
+#                                       [-beta[k]*Thrust*sinAlpha*DAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
+#                                       [0.0                                  ,0.0                          ],
+#                                       [0.0                                  ,-Thrust*DBetaDu2/(grav_e*Isp)]])
+#
+#        else:
+#            phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
+#                                       [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
+#                                       [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
+#                                       [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
+#     
+#            phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
+#                                       [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+#                                       [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+#                                       [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
         #
 
-#        phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
-#             [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
-#             [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
-#             [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
-#    
-#        phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
-#             [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-#             [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
-#             [0.0                                                                                ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
-        
+        phix[k,:,:] = pi[0]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
+             [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
+             [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
+             [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
+        phix[k,2,:] *= fdg
+        phiu[k,:,:] = pi[0]*array([[0.0                                                        ,0.0                           ],
+             [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+             [(beta[k]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k]*s_ref*(V)*DAlfaDu1)/m      ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+             [0.0                                                                              ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
+        phiu[k,2,:] *= fdg
         phip[k,:,:] = array([[V*sinGama                                   ],
                              [fVel/m - grav[k]*sinGama                    ],
                              [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V)) ],
                              [-(beta[k]*Thrust)/(grav_e*Isp)              ]])
-
+        phip[k,2,:] *= fdg
         fu[k,:] = array([0.0,(pi[0]*Thrust*DBetaDu2)/(grav_e * Isp * (1-s_f))])
         fp[k,0] = (Thrust * beta[k])/(grav_e * Isp * (1-s_f))
 #==============================================================================
