@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 #from utils_alt import ddt
 
-from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
+from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol, plotSolza
 #from prob_test import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from rest_sgra import calcP, rest, oderest
 from grad_sgra import calcQ, grad
@@ -22,6 +22,7 @@ from grad_sgra import calcQ, grad
 if __name__ == "__main__":
     print('--------------------------------------------------------------------------------')
     print('\nThis is MAIN_SGRA.py!')
+    start_time = time.time()
     print(datetime.datetime.now())
     print('\n')
     
@@ -30,7 +31,6 @@ if __name__ == "__main__":
 
     # declare problem:
     sizes,t,x,u,pi,lam,mu,tol,constants,boundary,restrictions = declProb(opt)
-
     Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
     phi = calcPhi(sizes,x,u,pi,constants,restrictions)
     psi = calcPsi(sizes,x,boundary)
@@ -38,10 +38,9 @@ if __name__ == "__main__":
 #    phiu = Grads['phiu']
 #    psix = Grads['psix']
 #    psip = Grads['psip']
-
+    
     print("##################################################################")
     print("\nProposed initial guess:\n")
-
     P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
     print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
               ", Ppsi = {:.4E}".format(Ppsi)+"\n")
@@ -53,7 +52,6 @@ if __name__ == "__main__":
     optPlot['dispP'] = True
     optPlot['dispQ'] = False
     plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-
     psi = calcPsi(sizes,x,boundary)
     print("psi =",psi)
     print("##################################################################")
@@ -137,16 +135,71 @@ if __name__ == "__main__":
     while Q > tolQ:
         while P > tolP:
             x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
-            P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+            P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions)
             optPlot['P'] = P
             plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         #
         x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,restrictions)
         optPlot['Q'] = Q
-        P = calcP(sizes,x,u,pi,constants,boundary,restrictions)
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions)
         optPlot['P'] = P
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-        print("\a")
-        input("So far so good?")
-    #
+        #print("\a")
+        #input("So far so good?")
+    
+    print("\n################################################################")
+    print("=== First Guess + SGRA execution: %s seconds ===\n" % (time.time() - start_time))
+    
+    # comparing initial guess with final SGRA solution:
+    print("\n===Initial Guess VS SGRA Final Solution ===")
+    plotSolza(sizes,t,x,u,pi,constants,restrictions,True)
+#    plt.semilogy(t,x_initial[:,0])
+#    plt.hold(True)
+#    plt.semilogy(t,x[:,0])
+#    plt.grid()
+#    plt.ylabel("h [km]")
+#    plt.xlabel("t [-]")
+#    plt.show()
+#    
+#    plt.semilogy(t,x_initial[:,1])
+#    plt.hold(True)
+#    plt.semilogy(t,x[:,1],'g')
+#    plt.grid()
+#    plt.ylabel("V [km/s]")
+#    plt.xlabel("t [-]")
+#    plt.show()
+#    
+#    plt.semilogy(t,x_initial[:,2]*180/numpy.pi,'r')
+#    plt.hold(True)
+#    plt.semilogy(t,x[:,2]*180/numpy.pi,'r')    
+#    plt.grid()
+#    plt.ylabel("gamma [deg]")
+#    plt.xlabel("t [-]")
+#    plt.show()
+#    
+#    plt.semilogy(t,x_initial[:,3],'m')
+#    plt.hold(True)
+#    plt.semilogy(t,x[:,3],'m')
+#    plt.grid()
+#    plt.ylabel("m [kg]")
+#    plt.xlabel("t [-]")
+#    plt.show()
+#                
+#    plt.semilogy(t,(numpy.sin(u_initial[:,0])*a2 + a1)*180/numpy.pi,'k')
+#    plt.hold(True)
+#    plt.semilogy(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'k')
+#    plt.grid()
+#    plt.xlabel("t [-]")
+#    plt.ylabel("Attack angle [deg]")
+#    plt.show()
+#    
+#    plt.semilogy(t,(numpy.sin(u_initial[:,1])*b2 + b1),'c')
+#    plt.hold(True)
+#    plt.semilogy(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+#    plt.grid()
+#    plt.xlabel("t [-]")
+#    plt.ylabel("Thrust profile [-]")
+#    plt.show()
+    
+        
 #

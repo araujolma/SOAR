@@ -223,6 +223,15 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions):
     return .5*(alfaMin+alfaMax)
 
 def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
+    
+    # Defining gradient "graphorragic" mode:
+    mustPlotLam = False
+    mustPlotPropLam = False
+    mustPlotErroLam = False
+    mustPlotErroLamZ = False
+    mustPlotVar = False
+    mustPlotVarT = True
+        
     print("In grad.")
 
     print("Q0 =",Q0)
@@ -314,25 +323,26 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
             for k in range(N):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
                 normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
-            print("\nLambda Error:")
-            optPlot['mode'] = 'states:LambdaError'
-            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-                    constants,restrictions,optPlot)
-    #            optPlot['mode'] = 'states:LambdaError (zoom)'
-    #            N1 = 0#int(N/100)-10
-    #            N2 = 20##N1+20
-    #            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
-    #                    numpy.zeros(p),constants,restrictions,optPlot)
-    #
-            plt.semilogy(normErroLam)
-            plt.grid()
-            plt.title("ErroLam")
-            plt.show()
-    #            
-    #            plt.semilogy(normErroLam[N1:N2])
-    #            plt.grid()
-    #            plt.title("ErroLam (zoom)")
-    #            plt.show()
+                if mustPlotErroLam:
+                    print("\nLambda Error:")
+                    optPlot['mode'] = 'states:LambdaError'
+                    plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                            constants,restrictions,optPlot)
+                    plt.semilogy(normErroLam)
+                    plt.grid()
+                    plt.title("ErroLam")
+                    plt.show() 
+                
+                if mustPlotErroLamZ:
+                    optPlot['mode'] = 'states:LambdaError (zoom)'
+                    N1 = 0#int(N/100)-10
+                    N2 = 20##N1+20
+                    plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+                            numpy.zeros(p),constants,restrictions,optPlot)                
+                    plt.semilogy(normErroLam[N1:N2])
+                    plt.grid()
+                    plt.title("ErroLam (zoom)")
+                    plt.show()
         
         ##################################################################            
         
@@ -349,10 +359,10 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         C += .5*(fp[N-1,:] - phipTr[N-1,:,:].dot(lam[N-1,:]))
         C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
-
-
-        optPlot['mode'] = 'states:Lambda'
-        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+        
+        if mustPlotLam:
+            optPlot['mode'] = 'states:Lambda'
+            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
         # integrate diff equation for A
         A = numpy.zeros((N,n))
@@ -376,8 +386,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        if mustPlotVar:
+            optPlot['mode'] = 'var'
+            plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
     #
@@ -405,11 +416,13 @@ def grad(sizes,x,u,pi,t,Q0,constants,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'proposed (states: lambda)'
-    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-
+    if mustPlotVarT:
+        optPlot['mode'] = 'var'
+        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    
+    if mustPlotPropLam:
+        optPlot['mode'] = 'proposed (states: lambda)'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
     # Calculation of alfa
     alfa = calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,restrictions)

@@ -182,7 +182,16 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     return alfa
 
 def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
-    #print("\nIn rest.")
+    
+    # Defining restoration "graphorragic" mode:
+    RmustPlotLam = False
+    RmustPlotLamZ = False
+    RmustPlotPropLam = False
+    RmustPlotErroLam = False
+    RmustPlotErroLamZ = False
+    RmustPlotVar = False
+    RmustPlotVarT = False
+    print("\nIn rest.")
 
     # get sizes
     N = sizes['N']
@@ -300,25 +309,26 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
 #            for k in range(N):
 #                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
 #                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
-#            print("\nLambda Error:")
-#            optPlot['mode'] = 'states:LambdaError'
-#            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-#                    constants,restrictions,optPlot)
-#            optPlot['mode'] = 'states:LambdaError (zoom)'
-#            N1 = 0#int(N/100)-10
-#            N2 = 20##N1+20
-#            plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
-#                    numpy.zeros(p),constants,restrictions,optPlot)
-#
-#            plt.semilogy(normErroLam)
-#            plt.grid()
-#            plt.title("ErroLam")
-#            plt.show()
+#            if mustPlotErroLam:
+#                print("\nLambda Error:")
+#                optPlot['mode'] = 'states:LambdaError'
+#                plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+#                        constants,restrictions,optPlot)
+#                plt.semilogy(normErroLam)
+#                plt.grid()
+#                plt.title("ErroLam")
+#                plt.show()
 #            
-#            plt.semilogy(normErroLam[N1:N2])
-#            plt.grid()
-#            plt.title("ErroLam (zoom)")
-#            plt.show()
+#            if mustPlotErroLamZ:
+#                optPlot['mode'] = 'states:LambdaError (zoom)'
+#                N1 = 0#int(N/100)-10
+#                N2 = 20##N1+20
+#                plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+#                        numpy.zeros(p),constants,restrictions,optPlot)
+#                plt.semilogy(normErroLam[N1:N2])
+#                plt.grid()
+#                plt.title("ErroLam (zoom)")
+#                plt.show()
             
             ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
@@ -336,13 +346,14 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             C *= dt
             C -= -psipTr.dot(mu)
             
-#            optPlot['mode'] = 'states:Lambda'
-#            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-#            
-#            optPlot['mode'] = 'states:Lambda (zoom)'
-#            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
-            
-            
+            if RmustPlotLam:            
+                optPlot['mode'] = 'states:Lambda'
+                plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+                
+            if RmustPlotLamZ:
+                optPlot['mode'] = 'states:Lambda (zoom)'
+                plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
+                        
             #print("Integrating ODE for A ["+str(i)+"/"+str(q)+"] ...")
             # integrate equation for A:                
             A = numpy.zeros((N,n))
@@ -411,8 +422,9 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-#        optPlot['mode'] = 'var'
-#        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        if RmustPlotVar:
+            optPlot['mode'] = 'var'
+            plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         
         # Matrix for linear system (89)
@@ -438,10 +450,13 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-#    optPlot['mode'] = 'var'
-#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-#    optPlot['mode'] = 'proposed (states: lambda)'
-#    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    if RmustPlotVarT:
+        optPlot['mode'] = 'var'
+        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    
+    if RmustPlotPropLam:   
+        optPlot['mode'] = 'proposed (states: lambda)'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")
