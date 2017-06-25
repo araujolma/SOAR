@@ -17,6 +17,84 @@ from prob_rocket_sgra import declProb, calcPhi, calcPsi, calcGrads, plotSol
 from rest_sgra import calcP, rest#, oderest
 from grad_sgra import calcQ, grad
 
+# MODOS: full debug (esperar)
+# Gradiente: 
+    # full debug: imprime tudo, espera comando para seguir
+    # autonomo: imprime nada, passa pra próxima sozinho
+    # soneca: imprime nada, conta algumas iterações passando sozinho depois pergunta
+    # print: imprime tudo
+
+#
+
+
+    
+
+class GradStat:
+    def __init__(self):
+        self.mustPlotGrad = True
+        self.mustPlotRest = False
+        self.mustPlotSol = True
+        self.NSilent = 0
+        self.mustAsk = True
+    
+    def printMsg(self):
+        self.printStatus()
+        print("\nEnter commands for changing debug mode, or just hit 'enter'.")
+
+    def parseStr(self,thisStr):
+        print("input =",thisStr)
+        if thisStr[0]=='g':
+            if thisStr[1:].isnumeric():
+                n = int(thisStr[1:])
+                if n>0:
+                    self.NSilent=n
+                    print("Waiting",n,"runs before new prompt.")
+            elif thisStr[1:]=='p':
+                self.mustPlotGrad = True
+            elif thisStr[1:]=='n':
+                self.mustPlotGrad = False
+        elif thisStr[0]=='r':
+            if thisStr[1:]=='p':
+                self.mustPlotRest = True
+            elif thisStr[1:]=='n':
+                self.mustPlotRest = False
+        elif thisStr[0]=='s':
+            if thisStr[1:]=='p':
+                self.mustPlotSol = True
+            elif thisStr[1:]=='n':
+                self.mustPlotSol = False
+        else:
+            print("Ignoring unrecognized command '"+thisStr+"'...")
+        
+    def endOfLoop(self):
+        print("\a")
+        if self.NSilent>0:
+            print("\n",self.NSilent,"more runs remaining before new prompt.")
+            self.NSilent -= 1
+        else:
+            if self.mustAsk:
+                self.printMsg()
+                inp = input(">> ")
+                inp.lower()
+                if not(inp=='\n'):
+                    inpList = inp.split()    
+                    for k in range(len(inpList)):
+                        self.parseStr(inpList[k])
+                    self.printStatus()
+
+                print("\nOk. Back to main loop.")
+    def printStatus(self):
+        print("\nStatus:")
+        print("mustPlotGrad:",self.mustPlotGrad)
+        print("mustPlotRest:",self.mustPlotRest)
+        print("mustPlotSol:",self.mustPlotSol)
+        print("NSilent:",self.NSilent)
+        print("mustAsk:",self.mustAsk)
+        
+    def test(self):
+        while True:
+            print("In test mode. This will run forever.\n")
+            self.endOfLoop()
 # ##################
 # MAIN SEGMENT:
 # ##################
@@ -26,6 +104,7 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
     print('\n')
     
+    GradStat = GradStat()
     opt = dict()
     opt['initMode'] = 'extSol'#'crazy'#'default'#'extSol'
 
@@ -40,12 +119,12 @@ if __name__ == "__main__":
 #    psix = Grads['psix']
 #    psip = Grads['psip']
 
-    input("E aí?")
+    #input("E aí?")
     print("##################################################################")
     print("\nProposed initial guess:\n")
 
 
-    P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+    P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
     print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
               ", Ppsi = {:.4E}".format(Ppsi)+"\n")
     Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
@@ -83,14 +162,14 @@ if __name__ == "__main__":
         x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)        
 #        x,u,pi,lamR,muR = oderest(sizes,x,u,pi,t,constants,boundary,restrictions)                
 
-        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,False)
         print("> P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
           ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
         histP[NIterRest] = P
         histPint[NIterRest] = Pint
         histPpsi[NIterRest] = Ppsi  
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
+        #plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)         
         print("\a")
         #input("What now?")
             
@@ -135,17 +214,14 @@ if __name__ == "__main__":
     NIterGrad = 0
     histQ = histP*0.0; histQ[0] = Q
     while Q > tolQ:
-        
-#        plt.plot(u[0:241,0])
-#        plt.grid(True)
-#        plt.title('This is the beginning of the problem...')
-#        plt.show()
-       
-        while P > tolP:
+           
+        contP = 3
+        while contP>0:#P > tolP:
             print("\nPerforming restoration...")
             x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
             NIterRest+=1
-            P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+            P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions,\
+                               GradStat.mustPlotRest)
             optPlot['P'] = P
             histP[NIterRest] = P
             histPint[NIterRest] = Pint
@@ -153,11 +229,7 @@ if __name__ == "__main__":
             #plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
             print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
                   ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-
-#            plt.plot(u[0:241,0])
-#            plt.grid(True)
-#            plt.title('This is the beginning of the problem...')
-#            plt.show()
+            contP-=1
             #input("what now?")
         #
         print("\nRestoration report:")
@@ -172,30 +244,35 @@ if __name__ == "__main__":
 
         plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         
-        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,boundary,restrictions)
+        x,u,pi,lam,mu,Q = grad(sizes,x,u,pi,t,Q,constants,boundary,\
+                               restrictions,GradStat.mustPlotGrad)
         NIterGrad+=1
         optPlot['Q'] = Q; histQ[NIterGrad] = Q
         print("\nAfter grad:\n")
-        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+        P,Pint,Ppsi = calcP(sizes,x,u,pi,constants,boundary,restrictions,\
+                            GradStat.mustPlotRest)
         print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
           ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         optPlot['P'] = P
-        plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
+        if GradStat.mustPlotSol:
+            plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
         print("mu =",mu,"\n")
         
-        plt.semilogy(uman[0:(NIterGrad+1)],histQ[0:(NIterGrad+1)])
+        plt.semilogy(uman[1:(NIterGrad+1)],histQ[1:(NIterGrad+1)])
         plt.grid()
         plt.title("Convergence of Q.")
         plt.ylabel("Q")
         plt.xlabel("Iterations")
         plt.show()
         print("\a")
-        input("So far so good?")
+        
+        GradStat.endOfLoop()
+        #input("So far so good?")
     #
     
     while P > tolP:
-        print("\nPerforming restoration...")
-        x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions)
+        print("\nPerforming final restoration...")
+        x,u,pi,lamR,muR = rest(sizes,x,u,pi,t,constants,boundary,restrictions,False)
         NIterRest+=1
         P,Pint,Psi = calcP(sizes,x,u,pi,constants,boundary,restrictions)#,True)
         optPlot['P'] = P

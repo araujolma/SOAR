@@ -188,7 +188,7 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
     #print("P = {:.4E}".format(P)+": P_int = {:.4E}".format(Pint)+", P_psi = {:.4E}".format(Ppsi))
     return P,Pint,Ppsi
 
-def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
+def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions,mustPlot=False):
 
     P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
 #    print("In calcStepRest, P0 = {:.4E}".format(P0))
@@ -198,21 +198,21 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
+    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
     
     alfa = 1.0
 #    print("\nalfa =",alfa)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)#,True)
+    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)#,True)
     
     alfa = 1.2
     #print("\nalfa =",alfa)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
+    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
     
         
     if P1 >= P1m or P1 >= P0:
@@ -228,7 +228,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             nu = u + alfa * B
             np = pi + alfa * C
             nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)#,True)
+                                   restrictions,mustPlot)#,True)
             #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
             #      " (P0 = {:.4E})".format(P0))
             if nP < P0:
@@ -253,7 +253,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
                 nu = u + alfa * B
                 np = pi + alfa * C
                 nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)#,True)
+                                   restrictions,mustPlot)#,True)
                 #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                 #      " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
@@ -261,7 +261,7 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             alfa /= 1.2
     return alfa
 
-def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
+def rest(sizes,x,u,pi,t,constants,boundary,restrictions,mustPlot=False):
     #print("\nIn rest.")
 
     # get sizes
@@ -521,14 +521,15 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'proposed (states: lambda)'
-    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    if mustPlot:
+        optPlot['mode'] = 'var'
+        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        optPlot['mode'] = 'proposed (states: lambda)'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
 
     #print("Calculating step...")
-    alfa = calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions)
+    alfa = calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions,mustPlot)
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C

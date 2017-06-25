@@ -108,10 +108,10 @@ def declProb(opt=dict()):
 
 # rocket constants
     Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
-    scal = 1.0e-3#7.5e-4# 1.0/2.5e3
+    scal = 5.0e-3#7.5e-4# 1.0/2.5e3
     Isp = 450.0                   # s
     s_f = 0.05
-    CL0 = -0.03                   # (B0 Miele 1998)
+    CL0 = 0.0#-0.03                   # (B0 Miele 1998)
     CL1 = 0.8                     # (B1 Miele 1998)
     CD0 = 0.05                    # (A0 Miele 1998)
     CD2 = 0.5                     # (A2 Miele 1998)
@@ -120,12 +120,12 @@ def declProb(opt=dict()):
  # restrictions
     alpha_min = -2*(numpy.pi)/180  # in rads
     alpha_max = 2*(numpy.pi)/180   # in rads
-    beta_min = 0
-    beta_max = 1
+    beta_min = 0.0
+    beta_max = 1.0
 
 # tolerances
     tolP = 1.0e-7#8
-    tolQ = 1.0e-5
+    tolQ = 1.0e-7#5
 
 # prepare boundary conditions
     boundary = dict()

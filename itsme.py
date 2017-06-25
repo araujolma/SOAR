@@ -41,7 +41,7 @@ def funDict(h_final):
     con['efes'] = .95              # [-]
     con['T'] = 40.0e3*1.0e-3       # thrust in kg * km / s² [for compatibility purposes...]
     con['softness'] = 0.3          # softness of the transions of propulsive curve
-    con['CL0'] = -0.03             # (B0 Miele 1998)
+    con['CL0'] = 0.0#-0.03             # (B0 Miele 1998)
     con['CL1'] = 0.8               # (B1 Miele 1998)
     con['CD0'] = 0.05              # (A0 Miele 1998)
     con['CD2'] = 0.5               # (A2 Miele 1998)

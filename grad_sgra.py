@@ -248,14 +248,14 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
             plt.show()
     return Q
 
-def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
+def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions,mustPlot=False):
 
     print("\nIn calcStepGrad.\n")
     
     I0 = calcI(sizes,x,u,pi,constants,restrictions)
     print("I0 = {:.4E}".format(I0))
-    Q0 = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,True)
-    P0,_,_ = calcP(sizes,x,u,pi,constants,boundary,restrictions,True)
+    Q0 = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot)
+    P0,_,_ = calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot)
     print("P0 = {:.4E}".format(P0))
 #    print("In calcStepRest, P0 = {:.4E}".format(P0))
     
@@ -266,8 +266,8 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
     np = pi + alfa * C
     I1m = calcI(sizes,x,u,pi,constants,restrictions)
     print("I = {:.4E}".format(I1m))
-    Q1m = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-    P1m,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,True)
+    Q1m = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
+    P1m,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
     print("P = {:.4E}".format(P1m))
     
     alfa = 1.0
@@ -277,8 +277,8 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
     np = pi + alfa * C
     I1 = calcI(sizes,x,u,pi,constants,restrictions)
     print("I = {:.4E}".format(I1))
-    Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-    P1,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,True)    
+    Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
+    P1,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)    
     print("P = {:.4E}".format(P1))
 
     alfa = 1.2
@@ -288,8 +288,8 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
     np = pi + alfa * C
     I1M = calcI(sizes,x,u,pi,constants,restrictions)
     print("I = {:.4E}".format(I1M))
-    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-    P1M,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,True)
+    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
+    P1M,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
     print("P = {:.4E}".format(P1M))
         
     if Q1 >= Q1m or Q1 >= Q0:
@@ -303,7 +303,7 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
             nx = x + alfa * A
             nu = u + alfa * B
             np = pi + alfa * C
-            nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+            nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
             print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
                   " (Q0 = {:.4E})".format(Q0))
             if nQ < Q0:
@@ -327,9 +327,9 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
                 nx = x + alfa * A
                 nu = u + alfa * B
                 np = pi + alfa * C
-                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
+                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
                 print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
-                      " (Q0 = {:.4E})".format(Q0))
+                      " (Q0 = {:.4E})".format(Q0),"\n")
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
@@ -403,10 +403,9 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions):
 #
 #    return .5*(alfaMin+alfaMax)
 
-def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
+def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     print("In grad.")
-
-    print("Q0 =",Q0)
+    print("Q0 =",Q0,"\n")
     # get sizes
     N = sizes['N']
     n = sizes['n']
@@ -453,11 +452,11 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
     arrayM = numpy.empty((q+1,q))
 
     optPlot = dict()
-    ind1 = [1,2,0]
-    ind2 = [2,0,1]
+    #ind1 = [1,2,0]
+    #ind2 = [2,0,1]
     for i in range(q+1):
         
-        print("Integrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
+        print("\n>Integrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         
         mu = 0.0*mu
         if i<q:
@@ -497,14 +496,16 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
             for k in range(N):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
                 normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
-            print("\nLambda Error:")
-            optPlot['mode'] = 'states:LambdaError'
-            plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                
+            if mustPlot:
+                print("\nLambda Error:")
+                optPlot['mode'] = 'states:LambdaError'
+                plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
                     constants,restrictions,optPlot)
 
             maxNormErroLam = normErroLam.max()
             print("maxNormErroLam =",maxNormErroLam)
-            if maxNormErroLam > 0:
+            if mustPlot and (maxNormErroLam > 0):
                 plt.semilogy(normErroLam)
                 plt.grid()
                 plt.title("ErroLam")
@@ -521,9 +522,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
         C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
 
-
-        optPlot['mode'] = 'states:Lambda'
-        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+        if mustPlot:
+            optPlot['mode'] = 'states:Lambda'
+            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
         # integrate diff equation for A
         A = numpy.zeros((N,n))
@@ -555,14 +556,15 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
             erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
             normErroA[k] = erroA[k,:].dot(erroA[k,:])
         
-        print("\nA Error:")
-        optPlot['mode'] = 'states:AError'
-        plotSol(sizes,t,erroA,B,C,\
-            constants,restrictions,optPlot)            
+        if mustPlot:
+            print("\nA Error:")
+            optPlot['mode'] = 'states:AError'
+            plotSol(sizes,t,erroA,B,C,\
+                    constants,restrictions,optPlot)            
         
         maxNormErroA = normErroA.max()
         print("maxNormErroA =",maxNormErroA)
-        if maxNormErroA > 0:
+        if mustPlot and (maxNormErroA > 0):
             plt.semilogy(normErroA)
             plt.grid()
             plt.title("ErroA")
@@ -574,8 +576,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        if mustPlot:
+            optPlot['mode'] = 'var'
+            plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
     #
@@ -617,27 +620,31 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
         normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
         erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
         normErroA[k] = erroA[k,:].dot(erroA[k,:])
-        
-    print("\nFINAL A Error:")
-    optPlot['mode'] = 'states:AError'
-    plotSol(sizes,t,erroA,B,C,\
-            constants,restrictions,optPlot)    
-    maxNormErroA = normErroA.max()
+    
+    if mustPlot:
+        print("\nFINAL A Error:")
+        optPlot['mode'] = 'states:AError'
+        plotSol(sizes,t,erroA,B,C,\
+                constants,restrictions,optPlot)    
+        maxNormErroA = normErroA.max()
+    
     print("FINAL maxNormErroA =",maxNormErroA)
-    if maxNormErroA > 0:
+    
+    if mustPlot and (maxNormErroA > 0):
         plt.semilogy(normErroA)
         plt.grid()
         plt.title("ErroA")
         plt.show()
 
-
-    print("\nFINAL Lambda Error:")
-    optPlot['mode'] = 'states:LambdaError'
-    plotSol(sizes,t,erroLam,B,C,\
+    if mustPlot:
+        print("\nFINAL Lambda Error:")
+        optPlot['mode'] = 'states:LambdaError'
+        plotSol(sizes,t,erroLam,B,C,\
             constants,restrictions,optPlot)
-    maxNormErroLam = normErroLam.max()
+        maxNormErroLam = normErroLam.max()
     print("FINAL maxNormErroLam =",maxNormErroLam)
-    if maxNormErroLam > 0:
+
+    if mustPlot and (maxNormErroLam > 0):
         plt.semilogy(normErroLam)
         plt.grid()
         plt.title("ErroLam")
@@ -648,11 +655,11 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
     #if (B>numpy.pi).any() or (B<-numpy.pi).any():
     #    print("\nProblems in grad: corrections will result in control overflow.")
     
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-    optPlot['mode'] = 'proposed (states: lambda)'
-    plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-
+    if mustPlot:
+        optPlot['mode'] = 'var'
+        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        optPlot['mode'] = 'proposed (states: lambda)'
+        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
     # Calculation of alfa
     alfa = calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions)
@@ -660,7 +667,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions):
     nx = x + alfa * A
     nu = u + alfa * B
     np = pi + alfa * C
-    Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
+    Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
 
     print("Leaving grad with alfa =",alfa)
     return nx,nu,np,lam,mu,Q
