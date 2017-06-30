@@ -253,7 +253,9 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
     Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
     Mp = Mp1 + Mp2;
-    Me = (1-efes)*Mp/efes
+    Me1 = (1-efes)*Mp1/efes
+    Me2 = (1-efes)*Mp2/efes
+    Me = Me1 + Me2
     M0 = Mu + Mp + Me
 
     tb1 = ( Mp1 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
@@ -299,17 +301,19 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     # Phase times, incluiding the initial time in the begining
     
     if (typeResult == "orbital"):
-        tphases = numpy.array([t0,tAoA1,tAoA2,tb1*(1-con['softness']),tb1,(tf-tb2),(tf-tb2) + tb2*con['softness'],tf,con['torb']])
+        tphases   = numpy.array([ t0,tAoA1,tAoA2,tb1*(1-con['softness']), tb1,(tf-tb2),(tf-tb2) + tb2*con['softness'], tf,con['torb']])
+        mjetsoned = numpy.array([0.0,  0.0,  0.0,                    0.0, Me1,     0.0,                           0.0,Me2,        0.0])
     else:        
-        tphases = numpy.array([t0,tAoA1,tAoA2,tb1*(1-con['softness']),tb1,(tf-tb2),(tf-tb2) + tb2*con['softness'],tf])
+        tphases   = numpy.array([ t0,tAoA1,tAoA2,tb1*(1-con['softness']), tb1,(tf-tb2),(tf-tb2) + tb2*con['softness'], tf])
+        mjetsoned = numpy.array([0.0,  0.0,  0.0,                    0.0, Me1,     0.0,                           0.0,Me2])
     
     if (typeResult == "design"):
         # Integration using rk45 separated by phases
         # Automatic multiphase integration
         # Light running
-        tt,xx,tp,xp = totalIntegration(tphases,ode45,t0,x0,False)
+        tt,xx,tp,xp = totalIntegration(tphases,mjetsoned,ode45,t0,x0,False)
         h,v,gamma,M = xx
-        errors = ((v - con['V_final'])/0.01, (gamma - con['gamma_final'])/0.01, (h - h_final)/10)
+        errors = ((v - con['V_final'])/0.01, (gamma - con['gamma_final'])/0.1, (h - h_final)/10)
         errors = numpy.array(errors)
         ans = errors, tt, xx, tabAlpha, tabBeta  
         
@@ -319,18 +323,19 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
         # Full running
         print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
         print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
-        tt,xx,tp,xp = totalIntegration(tphases,ode45,t0,x0,True)
+        tt,xx,tp,xp = totalIntegration(tphases,mjetsoned,ode45,t0,x0,True)
         uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
         up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
         ans = (tt,xx,uu,tp,xp,up)                
         
     return ans
 
-def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp,flagAppend):
+def phaseIntegration(t_initial,t_final,mj,Nref,ode45,tt,xx,tp,xp,flagAppend):
     
     tph = t_final - t_initial
-    ode45.first_step = tph/Nref     
+    ode45.first_step = tph/Nref
     stop1 = False
+    ode45.y[3] = ode45.y[3] - mj 
     while not stop1:
         ode45.integrate(t_final)
         if flagAppend:
@@ -344,11 +349,11 @@ def phaseIntegration(t_initial,t_final,Nref,ode45,tt,xx,tp,xp,flagAppend):
     else:
         tt = ode45.t
         xx = ode45.y
-        
+
     return tt,xx,tp,xp
 
 
-def totalIntegration(tphases,ode45,t0,x0,flagAppend):
+def totalIntegration(tphases,mjetsoned,ode45,t0,x0,flagAppend):
 
     global totalTrajectorySimulationCounter
     Nref = 20.0 # Number of interval divisions for determine first step     
@@ -356,7 +361,7 @@ def totalIntegration(tphases,ode45,t0,x0,flagAppend):
     tt,xx,tp,xp = [t0],[x0],[t0],[x0]
 
     for ii in range(1,len(tphases)):
-        tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],Nref,ode45,tt,xx,tp,xp,flagAppend)
+        tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],mjetsoned[ii-1],Nref,ode45,tt,xx,tp,xp,flagAppend)
         if flagAppend:
             print("Phase integration iteration:",ii)
 
@@ -724,8 +729,8 @@ if __name__ == "__main__":
     ################
 
     # Factors instervals for aerodynamics
-    fsup = numpy.array([0.6 + 0.3,500 + 100,2.0 + 0.4]) # Superior limit
-    finf = numpy.array([0.6 - 0.3,500 - 100,2.0 - 0.4]) # Inferior limit
+    fsup = numpy.array([0.68 + 0.3,450 + 100,1.4 + 0.4]) # Superior limit
+    finf = numpy.array([0.68 - 0.3,450 - 100,1.4 - 0.4]) # Inferior limit
  
     # Initital display of vehicle trajectory
     factors = (fsup + finf)/2
