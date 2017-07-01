@@ -573,6 +573,97 @@ def calcAedTab(tt,xx,uu,con):
         
     return LL, DD, CCL, CCD, QQ
     
+def rocketDesign(NStag,fdv1,fator_V,con):
+
+    ##########################################################################
+    # Reference delta V
+    
+    Dv1 = fdv1*numpy.sqrt(2.0*con['GM']*(1/con['R'] - 1/(con['R']+h_final)))
+    Dv2 = fator_V*con['V_final']/(1 - con['softness'])
+
+    efes = con['efes'] # structural eficience     
+    
+    if NStag == 0 or NStag == 1 or NStag == 2:
+    
+        Lam1 = numpy.exp(Dv1/con['g0']/con['Isp'])
+        Lam2 = numpy.exp(Dv2/con['g0']/con['Isp'])
+        
+        Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
+        Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
+        Mp = Mp1 + Mp2;
+        Me1 = (1-efes)*Mp1/efes
+        Me2 = (1-efes)*Mp2/efes
+        Me = Me1 + Me2
+        M0 = Mu + Mp + Me
+    
+        tb1 = ( Mp1 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
+        tb2 = ( Mp2 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
+        
+        if NStag == 0:
+            
+            Mjett = [0.0,0.0]
+            
+        elif NStag == 1:
+            
+            Mjett = [0.0,Me2]
+            
+        elif NStag == 2:
+        
+            Mjett = [Me1,Me2]
+            
+        ans = M0,tb1,tb2,Mjett
+        
+    else:
+    
+        # Final stage
+        Lam2 = numpy.exp(Dv2/con['g0']/con['Isp'])
+        
+        Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
+        Me2 = (1-efes)*Mp2/efes
+        tb2 = ( Mp2 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
+        
+        Mtot2 = Mp2 + Me2 + Mu
+        
+        # Initial stages
+        u = Dv1/(con['g0']*con['Isp'])
+        lamb_i = (numpy.exp(-u/NStag) - efes)/(1 - efes) # Cornelisse
+        if lamb_i <= 0.0:
+            print('Warnning: Too much stages.')
+        
+        Mtot1 = [Mtot2/lamb_i]
+        if NStag > 1:
+            for ii in range(1,(NStag-1)):
+                Mtot1 = [Mtot1[1]/lamb_i]+Mtot1
+        
+        phi_i = (1 - efes)*(1 - lamb_i)
+        Mp1 = [a*phi_i for a in Mtot1]
+        Me1 = [a*efes for a in Mp1]
+            
+        Lam1 = numpy.exp(Dv1/con['g0']/con['Isp'])
+        Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
+            
+        M0 = Mtot1[0]
+            
+        const = ( con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
+        tb1 = [a * const for a in Mp1]
+        
+        tf1 = tb1.copy()
+        Ntf = len(tf1)
+        for ii in range(1,Ntf):
+            
+            if ii == 1:
+            
+                tf1[ii-1] = tb1[ii-1]
+                
+            else:
+                
+                tf1[ii-1] = tb1[ii-1] + tf1[ii - 2]
+        
+        Mjett = Me1+[Me2]
+    
+        ans = M0,tf1,tb2,Mjett
+        
+    return ans
     
 class retPulse():
     
