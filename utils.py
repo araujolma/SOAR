@@ -31,10 +31,9 @@ def interpM(t,tVec,xVec):
 			ans[i,j] = numpy.interp(t,tVec,xVec[:,i,j])
 	return ans
 
-def ddt(sizes,vec):
-	N = sizes['N']
+def ddt(vec,N):
+
 	dt = 1.0/(N-1)
-	
 	dvec = numpy.empty_like(vec)
 	dvec[0] = (vec[1]-vec[0])/dt
 	dvec[N-1] = (vec[N-1]-vec[N-2])/dt

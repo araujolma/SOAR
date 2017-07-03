@@ -1,29 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  3 18:17:45 2017
-rest_sgra: functions for performing restoration
+Created on Tue Jun 27 14:36:59 2017
+
 @author: levi
 """
-
-import numpy
+import numpy, copy
+from utils import ddt
 import matplotlib.pyplot as plt
 
-from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
-#from prob_test import calcPhi,calcPsi,calcGrads,plotSol
-#from prob_pend import calcPhi,calcPsi,calcGrads,plotSol
-#from utils_alt import ddt
-from utils import ddt
+def calcP(self,mustPlot={}):
+    N = self.N
+    dt = self.dt
+    x = self.x
+    u = self.u
 
-def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
-    #print("\nIn calcP.")
-    N = sizes['N']
-
-    dt = 1.0/(N-1)
-
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    psi = calcPsi(sizes,x,boundary)
-    dx = ddt(sizes,x)
+    phi = self.calcPhi()
+    psi = self.calcPsi()
+    dx = ddt(x,N)
+    
     func = dx-phi
     vetP = numpy.empty(N)
     vetIP = numpy.empty(N)
@@ -35,20 +30,16 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         vetP[t] = func[t,:].dot(func[t,:].transpose())#norm(func[t,:])**2
         P += vetP[t]
         vetIP[t] = P
-#        P += func[t,:].dot(func[t,:].transpose())
-
     
     vetP[N-1] = .5*(func[N-1,:].dot(func[N-1,:].transpose()))#norm(func[N-1,:])**2
     P += vetP[N-1]
     vetIP[N-1] = P
-#    P += .5*(func[N-1,:].dot(func[N-1,:].transpose()))
 
     P *= dt
-    #vetP *= dt
     vetIP *= dt
 
     if mustPlot:
-        tPlot = numpy.arange(0,1.0+dt,dt)
+        tPlot = self.t#Plot = numpy.arange(0,1.0+dt,dt)
         
         plt.plot(tPlot,vetP)
         plt.grid(True)
@@ -64,7 +55,7 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         plt.title("Integrand of P (zoom)")
         plt.show()
         
-        n = sizes['n']; m = sizes['m']
+        n,m = self.n,self.m
         if n==4 and m==2:
             print("\nStates and controls on the region of maxP:")
 
@@ -185,52 +176,37 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
     Pint = P
     Ppsi = psi.transpose().dot(psi)#norm(psi)**2
     P += Ppsi
-    #print("P = {:.4E}".format(P)+": P_int = {:.4E}".format(Pint)+", P_psi = {:.4E}".format(Ppsi))
-    return P,Pint,Ppsi
+    return P,Pint,Ppsi    
 
-def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions,mustPlot=False):
+def calcStepRest(self,corr,mustPlot=False):
+    print("\nIn calcStepRest.\n")
+    
+    P0,_,_ = calcP(self,mustPlot)
 
-    P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
-#    print("In calcStepRest, P0 = {:.4E}".format(P0))
-    
-    alfa = .8
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
-    
-    alfa = 1.0
-#    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)#,True)
-    
-    alfa = 1.2
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
-    
-        
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(.8,corr,mustPlot)
+    P1m,_,_ = newSol.calcP(mustPlot)
+
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(1.0,corr,mustPlot)
+    P1,_,_ = newSol.calcP(mustPlot)
+
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(1.2,corr,mustPlot)
+    P1M,_,_ = newSol.calcP(mustPlot)
+            
     if P1 >= P1m or P1 >= P0:
+        print("alfa=1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
-        # TODO: improve this!
-        nP = P1; alfa=1
+        nP = P1; alfa=1.0
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
             P = nP
             alfa *= .8
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-            nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions,mustPlot)#,True)
-            #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-            #      " (P0 = {:.4E})".format(P0))
+            newSol = copy.deepcopy(self)
+            newSol.aplyCorr(alfa,corr,mustPlot)
+            nP,_,_ = newSol.calcP(mustPlot)
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
@@ -249,42 +225,35 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions,mustPlot=F
                 cont += 1
                 P = nP
                 alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions,mustPlot)#,True)
-                #print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                #      " (P0 = {:.4E})".format(P0))
+                newSol = copy.deepcopy(self)
+                nP,_,_ = newSol.aplyCorr(alfa,corr,mustPlot).calcP(mustPlot)
+                print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+                      " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
                 #if nPint < Pint0:
             alfa /= 1.2
     return alfa
 
-def rest(sizes,x,u,pi,t,constants,boundary,restrictions,mustPlot=False):
-    #print("\nIn rest.")
+
+def rest(self,mustPlot={}):
+     
+    print("\nIn rest.")
 
     # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
-    #print("Calc phi...")
+    N,n,m,p,q = self.N,self.n,self.m,self.p,self.q
+    x = self.x
+    
     # calculate phi and psi
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    #print("Calc psi...")
-    psi = calcPsi(sizes,x,boundary)
+    phi = self.calcPhi()
+    psi = self.calcPsi()
 
-    # aux: phi - dx/dt
-    err = phi - ddt(sizes,x)
+    err = phi - ddt(x,N)
 
     # get gradients
     #print("Calc grads...")
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    Grads = self.calcGrads()
 
-    dt = Grads['dt']
+    dt = 1.0/(N-1)
     #dt6 = dt/6
     phix = Grads['phix']
     phiu = Grads['phiu']
@@ -320,7 +289,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions,mustPlot=False):
     arrayL = arrayA.copy()
     arrayM = numpy.empty((q+1,q))
 
-    optPlot = dict()
+    #optPlot = dict()
 
     #print("Beginning loop for solutions...")
     for i in range(q+1):
@@ -374,7 +343,7 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions,mustPlot=False):
             ##################################################################
             # TESTING LAMBDA DIFFERENTIAL EQUATION
             
-            dlam = ddt(sizes,lam)
+            dlam = ddt(lam,N)
             erroLam = numpy.empty((N,n))
             normErroLam = numpy.empty(N)
             for k in range(N):
@@ -521,134 +490,18 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions,mustPlot=False):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-    if mustPlot:
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-        optPlot['mode'] = 'proposed (states: lambda)'
-        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-
-
+#    if mustPlot:
+#        optPlot['mode'] = 'var'
+#        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+#        optPlot['mode'] = 'proposed (states: lambda)'
+#        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    
+    corr = {'x':A,
+            'u':B,
+            'pi':C}
     #print("Calculating step...")
-    alfa = calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions,mustPlot)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-
+    
+    alfa = self.calcStepRest(corr,mustPlot)
+    self.aplyCorr(alfa,corr,mustPlot)
+    self.updtHistP(alfa)
     print("Leaving rest with alfa =",alfa)
-    return nx,nu,np,lam,mu
-
-def calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
-    #print("\nIn calcStepOdeRest.\n")
-    P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
-    
-    alfa = .8
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    alfa = 1.0
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    alfa = 1.2
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    if Pint1 >= Pint1m:
-        # alfa = 1.0 is too much. Reduce alfa.
-        # TODO: improve this!
-        nPint = Pint1m
-        cont = 0; keepSearch = (nPint>Pint0)
-        while keepSearch and alfa > 1.0e-15:
-            cont += 1
-            Pint = nPint
-            alfa *= .5
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-            nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-            #print("\n alfa =",alfa,", P_int = {:.4E}".format(nPint),\
-            #      " (P_int0 = {:.4E})".format(Pint0))
-            if nPint < Pint0:
-                keepSearch = ((nPint-Pint)/Pint < -.05)
-    else:
-        if Pint1 <= Pint1M:
-            # alfa = 1.0 is likely to be best value. 
-            # Better not to waste time and return 1.0 
-            return 1.0
-        else:
-            # There is still a descending gradient here. Increase alfa!
-            nPint = Pint1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            while keepSearch:
-                cont += 1
-                Pint = nPint
-                alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-                #print("\n alfa =",alfa,", P_int = {:.4E}".format(nPint),\
-                #      " (P_int0 = {:.4E})".format(Pint0))
-                keepSearch = nPint<Pint
-                #if nPint < Pint0:
-            alfa /= 1.2
-
-    return alfa
-
-def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
-    #print("\nIn oderest.")
-
-
-    # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
-    #print("Calc phi...")
-    # calculate phi and psi
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-
-    # err: phi - dx/dt
-    err = phi - ddt(sizes,x)
-
-    # get gradients
-    #print("Calc grads...")
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-    dt = Grads['dt']
-    phix = Grads['phix']
-    
-    lam = 0*x; mu = numpy.zeros(q)        
-    B = numpy.zeros((N,m))
-    C = numpy.zeros(p)
-
-    #print("Integrating ODE for A...")
-    # integrate equation for A:
-    A = numpy.zeros((N,n))
-    for k in range(N-1):
-        derk =  phix[k,:].dot(A[k,:]) + err[k,:]
-        aux = A[k,:] + dt*derk
-        A[k+1,:] = A[k,:] + .5*dt*( derk + phix[k+1,:].dot(aux) + err[k+1,:])
-
-#    optPlot = dict()    
-#    optPlot['mode'] = 'var'
-#    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-
-    #print("Calculating step...")
-    alfa = calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions)
-    nx = x + alfa * A
-
-    print("Leaving oderest with alfa =",alfa)
-    return nx,u,pi,lam,mu

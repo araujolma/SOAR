@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  3 18:27:55 2017
+Created on Tue Jun 27 14:39:08 2017
 
 @author: levi
 """
 
-import numpy
+import numpy, copy
+from utils import ddt
 import matplotlib.pyplot as plt
 
-#from utils_alt import ddt
-from utils import ddt
-from prob_rocket_sgra import calcGrads, plotSol, calcI
-from rest_sgra import calcP
-#from prob_test import calcGrads, plotSol
-#from prob_pend import calcGrads, plotSol
-
-def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
+def calcQ(self,mustPlot=False):
     # Q expression from (15)
-
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
+    #print("\nIn calcQ.\n")
+    N = self.N
+    n = self.n
+    m = self.m
+    p = self.p
     dt = 1.0/(N-1)
 
+    x = self.x
+    u = self.u
+    lam = self.lam
+    mu = self.mu
+    
+    
     # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    Grads = self.calcGrads()
     phix = Grads['phix']
     phiu = Grads['phiu']
     phip = Grads['phip']
@@ -35,7 +35,8 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     fp = Grads['fp']
     psix = Grads['psix']
     psip = Grads['psip']
-    dlam = ddt(sizes,lam)
+    dlam = ddt(lam,N)
+
     Qx = 0.0
     Qu = 0.0
     Qp = 0.0
@@ -75,7 +76,9 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
     Qt = errQt.transpose().dot(errQt)
 
     Q = Qx + Qu + Qp + Qt
-    print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+", Qt = {:.4E}".format(Qt))
+    print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+\
+          ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
+          ", Qt = {:.4E}".format(Qt))
 
     if mustPlot:
         tPlot = numpy.arange(0,1.0+dt,dt)
@@ -99,7 +102,6 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
         plt.title("Integrand of Qx (zoom)")
         plt.show()
         
-        n = sizes['n']; m = sizes['m']
         if n==4 and m==2:
             
             plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,0])
@@ -246,51 +248,41 @@ def calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot=False):
             plt.grid(True)
             plt.ylabel("z_m")
             plt.show()
-    return Q
+    return Q,Qx,Qu,Qp,Qt
 
-def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions,mustPlot=False):
+def calcStepGrad(self,corr,mustPlot=False):
 
     print("\nIn calcStepGrad.\n")
     
-    I0 = calcI(sizes,x,u,pi,constants,restrictions)
-    print("I0 = {:.4E}".format(I0))
-    Q0 = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,mustPlot)
-    P0,_,_ = calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot)
+    Q0,_,_,_,_ = self.calcQ(mustPlot)
+    P0,_,_ = self.calcP(mustPlot)
     print("P0 = {:.4E}".format(P0))
-#    print("In calcStepRest, P0 = {:.4E}".format(P0))
+    I0 = self.calcI()
+    print("I0 = {:.4E}\n".format(I0))
     
-    alfa = .8
-    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    I1m = calcI(sizes,x,u,pi,constants,restrictions)
-    print("I = {:.4E}".format(I1m))
-    Q1m = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
-    P1m,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
-    print("P = {:.4E}".format(P1m))
-    
-    alfa = 1.0
-    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    I1 = calcI(sizes,x,u,pi,constants,restrictions)
-    print("I = {:.4E}".format(I1))
-    Q1 = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
-    P1,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)    
-    print("P = {:.4E}".format(P1))
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(.8,corr,mustPlot)
+    Q1m,_,_,_,_ = newSol.calcQ(mustPlot)
+    P1m,_,_ = newSol.calcP(mustPlot)
+    print("P1m = {:.4E}".format(P1m))
+    I1m = newSol.calcI()
+    print("I1m = {:.4E}\n".format(I1m))
 
-    alfa = 1.2
-    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    I1M = calcI(sizes,x,u,pi,constants,restrictions)
-    print("I = {:.4E}".format(I1M))
-    Q1M = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
-    P1M,_,_ = calcP(sizes,nx,nu,np,constants,boundary,restrictions,mustPlot)
-    print("P = {:.4E}".format(P1M))
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(1.0,corr,mustPlot)
+    Q1,_,_,_,_ = newSol.calcQ(mustPlot)
+    P1,_,_ = newSol.calcP(mustPlot)    
+    print("P1 = {:.4E}".format(P1))
+    I1 = newSol.calcI()
+    print("I1 = {:.4E}\n".format(I1))
+
+    newSol = copy.deepcopy(self)
+    newSol.aplyCorr(1.2,corr,mustPlot)
+    Q1M,_,_,_,_ = newSol.calcQ(mustPlot)
+    P1M,_,_ = newSol.calcP(mustPlot)
+    print("P1M = {:.4E}".format(P1M))
+    I1M = newSol.calcI()
+    print("I1M = {:.4E}\n".format(I1M))
         
     if Q1 >= Q1m or Q1 >= Q0:
         # alfa = 1.0 is too much. Reduce alfa.
@@ -300,10 +292,9 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions,mustP
             cont += 1
             Q = nQ
             alfa *= .8
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-            nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
+            newSol = copy.deepcopy(self)
+            newSol.aplyCorr(alfa,corr,mustPlot)
+            nQ,_,_,_,_ = newSol.calcQ(mustPlot)
             print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
                   " (Q0 = {:.4E})".format(Q0))
             if nQ < Q0:
@@ -319,102 +310,34 @@ def calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions,mustP
         else:
             # There is still a descending gradient here. Increase alfa!
             nQ = Q1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
+            alfa=1.2; cont = 0; keepSearch = True#(nPint>Pint1M)
             while keepSearch:
                 cont += 1
                 Q = nQ
                 alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
+                newSol = copy.deepcopy(self)
+                newSol.aplyCorr(alfa,corr,mustPlot)
+                nQ,_,_,_,_ = newSol.calcQ(mustPlot)
                 print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
                       " (Q0 = {:.4E})".format(Q0),"\n")
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
     return alfa
+
+
+def grad(self,mustPlot=False):
     
-#    # "Trissection" method
-#    alfa = 1.0
-#    nx = x + alfa * A
-#    nu = u + alfa * B
-#    np = pi + alfa * C
-#
-#    oldQ = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,True)
-#    nQ = .9*oldQ
-##    print("Q =",Q)
-#    alfaMin = 0.0
-#    alfaMax = 1.0
-#    cont = 0
-#    while (nQ-oldQ)/oldQ < -.05 and cont < 5:
-#        oldQ = nQ
-#
-#        dalfa = (alfaMax-alfaMin)/3.0
-#        alfaList = numpy.array([alfaMin,alfaMin+dalfa,alfaMax-dalfa,alfaMax])
-#        QList = numpy.empty(numpy.shape(alfaList))
-#
-#        for j in range(4):
-#            alfa = alfaList[j]
-#
-#            nx = x + alfa * A
-#            nu = u + alfa * B
-#            np = pi + alfa * C
-#
-#            Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions)
-#            QList[j] = Q
-#        #
-#        print("QList:",QList)
-#        minQ = QList[0]
-#        indxMinQ = 0
-#
-#        for j in range(1,4):
-#            if QList[j] < minQ:
-#                indxMinQ = j
-#                minQ = QList[j]
-#        #
-#
-#        alfa = alfaList[indxMinQ]
-#        nQ = QList[indxMinQ]
-#        print("nQ =",nQ)
-#        if indxMinQ == 0:
-#            alfaMin = alfaList[0]
-#            alfaMax = alfaList[1]
-#        elif indxMinQ == 1:
-#            if QList[0] < QList[2]:
-#                alfaMin = alfaList[0]
-#                alfaMax = alfaList[1]
-#            else:
-#                alfaMin = alfaList[1]
-#                alfaMax = alfaList[2]
-#        elif indxMinQ == 2:
-#            if QList[1] < QList[3]:
-#                alfaMin = alfaList[1]
-#                alfaMax = alfaList[2]
-#            else:
-#                alfaMin = alfaList[2]
-#                alfaMax = alfaList[3]
-#        elif indxMinQ == 3:
-#            alfaMin = alfaList[2]
-#            alfaMax = alfaList[3]
-#
-#        cont+=1
-#    #
-#
-#    return .5*(alfaMin+alfaMax)
-
-def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     print("In grad.")
-    print("Q0 =",Q0,"\n")
+#    print("Q0 =",Q0,"\n")
     # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
+    N,n,m,p,q = self.N,self.n,self.m,self.p,self.q
+    dt = 1.0/(N-1)
+    
+    x = self.x
+    
     # get gradients
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    Grads = self.calcGrads()
 
     phix = Grads['phix']
     phiu = Grads['phiu']
@@ -424,7 +347,6 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     fp = Grads['fp']
     psix = Grads['psix']
     psip = Grads['psip']
-    dt = Grads['dt']
 
     # prepare time reversed/transposed versions of the arrays
     psixTr = psix.transpose()
@@ -450,23 +372,30 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     arrayC = numpy.empty((q+1,p))
     arrayL = arrayA.copy()
     arrayM = numpy.empty((q+1,q))
+    
+    #initGuesArray = 1e-7*numpy.random.randn(n-1,q)
+    #print("initGuesArray =",initGuesArray)
 
-    optPlot = dict()
-    #ind1 = [1,2,0]
-    #ind2 = [2,0,1]
+    #optPlot = dict()
     for i in range(q+1):
         
-        print("\n>Integrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
+        print("\n> Integrating solution "+str(i+1)+" of "+str(q+1)+"...\n")
         
         mu = 0.0*mu
         if i<q:
-            mu[i] = 1.0e-7
+            mu[i] = 1.0#e-7
             #mu[i] = ((-1)**i)*1.0e-8#10#1.0#e-5#
             #mu[ind1[i]] = 1.0e-8
             #mu[ind2[i]] = -1.0e-8
+            #mu = initGuesArray[:,i]
 
         # integrate equation (38) backwards for lambda
         auxLam[0,:] = - psixTr.dot(mu)
+
+            #auxLam[0,:] = initGuesArray[:,i]
+
+
+        print(" auxLamInit =",auxLam[0,:])
         # Euler implicit
         I = numpy.eye(n)
         for k in range(N-1):
@@ -490,7 +419,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
         ##################################################################
         # TESTING LAMBDA DIFFERENTIAL EQUATION
         if i<q: #otherwise, there's nothing to test here...
-            dlam = ddt(sizes,lam)
+            dlam = ddt(lam,N)
             erroLam = numpy.empty((N,n))
             normErroLam = numpy.empty(N)
             for k in range(N):
@@ -499,9 +428,10 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
                 
             if mustPlot:
                 print("\nLambda Error:")
-                optPlot['mode'] = 'states:LambdaError'
-                plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-                    constants,restrictions,optPlot)
+                print("Cannot plot anymore. :( ")
+                #optPlot['mode'] = 'states:LambdaError'
+                #plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+                #    constants,restrictions,optPlot)
 
             maxNormErroLam = normErroLam.max()
             print("maxNormErroLam =",maxNormErroLam)
@@ -523,8 +453,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
         C -= -psipTr.dot(mu)
 
         if mustPlot:
-            optPlot['mode'] = 'states:Lambda'
-            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+            print("Cannot plot lambda anymore... for now!")
+            #optPlot['mode'] = 'states:Lambda'
+            #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
         # integrate diff equation for A
         A = numpy.zeros((N,n))
@@ -549,7 +480,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
         #                            phip[k,:].dot(C[k,:]))
         
 
-        dA = ddt(sizes,A)        
+        dA = ddt(A,N)        
         erroA = numpy.empty((N,n))
         normErroA = numpy.empty(N)  
         for k in range(N):
@@ -558,9 +489,10 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
         
         if mustPlot:
             print("\nA Error:")
-            optPlot['mode'] = 'states:AError'
-            plotSol(sizes,t,erroA,B,C,\
-                    constants,restrictions,optPlot)            
+            print("Cannot plot anymore. :( ")
+            #optPlot['mode'] = 'states:AError'
+            #plotSol(sizes,t,erroA,B,C,\
+            #        constants,restrictions,optPlot)            
         
         maxNormErroA = normErroA.max()
         print("maxNormErroA =",maxNormErroA)
@@ -576,9 +508,9 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-        if mustPlot:
-            optPlot['mode'] = 'var'
-            plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        #if mustPlot:
+        #    optPlot['mode'] = 'var'
+        #    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         M[1:,i] = psix.dot(A[N-1,:]) + psip.dot(C)
     #
@@ -589,6 +521,7 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     col[0] = 1.0
     
     print("M =",M)
+    print("det(M) =",numpy.linalg.det(M))
     print("col =",col)
     K = numpy.linalg.solve(M,col)
     print("K =",K)
@@ -609,8 +542,8 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     
     ##########################################
     
-    dlam = ddt(sizes,lam)
-    dA = ddt(sizes,A)
+    dlam = ddt(lam,N)
+    dA = ddt(A,N)
     erroLam = numpy.empty((N,n))
     erroA = numpy.empty((N,n))
     normErroLam = numpy.empty(N)
@@ -623,10 +556,11 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     
     if mustPlot:
         print("\nFINAL A Error:")
-        optPlot['mode'] = 'states:AError'
-        plotSol(sizes,t,erroA,B,C,\
-                constants,restrictions,optPlot)    
-        maxNormErroA = normErroA.max()
+        print("Cannot plot anymore. :( ")
+        #optPlot['mode'] = 'states:AError'
+        #plotSol(sizes,t,erroA,B,C,\
+        #        constants,restrictions,optPlot)    
+    maxNormErroA = normErroA.max()
     
     print("FINAL maxNormErroA =",maxNormErroA)
     
@@ -638,10 +572,11 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
 
     if mustPlot:
         print("\nFINAL Lambda Error:")
-        optPlot['mode'] = 'states:LambdaError'
-        plotSol(sizes,t,erroLam,B,C,\
-            constants,restrictions,optPlot)
-        maxNormErroLam = normErroLam.max()
+        print("Cannot plot anymore. :( ")
+        #optPlot['mode'] = 'states:LambdaError'
+        #plotSol(sizes,t,erroLam,B,C,\
+        #    constants,restrictions,optPlot)
+        #maxNormErroLam = normErroLam.max()
     print("FINAL maxNormErroLam =",maxNormErroLam)
 
     if mustPlot and (maxNormErroLam > 0):
@@ -655,19 +590,18 @@ def grad(sizes,x,u,pi,t,Q0,constants,boundary,restrictions,mustPlot=False):
     #if (B>numpy.pi).any() or (B<-numpy.pi).any():
     #    print("\nProblems in grad: corrections will result in control overflow.")
     
-    if mustPlot:
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-        optPlot['mode'] = 'proposed (states: lambda)'
-        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+#    if mustPlot:
+        #optPlot['mode'] = 'var'
+        #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        #optPlot['mode'] = 'proposed (states: lambda)'
+        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
+    self.lam = lam
+    self.mu = mu
+    corr = {'x':A,'u':B,'pi':C}
     # Calculation of alfa
-    alfa = calcStepGrad(sizes,x,u,pi,lam,mu,A,B,C,constants,boundary,restrictions)
+    alfa = self.calcStepGrad(corr,mustPlot)
 
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    Q = calcQ(sizes,nx,nu,np,lam,mu,constants,restrictions,mustPlot)
-
+    self.aplyCorr(alfa,corr,mustPlot)
+    self.updtHistQ(alfa)
     print("Leaving grad with alfa =",alfa)
-    return nx,nu,np,lam,mu,Q
