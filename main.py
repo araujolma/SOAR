@@ -47,7 +47,14 @@ if __name__ == "__main__":
 
     sol = ITman.gradRestCycl(sol)
     
-   
+    sol = ITman.restRnds(sol)
+    
+    print("\n\n")
+    print("##################################################################")
+    print("                   THIS IS THE FINAL SOLUTION:                    ")
+    print("##################################################################")
+    
+    sol.plotSol()
 
 #    # Gradient rounds:
 #    NIterGrad = 0

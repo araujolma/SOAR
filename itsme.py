@@ -250,7 +250,7 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     Lam1 = numpy.exp(Dv1/con['g0']/con['Isp'])
     Lam2 = numpy.exp(Dv2/con['g0']/con['Isp'])
     
-    Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
+    Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes)) #- 10.0
     Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
     Mp = Mp1 + Mp2;
     Me = (1-efes)*Mp/efes

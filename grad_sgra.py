@@ -609,3 +609,4 @@ def grad(self,mustPlot=False):
     P,_,_ = self.calcP()
     self.P = P
     print("Leaving grad with alfa =",alfa)
+    print("Delta pi = ",alfa*corr['pi'])

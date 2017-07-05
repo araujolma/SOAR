@@ -139,7 +139,7 @@ class sgra():
         self.histQu[NIterGrad] = Qu
         self.histQp[NIterGrad] = Qp
         self.histQt[NIterGrad] = Qt
-        self.histStepRest[NIterGrad] = alfa
+        self.histStepGrad[NIterGrad] = alfa
         
         I = self.calcI()
         self.histI[NIterGrad] = I        

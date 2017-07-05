@@ -37,6 +37,9 @@ class prob(sgra):
         self.dt = dt
         self.t = t
         
+        # Payload mass
+        self.mPayl = 100.0
+                
         # boundary conditions
         h_initial = 0.0            # km
         V_initial = 0.0            # km/s
@@ -65,7 +68,9 @@ class prob(sgra):
     
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
-        scal = 1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        
+        scal = 1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        
         Isp = 450.0                   # s
         s_f = 0.05
         CL0 = 0.0#-0.03                   # (B0 Miele 1998)
@@ -162,7 +167,7 @@ class prob(sgra):
     #        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
     
             ###################################
-            new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+            new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup,finf, h_final, self.mPayl, 1.0e-7)
             
             ####################################
                         
@@ -674,7 +679,8 @@ class prob(sgra):
         ######################################
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.show()
-        print("pi =",pi,"\n")
+        print("pi =",pi)
+        print("Final rocket mass: {:.4E}\n".format(x[-1,3]))
     #
 
 #%%

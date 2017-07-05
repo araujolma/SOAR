@@ -6,7 +6,7 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill,datetime
+import dill, datetime, pprint
 
 class ITman():
     # iterations manager
@@ -17,12 +17,15 @@ class ITman():
         self.defOpt = 'loadSol'#'newSol'
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = "sols/solInitRestored.pkl"
+        self.loadSolDir = "sols/solInitRest.pkl"
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
         self.NSlntRuns = 0
         self.mustAsk = True
+        self.GRplotSolRate = 1
+        self.GRsaveSolRate = 5
+        self.GRpausRate = 100
     
     def prntDashStr(self):
         print(self.dashStr)
@@ -31,12 +34,21 @@ class ITman():
         inp = input(self.bscImpStr)
         return inp
     
+    def printPars(self):
+        dPars = self.__dict__
+#        keyList = dPars.keys()
+        print("\nThese are the attributes for the Iterations manager:\n")
+        pprint.pprint(dPars)
+    
     def greet(self):
         self.prntDashStr()      
-        print("\nWelcome to SGRA!\n")
+        print("\nWelcome to SGRA!")
+        
+        self.prntDashStr()      
+        self.printPars()     
         
         if self.defOpt == 'newSol':
-            print("Default starting option is to generate new initial guess.")
+            print("\nDefault starting option is to generate new initial guess.")
             print("Hit 'enter' to do it, or any other key to load a previous solution.")
             inp = self.prom()
             if inp == '':
@@ -68,7 +80,7 @@ class ITman():
                     self.loadSolDir = inp
                 
         elif self.defOpt == 'loadSol':
-            print("Default starting option is to load solution.")
+            print("\nDefault starting option is to load solution.")
             print("The default path to loading solution is: "+self.loadSolDir)
             print("Hit 'enter' to do it, 'I' to generate new initial guess,")
             print("or type the path to alternative solution to be loaded.")
@@ -77,6 +89,7 @@ class ITman():
                 self.isNewSol = False
             elif inp == 'i' or inp == 'I':
                 self.isNewSol = True
+                print("\nOk, generating new initial guess...\n")
             else:
                 self.isNewSol = False
                 self.loadSolDir = inp  
@@ -133,6 +146,7 @@ class ITman():
         print("Q = {:.4E}".format(Q)+", Qx = {:.4E}".format(Qx)+\
               ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
               ", Qt = {:.4E}".format(Qt)+"\n")
+        sol.plotSol()
         return sol
     
     def restRnds(self,sol):
@@ -155,6 +169,26 @@ class ITman():
     
         return sol
     
+    def plotSolCond(self,sol):
+        if sol.NIterGrad % self.GRplotSolRate==0:
+            return True
+        else:
+            return False
+        
+    def saveSolCond(self,sol):
+        return False
+        
+#        if sol.NIterGrad % self.GRsaveSolRate==0:
+#            return True
+#        else:
+#            return False
+        
+    def gradRestPausCond(self,sol):
+        if sol.NIterGrad % self.GRpausRate==0:
+            return True
+        else:
+            return False
+        
     def gradRestCycl(self,sol):
         self.prntDashStr()
         print("\nBeginning gradient rounds...")
@@ -165,10 +199,26 @@ class ITman():
             sol.grad()
             sol.showHistQ()
             sol.showHistI()
-            sol.plotSol()
-            if sol.NIterGrad%20==0:
+            
+            if self.saveSolCond(sol):
+                self.prntDashStr()
+                self.saveSol(sol,'contHere.pkl')
+            
+            if self.plotSolCond(sol):
+                self.prntDashStr()
+                print("\nSolution so far:")
+                sol.plotSol()
+            
+            if self.gradRestPausCond(sol):
                 print("\a")
-                input("So far so good?")
+                self.prntDashStr()
+                print("\nGrad-Rest cycle pause condition has been reached.")
+                print("Press any key to continue, or ctrl+C to stop.")                
+                print("Load last saved solution to go back to GR cycle.")
+                self.prom()
+        #
+        
+        return sol
     
     #%%
 class GradStat:
