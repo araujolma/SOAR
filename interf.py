@@ -11,33 +11,40 @@ import dill,datetime
 class ITman():
     # iterations manager
     bscImpStr = "\n >> "
+    dashStr = '\n-------------------------------------------------------------'
     
     def __init__(self):
         self.defOpt = 'loadSol'#'newSol'
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = "solInitRestored.pkl"
+        self.loadSolDir = "sols/solInitRestored.pkl"
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
-        self.NSilent = 0
+        self.NSlntRuns = 0
         self.mustAsk = True
+    
+    def prntDashStr(self):
+        print(self.dashStr)
         
+    def prom(self):
+        inp = input(self.bscImpStr)
+        return inp
+    
     def greet(self):
-        print("\n------------------------------------------------------------")
+        self.prntDashStr()      
         print("\nWelcome to SGRA!\n")
-
-       
+        
         if self.defOpt == 'newSol':
             print("Default starting option is to generate new initial guess.")
             print("Hit 'enter' to do it, or any other key to load a previous solution.")
-            inp = input(self.bscImpStr)
+            inp = self.prom()
             if inp == '':
                 self.isNewSol = True
                 print("\nOk, default mode is '"+self.initOpt+"'.")
                 print("Hit 'enter' to proceed with it, or 'd' for 'default',")
                 print("or 'n' for 'naive'. See 'rockSol.py' for details. ")
-                inp = input(self.bscImpStr).lower()
+                inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
                     print("\nProceeding with 'default' mode.\n")
@@ -77,9 +84,9 @@ class ITman():
         
     def checkPars(self,sol):
         
-        print("--------------------------------------------------------------")
+        print(self.dashStr)
         sol.printPars()
-        print("--------------------------------------------------------------")
+        self.prntDashStr
         print("\nAre these parameters OK?")
         print("Press any key to continue, or ctrl+C to stop.")
         input(self.bscImpStr)
@@ -99,7 +106,71 @@ class ITman():
         print("\nWriting solution to '"+path+"'.")        
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
-            
+   
+    def setInitSol(self,sol):
+        if self.isNewSol:
+            # declare problem:
+                #opt = {'initMode': 'extSol'}#'crazy'#'default'#'extSol'
+                sol.initGues({'initMode':self.initOpt})
+                self.saveSol(sol,'solInit.pkl')
+        else:
+            # load previously prepared solution
+            sol = self.loadSol()
+        #
+    
+        self.checkPars(sol)
+        
+        self.prntDashStr()
+        print("\nProposed initial guess:\n")
+        P,Pint,Ppsi = sol.calcP()
+        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
+        sol.histP[sol.NIterRest] = P
+        sol.histPint[sol.NIterRest] = Pint
+        sol.histPpsi[sol.NIterRest] = Ppsi
+    
+        Q,Qx,Qu,Qp,Qt = sol.calcQ()
+        print("Q = {:.4E}".format(Q)+", Qx = {:.4E}".format(Qx)+\
+              ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
+              ", Qt = {:.4E}".format(Qt)+"\n")
+        return sol
+    
+    def restRnds(self,sol):
+        while sol.P > sol.tol['P']:
+            sol.rest()
+#            P,Pint,Ppsi = sol.calcP()
+#            print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+#                  ", Ppsi = {:.4E}".format(Ppsi)+"\n")
+        sol.showHistP()
+        print("End of restoration rounds. Solution so far:")
+        sol.plotSol()
+        return sol
+    
+    def frstRestRnds(self,sol):
+        self.prntDashStr()
+        print("\nBeginning first restoration rounds...\n")
+        sol = self.restRnds(sol)
+        
+        self.saveSol(sol,'solInitRest.pkl')
+    
+        return sol
+    
+    def gradRestCycl(self,sol):
+        self.prntDashStr()
+        print("\nBeginning gradient rounds...")
+        sol.Q,_,_,_,_ = sol.calcQ()
+        while sol.Q > sol.tol['Q']:
+            sol = self.restRnds(sol)
+
+            sol.grad()
+            sol.showHistQ()
+            sol.showHistI()
+            sol.plotSol()
+            if sol.NIterGrad%20==0:
+                print("\a")
+                input("So far so good?")
+    
+    #%%
 class GradStat:
     def __init__(self):
         self.mustPlotGrad = True

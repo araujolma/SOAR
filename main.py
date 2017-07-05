@@ -30,7 +30,7 @@ import probRock as prob
 # MAIN SEGMENT:
 # ##################
 if __name__ == "__main__":
-    print('--------------------------------------------------------------------------------')
+    print('------------------------------------------------------------------')
     print('\nRunning main.py!')
     print(datetime.datetime.now())
     print('\n')
@@ -41,118 +41,12 @@ if __name__ == "__main__":
     ITman = ITman()
     ITman.greet()
     
-    if ITman.isNewSol:
-        # declare problem:
-        #opt = {'initMode': 'extSol'}#'crazy'#'default'#'extSol'
-        sol.initGues({'initMode':ITman.initOpt})
-        ITman.saveSol(sol,'solInit.pkl')
-    else:
-        # load previously prepared solution
-        sol = ITman.loadSol()
-    #
-    
-    ITman.checkPars(sol)
+    sol = ITman.setInitSol(sol)
+      
+    sol = ITman.frstRestRnds(sol)
 
-    #Grads = sol.calcGrads()
-    #phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    #psi = calcPsi(sizes,x,boundary)
-#    phix = Grads['phix']
-#    phiu = Grads['phiu']
-#    psix = Grads['psix']
-#    psip = Grads['psip']
-
-    #input("E aí?")
-
-#%%
+    sol = ITman.gradRestCycl(sol)
     
-    print("##################################################################")
-    print("\nProposed initial guess:\n")
-#
-    
-    P,Pint,Ppsi = sol.calcP()
-    print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-    sol.histP[sol.NIterRest] = P
-    sol.histPint[sol.NIterRest] = Pint
-    sol.histPpsi[sol.NIterRest] = Ppsi
-    
-    Q,Qx,Qu,Qp,Qt = sol.calcQ()
-    #print("Q = {:.4E}".format(Q)+", Qx = {:.4E}".format(Qx)+\
-    #      ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
-    #      ", Qt = {:.4E}".format(Qt)+"\n")
-    
-    
-#    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions)
-#    optPlot = dict()
-#    optPlot['P'] = P
-#    optPlot['Q'] = Q
-#    optPlot['mode'] = 'sol'
-#    optPlot['dispP'] = True
-#    optPlot['dispQ'] = False
-#    plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-#
-#    psi = calcPsi(sizes,x,boundary)
-#    print("psi =",psi)
-#    print("##################################################################")
-#    #input("Everything ok?")
-#
-#    tolP = tol['P']
-#    tolQ = tol['Q']
-#
-#
-#    # first restoration rounds:
-#    NIterRest = 0
-#    #mustOdeRest = True
-#    nOdeRest = 0#10
-#    histP[0] = P; histPint[0] = Pint; histPpsi[0] = Ppsi
-#    print("\nBeginning first restoration rounds...\n")
-    while sol.P > sol.tol['P']:
-        sol.rest()
-        P,Pint,Ppsi = sol.calcP()
-        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-        sol.plotSol()
-     
-    #print("\nConvergence report:")
-    #sol.showHistP()
-    
-
-#
-# #           print("\a")
-##            time.sleep(.2)
-#
-#    print("\nAfter first rounds of restoration:")
-#    Q = calcQ(sizes,x,u,pi,lam,mu,constants,restrictions,True)
-#    optPlot['Q'] = Q; optPlot['dispQ'] = True
-#    plotSol(sizes,t,x,u,pi,constants,restrictions,optPlot)
-#    print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-#          ", Ppsi = {:.4E}".format(Ppsi)+"\n")
-#    psi = calcPsi(sizes,x,boundary)
-#    print("psi =",psi)
-#
-#    print("\n################################################################")
-#    print("\n################################################################")
-#    print("\n################################################################")
-#    print("\n################################################################")
-#    print("\a")
-#    
-#    print("\nProceed to gradient rounds?")
-#    input()
-    print("Beginning gradient rounds...")
-    sol.Q,_,_,_,_ = sol.calcQ()
-    while sol.Q > sol.tol['Q']:
-
-        sol.rest()
-        while sol.P > sol.tol['P']:
-            sol.rest()
-        sol.showHistP()
-
-        sol.grad()
-        sol.showHistQ()
-
-        if sol.NIterGrad%10==0:
-            input("So far so good?")
-        
    
 
 #    # Gradient rounds:

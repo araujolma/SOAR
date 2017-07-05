@@ -604,4 +604,8 @@ def grad(self,mustPlot=False):
 
     self.aplyCorr(alfa,corr,mustPlot)
     self.updtHistQ(alfa)
+    
+    # update P just to ensure proper restoration afterwards
+    P,_,_ = self.calcP()
+    self.P = P
     print("Leaving grad with alfa =",alfa)

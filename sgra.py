@@ -108,6 +108,7 @@ class sgra():
         if self.histPpsi[IterRest].any() > 0:
             plt.semilogy(IterRest,self.histPpsi[IterRest],'r',label='P_psi')
         
+        plt.plot(IterRest,self.tol['P']+0.0*IterRest,'-.b',label='tolP')
         print("\nConvergence report on P:")
         plt.grid(True)
         plt.xlabel("Iterations")
@@ -164,9 +165,20 @@ class sgra():
         if self.histQt[IterGrad].any() > 0:
             plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
 
-        print("\nConvergence report on Q:")
+        plt.title("Convergence report on Q")
         plt.grid(True)
         plt.xlabel("Iterations")
         plt.ylabel("Q values")
+        plt.legend()
+        plt.show()
+        
+    def showHistI(self):
+        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+        
+        plt.title("Convergence report on I")
+        plt.plot(IterGrad,self.histI[IterGrad])
+        plt.grid(True)
+        plt.xlabel("Iterations")
+        plt.ylabel("I values")
         plt.legend()
         plt.show()
