@@ -37,10 +37,11 @@ def funDict(h_final):
     con['gamma_final'] = 0.0 # rad
 
     #Vehicle parameters
+    con['NStag'] = 3               # Number of stages (2 to 4)
     con['Isp'] = 450               # s
     con['efes'] = .95              # [-]
     con['T'] = 40.0e3*1.0e-3       # thrust in kg * km / s² [for compatibility purposes...]
-    con['softness'] = 0.3          # softness of the transions of propulsive curve
+    con['softness'] = 0.1          # softness of the transions of propulsive curve
     con['CL0'] = -0.03             # (B0 Miele 1998)
     con['CL1'] = 0.8               # (B1 Miele 1998)
     con['CD0'] = 0.05              # (A0 Miele 1998)
@@ -50,6 +51,7 @@ def funDict(h_final):
     # Trajectory parameters
     con['AoAmax'] = 2.0#3.0           # graus
     con['torb'] = 2*con['pi']*(con['R'] + h_final)/con['V_final'] # Time of one orbit using the final velocity
+    con['tAoA1'] = 4.4
     con['tAoA'] = 4.0
 
     return con
@@ -241,36 +243,34 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
 
     ##########################################################################
     # Initial mass definition and thrust programm
-    efes = con['efes']
+    #efes = con['efes']
     Dv1 = fdv1*numpy.sqrt(2.0*con['GM']*(1/con['R'] - 1/(con['R']+h_final)))
     Dv2 = con['V_final']/(1 - con['softness'])
-
     Dv2 = Dv2*fator_V
-    LamMax = 1/(1-efes)
-    Lam1 = numpy.exp(Dv1/con['g0']/con['Isp'])
-    Lam2 = numpy.exp(Dv2/con['g0']/con['Isp'])
 
-    Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
-    Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
-    Mp = Mp1 + Mp2;
-    Me1 = (1-efes)*Mp1/efes
-    Me2 = (1-efes)*Mp2/efes
-    Me = Me1 + Me2
-    M0 = Mu + Mp + Me
-
-    tb1 = ( Mp1 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
-    tb2 = ( Mp2 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
-
-    NStg = 4
+#    LamMax = 1/(1-efes)
+#    Lam1 = numpy.exp(Dv1/con['g0']/con['Isp'])
+#    Lam2 = numpy.exp(Dv2/con['g0']/con['Isp'])
+#
+#    Mp2 = (Lam2-1)*efes*Mu/(1 - Lam2*(1-efes))
+#    Mp1 = (Lam1-1)*efes*(Mu + (Mp2/efes))/(1 - Lam1*(1-efes))
+#    Mp = Mp1 + Mp2;
+#    Me1 = (1-efes)*Mp1/efes
+#    Me2 = (1-efes)*Mp2/efes
+#    Me = Me1 + Me2
+#    M0 = Mu + Mp + Me
+#
+#    tb1 = ( Mp1 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
+#    tb2 = ( Mp2 * con['g0'] * con['Isp'] / con['T'] ) * ( 1 + con['softness']/2 )
 
     efflist = []
-    for jj in range(0,NStg-1):
+    T = []
+    for jj in range(0,con['NStag']-1):
         efflist = efflist+[0.05]
+        T = T+[con['T']]
 
-    p2 = optimalStaging([0.05],Dv2,con,Mu)
-    p1 = optimalStaging(efflist,Dv1,con,p2.mtot[0])
-
-    M0 = p1.mtot[0]
+    p2 = optimalStaging([0.05],Dv2,con['T'],con,Mu)
+    p1 = optimalStaging(efflist,Dv1,T,con,p2.mtot[0])
 
     if p1.fail:
         print('NStg exceds the maximal value')
@@ -281,14 +281,14 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     #tVec = numpy.array([tb1,(tf-tb2),tf,tf*1.1])
     #vVec = numpy.array([1.0,0.0,1.0,0.0])
     #tabBeta = retPulse2(tVec,vVec)
-    tabBeta = retSoftPulse(tb1,(tf-tb2),tf,1.0,0.0,con['softness'])
+    tabBeta = retSoftPulse(p1,p2,tf,1.0,0.0,con['softness'])
 
     ##########################################################################
     # Attitude program definition
     # Chossing tAoA1 as a fraction of tf results in code bad behavior
     # So a fixed generic number is used
-    tAoA1 = 4.4 # [s], maneuver initiates 4.4 seconds from lift off
-    tAoA2 = tAoA1 + con['tAoA']
+    #tAoA1 = 4.4 # [s], maneuver initiates 4.4 seconds from lift off
+    tAoA2 = con['tAoA1'] + con['tAoA']
 
     # Attitude program
     #tabAlpha = retPulse(tAoA1,tAoA2,0.0,-AoAmax*pi/180)
@@ -297,14 +297,14 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
 #     vVec = numpy.array([0.0,-con['AoAmax']*con['d2r'],0.0])
 #     tabAlpha = retPulse2(tVec,vVec)
 #==============================================================================
-    tabAlpha = cosSoftPulse(tAoA1,tAoA2,0,-con['AoAmax']*con['d2r'])
+    tabAlpha = cosSoftPulse(con['tAoA1'],tAoA2,0,-con['AoAmax']*con['d2r'])
 
     ##########################################################################
     #Integration
 
     # initial conditions
     t0 = 0.0
-    x0 = numpy.array([con['h_initial'],con['V_initial'],con['gamma_initial'],M0])
+    x0 = numpy.array([con['h_initial'],con['V_initial'],con['gamma_initial'],p1.mtot[0]])
 
     # Integrator setting
     # ode set:
@@ -315,9 +315,8 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
 
     # Phase times, incluiding the initial time in the begining
 
-
-    tphases   = [ t0,tAoA1,tAoA2]+p1.tflist+[(tf-p2.tb[0]),(tf-p2.tb[0]) + p2.tb[0]*con['softness'],       tf]
-    mjetsoned = [0.0,  0.0,  0.0]+p1.melist+[          0.0,                                     0.0, p2.me[0]]
+    tphases   = [ t0,con['tAoA1'],tAoA2]+tabBeta.tflist
+    mjetsoned = [0.0,         0.0,  0.0]+tabBeta.melist
 
     if (typeResult == "orbital"):
         tphases   =   tphases+[con['torb']]
@@ -338,8 +337,14 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
         # Integration using rk45 separated by phases
         # Automatic multiphase integration
         # Full running
-        print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
-        print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
+        # print("\n\rDv =",Dv1,"Dv =",Dv2," Lam1 =",Lam1," Lam2 =",Lam2,"LamMax =",LamMax)
+        # print("\n\rMu =",Mu," Mp =",Mp," Me =",Me,"M0 =",M0,"\n\r")
+
+        print("\n\rInitial Stages:")
+        p1.printInfo()
+        print("\n\rFinal Stage:")
+        p2.printInfo()
+
         tt,xx,tp,xp = totalIntegration(tphases,mjetsoned,ode45,t0,x0,True)
         uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
         up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
@@ -617,27 +622,34 @@ class retPulse():
 
 class retSoftPulse():
 
-    def __init__(self,t1,t2,t3,v1,v2,softness):
-        self.t1 = t1
-        self.t2 = t2
-        self.t3 = t3
+    def __init__(self,p1,p2,tf,v1,v2,softness):
+        self.t1 = p1.tf[-1]
+        self.t2 = tf - p2.tb[-1]
+        self.t3 = tf
 
         self.v1 = v1
         self.v2 = v2
 
         self.f = softness
 
-        self.d1 = t1 # width of retangular and soft part
+        self.d1 = self.t1 # width of retangular and soft part
         self.c1 = self.d1*self.f # width of the soft part
         self.r1 = self.d1 - self.c1 # width of the retangular part
         self.fr1 = self.r1 # final of the retangular part
 
-        self.d2 = t3 - t2 # width of retangular and soft part
+        self.d2 = self.t3 - self.t2 # width of retangular and soft part
         self.c2 = self.d2*self.f # width of the soft part
         self.r2 = self.d2 - self.c2 # width of the retangular part
         self.ir2 = self.t2 + self.c2 # start of the retangular part
 
         self.dv21 = v2 - v1
+
+        self.tflist = p1.tf[0:-1].tolist()+\
+                     [p1.tf[-1]*(1-self.f), p1.tf[-1]]+\
+                     [(tf-p2.tb[0]),(tf-p2.tb[0]) + p2.tb[0]*self.f, tf]
+        self.melist = p1.me[0:-1].tolist()+\
+                     [0.0, p1.me[-1]]+\
+                     [0.0, 0.0, p2.me[0]]
 
     def value(self,t):
         if (t <= self.fr1):
@@ -722,13 +734,16 @@ class optimalStaging():
     # optimalStaging() returns a object with information of optimal staging factor
     # The maximal staging reason is defined as reducing the total mass for a defined
     # delta V.
+    # Structural eficience and thrust shall variate for diferent stages, but
+    # specific impulse must be the same for all stages
 
-    def __init__(self,effList,dV,con,mu):
+    def __init__(self,effList,dV,T,con,mu):
         self.e = numpy.array(effList)
+        self.T = numpy.array(T)
         self.dV = dV
         self.mu = mu
         self.c = con['Isp']*con['g0']
-        self.mflux = con['T']/self.c
+        self.mflux = self.T/self.c
         self.mE = self.calcGeoMeanE()
         self.m1E = self.calcGeoMean1E()
         self.fail = False
@@ -737,12 +752,13 @@ class optimalStaging():
 
         self.mtot = self.calc_mtot()             # Total sub-rocket mass
         self.mp = self.mtot*self.phi             # Propelant mass on each stage
-        self.me = self.mp*self.e                 # Strutural mass of each stage
-        self.tb = self.mp/self.mflux             # Duration of each stage burning
+        self.me = self.mp*(self.e/(1 - self.e))  # Strutural mass of each stage
+        self.tb = self.mp/self.mflux # Duration of each stage burning
         self.tf = self.calc_tf()                 # Final burning time of each stage
 
-        self.tflist = self.tf[0:-1].tolist()+[self.tf[-1]*(1-con['softness']), self.tf[-1]]
-        self.melist = self.me[0:-1].tolist()+[                            0.0, self.me[-1]]
+        self.tf[-1] = self.tf[-1] - self.tb[-1] + self.tb[-1]* ( 1 + con['softness']/2 )
+        self.tb[-1] = self.tb[-1]* ( 1 + con['softness']/2 )
+
 
     def calcGeoMeanE(self):
 
@@ -764,7 +780,7 @@ class optimalStaging():
 
     def calc_lamb(self):
 
-        LtN = ( numpy.exp(-self.dV/self.c/self.e.size) - self.mE)/self.m1E
+        LtN = ( numpy.exp(-self.dV/(self.c*self.e.size)) - self.mE)/self.m1E
 
         if LtN <= 0:
             self.fail = True
@@ -795,13 +811,20 @@ class optimalStaging():
                 tf[ii] = self.tb[ii] + tf[ii-1]
         return tf
 
+    def printInfo(self):
+
+        print("\n\rDv =",self.dV)
+        print("mu =",self.mu)
+        print("mp =",self.mp)
+        print("me =",self.me)
+        print("mtot =",self.mtot,"\n\r")
 
 
 if __name__ == "__main__":
 
     print("itsme: Inital Trajectory Setup Module")
 
-    tol = 1e-7        # Tolerance factor
+    tol = 1e-8        # Tolerance factor
 
     # Free parameters
     h_final = 463.0     # km
@@ -824,8 +847,8 @@ if __name__ == "__main__":
     ################
 
     # Factors instervals for aerodynamics
-    fsup = numpy.array([0.69 + 0.3,450 + 100,1.4 + 0.4]) # Superior limit
-    finf = numpy.array([0.69 - 0.3,450 - 100,1.4 - 0.4]) # Inferior limit
+    fsup = numpy.array([0.8 + 0.3,450 + 100,1.4 + 0.4]) # Superior limit
+    finf = numpy.array([0.8 - 0.3,450 - 100,1.4 - 0.4]) # Inferior limit
 
     # Initital display of vehicle trajectory
     factors = (fsup + finf)/2
@@ -833,9 +856,9 @@ if __name__ == "__main__":
     displayResults(factors,h_final,Mu,con,tol)
 
     # Automatic adjustament
-    new_factors,_,_,_,_,_ = its(fsup,finf,h_final,Mu,numpy.sqrt(tol))
-    fsup = new_factors*(1 + 0.01)
-    finf = new_factors*(1 - 0.01)
+#    new_factors,_,_,_,_,_ = its(fsup,finf,h_final,Mu,numpy.sqrt(tol))
+#    fsup = new_factors*(1 + 0.01)
+#    finf = new_factors*(1 - 0.01)
     new_factors,_,_,_,tabAlpha,tabBeta = its(fsup,finf,h_final,Mu,tol)
 
     # Results with automatic adjustment
