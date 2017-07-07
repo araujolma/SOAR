@@ -17,7 +17,7 @@ class ITman():
         self.defOpt = 'loadSol'#'newSol'
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = "sols/solInitRest.pkl"
+        self.loadSolDir = 'contHere.pkl'#"sols/solInitRest.pkl"
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
@@ -176,12 +176,12 @@ class ITman():
             return False
         
     def saveSolCond(self,sol):
-        return False
+        #return False
         
-#        if sol.NIterGrad % self.GRsaveSolRate==0:
-#            return True
-#        else:
-#            return False
+        if sol.NIterGrad % self.GRsaveSolRate==0:
+            return True
+        else:
+            return False
         
     def gradRestPausCond(self,sol):
         if sol.NIterGrad % self.GRpausRate==0:
@@ -208,6 +208,7 @@ class ITman():
                 self.prntDashStr()
                 print("\nSolution so far:")
                 sol.plotSol()
+                sol.plotTraj()
             
             if self.gradRestPausCond(sol):
                 print("\a")

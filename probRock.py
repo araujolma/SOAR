@@ -682,7 +682,69 @@ class prob(sgra):
         print("pi =",pi)
         print("Final rocket mass: {:.4E}\n".format(x[-1,3]))
     #
-
+    def plotTraj(self):
+        
+        cos = numpy.cos
+        sin = numpy.sin
+        r_e = self.constants['r_e']
+        N = self.N
+        dt = self.dt * self.pi
+        
+        X = numpy.empty(N)
+        Z = numpy.empty(N)
+    
+        sigma = 0.0
+        X[0] = 0.0
+        Z[0] = 0.0
+        isBurn = False
+        for i in range(1,N):
+            
+            # TODO: get burning times from self.u[:,1] !
+            
+            v = self.x[i,1]
+            gama = self.x[i,2]
+            dsigma = v * cos(gama) / (r_e+self.x[i,0])
+            sigma += dsigma*dt
+    
+            X[i] = X[i-1] + dt * v * cos(gama-sigma)
+            Z[i] = Z[i-1] + dt * v * sin(gama-sigma)
+    
+    
+        #print("sigma =",sigma)
+        # get burnout point
+        #itb = int(tb/dt) - 1
+        #its2 = int(ts2/dt) - 1
+        #h,v,gama,M = x[N-1,:]
+        
+        #print("State @burnout time:")
+        #print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+        #", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+    
+    
+        plt.plot(X,Z)
+        plt.grid(True)
+        #plt.hold(True)
+        # Draw burnout point
+        
+        s = numpy.arange(0,1.01,.01)*sigma
+        x = r_e * cos(.5*numpy.pi - s)
+        z = r_e * (sin(.5*numpy.pi - s) - 1.0)
+        
+        plt.plot(x,z,'k')
+        #plt.plot(X[:itb],Z[:itb],'r')
+        #plt.plot(X[itb],Z[itb],'or')
+        #plt.plot(X[its2:],Z[its2:],'g')
+        #plt.plot(X[its2],Z[its2],'og')
+        plt.plot(X[1]-1,Z[1],'ok')
+        plt.xlabel("X [km]")
+        plt.ylabel("Z [km]")
+    
+        # TODO: plotar orbita final em verde com o mesmo vetor de sigmas
+        plt.axis('equal')
+        plt.title("Rocket trajectory on Earth")
+        plt.show()
+    
+#
 #%%
 def calcXdot(sizes,t,x,u,constants,restrictions):
     n = sizes['n']

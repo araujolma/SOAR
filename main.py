@@ -42,7 +42,7 @@ if __name__ == "__main__":
     ITman.greet()
     
     sol = ITman.setInitSol(sol)
-      
+    sol.plotTraj()  
     sol = ITman.frstRestRnds(sol)
 
     sol = ITman.gradRestCycl(sol)
