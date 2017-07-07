@@ -21,7 +21,7 @@ def calcXdot(sizes,x,u,constants,restrictions):
     CL1 = constants['CL1']
     CD0 = constants['CD0']
     CD2 = constants['CD2']
-    s_ref = constants['s_ref']    
+    s_ref = constants['s_ref']
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
     beta_min = restrictions['beta_min']
@@ -40,12 +40,12 @@ def calcXdot(sizes,x,u,constants,restrictions):
     CD = CD0 + CD2*(alpha)**2
 
     # calculate L and D
-    
+
     dens = rho(x[0])
-    pDynTimesSref = .5 * dens * (x[1]**2) * s_ref    
+    pDynTimesSref = .5 * dens * (x[1]**2) * s_ref
     L = CL * pDynTimesSref
     D = CD * pDynTimesSref
-    
+
     # calculate r
     r = r_e + x[0]
 
@@ -106,13 +106,13 @@ def declProb(opt=dict()):
     CD2 = 0.5                     # (A2 Miele 1998)
     s_ref = numpy.pi*(0.0005)**2  # km^2
     f_scal = 1e-4
-    
+
  # restrictions
     alpha_min = -2*(numpy.pi)/180  # in rads
     alpha_max = 2*(numpy.pi)/180   # in rads
     beta_min = 0
     beta_max = 1
-    
+
 # Perform inverse transformations for u:
     a1 = (alpha_max + alpha_min)/2
     a2 = (alpha_max - alpha_min)/2
@@ -172,7 +172,7 @@ def declProb(opt=dict()):
     initMode = opt.get('initMode','default')
     x = numpy.zeros((N,n))
     u = numpy.zeros((N,m))
-    u[:,1] = (1.5*numpy.pi)*numpy.ones(N)    
+    u[:,1] = (1.5*numpy.pi)*numpy.ones(N)
 
     if initMode == 'default':
         # artesanal handicraft with L and D (Miele 2003)
@@ -195,40 +195,40 @@ def declProb(opt=dict()):
                 if k>int(0.9*N):
                     u[k,1] = 1.25*((numpy.pi))*(t[k]+4.92)
         pi = 1100*numpy.ones((p,1))
-      
+
         ###
-        print("\nArtesanal Handicraft First Guess:")        
+        print("\nArtesanal Handicraft First Guess:")
         plotSolza(sizes,t,x,u,pi,constants,restrictions,False)
 #        plt.plot(t,x[:,0])
 #        plt.grid(True)
 #        plt.ylabel("h [km]")
 #        plt.xlabel("t [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t,x[:,1],'g')
 #        plt.grid(True)
 #        plt.ylabel("V [km/s]")
 #        plt.xlabel("t [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t,x[:,2]*180/numpy.pi,'r')
 #        plt.grid(True)
 #        plt.ylabel("gamma [deg]")
 #        plt.xlabel("t [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t,x[:,3],'m')
 #        plt.grid(True)
 #        plt.ylabel("m [kg]")
 #        plt.xlabel("t [-]")
 #        plt.show()
-#                
+#
 #        plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'k')
 #        plt.grid(True)
 #        plt.xlabel("t [-]")
 #        plt.ylabel("Attack angle [deg]")
 #        plt.show()
-#    
+#
 #        plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
 #        plt.grid(True)
 #        plt.xlabel("t [-]")
@@ -239,67 +239,67 @@ def declProb(opt=dict()):
     elif initMode == 'extSol':
 
         # Factors intervals for aerodynamics
-        fsup = numpy.array([0.68 + 0.3,450 + 100,1.4 + 0.4]) # Superior limit
-        finf = numpy.array([0.68 - 0.3,450 - 100,1.4 - 0.4]) # Inferior limit
+        fsup = numpy.array([1.5 + 0.2,1.5 + 0.2,1.0 + 0.2]) # Superior limit
+        finf = numpy.array([1.5 - 0.2,1.5 - 0.2,1.0 - 0.2]) # Inferior limit
 
         # Automatic adjustment
         new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
-        
-        # @Object test (Apague-me depois) 
+
+        # @Object test (Apague-me depois)
         tObj = numpy.arange(0.0,t_its[-1],1)
         # Example of scalar evaluation
         scalarAlpha = tabAlpha.value(4.5)
         print("Example of scalar evaluation:",scalarAlpha)
-        
+
         # Example of vetorial evaluation: multValue
         alphaObj = tabAlpha.multValue(tObj)
-        
+
         plt.plot(tObj,alphaObj,'.-b')
         plt.grid(True)
         plt.ylabel("alphaObj ")
         plt.xlabel("tObj")
         plt.show()
-        
+
         betaObj = tabBeta.multValue(tObj)
-        
+
         plt.plot(tObj,betaObj,'.-r')
         plt.grid(True)
         plt.ylabel("betaObj ")
         plt.xlabel("tObj")
         plt.show()
         # end of object test
-                
-        # Solutions must be made compatible: t_its is dimensional, 
+
+        # Solutions must be made compatible: t_its is dimensional,
         # u_its consists of the actual controls (alpha and beta), etc.
         # Besides, all arrays are in a different time discretization
-        
+
         pi = numpy.array([t_its[-1]])
         t_its = t_its/pi
 
         # Perform inverse transformations for u:
         u_its[:,0] = numpy.arcsin((u_its[:,0]-a1)/a2)
         u_its[:,1] = numpy.arcsin((u_its[:,1]-b1)/b2)
-    
+
 #        for i in range(n):
 #            f_x = interp1d(t_its, x_its[:,i])
 #            x[:,i] = f_x(t)
-        
+
         for i in range(m):
             f_u = interp1d(t_its,u_its[:,i])
             u[:,i] = f_u(t)
-            
-        
+
+
         dt = pi[0]/(N-1); dt6 = dt/6
         x[0,:] = x_its[0,:]
         for i in range(N-1):
-            k1 = calcXdot(sizes,x[i,:],u[i,:],constants,restrictions)  
+            k1 = calcXdot(sizes,x[i,:],u[i,:],constants,restrictions)
             k2 = calcXdot(sizes,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-            k3 = calcXdot(sizes,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
+            k3 = calcXdot(sizes,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
             k4 = calcXdot(sizes,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
             x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4)
-            
+
         ###
-        #print("\nUn-interpolated solution from Souza's propagation:")  
+        #print("\nUn-interpolated solution from Souza's propagation:")
         print("\nSouza's First Guess:")
         plotSolza(sizes,t_its,x_its,u_its,pi,constants,restrictions,False)
 
@@ -308,33 +308,33 @@ def declProb(opt=dict()):
 #        plt.ylabel("h [km]")
 #        plt.xlabel("t_its [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t_its,x_its[:,1],'g')
 #        plt.grid(True)
 #        plt.ylabel("V [km/s]")
 #        plt.xlabel("t_its [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
 #        plt.grid(True)
 #        plt.ylabel("gamma [deg]")
 #        plt.xlabel("t_its [-]")
 #        plt.show()
-#    
+#
 #        plt.plot(t_its,x_its[:,3],'m')
 #        plt.grid(True)
 #        plt.ylabel("m [kg]")
 #        plt.xlabel("t_its [-]")
 #        plt.show()
-#    
+#
 #        print("\nUn-interpolated control profiles:")
-#    
+#
 #        plt.plot(t_its,(numpy.sin(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
 #        plt.grid(True)
 #        plt.xlabel("t_its [-]")
 #        plt.ylabel("Attack angle [deg]")
 #        plt.show()
-#    
+#
 #        plt.plot(t_its,(numpy.sin(u_its[:,1])*b2 + b1),'c')
 #        plt.grid(True)
 #        plt.xlabel("t_its [-]")
@@ -379,17 +379,17 @@ def calcPhi(sizes,x,u,pi,constants,restrictions):
     CD = CD0 + CD2*(alpha)**2
 
     # calculate L and D
-    # TODO: making atmosphere.rho vectorized (array compatible) would increase 
+    # TODO: making atmosphere.rho vectorized (array compatible) would increase
     # performance significantly!
-    
+
     dens = numpy.empty(N)
     for k in range(N):
         dens[k] = rho(x[k,0])
-    
-    pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref    
+
+    pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref
     L = CL * pDynTimesSref
     D = CD * pDynTimesSref
-    
+
     # calculate r
     r = r_e + x[:,0]
 
@@ -507,11 +507,11 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     for k in range(N):
         dens[k] = rho(x[k,0])
         del_rho[k] = (rho(x[k,0]+.1) - dens[k])/.1
-    
-    pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref    
+
+    pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref
     L = CL * pDynTimesSref
     D = CD * pDynTimesSref
-    
+
     # calculate r
     r = r_e + x[:,0]
 
@@ -522,19 +522,19 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
     for k in range(N):
         sinGama = sin(x[k,2])
         cosGama = cos(x[k,2])
- 
+
         sinAlpha = sin(alpha[k])
         cosAlpha = cos(alpha[k])
- 
+
         cosu1 = cos(u1[k])
         cosu2 = cos(u2[k])
- 
+
         r2 = r[k]**2; r3 = r2*r[k]
         V = x[k,1]; V2 = V*V
         m = x[k,3]; m2 = m*m
         fVel = beta[k]*Thrust*cosAlpha-D[k] # forces on velocity direction
         fNor = beta[k]*Thrust*sinAlpha+L[k] # forces normal to velocity
- 
+
         # Expanded notation:
         DAlfaDu1 = aExp*cosu1
         DBetaDu2 = bExp*cosu2
@@ -543,7 +543,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                                        [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m  ,-CD[k]*dens[k]*s_ref*V/m  ,-grav[k]*cosGama  ,-fVel/m2 ],
                                        [0.0                                                  ,0.0                       ,0.0               ,0.0      ],
                                        [0.0                                                  ,0.0                       ,0.0               ,0.0      ]])
-        
+
             phiu[k,:,:] = pi[0]*array([[0.0                                  ,0.0                          ],
                                        [-beta[k]*Thrust*sinAlpha*DAlfaDu1/m  ,Thrust*cosAlpha*DBetaDu2/m   ],
                                        [0.0                                  ,0.0                          ],
@@ -554,7 +554,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                                        [2*GM*sinGama/r3 - (0.5*CD[k]*del_rho[k]*s_ref*V2)/m              ,-CD[k]*dens[k]*s_ref*V/m                                                                       ,-grav[k]*cosGama               ,-fVel/m2     ],
                                        [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k]*del_rho[k]*s_ref*V)/m   ,-beta[k]*Thrust*sinAlpha/(m*V2) + cosGama*((1/r[k])+grav[k]/(V2)) + 0.5*CL[k]*dens[k]*s_ref/m  ,-sinGama*((V/r[k])-grav[k]/V)  ,-fNor/(m2*V) ],
                                        [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
-     
+
             phiu[k,:,:] = pi[0]*array([[0.0                                                                                ,0.0                           ],
                                        [(-beta[k]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k]*dens[k]*s_ref*V2*aExp*cosu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
                                        [(beta[k]*Thrust*cosAlpha*DAlfaDu1 + 0.5*CL1*dens[k]*s_ref*(V)*aExp*cosu1)/m        ,Thrust*sinAlpha*DBetaDu2/(m*V)],
@@ -564,7 +564,7 @@ def calcGrads(sizes,x,u,pi,constants,restrictions):
                             [fVel/m - grav[k]*sinGama                   ],
                             [fNor/(m*V) + cosGama*((V/r[k])-(grav[k]/V))],
                             [-(beta[k]*Thrust)/(grav_e*Isp)                                       ]])
-    
+
         #print("fu without scaling = ",fu)
         fu[k,:] = array([0.0,(pi[0]*Thrust*DBetaDu2)/(grav_e * Isp * (1-s_f))])
         fu *= f_scal
@@ -588,13 +588,13 @@ def calcI(sizes,x,u,pi,constants,restrictions):
     N = sizes['N']
     dt = 1.0/(N-1)
     I = 0.0
-# example rocket single stage to orbit with Lift and Drag    
+# example rocket single stage to orbit with Lift and Drag
     f = calcF(sizes,x,u,pi,constants,restrictions)
     for t in range(1,N-1):
         I += f[t]
     I += 0.5*f[0]
     I += 0.5*f[N-1]
-    I *= dt        
+    I *= dt
     return I
 
 def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
@@ -670,57 +670,57 @@ def plotSol(sizes,t,x,u,pi,constants,restrictions,opt=dict()):
     print("pi =",pi,"\n")
 
 def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
-    
+
     alpha_min = restrictions['alpha_min']
     alpha_max = restrictions['alpha_max']
     beta_min = restrictions['beta_min']
     beta_max = restrictions['beta_max']
-    
+
     a1 = (alpha_max + alpha_min)/2
     a2 = (alpha_max - alpha_min)/2
     b1 = (beta_max + beta_min)/2
     b2 = (beta_max - beta_min)/2
-    
+
     if compare==False:
         x_initial = x
         u_initial = u
-        
+
         plt.plot(t,x[:,0],'y')
         plt.grid(True)
         plt.ylabel("h [km]")
         plt.xlabel("t [-]")
         plt.show()
-    
+
         plt.plot(t,x[:,1],'g')
         plt.grid(True)
         plt.ylabel("V [km/s]")
         plt.xlabel("t [-]")
         plt.show()
-    
+
         plt.plot(t,x[:,2]*180/numpy.pi,'r')
         plt.grid(True)
         plt.ylabel("gamma [deg]")
         plt.xlabel("t [-]")
         plt.show()
-    
+
         plt.plot(t,x[:,3],'m')
         plt.grid(True)
         plt.ylabel("m [kg]")
         plt.xlabel("t [-]")
         plt.show()
-                
+
         plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
         plt.grid(True)
         plt.xlabel("t [-]")
         plt.ylabel("Attack angle [deg]")
         plt.show()
-    
+
         plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
         plt.grid(True)
         plt.xlabel("t [-]")
         plt.ylabel("Thrust profile [-]")
-        plt.show()        
-        
+        plt.show()
+
     else:
         plt.semilogy(t,x_initial[:,0])
         plt.hold(True)
@@ -729,7 +729,7 @@ def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
         plt.ylabel("h [km]")
         plt.xlabel("t [-]")
         plt.show()
-        
+
         plt.semilogy(t,x_initial[:,1])
         plt.hold(True)
         plt.semilogy(t,x[:,1],'g')
@@ -737,15 +737,15 @@ def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
         plt.ylabel("V [km/s]")
         plt.xlabel("t [-]")
         plt.show()
-        
+
         plt.semilogy(t,x_initial[:,2]*180/numpy.pi)
         plt.hold(True)
-        plt.semilogy(t,x[:,2]*180/numpy.pi,'r')    
+        plt.semilogy(t,x[:,2]*180/numpy.pi,'r')
         plt.grid()
         plt.ylabel("gamma [deg]")
         plt.xlabel("t [-]")
         plt.show()
-        
+
         plt.semilogy(t,x_initial[:,3],'m')
         plt.hold(True)
         plt.semilogy(t,x[:,3],'m')
@@ -753,7 +753,7 @@ def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
         plt.ylabel("m [kg]")
         plt.xlabel("t [-]")
         plt.show()
-                    
+
         plt.semilogy(t,(numpy.sin(u_initial[:,0])*a2 + a1)*180/numpy.pi)
         plt.hold(True)
         plt.semilogy(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
@@ -761,7 +761,7 @@ def plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
         plt.xlabel("t [-]")
         plt.ylabel("Attack angle [deg]")
         plt.show()
-        
+
         plt.semilogy(t,(numpy.sin(u_initial[:,1])*b2 + b1))
         plt.hold(True)
         plt.semilogy(t,(numpy.sin(u[:,1])*b2 + b1),'c')
