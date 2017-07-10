@@ -42,7 +42,7 @@ def funDict(h_final):
     con['gamma_final'] = 0.0 # rad
 
     #Vehicle parameters
-    con['NStag'] = 4               # Number of stages
+    con['NStag'] = 2               # Number of stages
     con['Isp'] = 450               # s
     con['efes'] = .95              # [-]
     con['T'] = 40.0e3*1.0e-3       # thrust in kg * km / s² [for compatibility purposes...]
@@ -637,8 +637,10 @@ class retSoftPulse():
         self.melist = p1.me[0:-1].tolist()+[     0.0, p1.me[-1]]+[    0.0,      0.0, p2.me[-1]]
 
         self.fail = False
-        if p1.tf[-2] >= self.fr1:
-            self.fail = True
+        if len(p1.tf) > 2:
+            if p1.tf[-2] >= self.fr1:
+                self.fail = True
+
 
     def value(self,t):
         if (t <= self.fr1):
