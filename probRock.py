@@ -224,6 +224,8 @@ class prob(sgra):
             plt.plot(t_its,numpy.tanh(u_its[:,1]))
             plt.grid(True)
             plt.show()
+            
+            #u = self.calcAdimCtrl(u_its[:,0],u_its[:,1])
         
             dt = pi[0]/(N-1); dt6 = dt/6.0
             x[0,:] = x_its[0,:]
@@ -322,6 +324,56 @@ class prob(sgra):
         print("\nInitialization complete.\n")        
         # end of method
 #%%
+    def calcDimCtrl(self):        
+        # calculate variables alpha (ang. of att.) and beta (prop. thrust)
+        
+        restrictions = self.restrictions
+        alpha_min = restrictions['alpha_min']
+        alpha_max = restrictions['alpha_max']
+        beta_min = restrictions['beta_min']
+        beta_max = restrictions['beta_max']
+        
+        alfa = .5*((alpha_max + alpha_min) + \
+                (alpha_max - alpha_min)*numpy.tanh(self.u[:,0]))
+        beta = .5*((beta_max + beta_min) +
+                (beta_max - beta_min)*numpy.tanh(self.u[:,1]))
+
+        return alfa,beta
+    
+    def calcAdimCtrl(self,alfa,beta):
+        u = numpy.empty((self.N,self.m))
+        
+        restrictions = self.restrictions
+        alpha_min = restrictions['alpha_min']
+        alpha_max = restrictions['alpha_max']
+        beta_min = restrictions['beta_min']
+        beta_max = restrictions['beta_max']
+        
+        a1 = .5*(alpha_max + alpha_min)
+        a2 = .5*(alpha_max - alpha_min)
+        b1 = .5*(beta_max + beta_min)
+        b2 = .5*(beta_max - beta_min)
+        
+        alfa -= a1
+        alfa *= 1.0/a2
+        
+        beta -= b1
+        beta *= 1.0/b2
+        
+        u[:,0] = alfa.copy()
+        u[:,1] = beta.copy()
+        
+        # Basic saturation
+        for j in range(self.m):
+            for k in range(self.N):
+                if u[k,j] > 0.99999:
+                    u[k,j] = 0.99999
+                if u[k,j] < -0.99999:
+                    u[k,j] = -0.99999
+        
+        u = numpy.arctanh(u)
+        return u
+
     def calcPhi(self):
         N = self.N
         n = self.n
@@ -338,26 +390,15 @@ class prob(sgra):
         s_ref = constants['s_ref']
         DampCent = constants['DampCent']
         DampSlop = constants['DampSlop']
-        restrictions = self.restrictions
-        alpha_min = restrictions['alpha_min']
-        alpha_max = restrictions['alpha_max']
-        beta_min = restrictions['beta_min']
-        beta_max = restrictions['beta_max']
+      
         sin = numpy.sin
         cos = numpy.cos
-        tanh = numpy.tanh
 
-        u = self.u
-        u1 = u[:,0]
-        u2 = u[:,1]
+        alpha,beta = self.calcDimCtrl()
         x = self.x
         pi = self.pi
         
-    
-        # calculate variables alpha and beta
-        alpha = (alpha_max + alpha_min)/2 + tanh(u1)*(alpha_max - alpha_min)/2
-        beta = (beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
-    
+        
         # calculate variables CL and CD
         CL = CL0 + CL1*alpha
         CD = CD0 + CD2*(alpha)**2
@@ -464,9 +505,10 @@ class prob(sgra):
     
         # Calculate variables (arrays) alpha and beta
         aExp = .5*(alpha_max - alpha_min)
-        alpha = (alpha_max + alpha_min)/2 + tanh(u1)*aExp
+
         bExp = .5*(beta_max - beta_min)
-        beta = (beta_max + beta_min)/2 + tanh(u2)*bExp
+
+        alpha,beta = self.calcDimCtrl()
     
         # calculate variables CL and CD
         CL = CL0 + CL1*alpha
@@ -686,64 +728,118 @@ class prob(sgra):
         
         cos = numpy.cos
         sin = numpy.sin
-        r_e = self.constants['r_e']
+        R = self.constants['r_e']
         N = self.N
-        dt = self.dt * self.pi
+        dt = self.dt * self.pi # Dimensional dt...
         
         X = numpy.empty(N)
         Z = numpy.empty(N)
     
-        sigma = 0.0
+        sigma = 0.0 #sigma: range angle
         X[0] = 0.0
         Z[0] = 0.0
-        isBurn = False
+        
+        # Propulsive phases' starting and ending times
+        isBurn = True
+        indBurn = [0]
+        indShut = []
         for i in range(1,N):
-            
-            # TODO: get burning times from self.u[:,1] !
-            
+            if isBurn:
+                if self.u[i,1] < -.999:
+                    isBurn = False
+                    indShut.append(i)
+            else: #not burning
+                if self.u[i,1] > -.999:
+                    isBurn = True
+                    indBurn.append(i)
+
+            # Propagate the trajectory by Euler method.
             v = self.x[i,1]
             gama = self.x[i,2]
-            dsigma = v * cos(gama) / (r_e+self.x[i,0])
+            dsigma = v * cos(gama) / (R+self.x[i,0])
             sigma += dsigma*dt
     
             X[i] = X[i-1] + dt * v * cos(gama-sigma)
             Z[i] = Z[i-1] + dt * v * sin(gama-sigma)
-    
-    
-        #print("sigma =",sigma)
-        # get burnout point
-        #itb = int(tb/dt) - 1
-        #its2 = int(ts2/dt) - 1
-        #h,v,gama,M = x[N-1,:]
-        
-        #print("State @burnout time:")
-        #print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
-        #", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
-    
-    
-        plt.plot(X,Z)
-        plt.grid(True)
-        #plt.hold(True)
-        # Draw burnout point
-        
-        s = numpy.arange(0,1.01,.01)*sigma
-        x = r_e * cos(.5*numpy.pi - s)
-        z = r_e * (sin(.5*numpy.pi - s) - 1.0)
-        
+        #
+        indShut.append(N-1)    
+            
+        # Draw Earth segment corresponding to flight range
+        s = numpy.arange(0,1.01,.01) * sigma
+        x = R * cos(.5*numpy.pi - s)
+        z = R * (sin(.5*numpy.pi - s) - 1.0)
         plt.plot(x,z,'k')
-        #plt.plot(X[:itb],Z[:itb],'r')
-        #plt.plot(X[itb],Z[itb],'or')
-        #plt.plot(X[its2:],Z[its2:],'g')
-        #plt.plot(X[its2],Z[its2],'og')
+        
+        # Get final orbit parameters
+        h,v,gama,M = self.x[N-1,:]
+        
+#        print("State @burnout time:")
+#        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+#        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+        
+        GM = self.constants['GM']       
+        r = R + h
+#        print("Final altitude:",h)
+        cosGama = cos(gama)
+        sinGama = sin(gama)
+        momAng = r * v * cosGama
+#        print("Ang mom:",momAng)
+#        en = .5 * v * v - GM/r
+#        print("Energy:",en)
+#        a = - .5*GM/en
+#        print("Semi-major axis:",a)
+        aux = v * momAng / GM
+        e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
+#        print("Eccentricity:",e)
+        eccExpr = v * momAng * cosGama/GM - 1.0
+#        print("r =",r)
+        f = numpy.arccos(eccExpr/e)
+#        print("True anomaly:",f*180/numpy.pi)
+#        ph = a * (1.0 - e) - R
+#        print("Perigee altitude:",ph)    
+#        ah = 2*(a - R) - ph        
+#        print("Apogee altitude:",ah)
+
+        # semi-latus rectum
+        p = momAng**2 / GM #a * (1.0-e)**2
+                
+        
+        # Plot orbit in green over the same range as the Earth shown 
+        # (and a little but futher)
+        
+        s = numpy.arange(f-sigma,f+.1*sigma,.01)
+#        print("s =",s)
+        # shifting angle
+        sh = sigma - f - .5*numpy.pi
+        rOrb = p/(1.0+e*cos(s))
+#        print("rOrb =",rOrb)
+        xOrb = rOrb * cos(-s-sh)
+        yOrb = rOrb * sin(-s-sh) - R
+        plt.plot(xOrb,yOrb,'g--')
+ 
+        # Draw orbit injection point       
+        r0 = p/(1.0+e*cos(f))
+#        print("r0 =",r0)
+        x0 = r0 * cos(-f-sh)
+        y0 = r0 * sin(-f-sh) - R
+        plt.plot(x0,y0,'og')
+        
+        # Plot trajectory in default color (blue)
+        plt.plot(X,Z)
         plt.plot(X[1]-1,Z[1],'ok')
+        
+        # Plot burning segments in red
+        for i in range(len(indBurn)):
+            ib,ish = indBurn[i],indShut[i]
+            plt.plot(X[ib:ish],Z[ib:ish],'r')
+        
+        plt.grid(True)
         plt.xlabel("X [km]")
         plt.ylabel("Z [km]")
-    
-        # TODO: plotar orbita final em verde com o mesmo vetor de sigmas
         plt.axis('equal')
         plt.title("Rocket trajectory on Earth")
         plt.show()
-    
+        
 #
 #%%
 def calcXdot(sizes,t,x,u,constants,restrictions):

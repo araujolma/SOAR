@@ -77,7 +77,7 @@ def calcQ(self,mustPlot=False):
 
     Q = Qx + Qu + Qp + Qt
     print("Q = {:.4E}".format(Q)+": Qx = {:.4E}".format(Qx)+\
-          ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
+          ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
     if mustPlot:
@@ -295,10 +295,10 @@ def calcStepGrad(self,corr,mustPlot=False):
             newSol = copy.deepcopy(self)
             newSol.aplyCorr(alfa,corr,mustPlot)
             nQ,_,_,_,_ = newSol.calcQ(mustPlot)
-            print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
-                  " (Q0 = {:.4E})".format(Q0))
+            print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
+                  " (Q0 = {:.6E})\n".format(Q0))
             if nQ < Q0:
-                keepSearch = ((nQ-Q)/Q < -.05)
+                keepSearch = nQ<Q#((nQ-Q)/Q < -.05)
     else:
         
 #        return 1.0

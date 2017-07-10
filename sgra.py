@@ -180,5 +180,4 @@ class sgra():
         plt.grid(True)
         plt.xlabel("Iterations")
         plt.ylabel("I values")
-        plt.legend()
         plt.show()
