@@ -15,6 +15,7 @@ Including:
 """
 
 import numpy
+import configparser
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
@@ -22,51 +23,98 @@ from atmosphere import rho
 global totalTrajectorySimulationCounter
 totalTrajectorySimulationCounter = 0
 
-def funDict(h_final):
+def itsInitialization(fileAdress):
+
+    config = configparser.ConfigParser()
+    config.optionxform = str
+    config.read(fileAdress)
+
     #Constants
-    # General constants
     con = dict()
-    con['GM'] = 398600.4415
-    con['R'] = 6371
+
+    # Enviromental constants
+    section = 'enviroment'
+    items = config.items(section)
+    for para in items:
+        con[para[0]] = config.getfloat(section,para[0])
+    con['g0'] = con['GM']/(con['R']**2)            # [km/s2] gravity acceleration on earth surface
+
+    # General constants
     con['pi'] = numpy.pi
     con['d2r'] = numpy.pi/180.0
-    con['g0'] = con['GM']/(con['R']**2) #9.8e-3   # [km s^-2] gravity acceleration on earth surface
 
     #Initial state constants
-    con['h_initial'] = 0.0
-    con['V_initial'] = 1.0e-6
-    con['gamma_initial'] = 90*con['d2r']
+    con['h_initial'] = config.getfloat('initial','h')
+    con['V_initial'] = config.getfloat('initial','V')
+    con['gamma_initial'] = config.getfloat('initial','gamma')*con['d2r']
 
     #Final state constants
-    con['V_final'] = numpy.sqrt(con['GM']/(con['R']+h_final))   # km/s Circular velocity
-    con['gamma_final'] = 0.0 # rad
+    con['h_final'] = config.getfloat('final','h')
+    con['V_final'] = numpy.sqrt(con['GM']/(con['R']+con['h_final'])) - con['we']*(con['R']+con['h_final'])   # km/s Circular velocity
+    con['gamma_final'] = config.getfloat('final','gamma')*con['d2r']
 
     #Vehicle parameters
-    con['NStag'] = 2               # Number of stages
-    con['Isp'] = 450               # s
-    con['efes'] = .95              # [-]
-    con['T'] = 40.0e3*1.0e-3       # thrust in kg * km / s² [for compatibility purposes...]
-    con['softness'] = 0.2       # softness of the transions of propulsive curve
-    con['CL0'] =-0.03              # (B0 Miele 1998)
-    con['CL1'] = 0.8               # (B1 Miele 1998)
-    con['CD0'] = 0.05              # (A0 Miele 1998)
-    con['CD2'] = 0.5               # (A2 Miele 1998)
-    con['s_ref'] = con['pi']*( (0.5e-3)**2) #km²
+    section = 'vehicle'
+    items = config.items(section)
+    for para in items:
+        con[para[0]] = config.getfloat(section,para[0])
+    con['NStag'] = config.getint('vehicle','NStag')               # Number of stages
+    con['c'] = con['Isp'] * con['g0'] # km/s
 
     # Trajectory parameters
-    con['AoAmax'] = 2.0#3.0           # graus
-    con['torb'] = 2*con['pi']*(con['R'] + h_final)/con['V_final'] # Time of one orbit using the final velocity
-    con['tAoA1'] = 3.7
-    con['tAoA'] = 5.0
+    section = 'trajectory'
+    items = config.items(section)
+    for para in items:
+        con[para[0]] = config.getfloat(section,para[0])
+    con['torb'] = 2*con['pi']*(con['R'] + con['h_final'])/con['V_final'] # Time of one orbit using the final velocity
+
+    # Reference values
+    iniEst = initialEstimate(con)
+    con['Dv1ref'] = iniEst.dv
+    con['tref'] = iniEst.t
+    con['vxref'] = iniEst.vx
+
+    # Solver parameters
+    con['tol'] = config.getfloat('solver','tol')
+
+     # Superior and inferior limits
+    auxstr = config.get('solver','guess')
+    auxstr = auxstr.split(',')
+    auxnum = []
+    for n in auxstr:
+        auxnum = auxnum+[float(n)]
+    guess = numpy.array(auxnum)
+
+    auxstr = config.get('solver','limit')
+    auxstr = auxstr.split(',')
+    auxnum = []
+    for n in auxstr:
+        auxnum = auxnum+[float(n)]
+    limit = numpy.array(auxnum)
+
+    con['fsup'] = guess + limit
+    con['finf'] = guess - limit
 
     return con
 
-def its(fsup,finf,h_final,Mu,tol):
+def its(*arg):
+
+    # arguments analisys
+    if len(arg) == 0:
+        con = itsInitialization('default.its')
+    elif len(arg) == 1:
+        con = itsInitialization(arg[0])
+    else:
+        raise Exception('itsme saying: too many arguments on its')
 
     ###########################
     # initial_trajectory_setup
+    fsup = con['fsup']
+    finf = con['finf']
+    h_final = con['h_final']
+    Mu = con['Mu']
+    tol = con['tol']
 
-    con = funDict(h_final)
     factors = bisecAltitude(fsup,finf,h_final,Mu,con,tol)
     errors, tt, xx, tabAlpha, tabBeta = trajectorySimulate(factors,h_final,Mu,con,"design",tol)
     num = "8.6e"
@@ -78,6 +126,7 @@ def its(fsup,finf,h_final,Mu,tol):
     print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))
     tt,xx,uu,_,_,_ = trajectorySimulate(factors,h_final,Mu,con,"plot",tol)
 
+    displayResults(factors,con['h_final'],con['Mu'],con,con['tol'])
 
     return factors,tt,xx,uu,tabAlpha,tabBeta
 
@@ -241,18 +290,17 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
 
     ##########################################################################
     # Trajetory design parameters
-    fator_V,ff,fdv1 = factors
+    fdv2,ftf,fdv1 = factors
 
     ##########################################################################
     # Delta V estimates
-    efes = 1 - con['efes'] # Structural efficience as defined by Cornelisse (1979)
-    Vref = numpy.sqrt(2.0*con['GM']*(1/con['R'] - 1/(con['R']+h_final)))
-    Dv1 = fdv1*Vref*numpy.sqrt(2.0)
-    Dv2 = (con['V_final'] - Vref*con['R']/(con['R']+h_final))*fator_V
-    tf = ff*Vref/con['g0']
+    Dv1 = fdv1*con['Dv1ref']
+    tf = ftf*con['tref']
+    Dv2 =  con['V_final'] - fdv2*con['vxref']
 
     ##########################################################################
     # Staging calculation
+    efes = con['efes'] # Structural efficience as defined by Cornelisse (1979)
     efflist = []
     T = []
     if con['NStag'] > 1:
@@ -283,7 +331,10 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
             p1.me[0] = 0.0
 
     if p1.fail or p2.fail:
-        raise Exception('itsme saying: Too many stages!')
+        raise Exception('itsme saying: Too few stages!')
+
+    if p1.mtot[0]*con['g0'] > T[0]:
+        raise Exception('itsme saying: weight greater than thrust!')
 
     ##########################################################################
     # thrust program
@@ -545,14 +596,16 @@ def mdlDer(t,x,arg):
 
     btm = betat*T/M
     sinGama = numpy.sin(gama)
-    g = g0*(R/(R+h))**2
+    g = g0*(R/(R+h))**2 - (con['we']**2)*(R + h)
 
 # Aerodynamics
+    if numpy.isnan(h):
+       raise Exception('itsme saying: h is not a number')
     L,D,_,_,_ = aed(h,v,alfat,con)
 
     return numpy.array([v*sinGama,\
     btm*numpy.cos(alfat) - g*sinGama - (D/M),\
-    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)),\
+    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)) + 2*con['we'],\
     -btm*M/g0/Isp])
 
 def aed(h,v,alfat,con):
@@ -640,7 +693,6 @@ class retSoftPulse():
         if len(p1.tf) > 2:
             if p1.tf[-2] >= self.fr1:
                 self.fail = True
-
 
     def value(self,t):
         if (t <= self.fr1):
@@ -808,24 +860,117 @@ class optimalStaging():
         print("mtot =",self.mtot)
         print("tf =",self.tf,"\n\r")
 
+class initialEstimate():
+
+    def __init__(self,con):
+#        dd = numpy.exp(-0.5*con['V_final']/con['c']) - con['efes']
+#        if dd < 0.1:
+#            dd = 0.0
+#        lamb = dd/(1 - con['efes'])
+
+        lamb = numpy.exp(0.5*con['V_final']/con['c'])
+        self.Mu = con['Mu']*lamb
+        self.hf = con['h_final']
+        self.M0max = con['T']/con['g0']
+        self.mflux = con['T']/con['c']
+        self.GM = con['GM']
+        self.R = con['R']
+        self.c = con['c']
+        self.e = con['efes']
+        self.g0 = con['g0']
+        self.t1max = self.M0max/self.mflux
+        self.fail = False
+
+        self.calculate()
+
+        self.vx = 0.5*self.V1*(con['R'] + self.h1)/(con['R']+self.hf)
+
+    def newRap(self):
+
+        N = 100
+        t1max = self.t1max
+
+        dt = t1max/N
+        t1 = 0.1*t1max
+
+        cont = 0
+        erro = 1.0
+
+        while (abs(erro) > 1e-6) and not self.fail:
+
+            erro = self.hEstimate(t1) - self.hf
+            dedt = (self.hEstimate(t1+dt) - self.hEstimate(t1-dt))/(2*dt)
+            t1 = t1 - erro/dedt
+            cont += 1
+            if cont == 100:
+                raise Exception('itsme saying: initialEstimate failed')
+
+        self.cont = cont
+        self.t1 = t1
+        return None
+
+    def hEstimate(self,t1):
+
+        mflux = self.mflux
+        Mu = self.Mu
+        g0 = self.g0
+        c = self.c
+
+        Mp = mflux*t1
+        Me = Mp*self.e/(1 - self.e)
+        M0 = Mu + Me + Mp
+        x = (Mu + Me)/M0
+        V1 = c*numpy.log(1/x) - g0*t1
+        h1 = (c*M0/mflux) * ( (x*numpy.log(x) -x ) + 1) - g0*(t1**2)/2
+        h = h1 + self.GM/(self.GM/(self.R + h1) - (V1**2)/2) - self.R
+
+        return h
+
+    def dvt(self):
+
+        t1 = self.t1
+        mflux = self.mflux
+        Mu = self.Mu
+        g0 = self.g0
+        c = self.c
+
+        M0 = Mu + mflux*t1
+        V1 = c*numpy.log(M0/Mu) - g0*t1
+        dv = V1 + g0*t1
+        x = Mu/M0
+        h1 = (c*M0/mflux) * ( (x*numpy.log(x) -x ) + 1) - g0*(t1**2)/2
+
+        h = self.hEstimate(self.t1)
+
+        rr = (self.R + h1)/(self.R + h)
+        if rr > 1:
+            raise Exception('itsme saying: initialEstimate failed (h1 > h)')
+        theta = numpy.arccos( numpy.sqrt( rr ) )
+        ve = numpy.sqrt(2*self.GM/(self.R + h))
+
+        t = t1 + ( (self.R + h)/ve ) * ( numpy.sin(2*theta)/2 + theta )
+
+        self.h1 = h1
+        self.h = h
+        self.t = t
+        self.dv = dv
+        self.V1 = V1
+
+        return None
+
+    def calculate(self):
+
+        self.newRap()
+        self.dvt()
+
+        return None
+
 
 if __name__ == "__main__":
 
     print("itsme: Inital Trajectory Setup Module")
 
-    tol = 1e-8        # Tolerance factor
-
-    # Free parameters
-    h_final = 463.0     # km
-    Mu = 100.0          # Payload mass [kg]
-
     ################
-    #    Factors:
-
-    #    fator_V      # Ajust to find a final V
-    #    ff           # Ajust to find a final gamma
-    #    fdv1         # Ajust to find a final h
-
     #    Errors:
 
     #    (v - V_final)/0.01
@@ -834,21 +979,15 @@ if __name__ == "__main__":
 
 
     ################
-
-    # Factors instervals for aerodynamics
-    fsup = numpy.array([1.5 + 0.2,1.5 + 0.2,1.0 + 0.2]) # Superior limit
-    finf = numpy.array([1.5 - 0.2,1.5 - 0.2,1.0 - 0.2]) # Inferior limit
-
     # Initital display of vehicle trajectory
-    factors = (fsup + finf)/2
-    con = funDict(h_final)
-    displayResults(factors,h_final,Mu,con,tol)
+    con = itsInitialization('default.its')
+    factors = (con['fsup'] + con['finf'])/2
+    displayResults(factors,con['h_final'],con['Mu'],con,con['tol'])
 
-    # Automatic adjustament
-    new_factors,_,_,_,tabAlpha,tabBeta = its(fsup,finf,h_final,Mu,tol)
+    # Factor adjustment
+    new_factors,_,_,_,tabAlpha,tabBeta = its()
 
     # Results with automatic adjustment
-    displayResults(new_factors,h_final,Mu,con,tol)
 
     print("\n\rTotal number of trajectory simulations", totalTrajectorySimulationCounter)
     #input("Press any key to finish...")
