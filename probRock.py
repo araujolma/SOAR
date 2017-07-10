@@ -39,28 +39,7 @@ class prob(sgra):
         
         # Payload mass
         self.mPayl = 100.0
-                
-        # boundary conditions
-        h_initial = 0.0            # km
-        V_initial = 0.0            # km/s
-        gamma_initial = numpy.pi/2 # rad
-        m_initial = 50000          # kg
-        h_final = 463.0   # km
-        V_final = 7.633   # km/s
-        gamma_final = 0.0 # rad
-        #m_final = free   # kg
-    
-        boundary = dict()
-        boundary['h_initial'] = h_initial
-        boundary['V_initial'] = V_initial
-        boundary['gamma_initial'] = gamma_initial
-        boundary['m_initial'] = m_initial
-        boundary['h_final'] = h_final
-        boundary['V_final'] = V_final
-        boundary['gamma_final'] = gamma_final
-        
-        self.boundary = boundary
-    
+
         # Earth constants
         r_e = 6371.0           # km
         GM = 398600.4415       # km^3 s^-2
@@ -80,6 +59,29 @@ class prob(sgra):
         s_ref = numpy.pi*(0.0005)**2  # km^2
         DampCent = 3.0
         DampSlop = 3.0
+
+                
+        # boundary conditions
+        h_initial = 0.0            # km
+        V_initial = 0.0            # km/s
+        gamma_initial = numpy.pi/2 # rad
+        m_initial = 50000          # kg
+        h_final = 463.0   # km
+        V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
+        gamma_final = 0.0 # rad
+        #m_final = free   # kg
+    
+        boundary = dict()
+        boundary['h_initial'] = h_initial
+        boundary['V_initial'] = V_initial
+        boundary['gamma_initial'] = gamma_initial
+        boundary['m_initial'] = m_initial
+        boundary['h_final'] = h_final
+        boundary['V_final'] = V_final
+        boundary['gamma_final'] = gamma_final
+        
+        self.boundary = boundary
+    
 
         constants = dict()
         constants['grav_e'] = grav_e
@@ -160,15 +162,17 @@ class prob(sgra):
         elif initMode == 'extSol':
     
             # Factors instervals for aerodynamics
-            fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
-            finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
+            #fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
+            #finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
+            fsup = numpy.array([1.5 + 0.2,1.5 + 0.2,1.0 + 0.2]) # Superior limit
+            finf = numpy.array([1.5 - 0.2,1.5 - 0.2,1.0 - 0.2]) # Inferior limit
     
             # Automatic adjustment
     #        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
     
             ###################################
-            new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup,finf, h_final, self.mPayl, 1.0e-7)
-            
+            new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup,\
+                                            finf,h_final, self.mPayl, 1.0e-7)
             ####################################
                         
             # Solutions must be made compatible: t_its is dimensional, 
@@ -724,6 +728,113 @@ class prob(sgra):
         print("pi =",pi)
         print("Final rocket mass: {:.4E}\n".format(x[-1,3]))
     #
+    
+    def compWith(self,altSol):
+        # TODO: IMPLEMENT THIS METHOD.
+        
+#        plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
+#+    
+#+    alpha_min = restrictions['alpha_min']
+#+    alpha_max = restrictions['alpha_max']
+#+    beta_min = restrictions['beta_min']
+#+    beta_max = restrictions['beta_max']
+#+    
+#+    a1 = (alpha_max + alpha_min)/2
+#+    a2 = (alpha_max - alpha_min)/2
+#+    b1 = (beta_max + beta_min)/2
+#+    b2 = (beta_max - beta_min)/2
+#+    
+#+    if compare==False:
+#+        x_initial = x
+#+        u_initial = u
+#+        
+#+        plt.plot(t,x[:,0],'y')
+#+        plt.grid(True)
+#+        plt.ylabel("h [km]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+    
+#+        plt.plot(t,x[:,1],'g')
+#+        plt.grid(True)
+#+        plt.ylabel("V [km/s]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+    
+#+        plt.plot(t,x[:,2]*180/numpy.pi,'r')
+#+        plt.grid(True)
+#+        plt.ylabel("gamma [deg]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+    
+#+        plt.plot(t,x[:,3],'m')
+#+        plt.grid(True)
+#+        plt.ylabel("m [kg]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+                
+#+        plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
+#+        plt.grid(True)
+#+        plt.xlabel("t [-]")
+#+        plt.ylabel("Attack angle [deg]")
+#+        plt.show()
+#+    
+#+        plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+#+        plt.grid(True)
+#+        plt.xlabel("t [-]")
+#+        plt.ylabel("Thrust profile [-]")
+#+        plt.show()        
+#+        
+#+    else:
+#+        plt.semilogy(t,x_initial[:,0])
+#+        plt.hold(True)
+#+        plt.semilogy(t,x[:,0],'y')
+#+        plt.grid()
+#+        plt.ylabel("h [km]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+        
+#+        plt.semilogy(t,x_initial[:,1])
+#+        plt.hold(True)
+#+        plt.semilogy(t,x[:,1],'g')
+#+        plt.grid()
+#+        plt.ylabel("V [km/s]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+        
+#+        plt.semilogy(t,x_initial[:,2]*180/numpy.pi)
+#+        plt.hold(True)
+#+        plt.semilogy(t,x[:,2]*180/numpy.pi,'r')    
+#+        plt.grid()
+#+        plt.ylabel("gamma [deg]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+        
+#+        plt.semilogy(t,x_initial[:,3],'m')
+#+        plt.hold(True)
+#+        plt.semilogy(t,x[:,3],'m')
+#+        plt.grid()
+#+        plt.ylabel("m [kg]")
+#+        plt.xlabel("t [-]")
+#+        plt.show()
+#+                    
+#+        plt.semilogy(t,(numpy.sin(u_initial[:,0])*a2 + a1)*180/numpy.pi)
+#+        plt.hold(True)
+#+        plt.semilogy(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
+#+        plt.grid()
+#+        plt.xlabel("t [-]")
+#+        plt.ylabel("Attack angle [deg]")
+#+        plt.show()
+#+        
+#+        plt.semilogy(t,(numpy.sin(u_initial[:,1])*b2 + b1))
+#+        plt.hold(True)
+#+        plt.semilogy(t,(numpy.sin(u[:,1])*b2 + b1),'c')
+#+        plt.grid()
+#+        plt.xlabel("t [-]")
+#+        plt.ylabel("Thrust profile [-]")
+#+        plt.show()
+        
+        pass
+        
     def plotTraj(self):
         
         cos = numpy.cos
@@ -773,9 +884,9 @@ class prob(sgra):
         # Get final orbit parameters
         h,v,gama,M = self.x[N-1,:]
         
-#        print("State @burnout time:")
-#        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
-#        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+        print("State @burnout time:")
+        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
         
         GM = self.constants['GM']       
         r = R + h
@@ -784,21 +895,21 @@ class prob(sgra):
         sinGama = sin(gama)
         momAng = r * v * cosGama
 #        print("Ang mom:",momAng)
-#        en = .5 * v * v - GM/r
+        en = .5 * v * v - GM/r
 #        print("Energy:",en)
-#        a = - .5*GM/en
+        a = - .5*GM/en
 #        print("Semi-major axis:",a)
         aux = v * momAng / GM
         e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
-#        print("Eccentricity:",e)
+        print("Eccentricity:",e)
         eccExpr = v * momAng * cosGama/GM - 1.0
 #        print("r =",r)
         f = numpy.arccos(eccExpr/e)
-#        print("True anomaly:",f*180/numpy.pi)
-#        ph = a * (1.0 - e) - R
-#        print("Perigee altitude:",ph)    
-#        ah = 2*(a - R) - ph        
-#        print("Apogee altitude:",ah)
+        print("True anomaly:",f*180/numpy.pi)
+        ph = a * (1.0 - e) - R
+        print("Perigee altitude:",ph)    
+        ah = 2*(a - R) - ph        
+        print("Apogee altitude:",ah)
 
         # semi-latus rectum
         p = momAng**2 / GM #a * (1.0-e)**2
@@ -807,7 +918,7 @@ class prob(sgra):
         # Plot orbit in green over the same range as the Earth shown 
         # (and a little but futher)
         
-        s = numpy.arange(f-sigma,f+.1*sigma,.01)
+        s = numpy.arange(f-1.2*sigma,f+.2*sigma,.01)
 #        print("s =",s)
         # shifting angle
         sh = sigma - f - .5*numpy.pi
@@ -826,7 +937,7 @@ class prob(sgra):
         
         # Plot trajectory in default color (blue)
         plt.plot(X,Z)
-        plt.plot(X[1]-1,Z[1],'ok')
+        plt.plot(X[0],Z[0],'ok')
         
         # Plot burning segments in red
         for i in range(len(indBurn)):

@@ -9,7 +9,7 @@ import numpy, copy
 from utils import ddt
 import matplotlib.pyplot as plt
 
-def calcP(self,mustPlot={}):
+def calcP(self,dbugOpt={}):
     N = self.N
     dt = self.dt
     x = self.x
@@ -38,7 +38,7 @@ def calcP(self,mustPlot={}):
     P *= dt
     vetIP *= dt
 
-    if mustPlot:
+    if dbugOpt.get('plot',False):
         tPlot = self.t#Plot = numpy.arange(0,1.0+dt,dt)
         
         plt.plot(tPlot,vetP)
@@ -55,6 +55,8 @@ def calcP(self,mustPlot={}):
         plt.title("Integrand of P (zoom)")
         plt.show()
         
+        
+        # TODO: break these plots into more conditions
         n,m = self.n,self.m
         if n==4 and m==2:
             print("\nStates and controls on the region of maxP:")
@@ -178,22 +180,22 @@ def calcP(self,mustPlot={}):
     P += Ppsi
     return P,Pint,Ppsi    
 
-def calcStepRest(self,corr,mustPlot=False):
+def calcStepRest(self,corr,dbugOpt={}):
     print("\nIn calcStepRest.\n")
     
-    P0,_,_ = calcP(self,mustPlot)
+    P0,_,_ = calcP(self,dbugOpt)
 
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(.8,corr,mustPlot)
-    P1m,_,_ = newSol.calcP(mustPlot)
+    newSol.aplyCorr(.8,corr,dbugOpt)
+    P1m,_,_ = newSol.calcP(dbugOpt)
 
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(1.0,corr,mustPlot)
-    P1,_,_ = newSol.calcP(mustPlot)
+    newSol.aplyCorr(1.0,corr,dbugOpt)
+    P1,_,_ = newSol.calcP(dbugOpt)
 
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(1.2,corr,mustPlot)
-    P1M,_,_ = newSol.calcP(mustPlot)
+    newSol.aplyCorr(1.2,corr,dbugOpt)
+    P1M,_,_ = newSol.calcP(dbugOpt)
             
     if P1 >= P1m or P1 >= P0:
         print("alfa=1.0 is too much.")
@@ -205,8 +207,8 @@ def calcStepRest(self,corr,mustPlot=False):
             P = nP
             alfa *= .8
             newSol = copy.deepcopy(self)
-            newSol.aplyCorr(alfa,corr,mustPlot)
-            nP,_,_ = newSol.calcP(mustPlot)
+            newSol.aplyCorr(alfa,corr,dbugOpt)
+            nP,_,_ = newSol.calcP(dbugOpt)
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
@@ -226,7 +228,7 @@ def calcStepRest(self,corr,mustPlot=False):
                 P = nP
                 alfa *= 1.2
                 newSol = copy.deepcopy(self)
-                nP,_,_ = newSol.aplyCorr(alfa,corr,mustPlot).calcP(mustPlot)
+                nP,_,_ = newSol.aplyCorr(alfa,corr,dbugOpt).calcP(dbugOpt)
                 print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                       " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
@@ -235,7 +237,7 @@ def calcStepRest(self,corr,mustPlot=False):
     return alfa
 
 
-def rest(self,mustPlot={}):
+def rest(self,dbugOpt={}):
      
     print("\nIn rest.")
 
@@ -501,7 +503,7 @@ def rest(self,mustPlot={}):
             'pi':C}
     #print("Calculating step...")
     
-    alfa = self.calcStepRest(corr,mustPlot)
-    self.aplyCorr(alfa,corr,mustPlot)
+    alfa = self.calcStepRest(corr,dbugOpt)
+    self.aplyCorr(alfa,corr,dbugOpt)
     self.updtHistP(alfa)
     print("Leaving rest with alfa =",alfa)

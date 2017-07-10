@@ -10,7 +10,7 @@ import numpy, copy
 from utils import ddt
 import matplotlib.pyplot as plt
 
-def calcQ(self,mustPlot=False):
+def calcQ(self,dbugOpt={}):
     # Q expression from (15)
     #print("\nIn calcQ.\n")
     N = self.N
@@ -80,7 +80,9 @@ def calcQ(self,mustPlot=False):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
-    if mustPlot:
+    # TODO: break these plots into more conditions
+
+    if dbugOpt.get('plot',False):
         tPlot = numpy.arange(0,1.0+dt,dt)
         
         plt.plot(tPlot,normErrQx)
@@ -250,36 +252,36 @@ def calcQ(self,mustPlot=False):
             plt.show()
     return Q,Qx,Qu,Qp,Qt
 
-def calcStepGrad(self,corr,mustPlot=False):
+def calcStepGrad(self,corr,dbugOpt={}):
 
     print("\nIn calcStepGrad.\n")
     
-    Q0,_,_,_,_ = self.calcQ(mustPlot)
-    P0,_,_ = self.calcP(mustPlot)
+    Q0,_,_,_,_ = self.calcQ(dbugOpt)
+    P0,_,_ = self.calcP(dbugOpt)
     print("P0 = {:.4E}".format(P0))
     I0 = self.calcI()
     print("I0 = {:.4E}\n".format(I0))
     
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(.8,corr,mustPlot)
-    Q1m,_,_,_,_ = newSol.calcQ(mustPlot)
-    P1m,_,_ = newSol.calcP(mustPlot)
+    newSol.aplyCorr(.8,corr,dbugOpt)
+    Q1m,_,_,_,_ = newSol.calcQ(dbugOpt)
+    P1m,_,_ = newSol.calcP(dbugOpt)
     print("P1m = {:.4E}".format(P1m))
     I1m = newSol.calcI()
     print("I1m = {:.4E}\n".format(I1m))
 
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(1.0,corr,mustPlot)
-    Q1,_,_,_,_ = newSol.calcQ(mustPlot)
-    P1,_,_ = newSol.calcP(mustPlot)    
+    newSol.aplyCorr(1.0,corr,dbugOpt)
+    Q1,_,_,_,_ = newSol.calcQ(dbugOpt)
+    P1,_,_ = newSol.calcP(dbugOpt)    
     print("P1 = {:.4E}".format(P1))
     I1 = newSol.calcI()
     print("I1 = {:.4E}\n".format(I1))
 
     newSol = copy.deepcopy(self)
-    newSol.aplyCorr(1.2,corr,mustPlot)
-    Q1M,_,_,_,_ = newSol.calcQ(mustPlot)
-    P1M,_,_ = newSol.calcP(mustPlot)
+    newSol.aplyCorr(1.2,corr,dbugOpt)
+    Q1M,_,_,_,_ = newSol.calcQ(dbugOpt)
+    P1M,_,_ = newSol.calcP(dbugOpt)
     print("P1M = {:.4E}".format(P1M))
     I1M = newSol.calcI()
     print("I1M = {:.4E}\n".format(I1M))
@@ -293,12 +295,14 @@ def calcStepGrad(self,corr,mustPlot=False):
             Q = nQ
             alfa *= .8
             newSol = copy.deepcopy(self)
-            newSol.aplyCorr(alfa,corr,mustPlot)
-            nQ,_,_,_,_ = newSol.calcQ(mustPlot)
+            newSol.aplyCorr(alfa,corr,dbugOpt)
+            nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
             print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
                   " (Q0 = {:.6E})\n".format(Q0))
+            print(Q0-nQ)
             if nQ < Q0:
-                keepSearch = nQ<Q#((nQ-Q)/Q < -.05)
+                print("fact = ",(nQ-Q)/Q,"\n")
+                keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
     else:
         
 #        return 1.0
@@ -316,8 +320,8 @@ def calcStepGrad(self,corr,mustPlot=False):
                 Q = nQ
                 alfa *= 1.2
                 newSol = copy.deepcopy(self)
-                newSol.aplyCorr(alfa,corr,mustPlot)
-                nQ,_,_,_,_ = newSol.calcQ(mustPlot)
+                newSol.aplyCorr(alfa,corr,dbugOpt)
+                nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
                 print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
                       " (Q0 = {:.4E})".format(Q0),"\n")
                 keepSearch = nQ<Q
@@ -326,7 +330,7 @@ def calcStepGrad(self,corr,mustPlot=False):
     return alfa
 
 
-def grad(self,mustPlot=False):
+def grad(self,dbugOpt={}):
     
     print("In grad.")
 #    print("Q0 =",Q0,"\n")
@@ -426,16 +430,18 @@ def grad(self,mustPlot=False):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
                 normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
                 
-            if mustPlot:
+            if dbugOpt.get('plotLamErr',False):
                 print("\nLambda Error:")
                 print("Cannot plot anymore. :( ")
+                # TODO: include lambda error plotting mode
+                
                 #optPlot['mode'] = 'states:LambdaError'
                 #plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
                 #    constants,restrictions,optPlot)
 
             maxNormErroLam = normErroLam.max()
             print("maxNormErroLam =",maxNormErroLam)
-            if mustPlot and (maxNormErroLam > 0):
+            if dbugOpt.get('plotLam',False) and (maxNormErroLam > 0):
                 plt.semilogy(normErroLam)
                 plt.grid()
                 plt.title("ErroLam")
@@ -452,7 +458,7 @@ def grad(self,mustPlot=False):
         C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
 
-        if mustPlot:
+        if dbugOpt.get('plotLam',False):
             print("Cannot plot lambda anymore... for now!")
             #optPlot['mode'] = 'states:Lambda'
             #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
@@ -487,7 +493,7 @@ def grad(self,mustPlot=False):
             erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
             normErroA[k] = erroA[k,:].dot(erroA[k,:])
         
-        if mustPlot:
+        if dbugOpt.get('plotAErr',False):
             print("\nA Error:")
             print("Cannot plot anymore. :( ")
             #optPlot['mode'] = 'states:AError'
@@ -496,7 +502,7 @@ def grad(self,mustPlot=False):
         
         maxNormErroA = normErroA.max()
         print("maxNormErroA =",maxNormErroA)
-        if mustPlot and (maxNormErroA > 0):
+        if dbugOpt.get('plotAErr',False) and (maxNormErroA > 0):
             plt.semilogy(normErroA)
             plt.grid()
             plt.title("ErroA")
@@ -554,7 +560,7 @@ def grad(self,mustPlot=False):
         erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
         normErroA[k] = erroA[k,:].dot(erroA[k,:])
     
-    if mustPlot:
+    if dbugOpt.get('plotAErrFin',False):
         print("\nFINAL A Error:")
         print("Cannot plot anymore. :( ")
         #optPlot['mode'] = 'states:AError'
@@ -564,13 +570,13 @@ def grad(self,mustPlot=False):
     
     print("FINAL maxNormErroA =",maxNormErroA)
     
-    if mustPlot and (maxNormErroA > 0):
+    if dbugOpt.get('plotAErrFin',False) and (maxNormErroA > 0):
         plt.semilogy(normErroA)
         plt.grid()
         plt.title("ErroA")
         plt.show()
 
-    if mustPlot:
+    if dbugOpt.get('plotLamErrFin',False):
         print("\nFINAL Lambda Error:")
         print("Cannot plot anymore. :( ")
         #optPlot['mode'] = 'states:LambdaError'
@@ -579,7 +585,7 @@ def grad(self,mustPlot=False):
         #maxNormErroLam = normErroLam.max()
     print("FINAL maxNormErroLam =",maxNormErroLam)
 
-    if mustPlot and (maxNormErroLam > 0):
+    if dbugOpt.get('plotLamErrFin',False) and (maxNormErroLam > 0):
         plt.semilogy(normErroLam)
         plt.grid()
         plt.title("ErroLam")
@@ -600,9 +606,9 @@ def grad(self,mustPlot=False):
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
     # Calculation of alfa
-    alfa = self.calcStepGrad(corr,mustPlot)
+    alfa = self.calcStepGrad(corr,dbugOpt)
 
-    self.aplyCorr(alfa,corr,mustPlot)
+    self.aplyCorr(alfa,corr,dbugOpt)
     self.updtHistQ(alfa)
     
     # update P just to ensure proper restoration afterwards

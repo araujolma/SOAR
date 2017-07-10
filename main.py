@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime#, time
+import datetime, time, copy
 #import matplotlib.pyplot as plt
 
 from interf import ITman
@@ -21,8 +21,6 @@ import probRock as prob
 
 #    
 
-#%%
-
             
 #%%
             
@@ -36,12 +34,15 @@ if __name__ == "__main__":
     print('\n')
     
     sol = prob.prob()#probRock.probRock()
+    solInit = copy.deepcopy(sol)
     #GradStat = GradStat()
 
     ITman = ITman()
     ITman.greet()
     
+    start_time = time.time()
     sol = ITman.setInitSol(sol)
+    
     sol.plotTraj()  
     sol = ITman.frstRestRnds(sol)
 
@@ -56,6 +57,9 @@ if __name__ == "__main__":
     
     sol.plotSol()
 
+    print("\n################################################################")
+    print("=== First Guess + SGRA execution: %s seconds ===\n" % \
+          (time.time() - start_time))
 #    # Gradient rounds:
 #    NIterGrad = 0
 #    histQ = histP*0.0; histQ[0] = Q

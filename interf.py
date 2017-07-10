@@ -49,7 +49,8 @@ class ITman():
         
         if self.defOpt == 'newSol':
             print("\nDefault starting option is to generate new initial guess.")
-            print("Hit 'enter' to do it, or any other key to load a previous solution.")
+            print("Hit 'enter' to do it, or any other key to load a "+\
+                  "previous solution.")
             inp = self.prom()
             if inp == '':
                 self.isNewSol = True
@@ -74,7 +75,8 @@ class ITman():
                 # new init guess, but user wants to load solution
                 print("\nOk, default path to loading solution is: '"+\
                       self.loadSolDir+"'.")
-                print("Hit 'enter' to load it, or type the path to alternative solution to be loaded.")
+                print("Hit 'enter' to load it, or type the path to "+\
+                      "alternative solution to be loaded.")
                 inp = input(self.bscImpStr)
                 if inp != '':
                     self.loadSolDir = inp
@@ -105,7 +107,7 @@ class ITman():
         input(self.bscImpStr)
         
     def loadSol(self):
-        path = self.loadSolDir# 'sol_init.pkl'#'sol_'+str(datetime.datetime.now())+'.pkl'
+        path = self.loadSolDir
 
         print("\nLoading solution from '"+path+"'.")        
         with open(path,'rb') as inpt:
@@ -222,69 +224,69 @@ class ITman():
         return sol
     
     #%%
-class GradStat:
-    def __init__(self):
-        self.mustPlotGrad = True
-        self.mustPlotRest = False
-        self.mustPlotSol = True
-        self.NSilent = 0
-        self.mustAsk = True
-    
-    def printMsg(self):
-        self.printStatus()
-        print("\nEnter commands for changing debug mode, or just hit 'enter'.")
-
-    def parseStr(self,thisStr):
-        print("input =",thisStr)
-        if thisStr[0]=='g':
-            if thisStr[1:].isnumeric():
-                n = int(thisStr[1:])
-                if n>0:
-                    self.NSilent=n
-                    print("Waiting",n,"runs before new prompt.")
-            elif thisStr[1:]=='p':
-                self.mustPlotGrad = True
-            elif thisStr[1:]=='n':
-                self.mustPlotGrad = False
-        elif thisStr[0]=='r':
-            if thisStr[1:]=='p':
-                self.mustPlotRest = True
-            elif thisStr[1:]=='n':
-                self.mustPlotRest = False
-        elif thisStr[0]=='s':
-            if thisStr[1:]=='p':
-                self.mustPlotSol = True
-            elif thisStr[1:]=='n':
-                self.mustPlotSol = False
-        else:
-            print("Ignoring unrecognized command '"+thisStr+"'...")
-        
-    def endOfLoop(self):
-        print("\a")
-        if self.NSilent>0:
-            print("\n",self.NSilent,"more runs remaining before new prompt.")
-            self.NSilent -= 1
-        else:
-            if self.mustAsk:
-                self.printMsg()
-                inp = input(">> ")
-                inp.lower()
-                if not(inp=='\n'):
-                    inpList = inp.split()    
-                    for k in range(len(inpList)):
-                        self.parseStr(inpList[k])
-                    self.printStatus()
-
-                print("\nOk. Back to main loop.")
-    def printStatus(self):
-        print("\nStatus:")
-        print("mustPlotGrad:",self.mustPlotGrad)
-        print("mustPlotRest:",self.mustPlotRest)
-        print("mustPlotSol:",self.mustPlotSol)
-        print("NSilent:",self.NSilent)
-        print("mustAsk:",self.mustAsk)
-        
-    def test(self):
-        while True:
-            print("In test mode. This will run forever.\n")
-            self.endOfLoop()
+#class GradStat:
+#    def __init__(self):
+#        self.mustPlotGrad = True
+#        self.mustPlotRest = False
+#        self.mustPlotSol = True
+#        self.NSilent = 0
+#        self.mustAsk = True
+#    
+#    def printMsg(self):
+#        self.printStatus()
+#        print("\nEnter commands for changing debug mode, or just hit 'enter'.")
+#
+#    def parseStr(self,thisStr):
+#        print("input =",thisStr)
+#        if thisStr[0]=='g':
+#            if thisStr[1:].isnumeric():
+#                n = int(thisStr[1:])
+#                if n>0:
+#                    self.NSilent=n
+#                    print("Waiting",n,"runs before new prompt.")
+#            elif thisStr[1:]=='p':
+#                self.mustPlotGrad = True
+#            elif thisStr[1:]=='n':
+#                self.mustPlotGrad = False
+#        elif thisStr[0]=='r':
+#            if thisStr[1:]=='p':
+#                self.mustPlotRest = True
+#            elif thisStr[1:]=='n':
+#                self.mustPlotRest = False
+#        elif thisStr[0]=='s':
+#            if thisStr[1:]=='p':
+#                self.mustPlotSol = True
+#            elif thisStr[1:]=='n':
+#                self.mustPlotSol = False
+#        else:
+#            print("Ignoring unrecognized command '"+thisStr+"'...")
+#        
+#    def endOfLoop(self):
+#        print("\a")
+#        if self.NSilent>0:
+#            print("\n",self.NSilent,"more runs remaining before new prompt.")
+#            self.NSilent -= 1
+#        else:
+#            if self.mustAsk:
+#                self.printMsg()
+#                inp = input(">> ")
+#                inp.lower()
+#                if not(inp=='\n'):
+#                    inpList = inp.split()    
+#                    for k in range(len(inpList)):
+#                        self.parseStr(inpList[k])
+#                    self.printStatus()
+#
+#                print("\nOk. Back to main loop.")
+#    def printStatus(self):
+#        print("\nStatus:")
+#        print("mustPlotGrad:",self.mustPlotGrad)
+#        print("mustPlotRest:",self.mustPlotRest)
+#        print("mustPlotSol:",self.mustPlotSol)
+#        print("NSilent:",self.NSilent)
+#        print("mustAsk:",self.mustAsk)
+#        
+#    def test(self):
+#        while True:
+#            print("In test mode. This will run forever.\n")
+#            self.endOfLoop()

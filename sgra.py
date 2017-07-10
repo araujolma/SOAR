@@ -57,7 +57,7 @@ class sgra():
 
         self.histI = numpy.zeros(MaxIterGrad)
     
-    def aplyCorr(self,alfa,corr,mustPlot={}):
+    def aplyCorr(self,alfa,corr,dbugOpt={}):
         
         self.x  += alfa * corr['x']
         self.u  += alfa * corr['u']
