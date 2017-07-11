@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime, time, copy
+import datetime, time
 #import matplotlib.pyplot as plt
 
 from interf import ITman
@@ -34,19 +34,19 @@ if __name__ == "__main__":
     print('\n')
     
     sol = prob.prob()#probRock.probRock()
-    solInit = copy.deepcopy(sol)
+    
     #GradStat = GradStat()
 
     ITman = ITman()
     ITman.greet()
     
     start_time = time.time()
-    sol = ITman.setInitSol(sol)
+    sol,solInit = ITman.setInitSol(sol)
     
     sol.plotTraj()  
     sol = ITman.frstRestRnds(sol)
 
-    sol = ITman.gradRestCycl(sol)
+    sol = ITman.gradRestCycl(sol,solInit)
     
     sol = ITman.restRnds(sol)
     

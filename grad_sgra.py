@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:39:08 2017
 @author: levi
 """
 
-import numpy, copy
+import numpy
 from utils import ddt
 import matplotlib.pyplot as plt
 
@@ -262,7 +262,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
     I0 = self.calcI()
     print("I0 = {:.4E}\n".format(I0))
     
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(.8,corr,dbugOpt)
     Q1m,_,_,_,_ = newSol.calcQ(dbugOpt)
     P1m,_,_ = newSol.calcP(dbugOpt)
@@ -270,7 +270,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
     I1m = newSol.calcI()
     print("I1m = {:.4E}\n".format(I1m))
 
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(1.0,corr,dbugOpt)
     Q1,_,_,_,_ = newSol.calcQ(dbugOpt)
     P1,_,_ = newSol.calcP(dbugOpt)    
@@ -278,7 +278,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
     I1 = newSol.calcI()
     print("I1 = {:.4E}\n".format(I1))
 
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(1.2,corr,dbugOpt)
     Q1M,_,_,_,_ = newSol.calcQ(dbugOpt)
     P1M,_,_ = newSol.calcP(dbugOpt)
@@ -294,7 +294,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
             cont += 1
             Q = nQ
             alfa *= .8
-            newSol = copy.deepcopy(self)
+            newSol = self.copy()
             newSol.aplyCorr(alfa,corr,dbugOpt)
             nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
             print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
@@ -319,7 +319,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
                 cont += 1
                 Q = nQ
                 alfa *= 1.2
-                newSol = copy.deepcopy(self)
+                newSol = self.copy()
                 newSol.aplyCorr(alfa,corr,dbugOpt)
                 nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
                 print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
@@ -396,8 +396,7 @@ def grad(self,dbugOpt={}):
         # integrate equation (38) backwards for lambda
         auxLam[0,:] = - psixTr.dot(mu)
 
-            #auxLam[0,:] = initGuesArray[:,i]
-
+        #auxLam[0,:] = initGuesArray[:,i]
 
         print(" auxLamInit =",auxLam[0,:])
         # Euler implicit

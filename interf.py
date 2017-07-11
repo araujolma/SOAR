@@ -14,7 +14,7 @@ class ITman():
     dashStr = '\n-------------------------------------------------------------'
     
     def __init__(self):
-        self.defOpt = 'loadSol'#'newSol'
+        self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
         self.loadSolDir = 'contHere.pkl'#"sols/solInitRest.pkl"
@@ -106,16 +106,17 @@ class ITman():
         print("Press any key to continue, or ctrl+C to stop.")
         input(self.bscImpStr)
         
-    def loadSol(self):
-        path = self.loadSolDir
+    def loadSol(self,path=''):
+        if path == '':
+            path = self.loadSolDir
 
         print("\nLoading solution from '"+path+"'.")        
         with open(path,'rb') as inpt:
             sol = dill.load(inpt)
         return sol
 
-    def saveSol(self,sol,path=None):
-        if path is None:
+    def saveSol(self,sol,path=''):
+        if path == '':
            path = 'sol_'+str(datetime.datetime.now())+'.pkl'
 
         print("\nWriting solution to '"+path+"'.")        
@@ -125,12 +126,13 @@ class ITman():
     def setInitSol(self,sol):
         if self.isNewSol:
             # declare problem:
-                #opt = {'initMode': 'extSol'}#'crazy'#'default'#'extSol'
-                sol.initGues({'initMode':self.initOpt})
-                self.saveSol(sol,'solInit.pkl')
+            #opt = {'initMode': 'extSol'}#'crazy'#'default'#'extSol'
+            solInit = sol.initGues({'initMode':self.initOpt})
+            self.saveSol(sol,'solInit.pkl')
         else:
             # load previously prepared solution
             sol = self.loadSol()
+            solInit = self.copy()
         #
     
         self.checkPars(sol)
@@ -149,7 +151,7 @@ class ITman():
               ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
               ", Qt = {:.4E}".format(Qt)+"\n")
         sol.plotSol()
-        return sol
+        return sol,solInit
     
     def restRnds(self,sol):
         while sol.P > sol.tol['P']:
@@ -191,7 +193,7 @@ class ITman():
         else:
             return False
         
-    def gradRestCycl(self,sol):
+    def gradRestCycl(self,sol,altSol=None):
         self.prntDashStr()
         print("\nBeginning gradient rounds...")
         sol.Q,_,_,_,_ = sol.calcQ()
@@ -211,6 +213,8 @@ class ITman():
                 print("\nSolution so far:")
                 sol.plotSol()
                 sol.plotTraj()
+                if altSol is not None:
+                    sol.compWith(altSol,'solZA')
             
             if self.gradRestPausCond(sol):
                 print("\a")

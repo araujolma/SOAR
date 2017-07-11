@@ -5,7 +5,7 @@ Created on Tue Jun 27 13:25:28 2017
 
 @author: levi
 """
-import numpy,itsme
+import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
@@ -48,7 +48,7 @@ class prob(sgra):
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
         
-        scal = 1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        scal = 1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
         Isp = 450.0                   # s
         s_f = 0.05
@@ -57,7 +57,7 @@ class prob(sgra):
         CD0 = 0.05                    # (A0 Miele 1998)
         CD2 = 0.5                     # (A2 Miele 1998)
         s_ref = numpy.pi*(0.0005)**2  # km^2
-        DampCent = 3.0
+        DampCent = 3.0#2.0#
         DampSlop = 3.0
 
                 
@@ -145,6 +145,7 @@ class prob(sgra):
                     if k>4999:
                         u[k,1] = (numpy.pi/2)*0.27
             pi = 1100*numpy.ones((p,1))
+            solInit = None
             
         elif initMode == 'naive':
             pis2 = numpy.pi*0.5
@@ -158,7 +159,7 @@ class prob(sgra):
                 k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)  
                 k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
                 x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
-            
+            solInit = None
         elif initMode == 'extSol':
     
             # Factors instervals for aerodynamics
@@ -181,56 +182,17 @@ class prob(sgra):
             
             pi = numpy.array([t_its[-1]])
             t_its = t_its/pi[0]
-    
-            # Perform inverse transformations for u:
-            a1 = (alpha_max + alpha_min)/2
-            a2 = (alpha_max - alpha_min)/2
-            b1 = (beta_max + beta_min)/2
-            b2 = (beta_max - beta_min)/2
+            u_its = self.calcAdimCtrl(u_its[:,0],u_its[:,1])
             
-            u_its[:,0] -= a1
-            u_its[:,0] *= 1.0/a2
+            solInit = self.copy()
+            solInit.N = len(t_its)
+            solInit.t = t_its.copy()
+            solInit.x = x_its.copy()
+            solInit.u = u_its.copy()
+            solInit.pi = pi.copy()
             
-            u_its[:,1] -= b1
-            u_its[:,1] *= 1.0/b2
-            
-            plt.plot(t_its,u_its[:,0])
-            plt.grid(True)
-            plt.show()
-            
-            plt.plot(t_its,u_its[:,1])
-            plt.grid(True)
-            plt.show()
-    
-            # Basic saturation
-            for j in range(2):
-                for k in range(len(t_its)):
-                    if u_its[k,j] > 0.99999:
-                        u_its[k,j] = 0.99999
-                    if u_its[k,j] < -0.99999:
-                        u_its[k,j] = -0.99999
-            
-            u_its[:,0] = numpy.arctanh(u_its[:,0])
-            u_its[:,1] = numpy.arctanh(u_its[:,1])
-            
-            plt.plot(t_its,u_its[:,0])
-            plt.grid(True)
-            plt.show()
-            
-            plt.plot(t_its,u_its[:,1])
-            plt.grid(True)
-            plt.show()
-            
-            plt.plot(t_its,numpy.tanh(u_its[:,0]))
-            plt.grid(True)
-            plt.show()
-            
-            plt.plot(t_its,numpy.tanh(u_its[:,1]))
-            plt.grid(True)
-            plt.show()
-            
-            #u = self.calcAdimCtrl(u_its[:,0],u_its[:,1])
-        
+            # Re-integration of proposed solution. 
+            # Only the controls are used, not the integrated state itself       
             dt = pi[0]/(N-1); dt6 = dt/6.0
             x[0,:] = x_its[0,:]
             uip1 = numpy.array([tabAlpha.value(0.0),tabBeta.value(0.0)])
@@ -250,83 +212,22 @@ class prob(sgra):
                 x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
 
             u[N-1,:] = u[N-2,:]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
-            print("\nUn-interpolated solution from Souza's propagation:")
-        
-            plt.plot(t_its,x_its[:,0])
-            plt.grid(True)
-            plt.ylabel("h [km]")
-            plt.xlabel("t_its [-]")
-            plt.show()
-        
-            plt.plot(t_its,x_its[:,1],'g')
-            plt.grid(True)
-            plt.ylabel("V [km/s]")
-            plt.xlabel("t_its [-]")
-            plt.show()
-        
-            plt.plot(t_its,x_its[:,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gamma [deg]")
-            plt.xlabel("t_its [-]")
-            plt.show()
-        
-            plt.plot(t_its,x_its[:,3],'m')
-            plt.grid(True)
-            plt.ylabel("m [kg]")
-            plt.xlabel("t_its [-]")
-            plt.show()
-        
-            print("\nUn-interpolated control profiles:")
-        
-            plt.plot(t_its,(numpy.tanh(u_its[:,0])*a2 + a1)*180/numpy.pi,'k')
-            plt.grid(True)
-            plt.xlabel("t_its [-]")
-            plt.ylabel("Attack angle [deg]")
-            plt.show()
-            
-            plt.plot(t_its,(numpy.tanh(u_its[:,1])*b2 + b1),'c')
-            plt.grid(True)
-            plt.xlabel("t_its [-]")
-            plt.ylabel("Thrust profile [-]")
-            plt.show()
-            ###
+
         
         lam = 0.0*x.copy()
         mu = numpy.zeros(q)
-    
-        # calculate transformed controls    
-    #    u[:,0] = tabAlpha.multValue(t[:]*pi[0])
-        u[:,0] -= a1
-        u[:,0] *= 1.0/a2
-    #    u[:,1] = tabBeta.multValue(t[:]*pi[0])        
-        u[:,1] -= b1
-        u[:,1] *= 1.0/b2
+        u = self.calcAdimCtrl(u[:,0],u[:,1])
         
-        # "safety" saturation
-        for j in range(2):
-            for k in range(N):
-                if u[k,j] > 0.99999:
-                    u[k,j] = 0.99999
-                if u[k,j] < -0.99999:
-                    u[k,j] = -0.99999
-            
-        u = numpy.arctanh(u)
-
         self.x = x
         self.u = u
         self.pi = pi
         self.lam = lam
         self.mu = mu
         
-        print("Proposed solution:")
-        print(self.x)
-        print(self.u)
-        print(self.pi)
-    #    optPlot = dict()
-        self.plotSol()
+        self.compWith(solInit,'solZA')
         
         print("\nInitialization complete.\n")        
-        # end of method
+        return solInit
 #%%
     def calcDimCtrl(self):        
         # calculate variables alpha (ang. of att.) and beta (prop. thrust)
@@ -345,7 +246,9 @@ class prob(sgra):
         return alfa,beta
     
     def calcAdimCtrl(self,alfa,beta):
-        u = numpy.empty((self.N,self.m))
+        #u = numpy.empty((self.N,self.m))
+        Nu = len(alfa)
+        u = numpy.empty((Nu,2))
         
         restrictions = self.restrictions
         alpha_min = restrictions['alpha_min']
@@ -368,8 +271,8 @@ class prob(sgra):
         u[:,1] = beta.copy()
         
         # Basic saturation
-        for j in range(self.m):
-            for k in range(self.N):
+        for j in range(2):
+            for k in range(Nu):
                 if u[k,j] > 0.99999:
                     u[k,j] = 0.99999
                 if u[k,j] < -0.99999:
@@ -729,9 +632,67 @@ class prob(sgra):
         print("Final rocket mass: {:.4E}\n".format(x[-1,3]))
     #
     
-    def compWith(self,altSol):
+    def compWith(self,altSol,altSolLabl='altSol'):
         # TODO: IMPLEMENT THIS METHOD.
+        print("\nComparing solutions...\n")
+        currSolLabl = 'currentSol'
         
+        plt.plot(altSol.t,altSol.x[:,0],label=altSolLabl)
+        plt.plot(self.t,self.x[:,0],'--y',label=currSolLabl)
+        plt.grid()
+        plt.ylabel("h [km]")
+        plt.xlabel("t [-]")
+        plt.title('Height')
+        plt.legend()
+        plt.show()
+        
+        plt.plot(altSol.t,altSol.x[:,1],label=altSolLabl)
+        plt.plot(self.t,self.x[:,1],'--g',label=currSolLabl)
+        plt.grid()
+        plt.ylabel("V [km/s]")
+        plt.xlabel("t [-]")
+        plt.title('Absolute speed')
+        plt.legend()
+        plt.show()
+        
+        plt.plot(altSol.t,altSol.x[:,2]*180/numpy.pi,label=altSolLabl)
+        plt.plot(self.t,self.x[:,2]*180/numpy.pi,'--r',label=currSolLabl)    
+        plt.grid()
+        plt.ylabel("gamma [deg]")
+        plt.xlabel("t [-]")
+        plt.title('Flight path angle')
+        plt.legend()
+        plt.show()
+        
+        plt.plot(altSol.t,altSol.x[:,3],label=altSolLabl)
+        plt.plot(self.t,self.x[:,3],'--m',label=currSolLabl)
+        plt.grid()
+        plt.ylabel("m [kg]")
+        plt.xlabel("t [-]")
+        plt.title('Rocket mass')
+        plt.legend()
+        plt.show()
+                    
+        alpha,beta = self.calcDimCtrl()
+        alpha_alt,beta_alt = altSol.calcDimCtrl()
+        plt.plot(altSol.t,alpha_alt*180/numpy.pi,label=altSolLabl)
+        plt.plot(self.t,alpha*180/numpy.pi,'--g',label=currSolLabl)
+        plt.grid()
+        plt.xlabel("t [-]")
+        plt.ylabel("alfa [deg]")
+        plt.title('Attack angle')
+        plt.legend()
+        plt.show()
+        
+        plt.plot(altSol.t,beta_alt,label=altSolLabl)
+        plt.plot(self.t,beta,'--k',label=currSolLabl)
+        plt.grid()
+        plt.xlabel("t [-]")
+        plt.ylabel("beta [-]")
+        plt.title('Thrust profile')
+        plt.legend()
+        plt.show()
+            
 #        plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
 #+    
 #+    alpha_min = restrictions['alpha_min']
@@ -833,7 +794,7 @@ class prob(sgra):
 #+        plt.ylabel("Thrust profile [-]")
 #+        plt.show()
         
-        pass
+        
         
     def plotTraj(self):
         

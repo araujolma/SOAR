@@ -5,7 +5,7 @@ Created on Tue Jun 27 14:36:59 2017
 
 @author: levi
 """
-import numpy, copy
+import numpy
 from utils import ddt
 import matplotlib.pyplot as plt
 
@@ -185,15 +185,15 @@ def calcStepRest(self,corr,dbugOpt={}):
     
     P0,_,_ = calcP(self,dbugOpt)
 
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(.8,corr,dbugOpt)
     P1m,_,_ = newSol.calcP(dbugOpt)
 
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(1.0,corr,dbugOpt)
     P1,_,_ = newSol.calcP(dbugOpt)
 
-    newSol = copy.deepcopy(self)
+    newSol = self.copy()
     newSol.aplyCorr(1.2,corr,dbugOpt)
     P1M,_,_ = newSol.calcP(dbugOpt)
             
@@ -206,7 +206,7 @@ def calcStepRest(self,corr,dbugOpt={}):
             cont += 1
             P = nP
             alfa *= .8
-            newSol = copy.deepcopy(self)
+            newSol = self.copy()
             newSol.aplyCorr(alfa,corr,dbugOpt)
             nP,_,_ = newSol.calcP(dbugOpt)
             if nP < P0:
@@ -227,7 +227,7 @@ def calcStepRest(self,corr,dbugOpt={}):
                 cont += 1
                 P = nP
                 alfa *= 1.2
-                newSol = copy.deepcopy(self)
+                newSol = self.copy()
                 nP,_,_ = newSol.aplyCorr(alfa,corr,dbugOpt).calcP(dbugOpt)
                 print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                       " (P0 = {:.4E})".format(P0))

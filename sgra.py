@@ -56,6 +56,9 @@ class sgra():
         self.histQt = numpy.zeros(MaxIterGrad)
 
         self.histI = numpy.zeros(MaxIterGrad)
+   
+    def copy(self):
+        return copy.deepcopy(self)
     
     def aplyCorr(self,alfa,corr,dbugOpt={}):
         
