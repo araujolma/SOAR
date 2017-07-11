@@ -62,7 +62,6 @@ def its(*arg):
 
     trajectory.displayResults()
 
-    trajectory.totalTrajectorySimulationCounter = totalTrajectorySimulationCounter
 
     #print("\n\rTotal number of trajectory simulations", totalTrajectorySimulationCounter)
 
@@ -243,40 +242,23 @@ def trajectorySimulate(factors,con,typeResult):
 
     ##########################################################################
     # Staging calculation
-    efes = con['efes'] # Structural efficience as defined by Cornelisse (1979)
-    efflist = []
-    T = []
-    if con['NStag'] > 1:
 
-        for jj in range(0,con['NStag']-1):
-            efflist = efflist+[efes]
-            T = T+[con['T']]
+    efflist = con['efflist']
+    Tlist = con['Tlist']
+    p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,        Mu)
+    p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,p2.mtot[0])
 
-        p2 = optimalStaging([efes],Dv2,con['T'],con,Mu)
-        p1 = optimalStaging(efflist,Dv1,T,con,p2.mtot[0])
-
-    if con['NStag'] == 0 or con['NStag'] == 1:
-        # This cases are similar to NStag == 2, the differences are:
-        # for NStag == 0 no mass is jetsoned
-        # for NStag == 1 all structural mass is jetsoned at the end of all burning
-        for jj in range(0,1):
-            efflist = efflist+[efes]
-            T = T+[con['T']]
-
-        p2 = optimalStaging([efes],Dv2,con['T'],con,Mu)
-        p1 = optimalStaging(efflist,Dv1,T,con,p2.mtot[0])
-
-        if con['NStag'] == 0:
-            p2.me[0] = 0.0
-            p1.me[0] = 0.0
-        if con['NStag'] == 1:
-            p2.me[0] = p1.me[0] + p2.me[0]
-            p1.me[0] = 0.0
+    if con['NStag'] == 0:
+        p2.me[0] = 0.0
+        p1.me[0] = 0.0
+    if con['NStag'] == 1:
+        p2.me[0] = p1.me[0] + p2.me[0]
+        p1.me[0] = 0.0
 
     if p1.fail or p2.fail:
         raise Exception('itsme saying: Too few stages!')
 
-    if p1.mtot[0]*con['g0'] > T[0]:
+    if p1.mtot[0]*con['g0'] > Tlist[0]:
         raise Exception('itsme saying: weight greater than thrust!')
 
     ##########################################################################
@@ -358,7 +340,6 @@ def totalIntegration(tphases,mjetsoned,ode45,t0,x0,flagAppend):
     tp = numpy.array(tp)
     xp = numpy.array(xp)
 
-    totalTrajectorySimulationCounter += 1
 
     return tt,xx,tp,xp
 
@@ -719,10 +700,9 @@ class itsTrajectory():
         config = configparser.ConfigParser()
         config.optionxform = str
         config.read(fileAdress)
-
-        #Constants
         self.con = dict()
 
+        #######################################################################
         # Enviromental constants
         section = 'enviroment'
         items = config.items(section)
@@ -730,49 +710,78 @@ class itsTrajectory():
             self.con[para[0]] = config.getfloat(section,para[0])
         self.con['g0'] = self.con['GM']/(self.con['R']**2)            # [km/s2] gravity acceleration on earth surface
 
-        # This flag show indicates if the vehicle shall be considered as having the same
-        # values of structural mass and thrust for all stages
+        #######################################################################
+        # General constants
+        self.con['pi'] = numpy.pi
+        self.con['d2r'] = numpy.pi/180.0
+
+        #######################################################################
+        #Initial state constants
+        self.con['h_initial'] = config.getfloat('initial','h')
+        self.con['V_initial'] = config.getfloat('initial','V')
+        self.con['gamma_initial'] = config.getfloat('initial','gamma')*self.con['d2r']
+
+        #######################################################################
+        #Final state constants
+        self.con['h_final'] = config.getfloat('final','h')
+        self.con['V_final'] = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final'])) - self.con['we']*(self.con['R']+self.con['h_final'])   # km/s Circular velocity
+        self.con['gamma_final'] = config.getfloat('final','gamma')*self.con['d2r']
+
+        #######################################################################
+        #Vehicle parameters
+        section = 'vehicle'
+        items = config.items(section)
+
         if not config.has_option(section,'homogeneous'):
             self.con['homogeneous'] = True
+        else:
+            self.con['homogeneous'] = config.getboolean(section,'homogeneous')
 
+        for para in items:
+            self.con[para[0]] = config.getfloat(section,para[0])
+
+        self.con['NStag'] = config.getint('vehicle','NStag')# Number of stages
+        self.con['c'] = self.con['Isp'] * self.con['g0'] # km/s
+
+        # This flag show indicates if the vehicle shall be considered as having the same
+        # values of structural mass and thrust for all stages
         if not self.con['homogeneous']:
-
             auxstr = config.get(section,'efes')
             auxstr = auxstr.split(',')
             auxnum = []
             for n in auxstr:
                 auxnum = auxnum+[float(n)]
-            self.con['efes'] = numpy.array(auxnum)
+            self.con['efflist'] = numpy.array(auxnum)
 
             auxstr = config.get(section,'T')
             auxstr = auxstr.split(',')
             auxnum = []
             for n in auxstr:
                 auxnum = auxnum+[float(n)]
-            self.con['T'] = numpy.array(auxnum)
+            self.con['Tlist'] = numpy.array(auxnum)
 
-        # General constants
-        self.con['pi'] = numpy.pi
-        self.con['d2r'] = numpy.pi/180.0
+        else:
+            efflist = []
+            Tlist = []
+            if self.con['NStag'] > 1:
+                for jj in range(0,self.con['NStag']):
+                    efflist = efflist+[self.con['efes']]
+                    Tlist = Tlist+[self.con['T']]
+            else:
+                # This cases are similar to NStag == 2, the differences are:
+                # for NStag == 0 no mass is jetsoned
+                # for NStag == 1 all structural mass is jetsoned at the end of all burning
+                for jj in range(0,2):
+                    efflist = efflist+[self.con['efes']]
+                    Tlist = Tlist+[self.con['T']]
 
-        #Initial state constants
-        self.con['h_initial'] = config.getfloat('initial','h')
-        self.con['V_initial'] = config.getfloat('initial','V')
-        self.con['gamma_initial'] = config.getfloat('initial','gamma')*self.con['d2r']
 
-        #Final state constants
-        self.con['h_final'] = config.getfloat('final','h')
-        self.con['V_final'] = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final'])) - self.con['we']*(self.con['R']+self.con['h_final'])   # km/s Circular velocity
-        self.con['gamma_final'] = config.getfloat('final','gamma')*self.con['d2r']
+            print(efflist)
+            print(Tlist)
+            self.con['efflist'] = efflist
+            self.con['Tlist'] = Tlist
 
-        #Vehicle parameters
-        section = 'vehicle'
-        items = config.items(section)
-        for para in items:
-            self.con[para[0]] = config.getfloat(section,para[0])
-        self.con['NStag'] = config.getint('vehicle','NStag')               # Number of stages
-        self.con['c'] = self.con['Isp'] * self.con['g0'] # km/s
-
+        #######################################################################
         # Trajectory parameters
         section = 'trajectory'
         items = config.items(section)
@@ -780,16 +789,18 @@ class itsTrajectory():
             self.con[para[0]] = config.getfloat(section,para[0])
         self.con['torb'] = 2*self.con['pi']*(self.con['R'] + self.con['h_final'])/self.con['V_final'] # Time of one orbit using the final velocity
 
+        #######################################################################
         # Reference values
         iniEst = initialEstimate(self.con)
         self.con['Dv1ref'] = iniEst.dv
         self.con['tref'] = iniEst.t
         self.con['vxref'] = iniEst.vx
 
+        #######################################################################
         # Solver parameters
         self.con['tol'] = config.getfloat('solver','tol')
 
-         # Superior and inferior limits
+        # Superior and inferior limits
         auxstr = config.get('solver','guess')
         auxstr = auxstr.split(',')
         auxnum = []
@@ -807,6 +818,8 @@ class itsTrajectory():
         self.con['fsup'] = guess + limit
         self.con['finf'] = guess - limit
 
+        #######################################################################
+        # First guess trajectory
         errors, _, _, tabAlpha, tabBeta = trajectorySimulate(guess,self.con,"design")
         tt,xx,uu,tp,xp,up = trajectorySimulate(guess,self.con,"plot")
 
