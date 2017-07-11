@@ -21,118 +21,57 @@ from scipy.integrate import ode
 from atmosphere import rho
 
 global totalTrajectorySimulationCounter
-totalTrajectorySimulationCounter = 0
-
-def itsInitialization(fileAdress):
-
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    config.read(fileAdress)
-
-    #Constants
-    con = dict()
-
-    # Enviromental constants
-    section = 'enviroment'
-    items = config.items(section)
-    for para in items:
-        con[para[0]] = config.getfloat(section,para[0])
-    con['g0'] = con['GM']/(con['R']**2)            # [km/s2] gravity acceleration on earth surface
-
-    # General constants
-    con['pi'] = numpy.pi
-    con['d2r'] = numpy.pi/180.0
-
-    #Initial state constants
-    con['h_initial'] = config.getfloat('initial','h')
-    con['V_initial'] = config.getfloat('initial','V')
-    con['gamma_initial'] = config.getfloat('initial','gamma')*con['d2r']
-
-    #Final state constants
-    con['h_final'] = config.getfloat('final','h')
-    con['V_final'] = numpy.sqrt(con['GM']/(con['R']+con['h_final'])) - con['we']*(con['R']+con['h_final'])   # km/s Circular velocity
-    con['gamma_final'] = config.getfloat('final','gamma')*con['d2r']
-
-    #Vehicle parameters
-    section = 'vehicle'
-    items = config.items(section)
-    for para in items:
-        con[para[0]] = config.getfloat(section,para[0])
-    con['NStag'] = config.getint('vehicle','NStag')               # Number of stages
-    con['c'] = con['Isp'] * con['g0'] # km/s
-
-    # Trajectory parameters
-    section = 'trajectory'
-    items = config.items(section)
-    for para in items:
-        con[para[0]] = config.getfloat(section,para[0])
-    con['torb'] = 2*con['pi']*(con['R'] + con['h_final'])/con['V_final'] # Time of one orbit using the final velocity
-
-    # Reference values
-    iniEst = initialEstimate(con)
-    con['Dv1ref'] = iniEst.dv
-    con['tref'] = iniEst.t
-    con['vxref'] = iniEst.vx
-
-    # Solver parameters
-    con['tol'] = config.getfloat('solver','tol')
-
-     # Superior and inferior limits
-    auxstr = config.get('solver','guess')
-    auxstr = auxstr.split(',')
-    auxnum = []
-    for n in auxstr:
-        auxnum = auxnum+[float(n)]
-    guess = numpy.array(auxnum)
-
-    auxstr = config.get('solver','limit')
-    auxstr = auxstr.split(',')
-    auxnum = []
-    for n in auxstr:
-        auxnum = auxnum+[float(n)]
-    limit = numpy.array(auxnum)
-
-    con['fsup'] = guess + limit
-    con['finf'] = guess - limit
-
-    return con
 
 def its(*arg):
 
     # arguments analisys
     if len(arg) == 0:
-        con = itsInitialization('default.its')
+        trajectory = itsTrajectory('default.its')
     elif len(arg) == 1:
-        con = itsInitialization(arg[0])
+        trajectory = itsTrajectory(arg[0])
     else:
         raise Exception('itsme saying: too many arguments on its')
 
+    trajectory.displayResults()
+
     ###########################
     # initial_trajectory_setup
-    fsup = con['fsup']
-    finf = con['finf']
-    h_final = con['h_final']
-    Mu = con['Mu']
-    tol = con['tol']
+    fsup = trajectory.con['fsup']
+    finf = trajectory.con['finf']
 
-    factors = bisecAltitude(fsup,finf,h_final,Mu,con,tol)
-    errors, tt, xx, tabAlpha, tabBeta = trajectorySimulate(factors,h_final,Mu,con,"design",tol)
+    factors = bisecAltitude(fsup,finf,trajectory.con)
+    errors, _, _, tabAlpha, tabBeta = trajectorySimulate(factors,trajectory.con,"design")
     num = "8.6e"
     print("\n\####################################################")
-    print("ITS the end (lol)") #mongolice... haha
+    print("ITS the end (lol)")
     print(("Error     : %"+num+", %"+num+", %"+num) % ( errors[0], errors[1], errors[2]))
     print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
     print(("Factors   : %"+num+", %"+num+", %"+num) % (factors[0],factors[1],factors[2]))
     print(("Inf limits: %"+num+", %"+num+", %"+num) % (   finf[0],   finf[1],   finf[2]))
-    tt,xx,uu,_,_,_ = trajectorySimulate(factors,h_final,Mu,con,"plot",tol)
+    tt,xx,uu,tp,xp,up = trajectorySimulate(factors,trajectory.con,"plot")
 
-    displayResults(factors,con['h_final'],con['Mu'],con,con['tol'])
+    trajectory.factors = factors
+    trajectory.tt = tt
+    trajectory.xx = xx
+    trajectory.uu = uu
+    trajectory.tp = tp
+    trajectory.xp = xp
+    trajectory.up = up
+    trajectory.tabAlpha = tabAlpha
+    trajectory.tabBeta = tabBeta
 
-    return factors,tt,xx,uu,tabAlpha,tabBeta
+    trajectory.displayResults()
 
-def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
+    trajectory.totalTrajectorySimulationCounter = totalTrajectorySimulationCounter
+
+    #print("\n\rTotal number of trajectory simulations", totalTrajectorySimulationCounter)
+
+    return trajectory
+
+def bisecSpeedAndAng(fsup,finf,factors1,f3,con):
     ####################################################################
     # Bissection speed and gamma loop
+    tol = con['tol']
 
     # Initializing parameters
     # Loop initialization
@@ -146,7 +85,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     factors1[2] = f3 + 0.0
     df[2] = 0.0
     factors2 = factors1 + df
-    errors1, tt, xx, _, _ = trajectorySimulate(factors1,h_final,Mu,con,"design",tol)
+    errors1, tt, xx, _, _ = trajectorySimulate(factors1,con,"design")
     step = df + 0.0
     factors3 = factors2 + 0.0
 
@@ -154,7 +93,7 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     while (not stop) and (count <= Nmax):
 
         # Error update
-        errors2, _, _, _, _ = trajectorySimulate(factors2,h_final,Mu,con,"design",tol)
+        errors2, _, _, _, _ = trajectorySimulate(factors2,con,"design")
 
         converged = abs(errors2) < tol
         if converged[0] and converged[1]:
@@ -206,10 +145,11 @@ def bisecSpeedAndAng(fsup,finf,factors1,f3,h_final,Mu,con,tol):
     return errorh,factors2
 # bisecSpeedAndAng end
 
-def bisecAltitude(fsup,finf,h_final,Mu,con,tol):
+def bisecAltitude(fsup,finf,con):
 
     ##########################################################################
     # Bisection altitude loop
+    tol = con['tol']
 
     # Parameters initialization
     # Loop initialization
@@ -222,14 +162,14 @@ def bisecAltitude(fsup,finf,h_final,Mu,con,tol):
     factors = (fsup + finf)/2
     step = df.copy()
     f1 = (fsup[2] + finf[2])/2
-    e1,factors = bisecSpeedAndAng(fsup,finf,factors,f1,h_final,Mu,con,tol)
+    e1,factors = bisecSpeedAndAng(fsup,finf,factors,f1,con)
     f2 = f1 + step
 
     # Loop
     while (not stop) and (count <= Nmax):
 
         # bisecSpeedAndAng: Error update from speed and gamma loop
-        e2,factors = bisecSpeedAndAng(fsup,finf,factors,f2,h_final,Mu,con,tol)
+        e2,factors = bisecSpeedAndAng(fsup,finf,factors,f2,con)
 
         # Loop checks
         if  (abs(e2) < tol):
@@ -286,11 +226,14 @@ def bisecAltitude(fsup,finf,h_final,Mu,con,tol):
     return factors
 # bisecAltitude end
 
-def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
+def trajectorySimulate(factors,con,typeResult):
 
     ##########################################################################
     # Trajetory design parameters
     fdv2,ftf,fdv1 = factors
+    Mu = con['Mu']
+    h_final = con['h_final']
+    tol = con['tol']
 
     ##########################################################################
     # Delta V estimates
@@ -367,7 +310,9 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
     if (typeResult == "orbital"):
         tphases   =   tphases+[con['torb']]
         mjetsoned = mjetsoned+[        0.0]
-
+    else:
+        tphases   =   tphases#+[tphases[-1]*(1 + tol/2)]
+        mjetsoned = mjetsoned#+[        0.0]
     # Integration using rk45 separated by phases
     # Automatic multiphase integration
     if (typeResult == "design"):
@@ -387,7 +332,7 @@ def trajectorySimulate(factors,h_final,Mu,con,typeResult,tol):
         tt,xx,tp,xp = totalIntegration(tphases,mjetsoned,ode45,t0,x0,True)
         uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
         up = numpy.concatenate([tabAlpha.multValue(tp),tabBeta.multValue(tp)], axis=1)
-        ans = (tt,xx,uu,tp,xp,up)
+        ans = tt,xx,uu,tp,xp,up
 
     return ans
 
@@ -441,148 +386,6 @@ def phaseIntegration(t_initial,t_final,mj,Nref,ode45,tt,xx,tp,xp,flagAppend):
 
     return tt,xx,tp,xp
 
-
-def plotResults(tt,xx,uu,tp,xp,up,con):
-
-    ii = 0
-    plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,xx[:,ii],'.-b')
-    plt.plot(tp,xp[:,ii],'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.ylabel("h [km]")
-
-    ii = 1
-    plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,xx[:,ii],'.-b')
-    plt.plot(tp,xp[:,ii],'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.ylabel("V [km/s]")
-
-    ii = 2
-    plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
-    plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.ylabel("gamma [deg]")
-
-    ii = 3
-    plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,xx[:,ii],'.-b')
-    plt.plot(tp,xp[:,ii],'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.ylabel("m [kg]")
-
-    ii = 0
-    plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,uu[:,ii]*180/numpy.pi,'.-b')
-    plt.plot(tp,up[:,ii]*180/numpy.pi,'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.ylabel("alfa [deg]")
-
-    ii = 1
-    plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
-    plt.hold(True)
-    plt.plot(tt,uu[:,ii],'.-b')
-    plt.plot(tp,up[:,ii],'.r')
-    plt.hold(False)
-    plt.grid(True)
-    plt.xlabel("t")
-    plt.ylabel("beta [adim]")
-
-    plt.show()
-
-#    # Aed plots
-#    LL, DD, CCL, CCD, QQ = calcAedTab(tt,xx,uu,con)
-#
-#    ii = 0
-#    plt.subplot2grid((6,2),(0,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,LL,'.-b')
-#    plt.plot(tt,DD,'.-r')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("L and D [kN]")
-#
-#    ii = 1
-#    plt.subplot2grid((6,2),(2,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,CCL,'.-b')
-#    plt.plot(tt,CCD,'.-r')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("CL and CD [-]")
-#
-#    ii = 2
-#    plt.subplot2grid((6,2),(4,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,QQ,'.-b')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("qdin [kPa]")
-#
-#
-#    plt.show()
-
-    return None
-
-def displayResults(factors,h_final,Mu,con,tol):
-
-    # Results without orbital phase
-    tt0,xx0,uu0,tp0,xp0,up0 = trajectorySimulate(factors,h_final,Mu,con,"plot",tol)
-    h,v,gama,M = numpy.transpose(xx0[-1,:])
-    eec = orbitResults(h,v,gama,con)
-    plotResults(tt0,xx0,uu0,tp0,xp0,up0,con)
-
-    # Results with orbital phase
-    if abs(eec-1) > 0.1:
-        # The eccentricity test avoids simulations too close of the singularity
-        tt0,xx0,uu0,tp0,xp0,up0 = trajectorySimulate(factors,h_final,Mu,con,"orbital",tol)
-        h,v,gama,M = numpy.transpose(xx0[-1,:])
-        orbitResults(h,v,gama,con)
-        plotResults(tt0,xx0,uu0,tp0,xp0,up0,con)
-
-    print('Initial states:',xx0[ 0])
-    print('Final   states:',xx0[-1])
-
-    return None
-
-def orbitResults(h,v,gama,con):
-
-    GM = con['GM']       # km^3 s^-2
-    R = con['R']               # km
-
-    r = R + h
-    cosGama = numpy.cos(gama)
-    sinGama = numpy.sin(gama)
-    momAng = r * v * cosGama
-    print("Ang mom:",momAng)
-    en = .5 * v * v - GM/r
-    print("Energy:",en)
-    a = - .5*GM/en
-    print("Semi-major axis:",a)
-    aux = v * momAng / GM
-    e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
-    print("Eccentricity:",e)
-
-    print("Final altitude:",h)
-    ph = a * (1.0 - e) - R
-    print("Perigee altitude:",ph)
-    ah = 2*(a - R) - ph
-    print("Apogee altitude:",ah)
-
-    return e
-
-
 def mdlDer(t,x,arg):
 
     h,v,gama,M = x[0],x[1],x[2],x[3]
@@ -634,31 +437,6 @@ def calcAedTab(tt,xx,uu,con):
         QQ[ii] = qdin
 
     return LL, DD, CCL, CCD, QQ
-
-
-class retPulse():
-
-    def __init__(self,t1,t2,v1,v2):
-        self.t1 = t1
-        self.t2 = t2
-        self.v1 = v1
-        self.v2 = v2
-
-    def value(self,t):
-        if (t < self.t1):
-            return self.v1
-        elif (t < self.t2):
-            return self.v2
-        else:
-            return self.v1
-
-    def multValue(self,t):
-        N = len(t)
-        ans = numpy.full((N,1),self.v1)
-        for ii in range(0,N):
-            if (t[ii] >= self.t1) and (t[ii] < self.t2):
-                ans[ii] = self.v2
-        return ans
 
 class retSoftPulse():
 
@@ -737,37 +515,6 @@ class cosSoftPulse():
     def multValue(self,t):
         N = len(t)
         ans = numpy.full((N,1),0.0)
-        for jj in range(0,N):
-            ans[jj] = self.value(t[jj])
-
-        return ans
-
-
-class retPulse2():
-
-    def __init__(self,tVec,vVec):
-        self.tVec = tVec
-        self.vVec = vVec
-
-    def value(self,t):
-        ii = 0
-        NVec = len(self.tVec)
-        stop = False
-        while not stop:
-            if (t <= self.tVec[ii]):
-                ans = self.vVec[ii]
-                stop = True
-            else:
-                ii = ii + 1
-                if ii == NVec:
-                    ans = self.vVec[-1]
-                    stop = True
-
-        return ans
-
-    def multValue(self,t):
-        N = len(t)
-        ans = numpy.full((N,1),self.vVec[0])
         for jj in range(0,N):
             ans[jj] = self.value(t[jj])
 
@@ -965,6 +712,253 @@ class initialEstimate():
 
         return None
 
+class itsTrajectory():
+
+    def __init__(self,fileAdress):
+
+        config = configparser.ConfigParser()
+        config.optionxform = str
+        config.read(fileAdress)
+
+        #Constants
+        self.con = dict()
+
+        # Enviromental constants
+        section = 'enviroment'
+        items = config.items(section)
+        for para in items:
+            self.con[para[0]] = config.getfloat(section,para[0])
+        self.con['g0'] = self.con['GM']/(self.con['R']**2)            # [km/s2] gravity acceleration on earth surface
+
+        # This flag show indicates if the vehicle shall be considered as having the same
+        # values of structural mass and thrust for all stages
+        if not config.has_option(section,'homogeneous'):
+            self.con['homogeneous'] = True
+
+        if not self.con['homogeneous']:
+
+            auxstr = config.get(section,'efes')
+            auxstr = auxstr.split(',')
+            auxnum = []
+            for n in auxstr:
+                auxnum = auxnum+[float(n)]
+            self.con['efes'] = numpy.array(auxnum)
+
+            auxstr = config.get(section,'T')
+            auxstr = auxstr.split(',')
+            auxnum = []
+            for n in auxstr:
+                auxnum = auxnum+[float(n)]
+            self.con['T'] = numpy.array(auxnum)
+
+        # General constants
+        self.con['pi'] = numpy.pi
+        self.con['d2r'] = numpy.pi/180.0
+
+        #Initial state constants
+        self.con['h_initial'] = config.getfloat('initial','h')
+        self.con['V_initial'] = config.getfloat('initial','V')
+        self.con['gamma_initial'] = config.getfloat('initial','gamma')*self.con['d2r']
+
+        #Final state constants
+        self.con['h_final'] = config.getfloat('final','h')
+        self.con['V_final'] = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final'])) - self.con['we']*(self.con['R']+self.con['h_final'])   # km/s Circular velocity
+        self.con['gamma_final'] = config.getfloat('final','gamma')*self.con['d2r']
+
+        #Vehicle parameters
+        section = 'vehicle'
+        items = config.items(section)
+        for para in items:
+            self.con[para[0]] = config.getfloat(section,para[0])
+        self.con['NStag'] = config.getint('vehicle','NStag')               # Number of stages
+        self.con['c'] = self.con['Isp'] * self.con['g0'] # km/s
+
+        # Trajectory parameters
+        section = 'trajectory'
+        items = config.items(section)
+        for para in items:
+            self.con[para[0]] = config.getfloat(section,para[0])
+        self.con['torb'] = 2*self.con['pi']*(self.con['R'] + self.con['h_final'])/self.con['V_final'] # Time of one orbit using the final velocity
+
+        # Reference values
+        iniEst = initialEstimate(self.con)
+        self.con['Dv1ref'] = iniEst.dv
+        self.con['tref'] = iniEst.t
+        self.con['vxref'] = iniEst.vx
+
+        # Solver parameters
+        self.con['tol'] = config.getfloat('solver','tol')
+
+         # Superior and inferior limits
+        auxstr = config.get('solver','guess')
+        auxstr = auxstr.split(',')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        guess = numpy.array(auxnum)
+
+        auxstr = config.get('solver','limit')
+        auxstr = auxstr.split(',')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        limit = numpy.array(auxnum)
+
+        self.con['fsup'] = guess + limit
+        self.con['finf'] = guess - limit
+
+        errors, _, _, tabAlpha, tabBeta = trajectorySimulate(guess,self.con,"design")
+        tt,xx,uu,tp,xp,up = trajectorySimulate(guess,self.con,"plot")
+
+        self.tt = tt
+        self.xx = xx
+        self.uu = uu
+        self.tp = tp
+        self.xp = xp
+        self.up = up
+        self.tabAlpha = tabAlpha
+        self.tabBeta = tabBeta
+        self.errors = errors
+        self.factors = guess
+
+    def displayResults(self):
+
+        # Results without orbital phase
+        tt,xx,uu,tp,xp,up = self.tt,self.xx,self.uu,self.tp,self.xp,self.up
+        eec = self.orbitResults(self.xx[-1,:])
+        self.plotResults(tt,xx,uu,tp,xp,up)
+
+        # Results with orbital phase
+        if abs(eec-1) > 0.1:
+            # The eccentricity test avoids simulations too close of the singularity
+            tto,xxo,uuo,tpo,xpo,upo = trajectorySimulate(self.factors,self.con,"orbital")
+            self.orbitResults(xxo[-1,:])
+            self.plotResults(tto,xxo,uuo,tpo,xpo,upo)
+            print('Initial states:',xx[ 0])
+            print('Final   states:',xxo[-1])
+
+        return None
+
+    def plotResults(self,tt,xx,uu,tp,xp,up):
+
+        ii = 0
+        plt.subplot2grid((6,4),(0,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,xx[:,ii],'.-b')
+        plt.plot(tp,xp[:,ii],'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("h [km]")
+
+        ii = 1
+        plt.subplot2grid((6,4),(0,2),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,xx[:,ii],'.-b')
+        plt.plot(tp,xp[:,ii],'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("V [km/s]")
+
+        ii = 2
+        plt.subplot2grid((6,4),(2,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,xx[:,ii]*180.0/numpy.pi,'.-b')
+        plt.plot(tp,xp[:,ii]*180.0/numpy.pi,'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("gamma [deg]")
+
+        ii = 3
+        plt.subplot2grid((6,4),(2,2),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,xx[:,ii],'.-b')
+        plt.plot(tp,xp[:,ii],'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("m [kg]")
+
+        ii = 0
+        plt.subplot2grid((6,4),(4,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,uu[:,ii]*180/numpy.pi,'.-b')
+        plt.plot(tp,up[:,ii]*180/numpy.pi,'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("alfa [deg]")
+
+        ii = 1
+        plt.subplot2grid((6,4),(4,2),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,uu[:,ii],'.-b')
+        plt.plot(tp,up[:,ii],'.r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.xlabel("t")
+        plt.ylabel("beta [adim]")
+
+        plt.show()
+
+#    # Aed plots
+#    LL, DD, CCL, CCD, QQ = calcAedTab(tt,xx,uu,con)
+#
+#    ii = 0
+#    plt.subplot2grid((6,2),(0,0),rowspan=2,colspan=2)
+#    plt.hold(True)
+#    plt.plot(tt,LL,'.-b')
+#    plt.plot(tt,DD,'.-r')
+#    plt.hold(False)
+#    plt.grid(True)
+#    plt.ylabel("L and D [kN]")
+#
+#    ii = 1
+#    plt.subplot2grid((6,2),(2,0),rowspan=2,colspan=2)
+#    plt.hold(True)
+#    plt.plot(tt,CCL,'.-b')
+#    plt.plot(tt,CCD,'.-r')
+#    plt.hold(False)
+#    plt.grid(True)
+#    plt.ylabel("CL and CD [-]")
+#
+#    ii = 2
+#    plt.subplot2grid((6,2),(4,0),rowspan=2,colspan=2)
+#    plt.hold(True)
+#    plt.plot(tt,QQ,'.-b')
+#    plt.hold(False)
+#    plt.grid(True)
+#    plt.ylabel("qdin [kPa]")
+#
+#
+#    plt.show()
+
+        return None
+
+    def orbitResults(self,xx_end):
+
+        h,v,gama,M = numpy.transpose(xx_end)
+
+        GM = self.con['GM']       # km^3 s^-2
+        R = self.con['R']               # km
+
+        r = R + h
+        cosGama = numpy.cos(gama)
+        sinGama = numpy.sin(gama)
+        momAng = r * v * cosGama
+        print("Ang mom:",momAng)
+        en = .5 * v * v - GM/r
+        print("Energy:",en)
+        a = - .5*GM/en
+        print("Semi-major axis:",a)
+        aux = v * momAng / GM
+        e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
+        print("Eccentricity:",e)
+
+        print("Final altitude:",h)
+        ph = a * (1.0 - e) - R
+        print("Perigee altitude:",ph)
+        ah = 2*(a - R) - ph
+        print("Apogee altitude:",ah)
+
+        return e
 
 if __name__ == "__main__":
 
@@ -977,17 +971,10 @@ if __name__ == "__main__":
     #    (gamma - gamma_final)/0.1
     #    (h - h_final)/10
 
-
     ################
-    # Initital display of vehicle trajectory
-    con = itsInitialization('default.its')
-    factors = (con['fsup'] + con['finf'])/2
-    displayResults(factors,con['h_final'],con['Mu'],con,con['tol'])
-
-    # Factor adjustment
-    new_factors,_,_,_,tabAlpha,tabBeta = its()
+    trajectory = its()
 
     # Results with automatic adjustment
 
-    print("\n\rTotal number of trajectory simulations", totalTrajectorySimulationCounter)
+
     #input("Press any key to finish...")
