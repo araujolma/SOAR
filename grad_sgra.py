@@ -253,54 +253,97 @@ def calcQ(self,dbugOpt={}):
     return Q,Qx,Qu,Qp,Qt
 
 def calcStepGrad(self,corr,dbugOpt={}):
-
     print("\nIn calcStepGrad.\n")
-    
-    Q0,_,_,_,_ = self.calcQ(dbugOpt)
+    cont = 0
+    # Get initial status (Q0, no correction applied)
+    Q0,_,_,_,_ = self.calcQ(dbugOpt); cont += 1
     P0,_,_ = self.calcP(dbugOpt)
     print("P0 = {:.4E}".format(P0))
     I0 = self.calcI()
     print("I0 = {:.4E}\n".format(I0))
     
-    newSol = self.copy()
-    newSol.aplyCorr(.8,corr,dbugOpt)
-    Q1m,_,_,_,_ = newSol.calcQ(dbugOpt)
-    P1m,_,_ = newSol.calcP(dbugOpt)
-    print("P1m = {:.4E}".format(P1m))
-    I1m = newSol.calcI()
-    print("I1m = {:.4E}\n".format(I1m))
-
+    # Get status associated with integral correction (alfa=1.0)
     newSol = self.copy()
     newSol.aplyCorr(1.0,corr,dbugOpt)
-    Q1,_,_,_,_ = newSol.calcQ(dbugOpt)
+    Q1,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
     P1,_,_ = newSol.calcP(dbugOpt)    
     print("P1 = {:.4E}".format(P1))
     I1 = newSol.calcI()
     print("I1 = {:.4E}\n".format(I1))
+    
+    histQ = [Q1]
+    histAlfa = [1.0]
+    
+    # Search for a better starting point for alfa, one that does not make Q
+    # more than 10 times bigger.
+#    Q = Q1; alfa = 1.0 #;  contGran = 0
+#    while Q/Q0 >= 10.0:
+#        alfa *= 0.1
+#        newSol = self.copy()
+#        newSol.aplyCorr(alfa,corr,dbugOpt)
+#        Q,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+#        print("alfa =",alfa,", Q = {:.6E}".format(Q),\
+#              " (Q0 = {:.6E})\n".format(Q0))
+#        histQ.append(Q)
+#        histAlfa.append(alfa)
+#        #contGran+=1
 
-    newSol = self.copy()
-    newSol.aplyCorr(1.2,corr,dbugOpt)
-    Q1M,_,_,_,_ = newSol.calcQ(dbugOpt)
-    P1M,_,_ = newSol.calcP(dbugOpt)
-    print("P1M = {:.4E}".format(P1M))
-    I1M = newSol.calcI()
-    print("I1M = {:.4E}\n".format(I1M))
-    
-    histQ = [Q1M,Q1,Q1m]
-    histAlfa = [1.2,1.0,0.8]
-    
-    if Q1 >= Q1m or Q1 >= Q0:
-        # alfa = 1.0 is too much. Reduce alfa.
+    Q = Q1; alfa = 1.0 #;  contGran = 0
+    if Q/Q0 >= 10.0:
+        print("Going back to safe region of alphas...\n")
+        keepLook = True
+        dAlfa = 0.1
+        cond = lambda Q: Q/Q0>10.0
+    elif Q<Q0:
+        print("This seems boring. Going forward!\n")
+        keepLook = True
+        dAlfa = 10.0
+        cond = lambda Q: Q<Q0
         
-        nQ = Q1; alfa=.8
-        cont = 0; keepSearch = (nQ>Q0)
+    while keepLook:
+        alfa *= dAlfa
+        newSol = self.copy()
+        newSol.aplyCorr(alfa,corr,dbugOpt)
+        Q,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+        print("alfa =",alfa,", Q = {:.6E}".format(Q),\
+              " (Q0 = {:.6E})\n".format(Q0))
+        histQ.append(Q)
+        histAlfa.append(alfa)
+        keepLook = cond(Q)
+        #contGran+=1
+    
+    # Now Q is not so much bigger than Q0. Start "bilateral analysis"
+    print("Starting bilateral analysis...\n")
+    alfa0 = alfa
+    alfa = 1.2*alfa0 
+    newSol = self.copy()
+    newSol.aplyCorr(alfa,corr,dbugOpt)
+    Q1M,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+    print("alfa =",alfa,", Q = {:.6E}".format(Q1M),\
+          " (Q0 = {:.6E})\n".format(Q0))
+    histQ.append(Q1M)
+    histAlfa.append(alfa)
+    
+    alfa = .8*alfa0 
+    newSol = self.copy()
+    newSol.aplyCorr(alfa,corr,dbugOpt)
+    Q1m,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+    print("alfa =",alfa,", Q = {:.6E}".format(Q1m),\
+          " (Q0 = {:.6E})\n".format(Q0))
+    histQ.append(Q1m)
+    histAlfa.append(alfa)
+    
+    # Start refined search
+    
+    if Q1m < Q: 
+        # if the tendency is to still decrease alfa, do it...
+        nQ = Q; keepSearch = (nQ>Q0)
         while keepSearch and alfa > 1.0e-15:
-            cont += 1
             Q = nQ
             alfa *= .8
             newSol = self.copy()
             newSol.aplyCorr(alfa,corr,dbugOpt)
-            nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
+            nQ,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
             print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
                   " (Q0 = {:.6E})\n".format(Q0))
             histQ.append(nQ)
@@ -309,26 +352,19 @@ def calcStepGrad(self,corr,dbugOpt={}):
             if nQ < Q0:
                 print("fact = ",(nQ-Q)/Q,"\n")
                 keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
-       
     else:
-        
-#        return 1.0
-        
-        if Q1 <= Q1M:
-            # alfa = 1.0 is likely to be best value. 
-            # Better not to waste time and return 1.0 
-            alfa = 1.0
+        if Q1 <= Q1M: 
+            alfa = alfa0 # BRASIL
         else:
-            # There is still a descending gradient here. Increase alfa!
+            # There still seems to be a negative gradient here. Increase alfa!
             nQ = Q1M
-            alfa=1.2; cont = 0; keepSearch = True#(nPint>Pint1M)
+            alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
             while keepSearch:
-                cont += 1
                 Q = nQ
                 alfa *= 1.2
                 newSol = self.copy()
                 newSol.aplyCorr(alfa,corr,dbugOpt)
-                nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
+                nQ,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
                 print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
                       " (Q0 = {:.4E})".format(Q0),"\n")
                 histQ.append(nQ)
@@ -336,9 +372,11 @@ def calcStepGrad(self,corr,dbugOpt={}):
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
-    
+            
+    # after all this analysis, plot the history of the tried alfas, and 
+    # corresponding Q's        
     plt.loglog(histAlfa,histQ,'o')
-    plt.loglog(histAlfa[0:3],histQ[0:3],'ok')
+    #plt.loglog(histAlfa[0,contGran,contGran+1],histQ[0,contGran,contGran+1],'ok')
     linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
     linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
     plt.loglog(linhAlfa,linQ0,'--')
@@ -347,7 +385,103 @@ def calcStepGrad(self,corr,dbugOpt={}):
     plt.ylabel("Q")
     plt.title("Q versus Grad Step for current Grad run")
     plt.show()
+    print("Number of calcQ evaluations:",cont)
     input("What now?")
+    
+#    print("\nIn calcStepGrad.\n")
+#    
+#    Q0,_,_,_,_ = self.calcQ(dbugOpt)
+#    P0,_,_ = self.calcP(dbugOpt)
+#    print("P0 = {:.4E}".format(P0))
+#    I0 = self.calcI()
+#    print("I0 = {:.4E}\n".format(I0))
+#    
+#    newSol = self.copy()
+#    newSol.aplyCorr(.8,corr,dbugOpt)
+#    Q1m,_,_,_,_ = newSol.calcQ(dbugOpt)
+#    P1m,_,_ = newSol.calcP(dbugOpt)
+#    print("P1m = {:.4E}".format(P1m))
+#    I1m = newSol.calcI()
+#    print("I1m = {:.4E}\n".format(I1m))
+#
+#    newSol = self.copy()
+#    newSol.aplyCorr(1.0,corr,dbugOpt)
+#    Q1,_,_,_,_ = newSol.calcQ(dbugOpt)
+#    P1,_,_ = newSol.calcP(dbugOpt)    
+#    print("P1 = {:.4E}".format(P1))
+#    I1 = newSol.calcI()
+#    print("I1 = {:.4E}\n".format(I1))
+#
+#    newSol = self.copy()
+#    newSol.aplyCorr(1.2,corr,dbugOpt)
+#    Q1M,_,_,_,_ = newSol.calcQ(dbugOpt)
+#    P1M,_,_ = newSol.calcP(dbugOpt)
+#    print("P1M = {:.4E}".format(P1M))
+#    I1M = newSol.calcI()
+#    print("I1M = {:.4E}\n".format(I1M))
+#    
+#    histQ = [Q1M,Q1,Q1m]
+#    histAlfa = [1.2,1.0,0.8]
+#    
+#    if Q1 >= Q1m or Q1 >= Q0:
+#        # alfa = 1.0 is too much. Reduce alfa.
+#        
+#        nQ = Q1; alfa=.8
+#        cont = 0; keepSearch = (nQ>Q0)
+#        while keepSearch and alfa > 1.0e-15:
+#            cont += 1
+#            Q = nQ
+#            alfa *= .8
+#            newSol = self.copy()
+#            newSol.aplyCorr(alfa,corr,dbugOpt)
+#            nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
+#            print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
+#                  " (Q0 = {:.6E})\n".format(Q0))
+#            histQ.append(nQ)
+#            histAlfa.append(alfa)
+#            print(Q0-nQ)
+#            if nQ < Q0:
+#                print("fact = ",(nQ-Q)/Q,"\n")
+#                keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
+#       
+#    else:
+#        
+##        return 1.0
+#        
+#        if Q1 <= Q1M:
+#            # alfa = 1.0 is likely to be best value. 
+#            # Better not to waste time and return 1.0 
+#            alfa = 1.0
+#        else:
+#            # There is still a descending gradient here. Increase alfa!
+#            nQ = Q1M
+#            alfa=1.2; cont = 0; keepSearch = True#(nPint>Pint1M)
+#            while keepSearch:
+#                cont += 1
+#                Q = nQ
+#                alfa *= 1.2
+#                newSol = self.copy()
+#                newSol.aplyCorr(alfa,corr,dbugOpt)
+#                nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
+#                print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
+#                      " (Q0 = {:.4E})".format(Q0),"\n")
+#                histQ.append(nQ)
+#                histAlfa.append(alfa)
+#                keepSearch = nQ<Q
+#                #if nPint < Pint0:
+#            alfa /= 1.2
+#    
+#    plt.loglog(histAlfa,histQ,'o')
+#    plt.loglog(histAlfa[0:3],histQ[0:3],'ok')
+#    linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
+#    linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
+#    plt.loglog(linhAlfa,linQ0,'--')
+#    plt.grid(True)
+#    plt.xlabel("alfa")
+#    plt.ylabel("Q")
+#    plt.title("Q versus Grad Step for current Grad run")
+#    plt.show()
+#    input("What now?")
     
     return alfa
 
