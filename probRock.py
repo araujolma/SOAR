@@ -23,8 +23,8 @@ class prob(sgra):
         self.N = N
         self.n = n
         self.m = m
-        self.p = 1
-        self.q = 3
+        self.p = p
+        self.q = q
         
         sizes = {'N':N,
                  'n':n,
@@ -693,107 +693,13 @@ class prob(sgra):
         plt.legend()
         plt.show()
             
-#        plotSolza(sizes,t,x,u,pi,constants,restrictions,compare):
-#+    
-#+    alpha_min = restrictions['alpha_min']
-#+    alpha_max = restrictions['alpha_max']
-#+    beta_min = restrictions['beta_min']
-#+    beta_max = restrictions['beta_max']
-#+    
-#+    a1 = (alpha_max + alpha_min)/2
-#+    a2 = (alpha_max - alpha_min)/2
-#+    b1 = (beta_max + beta_min)/2
-#+    b2 = (beta_max - beta_min)/2
-#+    
-#+    if compare==False:
-#+        x_initial = x
-#+        u_initial = u
-#+        
-#+        plt.plot(t,x[:,0],'y')
-#+        plt.grid(True)
-#+        plt.ylabel("h [km]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+    
-#+        plt.plot(t,x[:,1],'g')
-#+        plt.grid(True)
-#+        plt.ylabel("V [km/s]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+    
-#+        plt.plot(t,x[:,2]*180/numpy.pi,'r')
-#+        plt.grid(True)
-#+        plt.ylabel("gamma [deg]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+    
-#+        plt.plot(t,x[:,3],'m')
-#+        plt.grid(True)
-#+        plt.ylabel("m [kg]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+                
-#+        plt.plot(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
-#+        plt.grid(True)
-#+        plt.xlabel("t [-]")
-#+        plt.ylabel("Attack angle [deg]")
-#+        plt.show()
-#+    
-#+        plt.plot(t,(numpy.sin(u[:,1])*b2 + b1),'c')
-#+        plt.grid(True)
-#+        plt.xlabel("t [-]")
-#+        plt.ylabel("Thrust profile [-]")
-#+        plt.show()        
-#+        
-#+    else:
-#+        plt.semilogy(t,x_initial[:,0])
-#+        plt.hold(True)
-#+        plt.semilogy(t,x[:,0],'y')
-#+        plt.grid()
-#+        plt.ylabel("h [km]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+        
-#+        plt.semilogy(t,x_initial[:,1])
-#+        plt.hold(True)
-#+        plt.semilogy(t,x[:,1],'g')
-#+        plt.grid()
-#+        plt.ylabel("V [km/s]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+        
-#+        plt.semilogy(t,x_initial[:,2]*180/numpy.pi)
-#+        plt.hold(True)
-#+        plt.semilogy(t,x[:,2]*180/numpy.pi,'r')    
-#+        plt.grid()
-#+        plt.ylabel("gamma [deg]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+        
-#+        plt.semilogy(t,x_initial[:,3],'m')
-#+        plt.hold(True)
-#+        plt.semilogy(t,x[:,3],'m')
-#+        plt.grid()
-#+        plt.ylabel("m [kg]")
-#+        plt.xlabel("t [-]")
-#+        plt.show()
-#+                    
-#+        plt.semilogy(t,(numpy.sin(u_initial[:,0])*a2 + a1)*180/numpy.pi)
-#+        plt.hold(True)
-#+        plt.semilogy(t,(numpy.sin(u[:,0])*a2 + a1)*180/numpy.pi,'b')
-#+        plt.grid()
-#+        plt.xlabel("t [-]")
-#+        plt.ylabel("Attack angle [deg]")
-#+        plt.show()
-#+        
-#+        plt.semilogy(t,(numpy.sin(u_initial[:,1])*b2 + b1))
-#+        plt.hold(True)
-#+        plt.semilogy(t,(numpy.sin(u[:,1])*b2 + b1),'c')
-#+        plt.grid()
-#+        plt.xlabel("t [-]")
-#+        plt.ylabel("Thrust profile [-]")
-#+        plt.show()
-        
+        print("Final rocket mass:")       
+        mFinSol, mFinAlt = self.x[self.N-1,3], altSol.x[altSol.N-1,3]
+        print(currSolLabl+": {:.4E}".format(mFinSol)+" kg.")
+        print(altSolLabl+": {:.4E}".format(mFinAlt)+" kg.")
+        print("Difference: {:.4E}".format(mFinSol-mFinAlt)+" kg, "+\
+              "{:.4E}".format(100.0*(mFinSol-mFinAlt)/self.mPayl)+\
+              "% more payload!\n")
         
         
     def plotTraj(self):

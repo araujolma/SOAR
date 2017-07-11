@@ -151,6 +151,7 @@ class ITman():
               ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
               ", Qt = {:.4E}".format(Qt)+"\n")
         sol.plotSol()
+        sol.plotTraj() 
         return sol,solInit
     
     def restRnds(self,sol):

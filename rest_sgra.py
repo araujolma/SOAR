@@ -213,7 +213,7 @@ def calcStepRest(self,corr,dbugOpt={}):
                 keepSearch = ((nP-P)/P < -.05)
     else:
         # no "overdrive!"
-        return 1.0
+        #return 1.0
     
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 
@@ -223,6 +223,7 @@ def calcStepRest(self,corr,dbugOpt={}):
             # There is still a descending gradient here. Increase alfa!
             nP = P1M
             cont = 0; keepSearch = True#(nPint>Pint1M)
+            alfa = 1.2
             while keepSearch:
                 cont += 1
                 P = nP
@@ -239,7 +240,7 @@ def calcStepRest(self,corr,dbugOpt={}):
 
 def rest(self,dbugOpt={}):
      
-    print("\nIn rest.")
+    print("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     # get sizes
     N,n,m,p,q = self.N,self.n,self.m,self.p,self.q

@@ -6,7 +6,7 @@ Created on Tue Jun 27 13:07:35 2017
 @author: levi
 """
 
-import rest_sgra, grad_sgra, numpy, copy, pickle, datetime, pprint
+import rest_sgra, grad_sgra, numpy, copy, pprint
 import matplotlib.pyplot as plt
 
 class sgra():
@@ -75,6 +75,13 @@ class sgra():
 #        keyList = dPars.keys()
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
+#%% Just for avoiding compatibilization issues with other problems
+    
+    def plotTraj(self):
+        pass
+    
+    def compWith(self,*args,**kwargs):
+        pass
     
 #%% RESTORATION-WISE METHODS
     

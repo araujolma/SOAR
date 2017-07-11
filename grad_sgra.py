@@ -285,9 +285,13 @@ def calcStepGrad(self,corr,dbugOpt={}):
     print("P1M = {:.4E}".format(P1M))
     I1M = newSol.calcI()
     print("I1M = {:.4E}\n".format(I1M))
-        
+    
+    histQ = [Q1M,Q1,Q1m]
+    histAlfa = [1.2,1.0,0.8]
+    
     if Q1 >= Q1m or Q1 >= Q0:
         # alfa = 1.0 is too much. Reduce alfa.
+        
         nQ = Q1; alfa=.8
         cont = 0; keepSearch = (nQ>Q0)
         while keepSearch and alfa > 1.0e-15:
@@ -299,10 +303,13 @@ def calcStepGrad(self,corr,dbugOpt={}):
             nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
             print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
                   " (Q0 = {:.6E})\n".format(Q0))
+            histQ.append(nQ)
+            histAlfa.append(alfa)
             print(Q0-nQ)
             if nQ < Q0:
                 print("fact = ",(nQ-Q)/Q,"\n")
                 keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
+       
     else:
         
 #        return 1.0
@@ -310,7 +317,7 @@ def calcStepGrad(self,corr,dbugOpt={}):
         if Q1 <= Q1M:
             # alfa = 1.0 is likely to be best value. 
             # Better not to waste time and return 1.0 
-            return 1.0
+            alfa = 1.0
         else:
             # There is still a descending gradient here. Increase alfa!
             nQ = Q1M
@@ -322,17 +329,32 @@ def calcStepGrad(self,corr,dbugOpt={}):
                 newSol = self.copy()
                 newSol.aplyCorr(alfa,corr,dbugOpt)
                 nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
-                print("\n alfa =",alfa,", Q = {:.4E}".format(nQ),\
+                print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
                       " (Q0 = {:.4E})".format(Q0),"\n")
+                histQ.append(nQ)
+                histAlfa.append(alfa)
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
+    
+    plt.loglog(histAlfa,histQ,'o')
+    plt.loglog(histAlfa[0:3],histQ[0:3],'ok')
+    linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
+    linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
+    plt.loglog(linhAlfa,linQ0,'--')
+    plt.grid(True)
+    plt.xlabel("alfa")
+    plt.ylabel("Q")
+    plt.title("Q versus Grad Step for current Grad run")
+    plt.show()
+    input("What now?")
+    
     return alfa
 
 
 def grad(self,dbugOpt={}):
     
-    print("In grad.")
+    print("In grad, Q0 = {:.4E}.".format(self.Q))
 #    print("Q0 =",Q0,"\n")
     # get sizes
     N,n,m,p,q = self.N,self.n,self.m,self.p,self.q

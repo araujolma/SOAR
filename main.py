@@ -11,15 +11,8 @@ import datetime, time
 
 from interf import ITman
 import probRock as prob
-
-# MODOS: full debug (esperar)
-# Gradiente: 
-    # full debug: imprime tudo, espera comando para seguir
-    # autonomo: imprime nada, passa pra próxima sozinho
-    # soneca: imprime nada, conta algumas iterações passando sozinho depois pergunta
-    # print: imprime tudo
-
-#    
+#import prob101 as prob
+#import probCart as prob
 
             
 #%%
@@ -43,7 +36,6 @@ if __name__ == "__main__":
     start_time = time.time()
     sol,solInit = ITman.setInitSol(sol)
     
-    sol.plotTraj()  
     sol = ITman.frstRestRnds(sol)
 
     sol = ITman.gradRestCycl(sol,solInit)
