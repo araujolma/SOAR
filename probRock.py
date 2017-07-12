@@ -698,7 +698,7 @@ class prob(sgra):
         print(currSolLabl+": {:.4E}".format(mFinSol)+" kg.")
         print(altSolLabl+": {:.4E}".format(mFinAlt)+" kg.")
         print("Difference: {:.4E}".format(mFinSol-mFinAlt)+" kg, "+\
-              "{:.4E}".format(100.0*(mFinSol-mFinAlt)/self.mPayl)+\
+              "{:.4G}".format(100.0*(mFinSol-mFinAlt)/self.mPayl)+\
               "% more payload!\n")
         
         

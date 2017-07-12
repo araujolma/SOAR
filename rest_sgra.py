@@ -229,7 +229,8 @@ def calcStepRest(self,corr,dbugOpt={}):
                 P = nP
                 alfa *= 1.2
                 newSol = self.copy()
-                nP,_,_ = newSol.aplyCorr(alfa,corr,dbugOpt).calcP(dbugOpt)
+                newSol.aplyCorr(alfa,corr,dbugOpt)
+                nP,_,_ = newSol.calcP(dbugOpt)
                 print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                       " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
