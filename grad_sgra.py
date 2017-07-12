@@ -10,7 +10,7 @@ import numpy
 from utils import ddt
 import matplotlib.pyplot as plt
 
-def calcQ(self,dbugOpt={}):
+def calcQ(self):
     # Q expression from (15)
     #print("\nIn calcQ.\n")
     N = self.N
@@ -82,191 +82,216 @@ def calcQ(self,dbugOpt={}):
 
     # TODO: break these plots into more conditions
 
-    if dbugOpt.get('plot',False):
-        tPlot = numpy.arange(0,1.0+dt,dt)
+    if self.dbugOptGrad['main']:
+        print("\nDebug plots for this calcQ run:")
         
-        plt.plot(tPlot,normErrQx)
-        plt.grid(True)
-        plt.title("Integrand of Qx")
-        plt.show()
+        if self.dbugOptGrad['plotQx']:
+            plt.plot(self.t,normErrQx)
+            plt.grid(True)
+            plt.title("Integrand of Qx")
+            plt.show()
         
-        plt.plot(tPlot,normErrQu)
-        plt.grid(True)
-        plt.title("Integrand of Qu")
-        plt.show()
+        if self.dbugOptGrad['plotQu']:                
+            plt.plot(self.t,normErrQu)
+            plt.grid(True)
+            plt.title("Integrand of Qu")
+            plt.show()
 
         # for zoomed version:
         indMaxQx = normErrQx.argmax()
         ind1 = numpy.array([indMaxQx-20,0]).max()
         ind2 = numpy.array([indMaxQx+20,N-1]).min()
-        plt.plot(tPlot[ind1:ind2],normErrQx[ind1:ind2],'o')
-        plt.grid(True)
-        plt.title("Integrand of Qx (zoom)")
-        plt.show()
         
-        if n==4 and m==2:
+        if self.dbugOptGrad['plotQxZoom']:
+            plt.plot(self.t[ind1:ind2],normErrQx[ind1:ind2],'o')
+            plt.grid(True)
+            plt.title("Integrand of Qx (zoom)")
+            plt.show()
+        
+        if self.dbugOptGrad['plotSolQxMax']:
+            print("\nSolution on the region of MaxQx:")
+            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
             
-            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,0])
+        # for zoomed version:
+        indMaxQu = normErrQu.argmax()
+        ind1 = numpy.array([indMaxQu-20,0]).max()
+        ind2 = numpy.array([indMaxQu+20,N-1]).min()
+        
+        if self.dbugOptGrad['plotQuZoom']:
+            plt.plot(self.t[ind1:ind2],normErrQu[ind1:ind2],'o')
             plt.grid(True)
-            plt.ylabel("Qx_h")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("Qx_V")
+            plt.title("Integrand of Qu (zoom)")
             plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,2],'r')
-            plt.grid(True)
-            plt.ylabel("Qx_gamma")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("Qx_m")
-            plt.show()
-            
-            print("\nStates, controls, lambda on the region of maxQx:")
-
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("h [km]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("V [km/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gamma [deg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("m [kg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-            plt.grid(True)
-            plt.ylabel("u1 [-]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-            plt.grid(True)
-            plt.xlabel("t")
-            plt.ylabel("u2 [-]")
-            plt.show()
-            
-            print("Lambda:")
-            
-            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("lam_h")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("lam_V")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,2],'r')
-            plt.grid(True)
-            plt.ylabel("lam_gamma")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("lam_m")
-            plt.show()
-            
-#            print("dLambda/dt:")
+        
+        if self.dbugOptGrad['plotSolQuMax']:
+            print("\nSolution on the region of MaxQu:")
+            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
+        
+        
+#        if n==4 and m==2:
+#            
+#            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,0])
+#            plt.grid(True)
+#            plt.ylabel("Qx_h")
+#            plt.show()        
+#    
+#            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,1],'g')
+#            plt.grid(True)
+#            plt.ylabel("Qx_V")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,2],'r')
+#            plt.grid(True)
+#            plt.ylabel("Qx_gamma")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,3],'m')
+#            plt.grid(True)
+#            plt.ylabel("Qx_m")
+#            plt.show()
+#            
+#            print("\nStates, controls, lambda on the region of maxQx:")
+#
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
+#            plt.grid(True)
+#            plt.ylabel("h [km]")
+#            plt.show()        
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
+#            plt.grid(True)
+#            plt.ylabel("V [km/s]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
+#            plt.grid(True)
+#            plt.ylabel("gamma [deg]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
+#            plt.grid(True)
+#            plt.ylabel("m [kg]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
+#            plt.grid(True)
+#            plt.ylabel("u1 [-]")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
+#            plt.grid(True)
+#            plt.xlabel("t")
+#            plt.ylabel("u2 [-]")
+#            plt.show()
+#            
+#            print("Lambda:")
+#            
+#            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,0])
+#            plt.grid(True)
+#            plt.ylabel("lam_h")
+#            plt.show()        
+#    
+#            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,1],'g')
+#            plt.grid(True)
+#            plt.ylabel("lam_V")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,2],'r')
+#            plt.grid(True)
+#            plt.ylabel("lam_gamma")
+#            plt.show()
+#    
+#            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,3],'m')
+#            plt.grid(True)
+#            plt.ylabel("lam_m")
+#            plt.show()
+#            
+##            print("dLambda/dt:")
+##            
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
+##            plt.grid(True)
+##            plt.ylabel("dlam_h")
+##            plt.show()        
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
+##            plt.grid(True)
+##            plt.ylabel("dlam_V")
+##            plt.show()
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2],'r')
+##            plt.grid(True)
+##            plt.ylabel("dlam_gamma")
+##            plt.show()
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3],'m')
+##            plt.grid(True)
+##            plt.ylabel("dlam_m")
+##            plt.show()
+##            
+##            print("-phix*lambda:")
+##            
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0])
+##            plt.grid(True)
+##            plt.ylabel("-phix*lambda_h")
+##            plt.show()        
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'g')
+##            plt.grid(True)
+##            plt.ylabel("-phix*lambda_V")
+##            plt.show()
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'r')
+##            plt.grid(True)
+##            plt.ylabel("-phix*lambda_gamma")
+##            plt.show()
+##    
+##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'m')
+##            plt.grid(True)
+##            plt.ylabel("-phix*lambda_m")
+##            plt.show()
+#
+#            print("\nBlue: dLambda/dt; Black: -phix*lam")
 #            
 #            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0],'k')
 #            plt.grid(True)
-#            plt.ylabel("dlam_h")
+#            plt.ylabel("z_h")
 #            plt.show()        
 #    
 #            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'k')
 #            plt.grid(True)
-#            plt.ylabel("dlam_V")
+#            plt.ylabel("z_V")
 #            plt.show()
 #    
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2],'r')
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2])
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'k')
 #            plt.grid(True)
-#            plt.ylabel("dlam_gamma")
+#            plt.ylabel("z_gamma")
 #            plt.show()
 #    
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3],'m')
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3])
+#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'k')
 #            plt.grid(True)
-#            plt.ylabel("dlam_m")
-#            plt.show()
-#            
-#            print("-phix*lambda:")
-#            
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0])
-#            plt.grid(True)
-#            plt.ylabel("-phix*lambda_h")
-#            plt.show()        
-#    
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'g')
-#            plt.grid(True)
-#            plt.ylabel("-phix*lambda_V")
-#            plt.show()
-#    
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'r')
-#            plt.grid(True)
-#            plt.ylabel("-phix*lambda_gamma")
-#            plt.show()
-#    
-#            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'m')
-#            plt.grid(True)
-#            plt.ylabel("-phix*lambda_m")
+#            plt.ylabel("z_m")
 #            plt.show()
 
-            print("\nBlue: dLambda/dt; Black: -phix*lam")
-            
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0],'k')
-            plt.grid(True)
-            plt.ylabel("z_h")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'k')
-            plt.grid(True)
-            plt.ylabel("z_V")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2])
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'k')
-            plt.grid(True)
-            plt.ylabel("z_gamma")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3])
-            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'k')
-            plt.grid(True)
-            plt.ylabel("z_m")
-            plt.show()
     return Q,Qx,Qu,Qp,Qt
 
-def calcStepGrad(self,corr,dbugOpt={}):
+def calcStepGrad(self,corr):
     print("\nIn calcStepGrad.\n")
     cont = 0
     # Get initial status (Q0, no correction applied)
-    Q0,_,_,_,_ = self.calcQ(dbugOpt); cont += 1
-    P0,_,_ = self.calcP(dbugOpt)
+    Q0,_,_,_,_ = self.calcQ(); cont += 1
+    P0,_,_ = self.calcP()
     print("P0 = {:.4E}".format(P0))
     I0 = self.calcI()
     print("I0 = {:.4E}\n".format(I0))
     
     # Get status associated with integral correction (alfa=1.0)
     newSol = self.copy()
-    newSol.aplyCorr(1.0,corr,dbugOpt)
-    Q1,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
-    P1,_,_ = newSol.calcP(dbugOpt)    
+    newSol.aplyCorr(1.0,corr)
+    Q1,_,_,_,_ = newSol.calcQ(); cont += 1
+    P1,_,_ = newSol.calcP()    
     print("P1 = {:.4E}".format(P1))
     I1 = newSol.calcI()
     print("I1 = {:.4E}\n".format(I1))
@@ -288,9 +313,9 @@ def calcStepGrad(self,corr,dbugOpt={}):
 #        histAlfa.append(alfa)
 #        #contGran+=1
 
-    Q = Q1; alfa = 1.0 #;  contGran = 0
+    Q = Q1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
     if Q/Q0 >= 10.0:
-        print("Going back to safe region of alphas...\n")
+        print("Whoa! Going back to safe region of alphas...\n")
         keepLook = True
         dAlfa = 0.1
         cond = lambda nQ,Q: nQ/Q0>10.0
@@ -305,8 +330,8 @@ def calcStepGrad(self,corr,dbugOpt={}):
         Q = nQ
         alfa *= dAlfa
         newSol = self.copy()
-        newSol.aplyCorr(alfa,corr,dbugOpt)
-        nQ,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+        newSol.aplyCorr(alfa,corr)
+        nQ,_,_,_,_ = newSol.calcQ(); cont += 1
         print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
               " (Q0 = {:.6E})\n".format(Q0))
         histQ.append(nQ)
@@ -321,8 +346,8 @@ def calcStepGrad(self,corr,dbugOpt={}):
     alfa0 = alfa
     alfa = 1.2*alfa0 
     newSol = self.copy()
-    newSol.aplyCorr(alfa,corr,dbugOpt)
-    QM,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+    newSol.aplyCorr(alfa,corr)
+    QM,_,_,_,_ = newSol.calcQ(); cont += 1
     print("alfa =",alfa,", Q = {:.6E}".format(QM),\
           " (Q0 = {:.6E})\n".format(Q0))
     histQ.append(QM)
@@ -330,8 +355,8 @@ def calcStepGrad(self,corr,dbugOpt={}):
     
     alfa = .8*alfa0 
     newSol = self.copy()
-    newSol.aplyCorr(alfa,corr,dbugOpt)
-    Qm,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+    newSol.aplyCorr(alfa,corr)
+    Qm,_,_,_,_ = newSol.calcQ(); cont += 1
     print("alfa =",alfa,", Q = {:.6E}".format(Qm),\
           " (Q0 = {:.6E})\n".format(Q0))
     histQ.append(Qm)
@@ -347,8 +372,8 @@ def calcStepGrad(self,corr,dbugOpt={}):
             Q = nQ
             alfa *= .8
             newSol = self.copy()
-            newSol.aplyCorr(alfa,corr,dbugOpt)
-            nQ,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+            newSol.aplyCorr(alfa,corr)
+            nQ,_,_,_,_ = newSol.calcQ(); cont += 1
             print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
                   " (Q0 = {:.6E})\n".format(Q0))
             histQ.append(nQ)
@@ -371,8 +396,8 @@ def calcStepGrad(self,corr,dbugOpt={}):
                 Q = nQ
                 alfa *= 1.2
                 newSol = self.copy()
-                newSol.aplyCorr(alfa,corr,dbugOpt)
-                nQ,_,_,_,_ = newSol.calcQ(dbugOpt); cont += 1
+                newSol.aplyCorr(alfa,corr)
+                nQ,_,_,_,_ = newSol.calcQ(); cont += 1
                 print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
                       " (Q0 = {:.4E})".format(Q0),"\n")
                 histQ.append(nQ)
@@ -401,106 +426,11 @@ def calcStepGrad(self,corr,dbugOpt={}):
     print("Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
     print("Number of calcQ evaluations:",cont)
     input("What now?")
-    
-#    print("\nIn calcStepGrad.\n")
-#    
-#    Q0,_,_,_,_ = self.calcQ(dbugOpt)
-#    P0,_,_ = self.calcP(dbugOpt)
-#    print("P0 = {:.4E}".format(P0))
-#    I0 = self.calcI()
-#    print("I0 = {:.4E}\n".format(I0))
-#    
-#    newSol = self.copy()
-#    newSol.aplyCorr(.8,corr,dbugOpt)
-#    Q1m,_,_,_,_ = newSol.calcQ(dbugOpt)
-#    P1m,_,_ = newSol.calcP(dbugOpt)
-#    print("P1m = {:.4E}".format(P1m))
-#    I1m = newSol.calcI()
-#    print("I1m = {:.4E}\n".format(I1m))
-#
-#    newSol = self.copy()
-#    newSol.aplyCorr(1.0,corr,dbugOpt)
-#    Q1,_,_,_,_ = newSol.calcQ(dbugOpt)
-#    P1,_,_ = newSol.calcP(dbugOpt)    
-#    print("P1 = {:.4E}".format(P1))
-#    I1 = newSol.calcI()
-#    print("I1 = {:.4E}\n".format(I1))
-#
-#    newSol = self.copy()
-#    newSol.aplyCorr(1.2,corr,dbugOpt)
-#    Q1M,_,_,_,_ = newSol.calcQ(dbugOpt)
-#    P1M,_,_ = newSol.calcP(dbugOpt)
-#    print("P1M = {:.4E}".format(P1M))
-#    I1M = newSol.calcI()
-#    print("I1M = {:.4E}\n".format(I1M))
-#    
-#    histQ = [Q1M,Q1,Q1m]
-#    histAlfa = [1.2,1.0,0.8]
-#    
-#    if Q1 >= Q1m or Q1 >= Q0:
-#        # alfa = 1.0 is too much. Reduce alfa.
-#        
-#        nQ = Q1; alfa=.8
-#        cont = 0; keepSearch = (nQ>Q0)
-#        while keepSearch and alfa > 1.0e-15:
-#            cont += 1
-#            Q = nQ
-#            alfa *= .8
-#            newSol = self.copy()
-#            newSol.aplyCorr(alfa,corr,dbugOpt)
-#            nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
-#            print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
-#                  " (Q0 = {:.6E})\n".format(Q0))
-#            histQ.append(nQ)
-#            histAlfa.append(alfa)
-#            print(Q0-nQ)
-#            if nQ < Q0:
-#                print("fact = ",(nQ-Q)/Q,"\n")
-#                keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
-#       
-#    else:
-#        
-##        return 1.0
-#        
-#        if Q1 <= Q1M:
-#            # alfa = 1.0 is likely to be best value. 
-#            # Better not to waste time and return 1.0 
-#            alfa = 1.0
-#        else:
-#            # There is still a descending gradient here. Increase alfa!
-#            nQ = Q1M
-#            alfa=1.2; cont = 0; keepSearch = True#(nPint>Pint1M)
-#            while keepSearch:
-#                cont += 1
-#                Q = nQ
-#                alfa *= 1.2
-#                newSol = self.copy()
-#                newSol.aplyCorr(alfa,corr,dbugOpt)
-#                nQ,_,_,_,_ = newSol.calcQ(dbugOpt)
-#                print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
-#                      " (Q0 = {:.4E})".format(Q0),"\n")
-#                histQ.append(nQ)
-#                histAlfa.append(alfa)
-#                keepSearch = nQ<Q
-#                #if nPint < Pint0:
-#            alfa /= 1.2
-#    
-#    plt.loglog(histAlfa,histQ,'o')
-#    plt.loglog(histAlfa[0:3],histQ[0:3],'ok')
-#    linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
-#    linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
-#    plt.loglog(linhAlfa,linQ0,'--')
-#    plt.grid(True)
-#    plt.xlabel("alfa")
-#    plt.ylabel("Q")
-#    plt.title("Q versus Grad Step for current Grad run")
-#    plt.show()
-#    input("What now?")
-    
+      
     return alfa
 
 
-def grad(self,dbugOpt={}):
+def grad(self):
     
     print("In grad, Q0 = {:.4E}.".format(self.Q))
 #    print("Q0 =",Q0,"\n")
@@ -599,9 +529,9 @@ def grad(self,dbugOpt={}):
                 erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
                 normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
                 
-            if dbugOpt.get('plotLamErr',False):
-                print("\nLambda Error:")
-                print("Cannot plot anymore. :( ")
+#            if dbugOpt.get('plotLamErr',False):
+#                print("\nLambda Error:")
+#                print("Cannot plot anymore. :( ")
                 # TODO: include lambda error plotting mode
                 
                 #optPlot['mode'] = 'states:LambdaError'
@@ -610,11 +540,11 @@ def grad(self,dbugOpt={}):
 
             maxNormErroLam = normErroLam.max()
             print("maxNormErroLam =",maxNormErroLam)
-            if dbugOpt.get('plotLam',False) and (maxNormErroLam > 0):
-                plt.semilogy(normErroLam)
-                plt.grid()
-                plt.title("ErroLam")
-                plt.show()            
+#            if dbugOpt.get('plotLam',False) and (maxNormErroLam > 0):
+#                plt.semilogy(normErroLam)
+#                plt.grid()
+#                plt.title("ErroLam")
+#                plt.show()            
         
         ##################################################################            
                 
@@ -627,8 +557,8 @@ def grad(self,dbugOpt={}):
         C *= -dt #yes, the minus sign is on purpose!
         C -= -psipTr.dot(mu)
 
-        if dbugOpt.get('plotLam',False):
-            print("Cannot plot lambda anymore... for now!")
+#        if dbugOpt.get('plotLam',False):
+#            print("Cannot plot lambda anymore... for now!")
             #optPlot['mode'] = 'states:Lambda'
             #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
@@ -662,20 +592,20 @@ def grad(self,dbugOpt={}):
             erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
             normErroA[k] = erroA[k,:].dot(erroA[k,:])
         
-        if dbugOpt.get('plotAErr',False):
-            print("\nA Error:")
-            print("Cannot plot anymore. :( ")
+#        if dbugOpt.get('plotAErr',False):
+#            print("\nA Error:")
+#            print("Cannot plot anymore. :( ")
             #optPlot['mode'] = 'states:AError'
             #plotSol(sizes,t,erroA,B,C,\
             #        constants,restrictions,optPlot)            
         
         maxNormErroA = normErroA.max()
         print("maxNormErroA =",maxNormErroA)
-        if dbugOpt.get('plotAErr',False) and (maxNormErroA > 0):
-            plt.semilogy(normErroA)
-            plt.grid()
-            plt.title("ErroA")
-            plt.show()
+#        if dbugOpt.get('plotAErr',False) and (maxNormErroA > 0):
+#            plt.semilogy(normErroA)
+#            plt.grid()
+#            plt.title("ErroA")
+#            plt.show()
         
         arrayA[i,:,:] = A
         arrayB[i,:,:] = B
@@ -729,9 +659,9 @@ def grad(self,dbugOpt={}):
         erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
         normErroA[k] = erroA[k,:].dot(erroA[k,:])
     
-    if dbugOpt.get('plotAErrFin',False):
-        print("\nFINAL A Error:")
-        print("Cannot plot anymore. :( ")
+#    if dbugOpt.get('plotAErrFin',False):
+#        print("\nFINAL A Error:")
+#        print("Cannot plot anymore. :( ")
         #optPlot['mode'] = 'states:AError'
         #plotSol(sizes,t,erroA,B,C,\
         #        constants,restrictions,optPlot)    
@@ -739,35 +669,37 @@ def grad(self,dbugOpt={}):
     
     print("FINAL maxNormErroA =",maxNormErroA)
     
-    if dbugOpt.get('plotAErrFin',False) and (maxNormErroA > 0):
-        plt.semilogy(normErroA)
-        plt.grid()
-        plt.title("ErroA")
-        plt.show()
+#    if dbugOpt.get('plotAErrFin',False) and (maxNormErroA > 0):
+#        plt.semilogy(normErroA)
+#        plt.grid()
+#        plt.title("ErroA")
+#        plt.show()
 
-    if dbugOpt.get('plotLamErrFin',False):
-        print("\nFINAL Lambda Error:")
-        print("Cannot plot anymore. :( ")
+#    if dbugOpt.get('plotLamErrFin',False):
+#        print("\nFINAL Lambda Error:")
+#        print("Cannot plot anymore. :( ")
         #optPlot['mode'] = 'states:LambdaError'
         #plotSol(sizes,t,erroLam,B,C,\
         #    constants,restrictions,optPlot)
         #maxNormErroLam = normErroLam.max()
     print("FINAL maxNormErroLam =",maxNormErroLam)
 
-    if dbugOpt.get('plotLamErrFin',False) and (maxNormErroLam > 0):
-        plt.semilogy(normErroLam)
-        plt.grid()
-        plt.title("ErroLam")
-        plt.show()
+#    if dbugOpt.get('plotLamErrFin',False) and (maxNormErroLam > 0):
+#        plt.semilogy(normErroLam)
+#        plt.grid()
+#        plt.title("ErroLam")
+#        plt.show()
 
     ##########################################
     
     #if (B>numpy.pi).any() or (B<-numpy.pi).any():
     #    print("\nProblems in grad: corrections will result in control overflow.")
     
-#    if mustPlot:
-        #optPlot['mode'] = 'var'
-        #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+    if self.dbugOptGrad['plotCorr']:
+        optPlot = {'mode':'var'}
+        corrSol = self.copy()
+        corrSol.x = A; corrSol.u = B; corrSol.pi = C
+        corrSol.plotSol(opt=optPlot)
         #optPlot['mode'] = 'proposed (states: lambda)'
         #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
 
@@ -775,9 +707,9 @@ def grad(self,dbugOpt={}):
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
     # Calculation of alfa
-    alfa = self.calcStepGrad(corr,dbugOpt)
+    alfa = self.calcStepGrad(corr)
 
-    self.aplyCorr(alfa,corr,dbugOpt)
+    self.aplyCorr(alfa,corr)
     self.updtHistQ(alfa)
     
     # update P just to ensure proper restoration afterwards

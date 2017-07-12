@@ -9,7 +9,7 @@ import numpy
 from utils import ddt
 import matplotlib.pyplot as plt
 
-def calcP(self,dbugOpt={}):
+def calcP(self):
     N = self.N
     dt = self.dt
     x = self.x
@@ -38,164 +38,132 @@ def calcP(self,dbugOpt={}):
     P *= dt
     vetIP *= dt
 
-    if dbugOpt.get('plot',False):
-        tPlot = self.t#Plot = numpy.arange(0,1.0+dt,dt)
+    if self.dbugOptRest['main']:
         
-        plt.plot(tPlot,vetP)
-        plt.grid(True)
-        plt.title("Integrand of P")
-        plt.show()
+        print("\nDebug plots for this calcP run:")
         
-        # for zoomed version:
         indMaxP = vetP.argmax()
         ind1 = numpy.array([indMaxP-20,0]).max()
         ind2 = numpy.array([indMaxP+20,N]).min()
-        plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
-        plt.grid(True)
-        plt.title("Integrand of P (zoom)")
-        plt.show()
         
-        
-        # TODO: break these plots into more conditions
-        n,m = self.n,self.m
-        if n==4 and m==2:
-            print("\nStates and controls on the region of maxP:")
+        if self.dbugOptRest['plotP_int']:
+            plt.plot(self.t,vetP)
+            plt.grid(True)
+            plt.title("Integrand of P")
+            plt.show()
+    
+        if self.dbugOptRest['plotIntP_int']:
+            plt.plot(self.t,vetIP)
+            plt.grid(True)
+            plt.title("Partially integrated P")
+            plt.show()
 
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
+        # for zoomed version:
+        if self.dbugOptRest['plotP_intZoom']:
+            plt.plot(self.t[ind1:ind2],vetP[ind1:ind2],'o')
             plt.grid(True)
-            plt.ylabel("h [km]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("V [km/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gamma [deg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("m [kg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-            plt.grid(True)
-            plt.ylabel("u1 [-]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-            plt.grid(True)
-            plt.xlabel("t")
-            plt.ylabel("u2 [-]")
+            plt.title("Integrand of P (zoom)")
             plt.show()
         
-        
-            plt.plot(tPlot[ind1:ind2],numpy.tanh(u[ind1:ind2,0])*2.0,'k')
-            plt.grid(True)
-            plt.ylabel("alfa [deg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],numpy.tanh(u[ind1:ind2,1])*.5+.5,'c')
-            plt.grid(True)
-            plt.xlabel("t")
-            plt.ylabel("beta [-]")
-            plt.show()
+        if self.dbugOptRest['plotSolMaxP']:
+            print("\nSolution on the region of MaxP:")
+            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
+            
+            # TODO: extend these debug plots
+        if self.dbugOptRest['plotRsidMaxP']:
             
             print("\nResidual on the region of maxP:")
-
-            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("res_hDot [km/s]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("res_vDot [km/s/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("res_gammaDot [deg/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],func[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("res_mDot [kg/s]")
-            plt.show()
+ 
+            if self.n==4 and self.m ==2:
+                plt.plot(self.t[ind1:ind2],func[ind1:ind2,0])
+                plt.grid(True)
+                plt.ylabel("res_hDot [km/s]")
+                plt.show()        
+        
+                plt.plot(self.t[ind1:ind2],func[ind1:ind2,1],'g')
+                plt.grid(True)
+                plt.ylabel("res_vDot [km/s/s]")
+                plt.show()
+        
+                plt.plot(self.t[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
+                plt.grid(True)
+                plt.ylabel("res_gammaDot [deg/s]")
+                plt.show()
+        
+                plt.plot(self.t[ind1:ind2],func[ind1:ind2,3],'m')
+                plt.grid(True)
+                plt.ylabel("res_mDot [kg/s]")
+                plt.show()
             
-            print("\nState time derivatives on the region of maxP:")
-
-            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("hDot [km/s]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("vDot [km/s/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gammaDot [deg/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("mDot [kg/s]")
-            plt.show()
-            
-            print("\nPHI on the region of maxP:")
-
-            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("hDot [km/s]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("vDot [km/s/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gammaDot [deg/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("mDot [kg/s]")
-            plt.show()
-            
-        plt.plot(tPlot,vetIP)
-        plt.grid(True)
-        plt.title("Partially integrated P")
-        plt.show()
-
+    #            print("\nState time derivatives on the region of maxP:")
+    #
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,0])
+    #            plt.grid(True)
+    #            plt.ylabel("hDot [km/s]")
+    #            plt.show()        
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,1],'g')
+    #            plt.grid(True)
+    #            plt.ylabel("vDot [km/s/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,2]*180/numpy.pi,'r')
+    #            plt.grid(True)
+    #            plt.ylabel("gammaDot [deg/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,3],'m')
+    #            plt.grid(True)
+    #            plt.ylabel("mDot [kg/s]")
+    #            plt.show()
+    #            
+    #            print("\nPHI on the region of maxP:")
+    #
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,0])
+    #            plt.grid(True)
+    #            plt.ylabel("hDot [km/s]")
+    #            plt.show()        
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,1],'g')
+    #            plt.grid(True)
+    #            plt.ylabel("vDot [km/s/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,2]*180/numpy.pi,'r')
+    #            plt.grid(True)
+    #            plt.ylabel("gammaDot [deg/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,3],'m')
+    #            plt.grid(True)
+    #            plt.ylabel("mDot [kg/s]")
+    #            plt.show()
+            else:
+                 print("Not implemented (yet).")   
+        #
+    #        
+        
     Pint = P
-    Ppsi = psi.transpose().dot(psi)#norm(psi)**2
+    Ppsi = psi.transpose().dot(psi)
     P += Ppsi
     return P,Pint,Ppsi    
 
-def calcStepRest(self,corr,dbugOpt={}):
+def calcStepRest(self,corr):
     print("\nIn calcStepRest.\n")
     
-    P0,_,_ = calcP(self,dbugOpt)
+    P0,_,_ = calcP(self)
 
     newSol = self.copy()
-    newSol.aplyCorr(.8,corr,dbugOpt)
-    P1m,_,_ = newSol.calcP(dbugOpt)
+    newSol.aplyCorr(.8,corr)
+    P1m,_,_ = newSol.calcP()
 
     newSol = self.copy()
-    newSol.aplyCorr(1.0,corr,dbugOpt)
-    P1,_,_ = newSol.calcP(dbugOpt)
+    newSol.aplyCorr(1.0,corr)
+    P1,_,_ = newSol.calcP()
 
     newSol = self.copy()
-    newSol.aplyCorr(1.2,corr,dbugOpt)
-    P1M,_,_ = newSol.calcP(dbugOpt)
+    newSol.aplyCorr(1.2,corr)
+    P1M,_,_ = newSol.calcP()
             
     if P1 >= P1m or P1 >= P0:
         print("alfa=1.0 is too much.")
@@ -207,8 +175,8 @@ def calcStepRest(self,corr,dbugOpt={}):
             P = nP
             alfa *= .8
             newSol = self.copy()
-            newSol.aplyCorr(alfa,corr,dbugOpt)
-            nP,_,_ = newSol.calcP(dbugOpt)
+            newSol.aplyCorr(alfa,corr)
+            nP,_,_ = newSol.calcP()
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
@@ -229,8 +197,8 @@ def calcStepRest(self,corr,dbugOpt={}):
                 P = nP
                 alfa *= 1.2
                 newSol = self.copy()
-                newSol.aplyCorr(alfa,corr,dbugOpt)
-                nP,_,_ = newSol.calcP(dbugOpt)
+                newSol.aplyCorr(alfa,corr)
+                nP,_,_ = newSol.calcP()
                 print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                       " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
@@ -239,7 +207,7 @@ def calcStepRest(self,corr,dbugOpt={}):
     return alfa
 
 
-def rest(self,dbugOpt={}):
+def rest(self):
      
     print("\nIn rest, P0 = {:.4E}.".format(self.P))
 
@@ -494,18 +462,26 @@ def rest(self,dbugOpt={}):
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
 
-#    if mustPlot:
-#        optPlot['mode'] = 'var'
-#        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-#        optPlot['mode'] = 'proposed (states: lambda)'
-#        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    
+    if self.dbugOptRest['plotCorr']:
+        optPlot = {'mode':'var'}
+        solCorr = self.copy()
+        solCorr.x = A
+        solCorr.u = B
+        solCorr.pi = C
+        solCorr.plotSol(opt=optPlot)
+        optPlot['mode'] = 'proposed (states: lambda)'
+        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
     
     corr = {'x':A,
             'u':B,
             'pi':C}
     #print("Calculating step...")
     
-    alfa = self.calcStepRest(corr,dbugOpt)
-    self.aplyCorr(alfa,corr,dbugOpt)
+    alfa = self.calcStepRest(corr)
+    self.aplyCorr(alfa,corr)
     self.updtHistP(alfa)
     print("Leaving rest with alfa =",alfa)
+    
+    if self.dbugOptRest['pause']:
+        input('Rest in debug mode. Press any key to continue...')

@@ -554,71 +554,79 @@ class prob(sgra):
         
         return I
 #%%
-    def plotSol(self,opt={}):
+    def plotSol(self,opt={},intv=[]):
         t = self.t
         x = self.x
         u = self.u
         pi = self.pi
         
-        alpha_min = self.restrictions['alpha_min']
-        alpha_max = self.restrictions['alpha_max']
-        beta_min = self.restrictions['beta_min']
-        beta_max = self.restrictions['beta_max']
+        if len(intv)==0:
+            intv = numpy.arange(0,self.N,1,dtype='int')
+        else:
+             intv = list(intv)   
     
         plt.subplot2grid((8,4),(0,0),colspan=5)
-        plt.plot(t,x[:,0])
+        plt.plot(t[intv],x[intv,0])
         plt.grid(True)
         plt.ylabel("h [km]")
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
-            titlStr = "Current solution: I = {:.4E}".format(I)
-            if opt.get('dispP',False):
-                P = opt['P']
-                titlStr = titlStr + " P = {:.4E} ".format(P)
-            if opt.get('dispQ',False):
-                Q = opt['Q']
-                titlStr = titlStr + " Q = {:.4E} ".format(Q)
+            titlStr = "Current solution: I = {:.4E}".format(I) + \
+            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
+#            titlStr = "Current solution: I = {:.4E}".format(I)
+#            if opt.get('dispP',False):
+#                P = opt['P']
+#                titlStr = titlStr + " P = {:.4E} ".format(P)
+#            if opt.get('dispQ',False):
+#                Q = opt['Q']
+#                titlStr = titlStr + " Q = {:.4E} ".format(Q)
         elif opt['mode'] == 'var':
             titlStr = "Proposed variations"
         else:
             titlStr = opt['mode']
         #
         plt.title(titlStr)
+        
         plt.subplot2grid((8,4),(1,0),colspan=5)
-        plt.plot(t,x[:,1],'g')
+        plt.plot(t[intv],x[intv,1],'g')
         plt.grid(True)
         plt.ylabel("V [km/s]")
+        
         plt.subplot2grid((8,4),(2,0),colspan=5)
-        plt.plot(t,x[:,2]*180/numpy.pi,'r')
+        plt.plot(t[intv],x[intv,2]*180/numpy.pi,'r')
         plt.grid(True)
         plt.ylabel("gamma [deg]")
+        
         plt.subplot2grid((8,4),(3,0),colspan=5)
-        plt.plot(t,x[:,3],'m')
+        plt.plot(t[intv],x[intv,3],'m')
         plt.grid(True)
         plt.ylabel("m [kg]")
+        
         plt.subplot2grid((8,4),(4,0),colspan=5)
-        plt.plot(t,u[:,0],'k')
+        plt.plot(t[intv],u[intv,0],'k')
         plt.grid(True)
         plt.ylabel("u1 [-]")
+        
         plt.subplot2grid((8,4),(5,0),colspan=5)
-        plt.plot(t,u[:,1],'c')
+        plt.plot(t[intv],u[intv,1],'c')
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("u2 [-]")
+        
         ######################################
-        alpha = (alpha_max + alpha_min)/2 + numpy.tanh(u[:,0])*(alpha_max - alpha_min)/2
-        alpha *= 180/numpy.pi
+        alpha,beta = self.calcDimCtrl()
+        alpha *= 180.0/numpy.pi
         plt.subplot2grid((8,4),(6,0),colspan=5)
-        plt.plot(t,alpha,'b')
+        plt.plot(t[intv],alpha[intv],'b')
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
         #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("alpha [deg]")
-        beta = (beta_max + beta_min)/2 + numpy.tanh(u[:,1])*(beta_max - beta_min)/2
+        
         plt.subplot2grid((8,4),(7,0),colspan=5)
-        plt.plot(t,beta,'b')
+        plt.plot(t[intv],beta[intv],'b')
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
         #plt.plot(t,beta*0+beta_min,'-.k')
@@ -633,7 +641,6 @@ class prob(sgra):
     #
     
     def compWith(self,altSol,altSolLabl='altSol'):
-        # TODO: IMPLEMENT THIS METHOD.
         print("\nComparing solutions...\n")
         currSolLabl = 'currentSol'
         

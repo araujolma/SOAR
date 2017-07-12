@@ -56,11 +56,32 @@ class sgra():
         self.histQt = numpy.zeros(MaxIterGrad)
 
         self.histI = numpy.zeros(MaxIterGrad)
+        
+        # Debugging options
+        tf = False
+        self.dbugOptRest = {'main':tf,
+                            'pause':tf,
+                            'plotP_int':tf,
+                            'plotP_intZoom':tf,
+                            'plotIntP_int':tf,
+                            'plotSolMaxP':tf,
+                            'plotRsidMaxP':tf,
+                            'plotCorr':tf}
+        tf = False
+        self.dbugOptGrad = {'main':tf,
+                            'pause':tf,
+                            'plotQx':tf,
+                            'plotQu':tf,
+                            'plotQxZoom':tf,
+                            'plotQuZoom':tf,
+                            'plotSolQxMax':tf,
+                            'plotSolQuMax':tf,
+                            'plotCorr':tf}
    
     def copy(self):
         return copy.deepcopy(self)
     
-    def aplyCorr(self,alfa,corr,dbugOpt={}):
+    def aplyCorr(self,alfa,corr):
         
         self.x  += alfa * corr['x']
         self.u  += alfa * corr['u']
@@ -78,11 +99,16 @@ class sgra():
 #%% Just for avoiding compatibilization issues with other problems
     
     def plotTraj(self):
+        print("plotTraj: unimplemented method.")
         pass
     
     def compWith(self,*args,**kwargs):
+        print("compWith: unimplemented method.")
         pass
     
+    def plotSol(self,*args,**kwargs):
+        print("plotSol: unimplemented method.")
+        pass
 #%% RESTORATION-WISE METHODS
     
     def rest(self,*args,**kwargs):

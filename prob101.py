@@ -28,12 +28,6 @@ class prob(sgra):
         self.p = p
         self.q = q
         
-        sizes = {'N':N,
-                 'n':n,
-                 'm':m,
-                 'p':p,
-                 'q':q}
-        
         dt = 1.0/(N-1)
         t = numpy.arange(0,1.0+dt,dt)
         self.dt = dt
@@ -165,42 +159,49 @@ class prob(sgra):
     def calcI(self):
         return self.pi[0]
 #%%
-    def plotSol(self,opt={}):
+    def plotSol(self,opt={},intv=[]):
         t = self.t
         x = self.x
         u = self.u
         pi = self.pi
         
-        plt.plot(t,x[:,0])
-        plt.grid(True)
-        plt.xlabel('t [-]')
-        plt.ylabel('x0')
-        plt.show()
+        if len(intv)==0:
+            intv = numpy.arange(0,self.N,1,dtype='int')
+        else:
+             intv = list(intv)
         
-        plt.plot(t,x[:,1])
+        plt.subplot2grid((8,4),(0,0),colspan=5)
+        plt.plot(t[intv],x[intv,0],)
         plt.grid(True)
-        plt.xlabel('t [-]')
-        plt.ylabel('x1')
-        plt.show()
+        plt.ylabel("x")
         
-        plt.plot(t,x[:,0])
+        if opt.get('mode','sol') == 'sol':
+            I = self.calcI()
+            titlStr = "Current solution: I = {:.4E}".format(I) + \
+            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
+        elif opt['mode'] == 'var':
+            titlStr = "Proposed variations"
+        else:
+            titlStr = opt['mode']
+        plt.title(titlStr)
+
+        plt.subplot2grid((8,4),(1,0),colspan=5)
+        plt.plot(t[intv],x[intv,1],'g')
         plt.grid(True)
-        plt.xlabel('t [-]')
-        plt.ylabel('x2')
-        plt.show()
+        plt.ylabel("y")
         
-        plt.plot(t,u[:,0])
+        plt.subplot2grid((8,4),(2,0),colspan=5)
+        plt.plot(t[intv],x[intv,2],'r')
         plt.grid(True)
-        plt.xlabel('t [-]')
-        plt.ylabel('u0')
-        plt.show()
+        plt.ylabel("z")
         
-        plt.plot(t,u[:,0])
+        plt.subplot2grid((8,4),(3,0),colspan=5)
+        plt.plot(t[intv],u[intv,0],'k')
         plt.grid(True)
-        plt.xlabel('t [-]')
-        plt.ylabel('u1')
+        plt.ylabel("u")
+    
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.show()
-        
-        print("pi =",pi)
+        print("pi =",pi,"\n")
         
     #

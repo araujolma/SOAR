@@ -131,8 +131,10 @@ class ITman():
             self.saveSol(sol,'solInit.pkl')
         else:
             # load previously prepared solution
+            print('Loading "current" solution...')
             sol = self.loadSol()
-            solInit = self.copy()
+            print('Loading "initial" solution (for comparing purposes only)...')
+            solInit = self.loadSol('solInit.pkl')#sol.copy()
         #
     
         self.checkPars(sol)
@@ -147,16 +149,41 @@ class ITman():
         sol.histPpsi[sol.NIterRest] = Ppsi
     
         Q,Qx,Qu,Qp,Qt = sol.calcQ()
-        print("Q = {:.4E}".format(Q)+", Qx = {:.4E}".format(Qx)+\
-              ", Qu = {:.4E}".format(Qu)+", Qp = {:.4E}".format(Qp)+\
-              ", Qt = {:.4E}".format(Qt)+"\n")
         sol.plotSol()
         sol.plotTraj() 
         return sol,solInit
     
     def restRnds(self,sol):
+        contRest = 0
         while sol.P > sol.tol['P']:
             sol.rest()
+            contRest += 1
+            
+            if sol.dbugOptRest['main']:
+                tf = False
+                sol.dbugOptRest = {'main':tf,
+                                   'pause':tf,
+                                   'plotP_int':tf,
+                                   'plotP_intZoom':tf,
+                                   'plotIntP_int':tf,
+                                   'plotSolMaxP':tf,
+                                   'plotRsidMaxP':tf,
+                                   'plotCorr':tf}
+            if contRest%10 == 0:
+                print("\nLots of restorations! "+\
+                      "Here is a partial convergence report:")
+                sol.showHistP()
+                print("\nChanging debug mode for next rest run.\n")
+                tf = True
+                sol.dbugOptRest = {'main':tf,
+                                   'pause':tf,
+                                   'plotP_int':tf,
+                                   'plotP_intZoom':tf,
+                                   'plotIntP_int':tf,
+                                   'plotSolMaxP':tf,
+                                   'plotRsidMaxP':tf,
+                                   'plotCorr':tf}
+                
 #            P,Pint,Ppsi = sol.calcP()
 #            print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
 #                  ", Ppsi = {:.4E}".format(Ppsi)+"\n")

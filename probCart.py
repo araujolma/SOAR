@@ -160,33 +160,42 @@ class prob(sgra):
 
         return I
 #%%
-    def plotSol(self,opt={}):
+    def plotSol(self,opt={},intv=[]):
         t = self.t
         x = self.x
         u = self.u
         pi = self.pi
         
+        if len(intv)==0:
+            intv = numpy.arange(0,self.N,1,dtype='int')
+        else:
+             intv = list(intv)   
+        
         plt.subplot2grid((8,4),(0,0),colspan=5)
-        plt.plot(t,x[:,0],)
+        plt.plot(t[intv],x[intv,0],)
         plt.grid(True)
         plt.ylabel("x")
         
-        titlStr = "Current solution: I = {:.4E}".format(self.I)
-        titlStr = titlStr + " P = {:.4E} ".format(self.P)
-        titlStr = titlStr + " Q = {:.4E} ".format(self.Q)
-
-        #
+        if opt.get('mode','sol') == 'sol':
+            I = self.calcI()
+            titlStr = "Current solution: I = {:.4E}".format(I) + \
+            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
+        elif opt['mode'] == 'var':
+            titlStr = "Proposed variations"
+        else:
+            titlStr = opt['mode']
         plt.title(titlStr)
+        
         plt.subplot2grid((8,4),(1,0),colspan=5)
-        plt.plot(t,x[:,1],'g')
+        plt.plot(t[intv],x[intv,1],'g')
         plt.grid(True)
         plt.ylabel("y")
         plt.subplot2grid((8,4),(2,0),colspan=5)
-        plt.plot(t,u[:,0],'k')
+        plt.plot(t[intv],u[intv,0],'k')
         plt.grid(True)
         plt.ylabel("u1 [-]")
         plt.subplot2grid((8,4),(3,0),colspan=5)
-        plt.plot(t,numpy.tanh(u[:,0]),'r')
+        plt.plot(t[intv],numpy.tanh(u[intv,0]),'r')
         plt.grid(True)
         plt.ylabel("contr [-]")
     
