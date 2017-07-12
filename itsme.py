@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
 
-global totalTrajectorySimulationCounter
+totalTrajectorySimulationCounter = 0
 
 def its(*arg):
 
@@ -40,12 +40,17 @@ def its(*arg):
 
     trajectory2 = problem.fineTunning()
 
+    trajectory2.plotResultsAed(problem)
+
     trajectory2.displayResults()
 
     return trajectory2
 
 
 def trajectorySimulate(factors,con,typeResult):
+    ##########################################################################
+    global totalTrajectorySimulationCounter
+    totalTrajectorySimulationCounter += 1
 
     ##########################################################################
     # Trajetory design parameters
@@ -62,13 +67,13 @@ def trajectorySimulate(factors,con,typeResult):
 
     ##########################################################################
     # Staging calculation
-
     efflist = con['efflist']
     Tlist = con['Tlist']
-    p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,        Mu)
-    p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,p2.mtot[0])
+    p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp2'],con['g0'],        Mu)
+    p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp1'],con['g0'],p2.mtot[0])
 
     if con['NStag'] == 0:
+        p2.mu = p1.me[0] + p2.me[0] + p2.mu
         p2.me[0] = 0.0
         p1.me[0] = 0.0
     if con['NStag'] == 1:
@@ -82,8 +87,8 @@ def trajectorySimulate(factors,con,typeResult):
         raise Exception('itsme saying: weight greater than thrust!')
 
     ##########################################################################
-    # thrust program
-    tabBeta = retSoftPulse(p1,p2,tf,1.0,0.0,con['softness'])
+    # Thrust program
+    tabBeta = propulsiveModel(p1,p2,tf,1.0,0.0,con['softness'])
     if tabBeta.fail:
         raise Exception('itsme saying: Softness too high!')
 
@@ -95,7 +100,7 @@ def trajectorySimulate(factors,con,typeResult):
     ##########################################################################
     #Integration
 
-    # initial conditions
+    # Initial conditions
     t0 = 0.0
     x0 = numpy.array([con['h_initial'],con['V_initial'],con['gamma_initial'],p1.mtot[0]])
 
@@ -112,9 +117,7 @@ def trajectorySimulate(factors,con,typeResult):
     if (typeResult == "orbital"):
         tphases   =   tphases+[con['torb']]
         mjetsoned = mjetsoned+[        0.0]
-    else:
-        tphases   =   tphases#+[tphases[-1]*(1 + tol/2)]
-        mjetsoned = mjetsoned#+[        0.0]
+
     # Integration using rk45 separated by phases
     # Automatic multiphase integration
     if (typeResult == "design"):
@@ -126,10 +129,43 @@ def trajectorySimulate(factors,con,typeResult):
         ans = errors, tt, xx, tabAlpha, tabBeta
 
     elif (typeResult == "plot") or (typeResult == "orbital"):
-        print("\n\rInitial Stages:")
-        p1.printInfo()
-        print("\n\rFinal Stage:")
-        p2.printInfo()
+
+        if (typeResult == "plot"):
+
+            if con['NStag'] == 0:
+                print("\n\rSpacecraft properties (NStag == 0):")
+                mp = p1.mp[0] + p2.mp[0]
+                print("m_empty =",p1.mtot[0] - mp)
+                print("mp =",mp)
+                print("mtot =",p1.mtot[0])
+                print("tf =",p2.tf[-1],"\n\r")
+
+            elif con['NStag'] == 1:
+                print("\n\rSSTO properties (NStag == 1):")
+                print("mu =",p2.mu)
+                print("mp =",p1.mp[0] + p2.mp[0])
+                print("me =",p2.me[0])
+                print("mtot =",p1.mtot[0])
+                print("tf =",p2.tf[-1],"\n\r")
+
+            elif con['NStag'] == 2:
+                print("\n\rTSTO first stage properties (NStag == 2):")
+                p1.printInfo()
+                print("TSTO final stage properties (NStag == 2):")
+                p2.printInfo()
+
+            else:
+                print("\n\rInitial stages properties:")
+                p1.printInfo()
+                print("Final stage properties:")
+                p2.printInfo()
+
+            print('\n\rtphases: ',tphases)
+            print('\n\rmjetsoned: ',mjetsoned)
+
+        for ii in range(1,len(tphases)):
+            if tphases[ii - 1] >= tphases[ii]:
+                raise Exception('itsme saying: tphases does not increase monotonically!')
 
         tt,xx,tp,xp = totalIntegration(tphases,mjetsoned,ode45,t0,x0,True)
         uu = numpy.concatenate([tabAlpha.multValue(tt),tabBeta.multValue(tt)], axis=1)
@@ -149,7 +185,7 @@ def totalIntegration(tphases,mjetsoned,ode45,t0,x0,flagAppend):
         tt,xx,tp,xp = phaseIntegration(tphases[ii - 1],tphases[ii],mjetsoned[ii-1],Nref,ode45,tt,xx,tp,xp,flagAppend)
         if flagAppend:
             if ii == 1:
-                print("Phase integration iteration:1",end=', '),
+                print("Phase integration iteration: 1",end=', '),
             elif ii == (len(tphases) - 1):
                 print('')
             else:
@@ -159,7 +195,6 @@ def totalIntegration(tphases,mjetsoned,ode45,t0,x0,flagAppend):
     xx = numpy.array(xx)
     tp = numpy.array(tp)
     xp = numpy.array(xp)
-
 
     return tt,xx,tp,xp
 
@@ -189,30 +224,27 @@ def phaseIntegration(t_initial,t_final,mj,Nref,ode45,tt,xx,tp,xp,flagAppend):
 
 def mdlDer(t,x,arg):
 
+    # initialization
     h,v,gama,M = x[0],x[1],x[2],x[3]
     alfaProg,betaProg,con = arg
-    T = con['T']
-    Isp = con['Isp']
+    T = betaProg.thrust(t)
+    Isp = betaProg.Isp(t)
     g0 = con['g0']
     R = con['R']
+
+    if numpy.isnan(h):
+       raise Exception('itsme saying: h is not a number')
+
+    # controls calculation
     betat = betaProg.value(t)
     alfat = alfaProg.value(t)
 
+    # Other calculations
     btm = betat*T/M
     sinGama = numpy.sin(gama)
     g = g0*(R/(R+h))**2 - (con['we']**2)*(R + h)
 
-# Aerodynamics
-    if numpy.isnan(h):
-       raise Exception('itsme saying: h is not a number')
-    L,D,_,_,_ = aed(h,v,alfat,con)
-
-    return numpy.array([v*sinGama,\
-    btm*numpy.cos(alfat) - g*sinGama - (D/M),\
-    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)) + 2*con['we'],\
-    -btm*M/g0/Isp])
-
-def aed(h,v,alfat,con):
+    # Aerodynamics
     CL = con['CL0'] + con['CL1']*alfat
     CD = con['CD0'] + con['CD2']*(alfat**2)
 
@@ -220,47 +252,56 @@ def aed(h,v,alfat,con):
     L = qdin * con['s_ref'] * CL
     D = qdin * con['s_ref'] * CD
 
-    return L,D,CL,CD,qdin
+    return numpy.array([v*sinGama,\
+    btm*numpy.cos(alfat) - g*sinGama - (D/M),\
+    btm*numpy.sin(alfat)/v + (v/(h+R)-g/v)*numpy.cos(gama) + (L/(v*M)) + 2*con['we'],\
+    -btm*M/g0/Isp])
 
-def calcAedTab(tt,xx,uu,con):
+class simpleStep():
 
-    LL = tt.copy()
-    DD = tt.copy()
-    CCL = tt.copy()
-    CCD = tt.copy()
-    QQ = tt.copy()
-    for ii in range( 0, len(tt) ):
-        L,D,CL,CD,qdin = aed(xx[ii,0],xx[ii,1],uu[ii,0],con)
-        LL[ii] = L
-        DD[ii] = D
-        CCL[ii] = CL
-        CCD[ii] = CD
-        QQ[ii] = qdin
+    def __init__(self,v1,v2,tref):
+        self.v1 = v1
+        self.v2 = v2
+        self.tref = tref
 
-    return LL, DD, CCL, CCD, QQ
+    def value(self,t)    :
+        if t < self.tref:
+            ans = self.v1
+        else:
+            ans = self.v2
 
-class retSoftPulse():
+        return ans
+
+    def multValue(self,t):
+        N = len(t)
+        ans = numpy.full((N,1),0.0)
+        for jj in range(0,N):
+            ans[jj] = self.value(t[jj])
+
+        return ans
+
+class propulsiveModel():
 
     def __init__(self,p1,p2,tf,v1,v2,softness):
         self.t1 = p1.tf[-1]
-        self.t2 = tf - p2.tb[-1]
+        t2 = tf - p2.tb[-1]
         self.t3 = tf
 
         self.v1 = v1
         self.v2 = v2
 
-        self.f = softness/2
+        f = softness/2
 
-        self.d1  = self.t1 # width of retangular and 0.5 soft part
-        self.c1  = self.d1*self.f # width of the 0.5 soft part
-        self.fr1  = self.d1 - self.c1 # final of the retangular part
-        self.fs1  = self.d1 + self.c1 # final of the retangular part
+        d1  = self.t1 # width of retangular and 0.5 soft part
+        self.c1  = d1*f # width of the 0.5 soft part
+        self.fr1  = d1 - self.c1 # final of the retangular part
+        self.fs1  = d1 + self.c1 # final of the retangular part
 
-        self.d2  = self.t3 - self.t2 # width of retangular and 0.5 soft part
-        self.c2  = self.d2*self.f # width of the 0.5 soft part
-        self.r2  = self.d2 - self.c2 # width of the retangular part
-        self.ir2 = self.t2 + self.c2 # start of the retangular part
-        self.is2 = self.t2 - self.c2 # start of the soft part
+        d2  = self.t3 - t2 # width of retangular and 0.5 soft part
+        self.c2  = d2*f # width of the 0.5 soft part
+        self.r2  = d2 - self.c2 # width of the retangular part
+        self.ir2 = t2 + self.c2 # start of the retangular part
+        self.is2 = t2 - self.c2 # start of the soft part
 
         self.dv21 = v2 - v1
 
@@ -272,6 +313,13 @@ class retSoftPulse():
         if len(p1.tf) > 2:
             if p1.tf[-2] >= self.fr1:
                 self.fail = True
+
+        self.tlist1 = p1.tf[0:-1].tolist()+[self.fs1]
+        self.Tlist1 = p1.Tlist
+        self.Tlist2 = p2.Tlist
+
+        self.Isp1 = p1.Isp
+        self.Isp2 = p2.Isp
 
     def value(self,t):
         if (t <= self.fr1):
@@ -296,6 +344,29 @@ class retSoftPulse():
             ans[jj] = self.value(t[jj])
 
         return ans
+
+    def thrust(self,t):
+
+        T = 0.0
+        tlist = self.tlist1
+        Tlist = self.Tlist1
+        for ii in range(0,len(tlist)):
+            if t <= tlist[ii]:
+                T = Tlist[ii]
+
+        if t > self.is2:
+            T = self.Tlist2[0]
+
+        return T
+
+    def Isp(self,t):
+
+        if t <= self.fs1:
+            Isp = self.Isp1
+        else:
+            Isp = self.Isp2
+
+        return Isp
 
 class cosSoftPulse():
 
@@ -329,12 +400,14 @@ class optimalStaging():
     # specific impulse must be the same for all stages
     # Based in Cornelisse (1979)
 
-    def __init__(self,effList,dV,T,con,mu):
+    def __init__(self,effList,dV,Tlist,con,Isp,g0,mu):
+        self.Tlist = Tlist
         self.e = numpy.array(effList)
-        self.T = numpy.array(T)
+        self.T = numpy.array(self.Tlist)
         self.dV = dV
         self.mu = mu
-        self.c = con['Isp']*con['g0']
+        self.Isp = Isp
+        self.c = Isp*g0
         self.mflux = self.T/self.c
         self.mE = self.calcGeoMeanE()
         self.m1E = self.calcGeoMean1E()
@@ -406,25 +479,26 @@ class optimalStaging():
         print("mp =",self.mp)
         print("me =",self.me)
         print("mtot =",self.mtot)
+        print("mflux =",self.mflux)
+        print("tb =",self.tb)
         print("tf =",self.tf,"\n\r")
 
 class initialEstimate():
 
     def __init__(self,con):
-#        dd = numpy.exp(-0.5*con['V_final']/con['c']) - con['efes']
-#        if dd < 0.1:
-#            dd = 0.0
-#        lamb = dd/(1 - con['efes'])
 
-        lamb = numpy.exp(0.5*con['V_final']/con['c'])
+        efflist = con['efflist']
+        Tlist = con['Tlist']
+
+        lamb = numpy.exp( 0.5*con['V_final']/(con['Isp2']*con['g0']) )
         self.Mu = con['Mu']*lamb
         self.hf = con['h_final']
-        self.M0max = con['T']/con['g0']
-        self.mflux = con['T']/con['c']
+        self.M0max = Tlist[0]/con['g0']
+        self.c = con['Isp1']*con['g0']
+        self.mflux = numpy.mean(Tlist[0:-1])/self.c
         self.GM = con['GM']
         self.R = con['R']
-        self.c = con['c']
-        self.e = con['efes']
+        self.e = numpy.exp( numpy.mean( numpy.log(efflist[0:-1]) ) )
         self.g0 = con['g0'] - con['R']*(con['we'] ** 2)
         self.t1max = self.M0max/self.mflux
         self.fail = False
@@ -557,46 +631,12 @@ class itsYourProblem():
         else:
             self.con['homogeneous'] = config.getboolean(section,'homogeneous')
 
-        for para in items:
-            self.con[para[0]] = config.getfloat(section,para[0])
-
-        self.con['NStag'] = config.getint('vehicle','NStag')# Number of stages
-        self.con['c'] = self.con['Isp'] * self.con['g0'] # km/s
-
         # This flag show indicates if the vehicle shall be considered as having the same
         # values of structural mass and thrust for all stages
-        if not self.con['homogeneous']:
-            auxstr = config.get(section,'efes')
-            auxstr = auxstr.split(',')
-            auxnum = []
-            for n in auxstr:
-                auxnum = auxnum+[float(n)]
-            self.con['efflist'] = auxnum
-
-            auxstr = config.get(section,'T')
-            auxstr = auxstr.split(',')
-            auxnum = []
-            for n in auxstr:
-                auxnum = auxnum+[float(n)]
-            self.con['Tlist'] = auxnum
-
+        if self.con['homogeneous']:
+            self.getVehicleHomogeneous(config)
         else:
-            efflist = []
-            Tlist = []
-            if self.con['NStag'] > 1:
-                for jj in range(0,self.con['NStag']):
-                    efflist = efflist+[self.con['efes']]
-                    Tlist = Tlist+[self.con['T']]
-            else:
-                # This cases are similar to NStag == 2, the differences are:
-                # for NStag == 0 no mass is jetsoned
-                # for NStag == 1 all structural mass is jetsoned at the end of all burning
-                for jj in range(0,2):
-                    efflist = efflist+[self.con['efes']]
-                    Tlist = Tlist+[self.con['T']]
-
-            self.con['efflist'] = efflist
-            self.con['Tlist'] = Tlist
+            self.getVehicleHeterogeneous(config)
 
         #######################################################################
         # Trajectory parameters
@@ -638,23 +678,80 @@ class itsYourProblem():
 
         return None
 
+    def getVehicleHomogeneous(self,config):
+
+        section = 'vehicle'
+        items = config.items(section)
+
+        for para in items:
+            self.con[para[0]] = config.getfloat(section,para[0])
+
+        self.con['NStag'] = config.getint('vehicle','NStag')# Number of stages
+        self.con['Isp1'] = self.con['Isp']
+        self.con['Isp2'] = self.con['Isp']
+
+        # This flag show indicates if the vehicle shall be considered as having the same
+        # values of structural mass and thrust for all stages
+        efflist = []
+        Tlist = []
+        if self.con['NStag'] > 1:
+            for jj in range(0,self.con['NStag']):
+                efflist = efflist+[self.con['efes']]
+                Tlist = Tlist+[self.con['T']]
+        else:
+            # This cases are similar to NStag == 2, the differences are:
+            # for NStag == 0 no mass is jetsoned
+            # for NStag == 1 all structural mass is jetsoned at the end of all burning
+            for jj in range(0,2):
+                efflist = efflist+[self.con['efes']]
+                Tlist = Tlist+[self.con['T']]
+
+        self.con['efflist'] = efflist
+        self.con['Tlist'] = Tlist
+
+    def getVehicleHeterogeneous(self,config):
+
+        section = 'vehicle'
+        items = config.items(section)
+
+        for para in items:
+            if (para[0] != 'efes') and (para[0] != 'T'):
+                self.con[para[0]] = config.getfloat(section,para[0])
+
+        self.con['NStag'] = config.getint(section,'NStag')# Number of stages
+
+        print(self.con['Isp1'])
+
+        auxstr = config.get(section,'efes')
+        auxstr = auxstr.split(',')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        self.con['efflist'] = auxnum
+
+        auxstr = config.get(section,'T')
+        auxstr = auxstr.split(',')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        self.con['Tlist'] = auxnum
+
+
     def initialGuess(self):
         #######################################################################
         # First guess trajectory
-        factors = self.con['guess']
-        errors, _, _, tabAlpha, tabBeta = trajectorySimulate(factors,self.con,"design")
+        errors, _, _, tabAlpha, tabBeta = trajectorySimulate(self.con['guess'],self.con,"design")
 
         self.tabAlpha = tabAlpha
         self.tabBeta = tabBeta
         self.errors = errors
-        self.factors = factors
+        self.factors = self.con['guess']
 
-        trajectory = itsTrajectory(self.con,tabAlpha,tabBeta,factors)
+        trajectory = itsTrajectory(self.con,tabAlpha,tabBeta,self.con['guess'])
 
         return trajectory
 
     def fineTunning(self):
-
         ##########################################################################
         # Bisection altitude loop
         con = self.con
@@ -753,8 +850,6 @@ class itsYourProblem():
         trajectory = itsTrajectory(self.con,tabAlpha,tabBeta,factors)
 
         return trajectory
-
-        return None
 
     def bisecSpeedAndAng(self,factors1,f3):
         ####################################################################
@@ -944,39 +1039,74 @@ class itsTrajectory():
 
         plt.show()
 
-#    # Aed plots
-#    LL, DD, CCL, CCD, QQ = calcAedTab(tt,xx,uu,con)
-#
-#    ii = 0
-#    plt.subplot2grid((6,2),(0,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,LL,'.-b')
-#    plt.plot(tt,DD,'.-r')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("L and D [kN]")
-#
-#    ii = 1
-#    plt.subplot2grid((6,2),(2,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,CCL,'.-b')
-#    plt.plot(tt,CCD,'.-r')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("CL and CD [-]")
-#
-#    ii = 2
-#    plt.subplot2grid((6,2),(4,0),rowspan=2,colspan=2)
-#    plt.hold(True)
-#    plt.plot(tt,QQ,'.-b')
-#    plt.hold(False)
-#    plt.grid(True)
-#    plt.ylabel("qdin [kPa]")
-#
-#
-#    plt.show()
 
         return None
+
+    def plotResultsAed(self,problem):
+
+        tt = self.tt
+        # Aed plots
+        LL, DD, CCL, CCD, QQ = self.calcAedTab(problem.con)
+
+        plt.subplot2grid((6,2),(0,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,LL,'.-b')
+        plt.plot(tt,DD,'.-r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("L and D [kN]")
+
+        plt.subplot2grid((6,2),(2,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,CCL,'.-b')
+        plt.plot(tt,CCD,'.-r')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("CL and CD [-]")
+
+        plt.subplot2grid((6,2),(4,0),rowspan=2,colspan=2)
+        plt.hold(True)
+        plt.plot(tt,QQ,'.-b')
+        plt.hold(False)
+        plt.grid(True)
+        plt.ylabel("qdin [kPa]")
+
+        plt.show()
+
+        return None
+
+    def calcAedTab(self,con):
+
+        tt = self.tt
+        xx = self.xx
+        uu = self.uu
+
+        LL = tt.copy()
+        DD = tt.copy()
+        CCL = tt.copy()
+        CCD = tt.copy()
+        QQ = tt.copy()
+        for ii in range( 0, len(tt) ):
+
+            h = xx[ii,0]
+            v = xx[ii,1]
+            alfat = uu[ii,0]
+            # Aerodynamics
+            CL = con['CL0'] + con['CL1']*alfat
+            CD = con['CD0'] + con['CD2']*(alfat**2)
+
+            qdin = 0.5 * rho(h) * (v**2)
+            L = qdin * con['s_ref'] * CL
+            D = qdin * con['s_ref'] * CD
+
+            LL[ii] = L
+            DD[ii] = D
+            CCL[ii] = CL
+            CCD[ii] = CD
+            QQ[ii] = qdin
+
+        return LL, DD, CCL, CCD, QQ
+
 
     def orbitResults(self,typeOrb):
 
@@ -1011,8 +1141,8 @@ class itsTrajectory():
 
 if __name__ == "__main__":
 
+    global totalTrajectorySimulationCounter
     print("itsme: Inital Trajectory Setup Module")
-
     ################
     #    Errors:
 
@@ -1022,8 +1152,5 @@ if __name__ == "__main__":
 
     ################
     trajectory = its()
-
-    # Results with automatic adjustment
-
-
+    print('Total number of trajectory simulations: ',totalTrajectorySimulationCounter)
     #input("Press any key to finish...")
