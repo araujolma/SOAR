@@ -238,12 +238,11 @@ def declProb(opt=dict()):
 
     elif initMode == 'extSol':
 
-        # Factors intervals for aerodynamics
-        fsup = numpy.array([1.5 + 0.2,1.5 + 0.2,1.0 + 0.2]) # Superior limit
-        finf = numpy.array([1.5 - 0.2,1.5 - 0.2,1.0 - 0.2]) # Inferior limit
-
         # Automatic adjustment
-        new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup, finf, h_final, 100.0, 1.0e-7)
+
+        its1 = itsme.its()
+        #t_its,x_its,u_its,tabAlpha,tabBeta = its1.tt,its1.xx,its1.uu,its1.tabAlpha,its1.tabBeta
+        t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
 
         # @Object test (Apague-me depois)
         tObj = numpy.arange(0.0,t_its[-1],1)
