@@ -82,7 +82,7 @@ def calcQ(self):
 
     # TODO: break these plots into more conditions
 
-    if self.dbugOptGrad['main']:
+    if numpy.array(self.dbugOptGrad.values()).any:
         print("\nDebug plots for this calcQ run:")
         
         if self.dbugOptGrad['plotQx']:
@@ -278,26 +278,29 @@ def calcQ(self):
     return Q,Qx,Qu,Qp,Qt
 
 def calcStepGrad(self,corr):
+    
     print("\nIn calcStepGrad.\n")
     cont = 0
     # Get initial status (Q0, no correction applied)
     Q0,_,_,_,_ = self.calcQ(); cont += 1
-    P0,_,_ = self.calcP()
-    print("P0 = {:.4E}".format(P0))
-    I0 = self.calcI()
-    print("I0 = {:.4E}\n".format(I0))
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        P0,_,_ = self.calcP()
+        print("P0 = {:.4E}".format(P0))
+        I0 = self.calcI()
+        print("I0 = {:.4E}\n".format(I0))
     
     # Get status associated with integral correction (alfa=1.0)
     newSol = self.copy()
     newSol.aplyCorr(1.0,corr)
     Q1,_,_,_,_ = newSol.calcQ(); cont += 1
-    P1,_,_ = newSol.calcP()    
-    print("P1 = {:.4E}".format(P1))
-    I1 = newSol.calcI()
-    print("I1 = {:.4E}\n".format(I1))
-    
-    histQ = [Q1]
-    histAlfa = [1.0]
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        P1,_,_ = newSol.calcP()    
+        print("P1 = {:.4E}".format(P1))
+        I1 = newSol.calcI()
+        print("I1 = {:.4E}\n".format(I1))
+        
+        histQ = [Q1]
+        histAlfa = [1.0]
     
     # Search for a better starting point for alfa, one that does not make Q
     # more than 10 times bigger.
@@ -315,12 +318,14 @@ def calcStepGrad(self,corr):
 
     Q = Q1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
     if Q/Q0 >= 10.0:
-        print("Whoa! Going back to safe region of alphas...\n")
+        if self.dbugOptGrad['prntCalcStepGrad']:
+            print("Whoa! Going back to safe region of alphas...\n")
         keepLook = True
         dAlfa = 0.1
         cond = lambda nQ,Q: nQ/Q0>10.0
     elif Q<Q0:
-        print("This seems boring. Going forward!\n")
+        if self.dbugOptGrad['prntCalcStepGrad']:
+            print("This seems boring. Going forward!\n")
         keepLook = True
         dAlfa = 10.0
         cond = lambda nQ,Q: nQ<Q
@@ -332,40 +337,45 @@ def calcStepGrad(self,corr):
         newSol = self.copy()
         newSol.aplyCorr(alfa,corr)
         nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-        print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
-              " (Q0 = {:.6E})\n".format(Q0))
-        histQ.append(nQ)
-        histAlfa.append(alfa)
+        if self.dbugOptGrad['prntCalcStepGrad']:
+            print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
+                  " (Q0 = {:.6E})\n".format(Q0))
+            histQ.append(nQ)
+            histAlfa.append(alfa)
         keepLook = cond(nQ,Q)
     #
     if dAlfa > 1.0:
         alfa /= dAlfa
     
     # Now Q is not so much bigger than Q0. Start "bilateral analysis"
-    print("Starting bilateral analysis...\n")
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        print("Starting bilateral analysis...\n")
     alfa0 = alfa
     alfa = 1.2*alfa0 
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
     QM,_,_,_,_ = newSol.calcQ(); cont += 1
-    print("alfa =",alfa,", Q = {:.6E}".format(QM),\
-          " (Q0 = {:.6E})\n".format(Q0))
-    histQ.append(QM)
-    histAlfa.append(alfa)
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        print("alfa =",alfa,", Q = {:.6E}".format(QM),\
+              " (Q0 = {:.6E})\n".format(Q0))
+        histQ.append(QM)
+        histAlfa.append(alfa)
     
     alfa = .8*alfa0 
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
     Qm,_,_,_,_ = newSol.calcQ(); cont += 1
-    print("alfa =",alfa,", Q = {:.6E}".format(Qm),\
-          " (Q0 = {:.6E})\n".format(Q0))
-    histQ.append(Qm)
-    histAlfa.append(alfa)
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        print("alfa =",alfa,", Q = {:.6E}".format(Qm),\
+              " (Q0 = {:.6E})\n".format(Q0))
+        histQ.append(Qm)
+        histAlfa.append(alfa)
     
     # Start refined search
     
     if Qm < Q: 
-        print("Beginning search for decreasing alfa...")
+        if self.dbugOptGrad['prntCalcStepGrad']:
+            print("Beginning search for decreasing alfa...")
         # if the tendency is to still decrease alfa, do it...
         nQ = Q; keepSearch = True#(nQ<Q0)
         while keepSearch and alfa > 1.0e-15:
@@ -374,21 +384,23 @@ def calcStepGrad(self,corr):
             newSol = self.copy()
             newSol.aplyCorr(alfa,corr)
             nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-            print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
-                  " (Q0 = {:.6E})\n".format(Q0))
-            histQ.append(nQ)
-            histAlfa.append(alfa)
-            print(Q0-nQ)
+            if self.dbugOptGrad['prntCalcStepGrad']:
+                print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
+                      " (Q0 = {:.6E})\n".format(Q0))
+                histQ.append(nQ)
+                histAlfa.append(alfa)
+            
             if nQ < Q0:
-                print("fact = ",(nQ-Q)/Q,"\n")
                 keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
         alfa /= 0.8
     else:
         if Q <= QM: 
-            print("Apparently alfa =",alfa0,"is the best.")
+            if self.dbugOptGrad['prntCalcStepGrad']:
+                print("Apparently alfa =",alfa0,"is the best.")
             alfa = alfa0 # BRASIL
         else:
-            print("Beginning search for increasing alfa...")
+            if self.dbugOptGrad['prntCalcStepGrad']:
+                print("Beginning search for increasing alfa...")
             # There still seems to be a negative gradient here. Increase alfa!
             nQ = QM
             alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
@@ -398,34 +410,45 @@ def calcStepGrad(self,corr):
                 newSol = self.copy()
                 newSol.aplyCorr(alfa,corr)
                 nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-                print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
-                      " (Q0 = {:.4E})".format(Q0),"\n")
-                histQ.append(nQ)
-                histAlfa.append(alfa)
+                if self.dbugOptGrad['prntCalcStepGrad']:
+                    print("alfa =",alfa,", Q = {:.4E}".format(nQ),\
+                          " (Q0 = {:.4E})".format(Q0),"\n")
+                    histQ.append(nQ)
+                    histAlfa.append(alfa)
                 keepSearch = nQ<Q
                 #if nPint < Pint0:
             alfa /= 1.2
             
     # after all this analysis, plot the history of the tried alfas, and 
     # corresponding Q's        
-    plt.loglog(histAlfa,histQ,'o')
+    if self.dbugOptGrad['plotCalcStepGrad']:
+        plt.loglog(histAlfa,histQ,'o')
     #plt.loglog(histAlfa[0,contGran,contGran+1],histQ[0,contGran,contGran+1],'ok')
-    linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
-    linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
-    for k in range(len(histAlfa)):
-        if abs(histAlfa[k]-alfa)<1e-14:
-            break
-    Q = histQ[k]
-    plt.loglog(alfa,Q,'ok')
-    plt.loglog(linhAlfa,linQ0,'--')
-    plt.grid(True)
-    plt.xlabel("alfa")
-    plt.ylabel("Q")
-    plt.title("Q versus Grad Step for current Grad run")
-    plt.show()
-    print("Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
-    print("Number of calcQ evaluations:",cont)
-    input("What now?")
+        linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
+        linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
+    if self.dbugOptGrad['prntCalcStepGrad']:
+        for k in range(len(histAlfa)):
+            if abs(histAlfa[k]-alfa)<1e-14:
+                break
+        Q = histQ[k]
+        
+        if self.dbugOptGrad['plotCalcStepGrad']:
+            plt.loglog(alfa,Q,'ok')
+    
+    if self.dbugOptGrad['plotCalcStepGrad']: 
+       plt.loglog(linhAlfa,linQ0,'--')
+       plt.grid(True)
+       plt.xlabel("alfa")
+       plt.ylabel("Q")
+       plt.title("Q versus Grad Step for current Grad run")
+       plt.show()
+     
+    if self.dbugOptGrad['prntCalcStepGrad']:           
+        print("Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
+        print("Number of calcQ evaluations:",cont)
+        
+    if self.dbugOptGrad['pausCalcStepGrad']:
+        input("What now?")
       
     return alfa
 
@@ -717,3 +740,6 @@ def grad(self):
     self.P = P
     print("Leaving grad with alfa =",alfa)
     print("Delta pi = ",alfa*corr['pi'])
+    
+    if self.dbugOptGrad['pausGrad']:
+        input('Grad in debug mode. Press any key to continue...')

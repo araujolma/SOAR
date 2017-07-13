@@ -38,62 +38,63 @@ def calcP(self):
     P *= dt
     vetIP *= dt
 
-    if self.dbugOptRest['main']:
+    #if numpy.array(self.dbugOptRest.values()).any():
+    #    print(self.dbugOptRest)
         
-        print("\nDebug plots for this calcP run:")
+    #    print("\nDebug plots for this calcP run:")
         
-        indMaxP = vetP.argmax()
-        ind1 = numpy.array([indMaxP-20,0]).max()
-        ind2 = numpy.array([indMaxP+20,N]).min()
+    indMaxP = vetP.argmax()
+    ind1 = numpy.array([indMaxP-20,0]).max()
+    ind2 = numpy.array([indMaxP+20,N]).min()
+    
+    if self.dbugOptRest['plotP_int']:
+        plt.plot(self.t,vetP)
+        plt.grid(True)
+        plt.title("Integrand of P")
+        plt.show()
+
+    if self.dbugOptRest['plotIntP_int']:
+        plt.plot(self.t,vetIP)
+        plt.grid(True)
+        plt.title("Partially integrated P")
+        plt.show()
+
+    # for zoomed version:
+    if self.dbugOptRest['plotP_intZoom']:
+        plt.plot(self.t[ind1:ind2],vetP[ind1:ind2],'o')
+        plt.grid(True)
+        plt.title("Integrand of P (zoom)")
+        plt.show()
+    
+    if self.dbugOptRest['plotSolMaxP']:
+        print("\nSolution on the region of MaxP:")
+        self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
         
-        if self.dbugOptRest['plotP_int']:
-            plt.plot(self.t,vetP)
+        # TODO: extend these debug plots
+    if self.dbugOptRest['plotRsidMaxP']:
+        
+        print("\nResidual on the region of maxP:")
+ 
+        if self.n==4 and self.m ==2:
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,0])
             plt.grid(True)
-            plt.title("Integrand of P")
+            plt.ylabel("res_hDot [km/s]")
+            plt.show()        
+    
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("res_vDot [km/s/s]")
             plt.show()
     
-        if self.dbugOptRest['plotIntP_int']:
-            plt.plot(self.t,vetIP)
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
             plt.grid(True)
-            plt.title("Partially integrated P")
+            plt.ylabel("res_gammaDot [deg/s]")
             plt.show()
-
-        # for zoomed version:
-        if self.dbugOptRest['plotP_intZoom']:
-            plt.plot(self.t[ind1:ind2],vetP[ind1:ind2],'o')
+    
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,3],'m')
             plt.grid(True)
-            plt.title("Integrand of P (zoom)")
+            plt.ylabel("res_mDot [kg/s]")
             plt.show()
-        
-        if self.dbugOptRest['plotSolMaxP']:
-            print("\nSolution on the region of MaxP:")
-            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-            
-            # TODO: extend these debug plots
-        if self.dbugOptRest['plotRsidMaxP']:
-            
-            print("\nResidual on the region of maxP:")
- 
-            if self.n==4 and self.m ==2:
-                plt.plot(self.t[ind1:ind2],func[ind1:ind2,0])
-                plt.grid(True)
-                plt.ylabel("res_hDot [km/s]")
-                plt.show()        
-        
-                plt.plot(self.t[ind1:ind2],func[ind1:ind2,1],'g')
-                plt.grid(True)
-                plt.ylabel("res_vDot [km/s/s]")
-                plt.show()
-        
-                plt.plot(self.t[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
-                plt.grid(True)
-                plt.ylabel("res_gammaDot [deg/s]")
-                plt.show()
-        
-                plt.plot(self.t[ind1:ind2],func[ind1:ind2,3],'m')
-                plt.grid(True)
-                plt.ylabel("res_mDot [kg/s]")
-                plt.show()
             
     #            print("\nState time derivatives on the region of maxP:")
     #
@@ -138,8 +139,10 @@ def calcP(self):
     #            plt.grid(True)
     #            plt.ylabel("mDot [kg/s]")
     #            plt.show()
-            else:
-                 print("Not implemented (yet).")   
+    
+    
+    #        else:
+    #             print("Not implemented (yet).")   
         #
     #        
         
@@ -258,7 +261,7 @@ def rest(self):
     arrayA = numpy.empty((q+1,N,n))
     arrayB = numpy.empty((q+1,N,m))
     arrayC = numpy.empty((q+1,p))
-    arrayL = arrayA.copy()
+    arrayL = numpy.empty((q+1,N,n))
     arrayM = numpy.empty((q+1,q))
 
     #optPlot = dict()
@@ -483,5 +486,5 @@ def rest(self):
     self.updtHistP(alfa)
     print("Leaving rest with alfa =",alfa)
     
-    if self.dbugOptRest['pause']:
+    if self.dbugOptRest['pausRest']:
         input('Rest in debug mode. Press any key to continue...')

@@ -59,8 +59,8 @@ class sgra():
         
         # Debugging options
         tf = False
-        self.dbugOptRest = {'main':tf,
-                            'pause':tf,
+        self.dbugOptRest = {'pausRest':tf,
+                            'pausCalcP':tf,
                             'plotP_int':tf,
                             'plotP_intZoom':tf,
                             'plotIntP_int':tf,
@@ -68,8 +68,11 @@ class sgra():
                             'plotRsidMaxP':tf,
                             'plotCorr':tf}
         tf = False
-        self.dbugOptGrad = {'main':tf,
-                            'pause':tf,
+        self.dbugOptGrad = {'pausGrad':tf,
+                            'pausCalcQ':tf,
+                            'prntCalcStepGrad': tf,
+                            'plotCalcStepGrad': tf,
+                            'pausCalcStepGrad':tf,
                             'plotQx':tf,
                             'plotQu':tf,
                             'plotQxZoom':tf,
@@ -78,6 +81,14 @@ class sgra():
                             'plotSolQuMax':tf,
                             'plotCorr':tf}
    
+    def setAllDbugOptRest(self,tf):
+        for key in self.dbugOptRest.keys():
+            self.dbugOptRest[key] = tf
+    
+    def setAllDbugOptGrad(self,tf):
+        for key in self.dbugOptGrad.keys():
+            self.dbugOptRest[key] = tf
+            
     def copy(self):
         return copy.deepcopy(self)
     

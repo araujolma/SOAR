@@ -25,7 +25,7 @@ class ITman():
         self.mustAsk = True
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
-        self.GRpausRate = 100
+        self.GRpausRate = 10
     
     def prntDashStr(self):
         print(self.dashStr)
@@ -159,34 +159,17 @@ class ITman():
             sol.rest()
             contRest += 1
             
-            if sol.dbugOptRest['main']:
-                tf = False
-                sol.dbugOptRest = {'main':tf,
-                                   'pause':tf,
-                                   'plotP_int':tf,
-                                   'plotP_intZoom':tf,
-                                   'plotIntP_int':tf,
-                                   'plotSolMaxP':tf,
-                                   'plotRsidMaxP':tf,
-                                   'plotCorr':tf}
+            # turn off debug mode
+            
+            sol.setAllDbugOptRest(False)
+            
             if contRest%10 == 0:
                 print("\nLots of restorations! "+\
                       "Here is a partial convergence report:")
                 sol.showHistP()
                 print("\nChanging debug mode for next rest run.\n")
-                tf = True
-                sol.dbugOptRest = {'main':tf,
-                                   'pause':tf,
-                                   'plotP_int':tf,
-                                   'plotP_intZoom':tf,
-                                   'plotIntP_int':tf,
-                                   'plotSolMaxP':tf,
-                                   'plotRsidMaxP':tf,
-                                   'plotCorr':tf}
+                sol.setAllDbugOptRest(True)
                 
-#            P,Pint,Ppsi = sol.calcP()
-#            print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-#                  ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")
         sol.plotSol()
