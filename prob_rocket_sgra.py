@@ -241,7 +241,8 @@ def declProb(opt=dict()):
         # Automatic adjustment
 
         its1 = itsme.its()
-        t_its,x_its,u_its,tabAlpha,tabBeta = its1.tt,its1.xx,its1.uu,its1.tabAlpha,its1.tabBeta
+        #t_its,x_its,u_its,tabAlpha,tabBeta = its1.tt,its1.xx,its1.uu,its1.tabAlpha,its1.tabBeta
+        t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
 
         # @Object test (Apague-me depois)
         tObj = numpy.arange(0.0,t_its[-1],1)
