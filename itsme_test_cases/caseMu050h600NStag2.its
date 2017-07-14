@@ -7,10 +7,10 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 150
+Mu = 50
 #
 # Number of stages
-NStag = 4
+NStag = 2
 #
 # Specific impulse [s]
 Isp = 450
@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 500.0
+h = 600.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -92,4 +92,4 @@ guess = 1.0, 1.2, 1.2
 #
 limit = 1.0, 0.4, 0.4
 #
-tol = 1e-8
+tol = 1e-7

@@ -10,7 +10,7 @@
 Mu = 100
 #
 # Number of stages
-NStag = 4
+NStag = 3
 #
 # Specific impulse [s]
 Isp = 450
@@ -25,8 +25,8 @@ T = 40.0
 softness = 0.2
 #
 # Aerodynamic coefficients
-#
-CL0 = 0.0
+# (B0 Miele 1998)
+CL0 =-0.03
 #
 # (B1 Miele 1998)
 CL1 = 0.8
@@ -38,7 +38,7 @@ CD0 = 0.05
 CD2 = 0.5
 #
 # Reference area in [km2]
-s_ref = 0.7853981633974482e-06
+s_ref = 7.853981633974482e-07
 #
 ###############################################################################
 [initial] # Initial state constants
@@ -46,7 +46,7 @@ s_ref = 0.7853981633974482e-06
 # Initial altitude[km]
 h = 0.0
 #
-# Initial velocity [km/s]
+# Initial velocity [km/2]
 V = 1.0e-6
 #
 # Initial flight path angle [°]
@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 463.0
+h = 1500.0
 #
 # Final flight path angle [°]
 gamma = 0.0
