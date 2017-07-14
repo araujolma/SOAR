@@ -527,8 +527,7 @@ def grad(self):
         for k in range(N-1):
             auxLam[k+1,:] = numpy.linalg.solve(I-dt*phixInv[k+1,:],\
                   auxLam[k,:]-fxInv[k,:]*dt)
-        #
-        
+                
         #auxLam = numpy.empty((N,n))
         #auxLam[0,:] = auxLamInit
         #for k in range(N-1):
@@ -538,9 +537,8 @@ def grad(self):
         # Calculate B
         B = -fu.copy()
         for k in range(N):
-            lam[k,:] = auxLam[N-k-1,:]
+            lam[k,:] = auxLam[N-k-1,:]            
             B[k,:] += phiuTr[k,:,:].dot(lam[k,:])
-
 
         ##################################################################
         # TESTING LAMBDA DIFFERENTIAL EQUATION
@@ -584,7 +582,7 @@ def grad(self):
 #            print("Cannot plot lambda anymore... for now!")
             #optPlot['mode'] = 'states:Lambda'
             #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-
+            
         # integrate diff equation for A
         A = numpy.zeros((N,n))
         

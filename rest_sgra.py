@@ -368,8 +368,8 @@ def rest(self):
 #            
 #            optPlot['mode'] = 'states:Lambda (zoom)'
 #            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
-            
-            
+  
+                      
             #print("Integrating ODE for A ["+str(i)+"/"+str(q)+"] ...")
             # integrate equation for A:                
             A = numpy.zeros((N,n))
@@ -464,7 +464,7 @@ def rest(self):
         C += K[i]*arrayC[i,:]
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
-
+    
     
     if self.dbugOptRest['plotCorr']:
         optPlot = {'mode':'var'}
