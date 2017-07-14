@@ -13,13 +13,14 @@ class sgra():
     def __init__(self):
         # these numbers should not make any sense; 
         # they should change with the problem
-        N,n,m,p,q = 50000,4,2,1,3
+        N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N = N
         self.n = n
         self.m = m
         self.p = p
         self.q = q
+        self.s = s
 
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
