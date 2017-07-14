@@ -22,7 +22,7 @@ class prob(sgra):
         # matrix sizes
         n = 2
         m = 1
-        p = 1
+        p = 2
         s = 2
         q = 2 + 2 + 2 + 2
         N = 5000+1

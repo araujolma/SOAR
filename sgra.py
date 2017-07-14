@@ -8,6 +8,7 @@ Created on Tue Jun 27 13:07:35 2017
 
 import rest_sgra, grad_sgra, numpy, copy, pprint
 import matplotlib.pyplot as plt
+from utils import ddt
 
 class sgra():
     def __init__(self):
@@ -59,7 +60,7 @@ class sgra():
         self.histI = numpy.zeros(MaxIterGrad)
         
         # Debugging options
-        tf = False
+        tf = True
         self.dbugOptRest = {'pausRest':tf,
                             'pausCalcP':tf,
                             'plotP_int':tf,
@@ -173,7 +174,9 @@ class sgra():
         return grad_sgra.calcStepGrad(self,*args,**kwargs)
 
     def calcQ(self,*args,**kwargs):
-        return grad_sgra.calcQ(self,*args,**kwargs)
+        print("calcQ: not implemented yet!")
+        return 1.0,1.0,1.0,1.0,1.0
+#        return grad_sgra.calcQ(self,*args,**kwargs)
     
     def updtHistQ(self,alfa):
     
@@ -229,3 +232,179 @@ class sgra():
         plt.xlabel("Iterations")
         plt.ylabel("I values")
         plt.show()
+        
+#%% LMPBVP
+
+    def LMPBVP(self,rho=0.0):
+        # get sizes
+        Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
+        x = self.x
+        rho1 = rho-1.0
+        
+        # calculate phi and psi
+        phi = self.calcPhi()
+        psi = self.calcPsi()
+        
+        err = phi - ddt(x,N)
+        
+        # get gradients
+        #print("Calc grads...")
+        Grads = self.calcGrads()
+        dt = 1.0/(N-1)
+        #dt6 = dt/6
+        phix = Grads['phix']
+        phiu = Grads['phiu']
+        phip = Grads['phip']
+        psiy = Grads['psiy']
+        psip = Grads['psip']
+        fx = Grads['fx']
+        fu = Grads['fu']
+        fp = Grads['fp']
+        
+        #print("Preparing matrices...")
+        phixTr = numpy.empty_like(phix)
+        phiuTr = numpy.empty((N,m,n,s))
+        phipTr = numpy.empty((N,p,n,s))
+        #psipTr = psip.transpose()
+        
+        phiuFu = numpy.empty((N,n,s))
+        for arc in range(s):
+            for k in range(N):
+                phixTr[k,:,:,arc] = phix[k,:,:,arc].transpose()
+                phiuTr[k,:,:,arc] = phiu[k,:,:,arc].transpose()
+                phipTr[k,:,:,arc] = phip[k,:,:,arc].transpose()
+                phiuFu[k,:,arc] = phiu[k,:,:,arc].dot(fu[k,:,arc])
+        
+        InitCondMat = numpy.eye(Ns,Ns+1)
+        
+        # Matrices Ctilde, Dtilde, Etilde
+        Ct = numpy.empty((p,Ns+1))
+        Dt = numpy.empty((2*n*s,Ns+1))
+        Et = numpy.empty((2*n*s,Ns+1))
+        
+        # Dynamics matrix for propagating the LSODE:
+        DynMat = numpy.zeros((N,2*n,2*n,s))
+        for arc in range(s):
+            for k in range(N):                
+                DynMat[k,:n,:n,arc] = phix[k,:,:,arc]
+                DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
+                DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
+        
+        # Matrix for linear system involving k's
+        M = numpy.zeros((Ns+q+1,Ns+q+1))
+        M[0,:(Ns+1)] = numpy.ones(Ns+1)
+        M[(q+1):(q+1+p),(Ns+1):] = psip.transpose()
+        M[(p+q+1):,(Ns+1):] = psiy.transpose()
+        
+        phiLamInt = numpy.zeros((p,Ns+1))
+        # column vector for linear system involving k's    [eqs (34)]
+        col = numpy.zeros(Ns+q+1)
+        col[0] = 1.0 # eq (88)
+        col[1:(q+1)] = rho1 * psi
+
+        sumIntFpi = numpy.zeros(p)
+        for arc in range(s):
+            thisInt = numpy.zeros(p)
+            for ind in range(p):
+                thisInt[ind] += fp[:,ind,arc].sum()
+            thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
+            thisInt *= dt
+            sumIntFpi += thisInt
+        
+        col[(q+1):(q+p+1)] = -rho * sumIntFpi
+
+        arrayA = numpy.empty((Ns+1,N,n,s))
+        arrayB = numpy.empty((Ns+1,N,m,s))
+        arrayC = numpy.empty((Ns+1,p))
+        arrayL = numpy.empty((Ns+1,N,n,s))
+        
+        #optPlot = dict()
+        
+        print("Beginning loop for solutions...")
+        for j in range(Ns+1):
+            print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
+            
+            A = numpy.zeros((N,n,s))
+            B = numpy.zeros((N,m,s))
+            C = numpy.zeros((p,1))
+            lam = numpy.zeros((N,n,s))
+            
+            Xi = numpy.zeros((N,2*n,s))
+            # Initial conditions for LSODE:
+            for arc in range(s):
+                A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+                lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]     
+                Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+            C = InitCondMat[(2*n*s):,j]
+            
+            # Non-homogeneous term for LSODE:
+            nonHom = numpy.empty((N,2*n,s))
+            for arc in range(s):
+                for k in range(N):
+                    nonHA = phip[k,:,:,arc].dot(C) + \
+                                rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
+                    nonHL = rho * fx[k,:,arc]
+                    nonHom[k,:n,arc] = nonHA.copy()
+                    nonHom[k,n:,arc] = nonHL.copy()
+                    
+            # Integrate the LSODE:
+            for arc in range(s):
+                B[0,:,arc] = -rho*fu[0,:,arc] + \
+                                    phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+                phiLamInt[:,j] += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+                for k in range(N-1):
+                    derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+                            nonHom[k,:,arc]
+                    aux = Xi[k,:,arc] + dt * derXik
+                    Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
+                                    DynMat[k+1,:,:,arc].dot(aux) + \
+                                    nonHom[k+1,:,arc])
+                    A[k+1,:,arc] = Xi[k+1,:n,arc]
+                    lam[k+1,:,arc] = Xi[k+1,n:,arc]
+                    B[k+1,:,arc] = -rho*fu[k+1,:,arc] + \
+                                    phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                    phiLamInt[:,j] += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                #
+                phiLamInt[:,j] -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
+                # Put data into matrices Dtilde and Etilde
+                Dt[(2*arc*n):(2*arc+1)*n,j] = A[0,:,arc]
+                Dt[(2*arc+1)*n:(2*arc+2)*n,j] = A[1,:,arc]
+                Et[(2*arc*n):(2*arc+1)*n,j] = -lam[0,:,arc]
+                Et[(2*arc+1)*n:(2*arc+2)*n,j] = lam[1,:,arc]                
+            #
+            # store solution in arrays
+            arrayA[j,:,:,:] = A.copy()#[:,:,arc]
+            arrayB[j,:,:,:] = B.copy()#[:,:,arc]
+            arrayC[j,:] = C.copy()
+            arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
+            Ct[:,j] = C.copy()
+        #
+        
+        #All integrations ready!
+        phiLamInt *= dt
+        
+        # Finish assembly of matrix M
+        M[1:(q+1),:(Ns+1)] = psiy.dot(Dt) + psip.dot(Ct) # from eq (34a)
+        M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt # from eq (34b)
+        
+        # Calculations of weights k:        
+        print("M =",M)
+        #print("col =",col)
+        KMi = numpy.linalg.solve(M,col)
+        print("Residual:",M.dot(KMi))
+        K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
+        print("K =",K)
+        print("mu =",mu)
+        
+        # summing up linear combinations
+        A *= 0.0
+        B *= 0.0
+        C *= 0.0
+        lam *= 0.0
+        for j in range(Ns):
+            A += K[j]*arrayA[j,:,:,:]
+            B += K[j]*arrayB[j,:,:,:]
+            C += K[j]*arrayC[j,:]
+            lam += K[j]*arrayL[j,:,:,:]
+        
+        return A,B,C,lam,mu
