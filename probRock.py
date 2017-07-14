@@ -162,19 +162,9 @@ class prob(sgra):
             solInit = None
         elif initMode == 'extSol':
     
-            # Factors instervals for aerodynamics
-            #fsup = numpy.array([0.61 + 0.3,500 + 100,1.94 + 0.3]) # Superior limit
-            #finf = numpy.array([0.61 - 0.3,500 - 100,1.94 - 0.3]) # Inferior limit
-            fsup = numpy.array([1.5 + 0.2,1.5 + 0.2,1.0 + 0.2]) # Superior limit
-            finf = numpy.array([1.5 - 0.2,1.5 - 0.2,1.0 - 0.2]) # Inferior limit
-    
-            # Automatic adjustment
-    #        new_factors,t_its,x_its,u_its = itsme.its(fsup, finf, h_final, 100.0, 1.0e-8)
-    
-            ###################################
-            new_factors,t_its,x_its,u_its,tabAlpha,tabBeta = itsme.its(fsup,\
-                                            finf,h_final, self.mPayl, 1.0e-7)
-            ####################################
+            its1 = itsme.its()
+            #t_its,x_its,u_its,tabAlpha,tabBeta = its1.tt,its1.xx,its1.uu,its1.tabAlpha,its1.tabBeta
+            t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
                         
             # Solutions must be made compatible: t_its is dimensional, 
             # u_its consists of the actual controls (alpha and beta), etc.
@@ -645,6 +635,7 @@ class prob(sgra):
         currSolLabl = 'currentSol'
         
         plt.plot(altSol.t,altSol.x[:,0],label=altSolLabl)
+        plt.hold(True)
         plt.plot(self.t,self.x[:,0],'--y',label=currSolLabl)
         plt.grid()
         plt.ylabel("h [km]")
