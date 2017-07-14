@@ -26,7 +26,7 @@ softness = 0.2
 #
 # Aerodynamic coefficients
 # (B0 Miele 1998)
-CL0 =-0.03
+CL0 = 0.0
 #
 # (B1 Miele 1998)
 CL1 = 0.8
@@ -82,7 +82,7 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth amgular velocity of ratation [rad/2]
+# Earth angular velocity of rotation [rad/2]
 we = 0.0
 #
 ###############################################################################

@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  3 18:17:45 2017
-rest_sgra: functions for performing restoration
+Created on Tue Jun 27 14:36:59 2017
+
 @author: levi
 """
-
 import numpy
+from utils import ddt
 import matplotlib.pyplot as plt
 
-from prob_rocket_sgra import calcPhi,calcPsi,calcGrads,plotSol
-#from prob_test import calcPhi,calcPsi,calcGrads,plotSol
-#from utils_alt import ddt
-from utils import ddt
+def calcP(self):
+    N = self.N
+    dt = self.dt
+    x = self.x
+    u = self.u
 
-def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
-    #print("\nIn calcP.")
-    N = sizes['N']
-
-    dt = 1.0/(N-1)
-
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    psi = calcPsi(sizes,x,boundary)
-    dx = ddt(sizes,x)
+    phi = self.calcPhi()
+    psi = self.calcPsi()
+    dx = ddt(x,N)
+    
     func = dx-phi
     vetP = numpy.empty(N)
     vetIP = numpy.empty(N)
@@ -34,129 +30,162 @@ def calcP(sizes,x,u,pi,constants,boundary,restrictions,mustPlot=False):
         vetP[t] = func[t,:].dot(func[t,:].transpose())#norm(func[t,:])**2
         P += vetP[t]
         vetIP[t] = P
-#        P += func[t,:].dot(func[t,:].transpose())
-
     
     vetP[N-1] = .5*(func[N-1,:].dot(func[N-1,:].transpose()))#norm(func[N-1,:])**2
     P += vetP[N-1]
     vetIP[N-1] = P
-#    P += .5*(func[N-1,:].dot(func[N-1,:].transpose()))
 
     P *= dt
-    vetP *= dt
     vetIP *= dt
 
-    if mustPlot:
-        tPlot = numpy.arange(0,1.0+dt,dt)
+    #if numpy.array(self.dbugOptRest.values()).any():
+    #    print(self.dbugOptRest)
         
-        plt.plot(tPlot,vetP)
+    #    print("\nDebug plots for this calcP run:")
+        
+    indMaxP = vetP.argmax()
+    ind1 = numpy.array([indMaxP-20,0]).max()
+    ind2 = numpy.array([indMaxP+20,N]).min()
+    
+    if self.dbugOptRest['plotP_int']:
+        plt.plot(self.t,vetP)
         plt.grid(True)
         plt.title("Integrand of P")
         plt.show()
-        
-        # for zoomed version:
-        indMaxP = vetP.argmax()
-        ind1 = numpy.array([indMaxP-10,0]).max()
-        ind2 = numpy.array([indMaxP+10,N-1]).min()
-        plt.plot(tPlot[ind1:ind2],vetP[ind1:ind2],'o')
-        plt.grid(True)
-        plt.title("Integrand of P (zoom)")
-        plt.show()
-        
-        n = sizes['n']; m = sizes['m']
-        if n==4 and m==2:
-            print("\nStates and controls on the region of maxP:")
 
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
-            plt.grid(True)
-            plt.ylabel("h [km]")
-            plt.show()        
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-            plt.grid(True)
-            plt.ylabel("V [km/s]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-            plt.grid(True)
-            plt.ylabel("gamma [deg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-            plt.grid(True)
-            plt.ylabel("m [kg]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-            plt.grid(True)
-            plt.ylabel("u1 [-]")
-            plt.show()
-    
-            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-            plt.grid(True)
-            plt.xlabel("t")
-            plt.ylabel("u2 [-]")
-    
-            plt.show()
-        
-        
-        plt.plot(tPlot,vetIP)
+    if self.dbugOptRest['plotIntP_int']:
+        plt.plot(self.t,vetIP)
         plt.grid(True)
         plt.title("Partially integrated P")
         plt.show()
 
-    Pint = P
-    Ppsi = psi.transpose().dot(psi)#norm(psi)**2
-    P += Ppsi
-    #print("P = {:.4E}".format(P)+": P_int = {:.4E}".format(Pint)+", P_psi = {:.4E}".format(Ppsi))
-    return P,Pint,Ppsi
-
-def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
-
-    P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
-#    print("In calcStepRest, P0 = {:.4E}".format(P0))
+    # for zoomed version:
+    if self.dbugOptRest['plotP_intZoom']:
+        plt.plot(self.t[ind1:ind2],vetP[ind1:ind2],'o')
+        plt.grid(True)
+        plt.title("Integrand of P (zoom)")
+        plt.show()
     
-    alfa = .8
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    alfa = 1.0
-#    print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions,False)
-    
-    alfa = 1.2
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
+    if self.dbugOptRest['plotSolMaxP']:
+        print("\nSolution on the region of MaxP:")
+        self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
         
+        # TODO: extend these debug plots
+    if self.dbugOptRest['plotRsidMaxP']:
+        
+        print("\nResidual on the region of maxP:")
+ 
+        if self.n==4 and self.m ==2:
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,0])
+            plt.grid(True)
+            plt.ylabel("res_hDot [km/s]")
+            plt.show()        
+    
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,1],'g')
+            plt.grid(True)
+            plt.ylabel("res_vDot [km/s/s]")
+            plt.show()
+    
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,2]*180/numpy.pi,'r')
+            plt.grid(True)
+            plt.ylabel("res_gammaDot [deg/s]")
+            plt.show()
+    
+            plt.plot(self.t[ind1:ind2],func[ind1:ind2,3],'m')
+            plt.grid(True)
+            plt.ylabel("res_mDot [kg/s]")
+            plt.show()
+            
+    #            print("\nState time derivatives on the region of maxP:")
+    #
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,0])
+    #            plt.grid(True)
+    #            plt.ylabel("hDot [km/s]")
+    #            plt.show()        
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,1],'g')
+    #            plt.grid(True)
+    #            plt.ylabel("vDot [km/s/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,2]*180/numpy.pi,'r')
+    #            plt.grid(True)
+    #            plt.ylabel("gammaDot [deg/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],dx[ind1:ind2,3],'m')
+    #            plt.grid(True)
+    #            plt.ylabel("mDot [kg/s]")
+    #            plt.show()
+    #            
+    #            print("\nPHI on the region of maxP:")
+    #
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,0])
+    #            plt.grid(True)
+    #            plt.ylabel("hDot [km/s]")
+    #            plt.show()        
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,1],'g')
+    #            plt.grid(True)
+    #            plt.ylabel("vDot [km/s/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,2]*180/numpy.pi,'r')
+    #            plt.grid(True)
+    #            plt.ylabel("gammaDot [deg/s]")
+    #            plt.show()
+    #    
+    #            plt.plot(tPlot[ind1:ind2],phi[ind1:ind2,3],'m')
+    #            plt.grid(True)
+    #            plt.ylabel("mDot [kg/s]")
+    #            plt.show()
+    
+    
+    #        else:
+    #             print("Not implemented (yet).")   
+        #
+    #        
+        
+    Pint = P
+    Ppsi = psi.transpose().dot(psi)
+    P += Ppsi
+    return P,Pint,Ppsi    
+
+def calcStepRest(self,corr):
+    print("\nIn calcStepRest.\n")
+    
+    P0,_,_ = calcP(self)
+
+    newSol = self.copy()
+    newSol.aplyCorr(.8,corr)
+    P1m,_,_ = newSol.calcP()
+
+    newSol = self.copy()
+    newSol.aplyCorr(1.0,corr)
+    P1,_,_ = newSol.calcP()
+
+    newSol = self.copy()
+    newSol.aplyCorr(1.2,corr)
+    P1M,_,_ = newSol.calcP()
+            
     if P1 >= P1m or P1 >= P0:
+        print("alfa=1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
-        # TODO: improve this!
-        nP = P1; alfa=1
+        nP = P1; alfa=1.0
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
             P = nP
             alfa *= .8
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-            nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-#            print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-#                  " (P0 = {:.4E})".format(P0))
+            newSol = self.copy()
+            newSol.aplyCorr(alfa,corr)
+            nP,_,_ = newSol.calcP()
             if nP < P0:
                 keepSearch = ((nP-P)/P < -.05)
     else:
+        # no "overdrive!"
+        #return 1.0
+    
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 
             # Better not to waste time and return 1.0 
@@ -165,55 +194,41 @@ def calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
             # There is still a descending gradient here. Increase alfa!
             nP = P1M
             cont = 0; keepSearch = True#(nPint>Pint1M)
+            alfa = 1.2
             while keepSearch:
                 cont += 1
                 P = nP
                 alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
- #               print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
- #                     " (P0 = {:.4E})".format(P0))
-                keepSearch = nP<P
+                newSol = self.copy()
+                newSol.aplyCorr(alfa,corr)
+                nP,_,_ = newSol.calcP()
+                print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+                      " (P0 = {:.4E})".format(P0))
+                keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
                 #if nPint < Pint0:
             alfa /= 1.2
     return alfa
 
-def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
-    
-    # Defining restoration "graphorragic" mode:
-    RmustPlotLam = False
-    RmustPlotLamZ = False
-    RmustPlotPropLam = False
-    RmustPlotErroLam = False
-    RmustPlotErroLamZ = False
-    RmustPlotVar = False
-    RmustPlotVarT = False
-    print("\nIn rest.")
+
+def rest(self):
+     
+    print("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
-    #print("Calc phi...")
+    N,n,m,p,q = self.N,self.n,self.m,self.p,self.q
+    x = self.x
+    
     # calculate phi and psi
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-    #print("Calc psi...")
-    psi = calcPsi(sizes,x,boundary)
+    phi = self.calcPhi()
+    psi = self.calcPsi()
 
-    # aux: phi - dx/dt
-    err = phi - ddt(sizes,x)
+    err = phi - ddt(x,N)
 
     # get gradients
     #print("Calc grads...")
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
+    Grads = self.calcGrads()
 
-    dt = Grads['dt']
+    dt = 1.0/(N-1)
     #dt6 = dt/6
     phix = Grads['phix']
     phiu = Grads['phiu']
@@ -246,10 +261,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     arrayA = numpy.empty((q+1,N,n))
     arrayB = numpy.empty((q+1,N,m))
     arrayC = numpy.empty((q+1,p))
-    arrayL = arrayA.copy()
+    arrayL = numpy.empty((q+1,N,n))
     arrayM = numpy.empty((q+1,q))
 
-    optPlot = dict()
+    #optPlot = dict()
 
     #print("Beginning loop for solutions...")
     for i in range(q+1):
@@ -303,32 +318,34 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             ##################################################################
             # TESTING LAMBDA DIFFERENTIAL EQUATION
             
-#            dlam = ddt(sizes,lam)
-#            erroLam = numpy.empty((N,n))
-#            normErroLam = numpy.empty(N)
-#            for k in range(N):
-#                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
-#                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
-#            if mustPlotErroLam:
-#                print("\nLambda Error:")
-#                optPlot['mode'] = 'states:LambdaError'
-#                plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
-#                        constants,restrictions,optPlot)
-#                plt.semilogy(normErroLam)
-#                plt.grid()
-#                plt.title("ErroLam")
-#                plt.show()
-#            
-#            if mustPlotErroLamZ:
-#                optPlot['mode'] = 'states:LambdaError (zoom)'
-#                N1 = 0#int(N/100)-10
-#                N2 = 20##N1+20
-#                plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
-#                        numpy.zeros(p),constants,restrictions,optPlot)
-#                plt.semilogy(normErroLam[N1:N2])
-#                plt.grid()
-#                plt.title("ErroLam (zoom)")
-#                plt.show()
+            dlam = ddt(lam,N)
+            erroLam = numpy.empty((N,n))
+            normErroLam = numpy.empty(N)
+            for k in range(N):
+                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])
+                normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])
+            maxNormErroLam = normErroLam.max()
+            print("maxNormErroLam =",maxNormErroLam)
+            #print("\nLambda Error:")
+            #
+            #optPlot['mode'] = 'states:LambdaError'
+            #plotSol(sizes,t,erroLam,numpy.zeros((N,m)),numpy.zeros(p),\
+            #        constants,restrictions,optPlot)
+            #optPlot['mode'] = 'states:LambdaError (zoom)'
+            #N1 = 0#int(N/100)-10
+            #N2 = 20##N1+20
+            #plotSol(sizes,t[N1:N2],erroLam[N1:N2,:],numpy.zeros((N2-N1,m)),\
+            #        numpy.zeros(p),constants,restrictions,optPlot)
+
+            #plt.semilogy(normErroLam)
+            #plt.grid()
+            #plt.title("ErroLam")
+            #plt.show()
+            
+            #plt.semilogy(normErroLam[N1:N2])
+            #plt.grid()
+            #plt.title("ErroLam (zoom)")
+            #plt.show()
             
             ##################################################################            
             scal = 1.0/((numpy.absolute(B)).max())
@@ -346,14 +363,13 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
             C *= dt
             C -= -psipTr.dot(mu)
             
-            if RmustPlotLam:            
-                optPlot['mode'] = 'states:Lambda'
-                plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-                
-            if RmustPlotLamZ:
-                optPlot['mode'] = 'states:Lambda (zoom)'
-                plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
-                        
+#            optPlot['mode'] = 'states:Lambda'
+#            plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+#            
+#            optPlot['mode'] = 'states:Lambda (zoom)'
+#            plotSol(sizes,t[N1:N2],lam[N1:N2,:],B[N1:N2,:],C,constants,restrictions,optPlot)
+  
+                      
             #print("Integrating ODE for A ["+str(i)+"/"+str(q)+"] ...")
             # integrate equation for A:                
             A = numpy.zeros((N,n))
@@ -422,9 +438,8 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         arrayL[i,:,:] = lam
         arrayM[i,:] = mu
         
-        if RmustPlotVar:
-            optPlot['mode'] = 'var'
-            plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
+        #optPlot['mode'] = 'var'
+        #plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
 
         
         # Matrix for linear system (89)
@@ -432,10 +447,10 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
     #
 
     # Calculations of weights k:
-#    print("M =",M)
-#    print("col =",col)
+    print("M =",M)
+    #print("col =",col)
     K = numpy.linalg.solve(M,col)
-#    print("K =",K)
+    print("K =",K)
 
     # summing up linear combinations
     A = 0.0*A
@@ -449,137 +464,27 @@ def rest(sizes,x,u,pi,t,constants,boundary,restrictions):
         C += K[i]*arrayC[i,:]
         lam += K[i]*arrayL[i,:,:]
         mu += K[i]*arrayM[i,:]
-
-    if RmustPlotVarT:
-        optPlot['mode'] = 'var'
-        plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
     
-    if RmustPlotPropLam:   
+    
+    if self.dbugOptRest['plotCorr']:
+        optPlot = {'mode':'var'}
+        solCorr = self.copy()
+        solCorr.x = A
+        solCorr.u = B
+        solCorr.pi = C
+        solCorr.plotSol(opt=optPlot)
         optPlot['mode'] = 'proposed (states: lambda)'
-        plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
-
-
+        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    
+    corr = {'x':A,
+            'u':B,
+            'pi':C}
     #print("Calculating step...")
-    alfa = calcStepRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-
-#    print("Leaving rest with alfa =",alfa)
-    return nx,nu,np,lam,mu
-
-def calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions):
-    #print("\nIn calcStepOdeRest.\n")
-    P0,Pint0,Ppsi0 = calcP(sizes,x,u,pi,constants,boundary,restrictions)
     
-    alfa = .8
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1m,Pint1m,Ppsi1m = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
+    alfa = self.calcStepRest(corr)
+    self.aplyCorr(alfa,corr)
+    self.updtHistP(alfa)
+    print("Leaving rest with alfa =",alfa)
     
-    alfa = 1.0
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1,Pint1,Ppsi1 = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    alfa = 1.2
-    #print("\nalfa =",alfa)
-    nx = x + alfa * A
-    nu = u + alfa * B
-    np = pi + alfa * C
-    P1M,Pint1M,Ppsi1M = calcP(sizes,nx,nu,np,constants,boundary,restrictions)
-    
-    if Pint1 >= Pint1m:
-        # alfa = 1.0 is too much. Reduce alfa.
-        # TODO: improve this!
-        nPint = Pint1m
-        cont = 0; keepSearch = (nPint>Pint0)
-        while keepSearch and alfa > 1.0e-15:
-            cont += 1
-            Pint = nPint
-            alfa *= .5
-            nx = x + alfa * A
-            nu = u + alfa * B
-            np = pi + alfa * C
-            nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-            #print("\n alfa =",alfa,", P_int = {:.4E}".format(nPint),\
-            #      " (P_int0 = {:.4E})".format(Pint0))
-            if nPint < Pint0:
-                keepSearch = ((nPint-Pint)/Pint < -.05)
-    else:
-        if Pint1 <= Pint1M:
-            # alfa = 1.0 is likely to be best value. 
-            # Better not to waste time and return 1.0 
-            return 1.0
-        else:
-            # There is still a descending gradient here. Increase alfa!
-            nPint = Pint1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            while keepSearch:
-                cont += 1
-                Pint = nPint
-                alfa *= 1.2
-                nx = x + alfa * A
-                nu = u + alfa * B
-                np = pi + alfa * C
-                nP,nPint,nPpsi = calcP(sizes,nx,nu,np,constants,boundary,\
-                                   restrictions)
-                #print("\n alfa =",alfa,", P_int = {:.4E}".format(nPint),\
-                #      " (P_int0 = {:.4E})".format(Pint0))
-                keepSearch = nPint<Pint
-                #if nPint < Pint0:
-            alfa /= 1.2
-
-    return alfa
-
-def oderest(sizes,x,u,pi,t,constants,boundary,restrictions):
-    #print("\nIn oderest.")
-
-
-    # get sizes
-    N = sizes['N']
-    n = sizes['n']
-    m = sizes['m']
-    p = sizes['p']
-    q = sizes['q']
-
-    #print("Calc phi...")
-    # calculate phi and psi
-    phi = calcPhi(sizes,x,u,pi,constants,restrictions)
-
-    # err: phi - dx/dt
-    err = phi - ddt(sizes,x)
-
-    # get gradients
-    #print("Calc grads...")
-    Grads = calcGrads(sizes,x,u,pi,constants,restrictions)
-    dt = Grads['dt']
-    phix = Grads['phix']
-    
-    lam = 0*x; mu = numpy.zeros(q)        
-    B = numpy.zeros((N,m))
-    C = numpy.zeros(p)
-
-    #print("Integrating ODE for A...")
-    # integrate equation for A:
-    A = numpy.zeros((N,n))
-    for k in range(N-1):
-        derk =  phix[k,:].dot(A[k,:]) + err[k,:]
-        aux = A[k,:] + dt*derk
-        A[k+1,:] = A[k,:] + .5*dt*( derk + phix[k+1,:].dot(aux) + err[k+1,:])
-
-    optPlot = dict()    
-    optPlot['mode'] = 'var'
-    plotSol(sizes,t,A,B,C,constants,restrictions,optPlot)
-
-    #print("Calculating step...")
-    alfa = calcStepOdeRest(sizes,t,x,u,pi,A,B,C,constants,boundary,restrictions)
-    nx = x + alfa * A
-
-    print("Leaving oderest with alfa =",alfa)
-    return nx,u,pi,lam,mu
+    if self.dbugOptRest['pausRest']:
+        input('Rest in debug mode. Press any key to continue...')
