@@ -10,7 +10,7 @@
 Mu = 100
 #
 # Number of stages
-NStag = 0
+NStag = 2
 #
 # Specific impulse [s]
 Isp = 450
@@ -65,7 +65,7 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
 tAoA1 = 3.7
