@@ -13,7 +13,8 @@ from interf import ITman
 #import probRock as prob
 #import prob101 as prob
 #import probCart as prob
-import probCartMod as prob
+#import probCartMod as prob
+import probSmpl as prob
 
             
 #%%

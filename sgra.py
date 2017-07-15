@@ -372,6 +372,12 @@ class sgra():
                 Et[(2*arc*n):(2*arc+1)*n,j] = -lam[0,:,arc]
                 Et[(2*arc+1)*n:(2*arc+2)*n,j] = lam[1,:,arc]                
             #
+            
+            print("A =",A)
+            print("B =",B)
+            print("C =",C)
+            print("lam =",lam)
+
             # store solution in arrays
             arrayA[j,:,:,:] = A.copy()#[:,:,arc]
             arrayB[j,:,:,:] = B.copy()#[:,:,arc]
@@ -391,7 +397,7 @@ class sgra():
         print("M =",M)
         #print("col =",col)
         KMi = numpy.linalg.solve(M,col)
-        print("Residual:",M.dot(KMi))
+        print("Residual:",M.dot(KMi)-col)
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
         print("K =",K)
         print("mu =",mu)
