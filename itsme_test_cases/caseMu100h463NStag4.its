@@ -10,7 +10,7 @@
 Mu = 100
 #
 # Number of stages
-NStag = 0
+NStag = 4
 #
 # Specific impulse [s]
 Isp = 450
@@ -25,8 +25,8 @@ T = 40.0
 softness = 0.2
 #
 # Aerodynamic coefficients
-#
-CL0 = 0.0
+# (B0 Miele 1998)
+CL0 =-0.03
 #
 # (B1 Miele 1998)
 CL1 = 0.8
@@ -65,7 +65,7 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
 tAoA1 = 3.7
@@ -92,4 +92,4 @@ guess = 0.75, 1.2, 1.2
 #
 limit = 1.25, 0.4, 0.4
 #
-tol = 1e-7
+tol = 1e-8

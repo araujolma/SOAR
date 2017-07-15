@@ -46,6 +46,8 @@ def its(*arg):
     solution2.displayResults()
 
     print('Total number of trajectory simulations: ',itsTotalTrajectorySimulationCounter)
+    if not solution2.converged():
+            print('itsme saying: solution has not converged :(')
 
     return solution2
 
@@ -65,6 +67,9 @@ def sgra(fname):
     print('Initial states:',solution.trajectory.xx[ 0])
     print('Final   states:',solution.trajectory.xx[-1])
     print('\n\rTotal number of trajectory simulations: ',itsTotalTrajectorySimulationCounter,'\n\r')
+
+    if not solution.converged():
+            print('itsme saying: solution has not converged :(')
 
     return solution.sgra()
 
@@ -101,14 +106,24 @@ def itsTester():
     # Some aplications of itsme functions and objects
 
     its()
-    its('itsme_test_cases/caseEarthRotating.its')
-    its('itsme_test_cases/caseMoon.its')
-    its('itsme_test_cases/caseMu050h200NStag2.its')
-    its('itsme_test_cases/caseMu050h600NStag2.its')
-    its('itsme_test_cases/caseMu100h463NStag0.its')
-    its('itsme_test_cases/caseMu100h463NStag1.its')
-    its('itsme_test_cases/caseMu100h1500NStag3.its')
-    its('itsme_test_cases/caseMu150h500NStag4.its')
+    # test list
+    testList = [\
+    'itsme_test_cases/caseEarthRotating.its',\
+    'itsme_test_cases/caseMoon.its',\
+    'itsme_test_cases/caseMu050h200NStag2.its',\
+    'itsme_test_cases/caseMu050h600NStag2.its',\
+    'itsme_test_cases/caseMu100h463NStag0.its',\
+    'itsme_test_cases/caseMu100h463NStag1.its',\
+    'itsme_test_cases/caseMu100h463NStag2.its',\
+    'itsme_test_cases/caseMu100h463NStag3.its',\
+    'itsme_test_cases/caseMu100h463NStag4.its',\
+    'itsme_test_cases/caseMu100h463NStag5.its',\
+    'itsme_test_cases/caseMu100h1500NStag3.its',\
+    'itsme_test_cases/caseMu150h500NStag4.its']
+
+    for case in testList:
+        if not its(case).converged():
+            raise Exception('itsme saying: solution did not converge')
 
     itsYourProblem('itsme_test_cases/caseEarthRotating.its').solveForFineTune()
     itsYourProblem('itsme_test_cases/caseMoon.its').solveForFineTune()
@@ -302,7 +317,10 @@ class optimalStaging():
         self.LtN = LtN
 
         if LtN <= 0:
-            self.fail = True
+            raise Exception('itsme saying: optimalStaing failed')
+
+        if self._mE == 0.0:
+            raise Exception('itsme saying: There is a null structual efficience')
 
         self.lamb = (self.e/(1 - self.e))*(LtN*self._m1E/self._mE)
 
@@ -338,6 +356,67 @@ class optimalStaging():
         print("mflux =",self.mflux)
         print("tb =",self.tb)
         print("tf =",self.tf,"\n\r")
+
+class optimalStagingHomogeneous():
+    # optimalStaging() returns a object with information of optimal staging factor
+    # The maximal staging reason is defined as reducing the total mass for a defined
+    # delta V.
+    # Structural eficience and thrust shall variate for diferent stages, but
+    # specific impulse must be the same for all stages
+    # Based in Cornelisse (1979)
+
+    def __init__(self,effList,dV,Tlist,con,Isp,g0,mu):
+        self.Tlist = Tlist
+        self.e = numpy.array(effList)
+        self.T = numpy.array(self.Tlist)
+        self.dV = dV
+        self.mu = mu
+        self.Isp = Isp
+        self.c = Isp*g0
+        self.mflux = self.T/self.c
+
+        self.lamb = ( numpy.exp(-self.dV/(self.c*self.e.size)) - self.e)/(1 - self.e)
+
+        self.phi = (1 - self.e)*(1 - self.lamb)
+
+        self.__mtotCalculate()             # Total sub-rocket mass
+        self.mp = self.mtot*self.phi             # Propelant mass on each stage
+        self.me = self.mp*(self.e/(1 - self.e))  # Strutural mass of each stage
+        self.tb = self.mp/self.mflux             # Duration of each stage burning
+        self.__tfCalculate()                 # Final burning time of each stage
+
+    def __mtotCalculate(self):
+
+        mtot = self.e*0.0
+        N = self.e.size-1
+        for ii in range(0,N+1):
+            if ii == 0:
+                mtot[N - ii] = self.mu/self.lamb[N - ii]
+            else:
+                mtot[N - ii] = mtot[N - ii + 1]/self.lamb[N - ii]
+        self.mtot = mtot
+
+    def __tfCalculate(self):
+
+        tf = self.e*0.0
+        N = self.tb.size-1
+        for ii in range(0,N+1):
+            if ii == 0:
+                tf[ii] = self.tb[ii]
+            else:
+                tf[ii] = self.tb[ii] + tf[ii-1]
+        self.tf = tf
+
+    def printInfo(self):
+
+        print("\n\rdV =",self.dV)
+        print("mu =",self.mu)
+        print("mp =",self.mp)
+        print("me =",self.me)
+        print("mtot =",self.mtot)
+        print("mflux =",self.mflux)
+        print("tb =",self.tb)
+        print("tf =",self.tf)
 
 class initialEstimate():
 
@@ -444,6 +523,7 @@ class itsYourProblem():
         global itsTotalTrajectorySimulationCounter
         itsTotalTrajectorySimulationCounter = 0
 
+        # TODO: solve the codification problem on configuration files
         config = configparser.ConfigParser()
         config.optionxform = str
         config.read(fileAdress)
@@ -501,17 +581,19 @@ class itsYourProblem():
 
         #######################################################################
         # Solver parameters
-        self.con['tol'] = config.getfloat('solver','tol')
+        section = 'solver'
+        self.con['tol'] = config.getfloat(section,'tol')
+        self.con['contraction'] = (1.0e4)*numpy.finfo(float).eps
 
         # Superior and inferior limits
-        auxstr = config.get('solver','guess')
+        auxstr = config.get(section,'guess')
         auxstr = auxstr.split(',')
         auxnum = []
         for n in auxstr:
             auxnum = auxnum+[float(n)]
         guess = numpy.array(auxnum)
 
-        auxstr = config.get('solver','limit')
+        auxstr = config.get(section,'limit')
         auxstr = auxstr.split(',')
         auxnum = []
         for n in auxstr:
@@ -521,6 +603,16 @@ class itsYourProblem():
         self.con['guess'] = guess
         self.con['fsup'] = guess + limit
         self.con['finf'] = guess - limit
+
+        if config.has_option(section,'Nmax'):
+            self.con['Nmax'] = config.getint(section,'Nmax')
+        else:
+            self.con['Nmax'] = 100
+
+        if config.has_option(section,'Ndiv'):
+            self.con['Ndiv'] = config.getint(section,'Ndiv')
+        else:
+            self.con['Ndiv'] = 20
 
         #######################################################################
         # Reference values
@@ -616,10 +708,9 @@ class itsYourProblem():
         # Loop initialization
         stop = False
         count = 0
-        Nmax = 50
 
         # Fators initilization
-        df = abs( (fsup[2] - finf[2])/5 )
+        df = abs( (fsup[2] - finf[2])/self.con['Ndiv'] )
         factors = (fsup + finf)/2
         step = df.copy()
         f1 = (fsup[2] + finf[2])/2
@@ -627,7 +718,7 @@ class itsYourProblem():
         f2 = f1 + step
 
         # Loop
-        while (not stop) and (count <= Nmax):
+        while (not stop) and (count <= self.con['Nmax']):
 
             # bisecSpeedAndAng: Error update from speed and gamma loop
             e2,factors = self.__bisecSpeedAndAng(factors,f2)
@@ -637,7 +728,7 @@ class itsYourProblem():
                 stop = True
                 # Display final information
                 num = "8.6e"
-                print("\n\####################################################")
+                print("\n####################################################")
                 print("bisecAltitude final iteration: ",count)
                 print(("Error     : %"+num) % e2)
                 print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
@@ -649,6 +740,7 @@ class itsYourProblem():
                 # Checkings
                 # Division and step check
                 de = (e2 - e1)
+                # TODO: a new step check procedure is necessary
                 if abs(de) < tol*1e-2:
                     step = df
 
@@ -676,7 +768,7 @@ class itsYourProblem():
 
                 # Display information
                 num = "8.6e"
-                print("\n\####################################################")
+                print("\n####################################################")
                 print("bisecAltitude iteration: ",count)
                 print(("Error     : %"+num) % e2)
                 print(("Sup limits: %"+num+", %"+num+", %"+num) % (   fsup[0],   fsup[1],   fsup[2]))
@@ -687,7 +779,7 @@ class itsYourProblem():
         traj = itsTrajectory(factors,self.con)
         traj.simulate("design")
         num = "8.6e"
-        print("\n\####################################################")
+        print("\n####################################################")
         print("ITS the end (lol)")
         print(("Error     : %"+num+", %"+num+", %"+num) % (traj.errors[0],traj.errors[1],traj.errors[2]))
         print(("Sup limits: %"+num+", %"+num+", %"+num) % (       fsup[0],       fsup[1],       fsup[2]))
@@ -695,6 +787,9 @@ class itsYourProblem():
         print(("Inf limits: %"+num+", %"+num+", %"+num) % (       finf[0],       finf[1],       finf[2]))
 
         solution = itsSolution(factors,self.con)
+
+        if not solution.converged():
+            print('itsme saying: solution has not converged :(')
 
         return solution
 
@@ -709,10 +804,10 @@ class itsYourProblem():
         # Loop initialization
         stop = False
         count = 0
-        Nmax = 50
+        Nmax = 100#self.con['Nmax']
 
         # Fators initilization
-        df = abs( (fsup - finf)/5 )
+        df = abs( (fsup - finf)/20 )
         # Making the 3 factor variarions null
         factors1[2] = f3 + 0.0
         df[2] = 0.0
@@ -724,7 +819,7 @@ class itsYourProblem():
         factors3 = factors2 + 0.0
 
         # Loop
-        while (not stop) and (count <= Nmax):
+        while (not stop) and (count <= self.con['Nmax']):
 
             # Error update
             traj = itsTrajectory(factors2,con)
@@ -735,7 +830,7 @@ class itsYourProblem():
             if converged[0] and converged[1]:
                 stop = True
                 # Display information
-                print("\n\####################################################")
+                print("\n####################################################")
                 if count == Nmax:
                     print("bisecSpeedAndAng total iterations: ", count," (max)")
                 else:
@@ -749,8 +844,9 @@ class itsYourProblem():
                 de = (errors2 - errors1)
                 for ii in range(0,2):
                     # Division and step check
+                    # TODO: a new step check procedure is necessary
                     if de[ii] == 0:
-                        step[ii] = 0
+                        step[ii] = 0.0
                     else:
                         step[ii] = errors2[ii]*(factors2[ii] - factors1[ii])/de[ii]
 
@@ -774,9 +870,11 @@ class itsYourProblem():
                 factors1 = factors2 + 0.0
                 factors2 = factors3 + 0.0
                 count += 1
+                # print('bisecSpeedAndAng errors',errors2)
             #if end
         #while end
         # Define output
+        # print('bisecSpeedAndAng count',count)
         errorh = errors2[2]
         return errorh,factors2
 
@@ -799,6 +897,7 @@ class itsTrajectory():
         Dv1 = fdv1*con['Dv1ref']
         tf = ftf*con['tref']
         Dv2 =  con['V_final'] - fdv2*con['vxref']
+        #print('V_final: ',con['V_final'])
 
         ##########################################################################
         # Staging calculation
@@ -848,14 +947,13 @@ class itsTrajectory():
         # Output variables
         self.__append(t0,x0)
         self.__appendP(t0,x0)
-        contraction = 1e-12
 
         N = len(self.tphases)
         for ii in range(1,N):
 
             # Time interval configuration
-            t_initial = self.tphases[ii - 1] + contraction
-            t_final   =     self.tphases[ii] - contraction
+            t_initial = self.tphases[ii - 1] + self.con['contraction']
+            t_final   =     self.tphases[ii] - self.con['contraction']
 
             # Stage separation mass reduction
             y_initial = self.xp[-1]
@@ -867,7 +965,7 @@ class itsTrajectory():
             ode45.integrate(t_final)
 
             if ii != N-1:
-                self.__appendP(ode45.t+contraction,ode45.y)
+                self.__appendP(ode45.t+self.con['contraction'],ode45.y)
 
             # Phase itegration display
             if self.flagAppend:
@@ -882,7 +980,7 @@ class itsTrajectory():
         # Final stage separation mass reduction
         y_final = ode45.y.copy()
         y_final[3] = y_final[3] - self.mjetsoned[-1]
-        self.__appendP(ode45.t+contraction,y_final)
+        self.__appendP(ode45.t+self.con['contraction'],y_final)
 
         # Final point appending
         self.__append(self.tp[-1],self.xp[-1])
@@ -935,19 +1033,47 @@ class itsTrajectory():
         con = self.con
         efflist = con['efflist']
         Tlist = con['Tlist']
-        p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp2'],con['g0'], con['Mu'])
-        p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp1'],con['g0'],p2.mtot[0])
 
-        if con['NStag'] == 0:
-            p2.mu = p1.me[0] + p2.me[0] + p2.mu
-            p2.me[0] = 0.0
-            p1.me[0] = 0.0
-        if con['NStag'] == 1:
-            p2.me[0] = p1.me[0] + p2.me[0]
-            p1.me[0] = 0.0
+        if con['homogeneous']:
 
-        if p1.fail or p2.fail:
-            raise Exception('itsme saying: Too few stages!')
+            new_eff = list()
+
+            if con['NStag'] == 0:
+
+                for e in efflist:
+                    new_eff.append(0.0)
+
+                p2 = optimalStagingHomogeneous([new_eff[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
+                p1 = optimalStagingHomogeneous( new_eff[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
+
+            elif con['NStag'] == 1:
+
+                for e in efflist:
+                    new_eff.append(0.0)
+
+                p2 = optimalStagingHomogeneous([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
+                p1 = optimalStagingHomogeneous( new_eff[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
+
+            else:
+
+                p2 = optimalStagingHomogeneous([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
+                p1 = optimalStagingHomogeneous( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
+
+
+        else:
+
+            raise Exception('itsme saying: heterogeneous vehicle is not supported yet!')
+
+            p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp2'],con['g0'], con['Mu'])
+            p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp1'],con['g0'],p2.mtot[0])
+
+            if con['NStag'] == 0:
+                p2.mu = p1.me[0] + p2.me[0] + p2.mu
+                p2.me[0] = 0.0
+                p1.me[0] = 0.0
+            if con['NStag'] == 1:
+                p2.me[0] = p1.me[0] + p2.me[0]
+                p1.me[0] = 0.0
 
         if p1.mtot[0]*con['g0'] > Tlist[0]:
             raise Exception('itsme saying: weight greater than thrust!')
@@ -963,31 +1089,21 @@ class itsTrajectory():
         p2 = self.p2
         if con['NStag'] == 0:
             print("\n\rSpacecraft properties (NStag == 0):")
-            mp = p1.mp[0] + p2.mp[0]
-            print("m_empty =",p1.mtot[0] - mp)
-            print("mp =",mp)
-            print("mtot =",p1.mtot[0])
-            print("tf =",p2.tf[-1],"\n\r")
+
 
         elif con['NStag'] == 1:
             print("\n\rSSTO properties (NStag == 1):")
-            print("mu =",p2.mu)
-            print("mp =",p1.mp[0] + p2.mp[0])
-            print("me =",p2.me[0])
-            print("mtot =",p1.mtot[0])
-            print("tf =",p2.tf[-1],"\n\r")
 
         elif con['NStag'] == 2:
-            print("\n\rTSTO first stage properties (NStag == 2):")
-            p1.printInfo()
-            print("TSTO final stage properties (NStag == 2):")
-            p2.printInfo()
+            print("\n\rTSTO vehicle (NStag == 2):")
 
         else:
-            print("\n\rInitial stages properties:")
-            p1.printInfo()
-            print("Final stage properties:")
-            p2.printInfo()
+            print("\n\rStaged vehicle (NStag == %i):" % con['NStag'])
+
+        print("\n\rVehicle properties on ascending phases:")
+        p1.printInfo()
+        print("\n\rVehicle properties on orbital phases:")
+        p2.printInfo()
 
         print('\n\rtphases: ',self.tphases)
         print('\n\rmjetsoned: ',self.mjetsoned)
@@ -1043,10 +1159,11 @@ class itsTrajectory():
             self.__cntrCalculate(self.tabAlpha,self.tabBeta)
 
             # Check solution time monotonic increse
-            for ii in range(1,len(self.tt)):
-                if self.tt[ii - 1] >= self.tt[ii]:
-                    print('ii = ',ii,' tt[ii-1] = ',self.tt[ii-1],' tt[ii] = ',self.tt[ii])
-                    raise Exception('itsme saying: tt does not increase monotonically!')
+            if self.con['contraction'] > 0.0:
+                for ii in range(1,len(self.tt)):
+                    if self.tt[ii - 1] >= self.tt[ii]:
+                        print('ii = ',ii,' tt[ii-1] = ',self.tt[ii-1],' tt[ii] = ',self.tt[ii])
+                        raise Exception('itsme saying: tt does not increase monotonically!')
 
         self.__errorCalculate()
 
@@ -1184,6 +1301,15 @@ class itsSolution():
         print('Final   states:',self.trajectory.xx[-1])
 
         return None
+
+    def converged(self):
+
+        convergence = True
+        for error in self.trajectory.errors:
+            if abs(error) >= self.trajectory.con['tol']:
+                convergence = False
+
+        return convergence
 
     def sgra(self):
 
