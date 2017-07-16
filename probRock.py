@@ -48,7 +48,7 @@ class prob(sgra):
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
 
-        scal = 1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        scal = 1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
 
         Isp = 450.0                   # s
         s_f = 0.05

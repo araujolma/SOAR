@@ -296,7 +296,7 @@ def calcStepGrad(self,corr):
     histQ = [Q1]; histAlfa = [1.0]
 
     if prntCond:
-        print("> Trying alfa = 1.0 first, fingers crossed...")
+        print("\n> Trying alfa = 1.0 first, fingers crossed...")
         P1,_,_ = newSol.calcP()    
         print("P1 = {:.4E}".format(P1))
         I1 = newSol.calcI()
@@ -307,14 +307,14 @@ def calcStepGrad(self,corr):
     Q = Q1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
     if Q/Q0 >= 10.0:
         if prntCond:
-            print("> Whoa! Going back to safe region of alphas...\n")
+            print("\n> Whoa! Going back to safe region of alphas...\n")
         keepLook = True
         dAlfa = 0.1
-        cond = lambda nQ,Q: nQ/Q0>10.0
+        cond = lambda nQ,Q: nQ/Q0>1.1
     # Or increase alfa, if the conditions seem Ok for it
     elif Q<Q0:
         if prntCond:
-            print("> This seems boring. Going forward!\n")
+            print("\n> This seems boring. Going forward!\n")
         keepLook = True
         dAlfa = 10.0
         cond = lambda nQ,Q: nQ<Q
@@ -338,7 +338,7 @@ def calcStepGrad(self,corr):
     
     # Now Q is not so much bigger than Q0. Start "bilateral analysis"
     if prntCond:
-        print("> Starting bilateral analysis...\n")
+        print("\n> Starting bilateral analysis...\n")
     alfa0 = alfa
     alfa = 1.2*alfa0 
     newSol = self.copy()
@@ -363,7 +363,7 @@ def calcStepGrad(self,corr):
     
     if Qm < Q: 
         if self.dbugOptGrad['prntCalcStepGrad']:
-            print("> Beginning search for decreasing alfa...")
+            print("\n> Beginning search for decreasing alfa...")
         # if the tendency is to still decrease alfa, do it...
         nQ = Q; keepSearch = True#(nQ<Q0)
         while keepSearch and alfa > 1.0e-15:
@@ -374,25 +374,33 @@ def calcStepGrad(self,corr):
             nQ,_,_,_,_ = newSol.calcQ(); cont += 1
             histQ.append(nQ); histAlfa.append(alfa)
 
+            if prntCond:
+                print("alfa = {:.6E}".format(alfa),", Q = {:.6E}".format(nQ),\
+                      ", Q0 = {:.6E}".format(Q0),", dQ = {:6E}".format(nQ-Q0))
+
             # TODO: use testAlgn to test alignment of points, 
             # and use it to improve calcStepGrad.
-            print(testAlgn(histAlfa[(cont-4):(cont-1)],\
-                           histQ[(cont-4):(cont-1)]))
-            if prntCond:
-                print("alfa =",alfa,", Q = {:.6E}".format(nQ),\
-                      " (Q0 = {:.6E})\n".format(Q0))
-            
+            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
+                           histQ[(cont-4):(cont-1)])) < 1e-3)
+
+            if isAlgn:
+                m = (histQ[cont-2]-histQ[cont-3]) / \
+                    (histAlfa[cont-2]-histAlfa[cont-3])
+                b = histQ[cont-2] - m * histAlfa[cont-2]
+                print("m =",m,"b =",b)
+                        
+                
             if nQ < Q0:
                 keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
         alfa /= 0.8
     else:
         if Q <= QM: 
             if prntCond:
-                print("Apparently alfa =",alfa0,"is the best.")
+                print("\n> Apparently alfa =",alfa0,"is the best.")
             alfa = alfa0 # BRASIL
         else:
             if prntCond:
-                print("Beginning search for increasing alfa...")
+                print("\n> Beginning search for increasing alfa...")
             # There still seems to be a negative gradient here. Increase alfa!
             nQ = QM
             alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
@@ -435,11 +443,11 @@ def calcStepGrad(self,corr):
        plt.show()
      
     if prntCond:           
-        print("Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
-        print("Number of calcQ evaluations:",cont)
+        print("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
+        print("> Number of calcQ evaluations:",cont)
         
     if self.dbugOptGrad['pausCalcStepGrad']:
-        input("Run of calcStepGrad terminated. Press any key to continue. ")
+        input("\n> Run of calcStepGrad terminated. Press any key to continue.")
       
     return alfa
 
@@ -538,7 +546,8 @@ def grad(self):
             erroLam = numpy.empty((N,n))
             normErroLam = numpy.empty(N)
             for k in range(N):
-                erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
+                erroLam[k,:] = dlam[k,:] + \
+                    phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
                 normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
                 
 #            if dbugOpt.get('plotLamErr',False):
@@ -588,7 +597,7 @@ def grad(self):
 
 #        for k in range(N-1):
 #            A[k+1,:] = numpy.linalg.solve(I-dt*phix[k+1,:,:],\
-#                    A[k,:] + dt*(phiu[k,:,:].dot(B[k,:]) + phip[k,:,:].dot(C)))
+#                   A[k,:] + dt*(phiu[k,:,:].dot(B[k,:]) + phip[k,:,:].dot(C)))
 
         #A = numpy.zeros((N,n))
         #for k in range(N-1):
@@ -601,7 +610,8 @@ def grad(self):
         erroA = numpy.empty((N,n))
         normErroA = numpy.empty(N)  
         for k in range(N):
-            erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
+            erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) +\
+                -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
             normErroA[k] = erroA[k,:].dot(erroA[k,:])
         
 #        if dbugOpt.get('plotAErr',False):
@@ -668,7 +678,8 @@ def grad(self):
     for k in range(N):
         erroLam[k,:] = dlam[k,:]+phix[k,:,:].transpose().dot(lam[k,:])-fx[k,:]
         normErroLam[k] = erroLam[k,:].transpose().dot(erroLam[k,:])                
-        erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
+        erroA[k,:] = dA[k,:]-phix[k,:,:].dot(A[k,:]) + \
+                -phiu[k,:,:].dot(B[k,:]) -phip[k,:,:].dot(C)
         normErroA[k] = erroA[k,:].dot(erroA[k,:])
     
 #    if dbugOpt.get('plotAErrFin',False):
