@@ -92,13 +92,13 @@ def mdlDer(t,x,arg):
     g = con['g0']*(con['R']/(con['R']+h))**2 - (con['we']**2)*(con['R'] + h)
 
     # Aerodynamics
-    qdin = 0.5 * rho(h) * (v**2)
-    L = qdin * con['s_ref'] * (con['CL0'] + con['CL1']*alfat)
-    D = qdin * con['s_ref'] * (con['CD0'] + con['CD2']*(alfat**2))
+    qdinSrefM = 0.5 * rho(h) * (v**2) * con['s_ref']/M
+    LM = qdinSrefM * (con['CL0'] + con['CL1']*alfat)
+    DM = qdinSrefM * (con['CD0'] + con['CD2']*(alfat**2))
 
     return numpy.array([ v*sinGama,\
-    btm*numpy.cos(alfat) - g*sinGama - (D/M),\
-    btm*numpy.sin(alfat)/v + (v/(h+con['R'])-g/v)*numpy.cos(gama) + (L/(v*M)) + 2*con['we'],\
+    btm*numpy.cos(alfat) - g*sinGama - DM,\
+    btm*numpy.sin(alfat)/v + (v/(h+con['R'])-g/v)*numpy.cos(gama) + (LM/v) + 2*con['we'],\
     -btm*M/(con['g0']*con['Isp']) ])
 
 def itsTester():
@@ -303,6 +303,8 @@ class optimalStaging():
         self.tb = self.mp/self.mflux             # Duration of each stage burning
         self.__tfCalculate()                 # Final burning time of each stage
 
+        self.ms = 0.0 # Empty vehicle mass (!= 0.0 only for NStag == 0)
+
     def __calcGeoMean(self,a):
 
         m = 1.0
@@ -365,25 +367,27 @@ class optimalStagingHomogeneous():
     # specific impulse must be the same for all stages
     # Based in Cornelisse (1979)
 
-    def __init__(self,effList,dV,Tlist,con,Isp,g0,mu):
+    def __init__(self,effList,dV,Tlist,Isp,g0,mu):
         self.Tlist = Tlist
         self.e = numpy.array(effList)
-        self.T = numpy.array(self.Tlist)
+        self.T = numpy.array(Tlist)
         self.dV = dV
         self.mu = mu
         self.Isp = Isp
         self.c = Isp*g0
         self.mflux = self.T/self.c
 
-        self.lamb = ( numpy.exp(-self.dV/(self.c*self.e.size)) - self.e)/(1 - self.e)
+        self._lamb = ( numpy.exp(-self.dV/(self.c*self.e.size)) - self.e)/(1 - self.e)
 
-        self.phi = (1 - self.e)*(1 - self.lamb)
+        phi = (1 - self.e)*(1 - self._lamb)
 
         self.__mtotCalculate()             # Total sub-rocket mass
-        self.mp = self.mtot*self.phi             # Propelant mass on each stage
+        self.mp = self.mtot*phi             # Propelant mass on each stage
         self.me = self.mp*(self.e/(1 - self.e))  # Strutural mass of each stage
         self.tb = self.mp/self.mflux             # Duration of each stage burning
         self.__tfCalculate()                 # Final burning time of each stage
+
+        self.ms = 0.0 # Empty vehicle mass (!= 0.0 only for NStag == 0)
 
     def __mtotCalculate(self):
 
@@ -391,9 +395,9 @@ class optimalStagingHomogeneous():
         N = self.e.size-1
         for ii in range(0,N+1):
             if ii == 0:
-                mtot[N - ii] = self.mu/self.lamb[N - ii]
+                mtot[N - ii] = self.mu/self._lamb[N - ii]
             else:
-                mtot[N - ii] = mtot[N - ii + 1]/self.lamb[N - ii]
+                mtot[N - ii] = mtot[N - ii + 1]/self._lamb[N - ii]
         self.mtot = mtot
 
     def __tfCalculate(self):
@@ -407,12 +411,22 @@ class optimalStagingHomogeneous():
                 tf[ii] = self.tb[ii] + tf[ii-1]
         self.tf = tf
 
+    def NStag0or1(self,p):
+
+        self.dV = self.dV - p.dV
+        self.mu = p.mtot[0]
+        self.mp[0] = self.mp[0] - p.mp[0]        # Propelant mass on each stage
+        self.me[0] = self.me[0]*0.0
+        self.tb[0] = self.tb[0] - p.tb[0]        # Duration of each stage burning
+        self.tf[0] = self.tf[0] - p.tf[0]
+
+
     def printInfo(self):
 
         print("\n\rdV =",self.dV)
         print("mu =",self.mu)
-        print("mp =",self.mp)
         print("me =",self.me)
+        print("mp =",self.mp)
         print("mtot =",self.mtot)
         print("mflux =",self.mflux)
         print("tb =",self.tb)
@@ -515,6 +529,32 @@ class initialEstimate():
         self.V1 = V1
 
         return None
+
+class iteractions():
+
+    def __init__(self):
+
+        self.errorsList = []
+        self.count = 0
+
+    def update(self,errors):
+
+        self.count += 1
+        self.errorsList.append(errors)
+
+    def displayErrors(self):
+
+        #TODO: solve the problem of convert from list to a multi dimensional array
+        pass
+#        err = numpy.array(self.errorsList)
+#        print(self.count)
+#        print(err)
+#        raise
+#        plt.plot(err[],err[2,:],'b')
+#        plt.grid(True)
+#        plt.ylabel("erros []")
+#        plt.show()
+
 
 class itsYourProblem():
 
@@ -703,6 +743,7 @@ class itsYourProblem():
         tol = self.con['tol']
         fsup = self.con['fsup']
         finf = self.con['finf']
+        self.iteraction = iteractions()
 
         # Parameters initialization
         # Loop initialization
@@ -739,6 +780,7 @@ class itsYourProblem():
                 # Calculation of the new factor
                 # Checkings
                 # Division and step check
+                self.iteraction.update(e2)
                 de = (e2 - e1)
                 # TODO: a new step check procedure is necessary
                 if abs(de) < tol*1e-2:
@@ -787,6 +829,7 @@ class itsYourProblem():
         print(("Inf limits: %"+num+", %"+num+", %"+num) % (       finf[0],       finf[1],       finf[2]))
 
         solution = itsSolution(factors,self.con)
+        self.iteraction.displayErrors()
 
         if not solution.converged():
             print('itsme saying: solution has not converged :(')
@@ -826,8 +869,10 @@ class itsYourProblem():
             traj.simulate("design")
             errors2 = traj.errors
 
+
             converged = abs(errors2) < con['tol']
             if converged[0] and converged[1]:
+
                 stop = True
                 # Display information
                 print("\n####################################################")
@@ -841,6 +886,7 @@ class itsYourProblem():
                 print(("Factors   : %"+num+", %"+num+", %"+num) % (factors2[0], factors2[1], factors2[2]))
                 print(("Inf limits: %"+num+", %"+num+", %"+num) % (    finf[0],     finf[1],     finf[2]))
             else:
+                self.iteraction.update(errors2)
                 de = (errors2 - errors1)
                 for ii in range(0,2):
                     # Division and step check
@@ -1036,44 +1082,40 @@ class itsTrajectory():
 
         if con['homogeneous']:
 
-            new_eff = list()
-
             if con['NStag'] == 0:
 
-                for e in efflist:
-                    new_eff.append(0.0)
-
-                p2 = optimalStagingHomogeneous([new_eff[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
-                p1 = optimalStagingHomogeneous( new_eff[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
+                p2 = optimalStagingHomogeneous([efflist[-1]],      Dv2,[Tlist[-1]],con['Isp'],con['g0'], con['Mu'])
+                p1 = optimalStagingHomogeneous([efflist[ 0]],Dv1 + Dv2,[Tlist[ 0]],con['Isp'],con['g0'], con['Mu'])
+                p2.ms = p2.mu + p1.me[0]
+                p2.me[0] = 0.0
+                p1.NStag0or1(p2)
 
             elif con['NStag'] == 1:
 
-                for e in efflist:
-                    new_eff.append(0.0)
-
-                p2 = optimalStagingHomogeneous([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
-                p1 = optimalStagingHomogeneous( new_eff[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
+                p2 = optimalStagingHomogeneous([efflist[-1]],      Dv2,[Tlist[-1]],con['Isp'],con['g0'], con['Mu'])
+                p1 = optimalStagingHomogeneous([efflist[ 0]],Dv1 + Dv2,[Tlist[ 0]],con['Isp'],con['g0'], con['Mu'])
+                p2.me[0] = p1.me[0]
+                p1.NStag0or1(p2)
 
             else:
 
-                p2 = optimalStagingHomogeneous([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp'],con['g0'], con['Mu'])
-                p1 = optimalStagingHomogeneous( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp'],con['g0'],p2.mtot[0])
-
+                 p2 = optimalStagingHomogeneous([efflist[  -1]],Dv2,[Tlist[  -1]],con['Isp'],con['g0'], con['Mu'])
+                 p1 = optimalStagingHomogeneous( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con['Isp'],con['g0'],p2.mtot[0])
 
         else:
 
             raise Exception('itsme saying: heterogeneous vehicle is not supported yet!')
 
-            p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp2'],con['g0'], con['Mu'])
-            p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp1'],con['g0'],p2.mtot[0])
-
-            if con['NStag'] == 0:
-                p2.mu = p1.me[0] + p2.me[0] + p2.mu
-                p2.me[0] = 0.0
-                p1.me[0] = 0.0
-            if con['NStag'] == 1:
-                p2.me[0] = p1.me[0] + p2.me[0]
-                p1.me[0] = 0.0
+#            p2 = optimalStaging([efflist[  -1]],Dv2,[Tlist[  -1]],con,con['Isp2'],con['g0'], con['Mu'])
+#            p1 = optimalStaging( efflist[0:-1] ,Dv1, Tlist[0:-1] ,con,con['Isp1'],con['g0'],p2.mtot[0])
+#
+#            if con['NStag'] == 0:
+#                p2.mu = p1.me[0] + p2.me[0] + p2.mu
+#                p2.me[0] = 0.0
+#                p1.me[0] = 0.0
+#            if con['NStag'] == 1:
+#                p2.me[0] = p1.me[0] + p2.me[0]
+#                p1.me[0] = 0.0
 
         if p1.mtot[0]*con['g0'] > Tlist[0]:
             raise Exception('itsme saying: weight greater than thrust!')
@@ -1089,7 +1131,7 @@ class itsTrajectory():
         p2 = self.p2
         if con['NStag'] == 0:
             print("\n\rSpacecraft properties (NStag == 0):")
-
+            print("Empty spacecraft mass = ",p2.ms)
 
         elif con['NStag'] == 1:
             print("\n\rSSTO properties (NStag == 1):")
