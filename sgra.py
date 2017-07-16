@@ -9,6 +9,7 @@ Created on Tue Jun 27 13:07:35 2017
 import rest_sgra, grad_sgra, numpy, copy, pprint
 import matplotlib.pyplot as plt
 
+
 class sgra():
     def __init__(self):
         # these numbers should not make any sense; 
@@ -57,6 +58,7 @@ class sgra():
 
         self.histI = numpy.zeros(MaxIterGrad)
         
+        self.tol = {'P':1e-7,'Q':1e-7}
         # Debugging options
         tf = False
         self.dbugOptRest = {'pausRest':tf,
@@ -68,10 +70,10 @@ class sgra():
                             'plotRsidMaxP':tf,
                             'plotCorr':tf}
         tf = False
-        self.dbugOptGrad = {'pausGrad':tf,
+        self.dbugOptGrad = {'pausGrad':True,
                             'pausCalcQ':tf,
-                            'prntCalcStepGrad': tf,
-                            'plotCalcStepGrad': tf,
+                            'prntCalcStepGrad': True,
+                            'plotCalcStepGrad': True,
                             'pausCalcStepGrad':tf,
                             'plotQx':tf,
                             'plotQu':tf,
@@ -79,7 +81,7 @@ class sgra():
                             'plotQuZoom':tf,
                             'plotSolQxMax':tf,
                             'plotSolQuMax':tf,
-                            'plotCorr':tf}
+                            'plotCorr':True}
    
     def setAllDbugOptRest(self,tf):
         for key in self.dbugOptRest.keys():
@@ -108,7 +110,9 @@ class sgra():
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
 #%% Just for avoiding compatibilization issues with other problems
-    
+    def calcI(self):
+        pass
+
     def plotTraj(self):
         print("plotTraj: unimplemented method.")
         pass

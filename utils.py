@@ -41,3 +41,21 @@ def ddt(vec,N):
 		dvec[k] = .5*(vec[k+1]-vec[k-1])/dt
 
 	return dvec
+
+def testAlgn(x,y):
+    A = numpy.ones((3,3))
+    A[:,1] = x
+    A[:,2] = y
+    return numpy.linalg.det(A)
+
+if __name__ == "__main__":
+    print("In utils.py!")
+    print("Testing testAlgn:")
+    
+    x = numpy.array([1.0,2.0,3.0])
+    y = 5.0*x
+    print(testAlgn(x,y))
+    x[0]=0.0
+    print(testAlgn(x,y))
+    
+    

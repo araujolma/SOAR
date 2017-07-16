@@ -634,7 +634,6 @@ class prob(sgra):
         currSolLabl = 'currentSol'
 
         plt.plot(altSol.t,altSol.x[:,0],label=altSolLabl)
-        plt.hold(True)
         plt.plot(self.t,self.x[:,0],'--y',label=currSolLabl)
         plt.grid()
         plt.ylabel("h [km]")

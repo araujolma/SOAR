@@ -17,7 +17,7 @@ class ITman():
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = 'contHere.pkl'#"sols/solInitRest.pkl"
+        self.loadSolDir = 'solInitRest.pkl'#'contHere.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
