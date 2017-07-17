@@ -287,10 +287,11 @@ class sgra():
             plt.grid(True)
             plt.show()
             
-#            plt.plot(self.t,err[:,1,arc])
-#            plt.ylabel("errVel")
-#            plt.grid(True)
-#            plt.show()
+            if n>1:
+                plt.plot(self.t,err[:,1,arc])
+                plt.ylabel("errVel")
+                plt.grid(True)
+                plt.show()
         #######################################################################        
         
         # get gradients
@@ -337,24 +338,25 @@ class sgra():
         
         # Matrix for linear system involving k's
         M = numpy.zeros((Ns+q+1,Ns+q+1))
-        M[0,:(Ns+1)] = numpy.ones(Ns+1)
+        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
         M[(q+1):(q+1+p),(Ns+1):] = psip.transpose()
         M[(p+q+1):,(Ns+1):] = psiy.transpose()
         
         phiLamInt = numpy.zeros((p,Ns+1))
         # column vector for linear system involving k's    [eqs (34)]
         col = numpy.zeros(Ns+q+1)
-        col[0] = 1.0 # eq (88)
+        col[0] = 1.0 # eq (34d)
         col[1:(q+1)] = rho1 * psi
 
         sumIntFpi = numpy.zeros(p)
-        for arc in range(s):
-            thisInt = numpy.zeros(p)
-            for ind in range(p):
-                thisInt[ind] += fp[:,ind,arc].sum()
-            thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
-            thisInt *= dt
-            sumIntFpi += thisInt
+        if rho > 0.0:
+            for arc in range(s):
+                thisInt = numpy.zeros(p)
+                for ind in range(p):
+                    thisInt[ind] += fp[:,ind,arc].sum()
+                    thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
+                    thisInt *= dt
+                    sumIntFpi += thisInt
         
         col[(q+1):(q+p+1)] = -rho * sumIntFpi
 
@@ -430,20 +432,22 @@ class sgra():
                 plt.ylabel('lam: pos')
                 plt.show()
                 
-#                plt.plot(self.t,lam[:,1,arc])
-#                plt.grid(True)
-#                plt.ylabel('lam: vel')
-#                plt.show()
+                if n>1:
+                    plt.plot(self.t,lam[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('lam: vel')
+                    plt.show()
                 
                 plt.plot(self.t,A[:,0,arc])
                 plt.grid(True)
                 plt.ylabel('A: pos')
                 plt.show()
                 
-#                plt.plot(self.t,A[:,1,arc])
-#                plt.grid(True)
-#                plt.ylabel('A: vel')
-#                plt.show()
+                if n>1:
+                    plt.plot(self.t,A[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: vel')
+                    plt.show()
                 
                 plt.plot(self.t,B[:,0,arc])
                 plt.grid(True)
@@ -477,7 +481,7 @@ class sgra():
         # Finish assembly of matrix M
         M[1:(q+1),:(Ns+1)] = psiy.dot(Dt) + psip.dot(Ct) # from eq (34a)
         M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt # from eq (34b)
-        M[(q+p+1):,:(Ns+1)] = Et
+        M[(q+p+1):,:(Ns+1)] = Et # from eq (34c)
         
         # Calculations of weights k:        
         print("M =",M)
@@ -500,7 +504,7 @@ class sgra():
             lam += K[j] * arrayL[j,:,:,:]
             
 ###############################################################################        
-#        print("\n------------------------------------------------------------")
+        print("\n------------------------------------------------------------")
         print("Final corrections:\n")
         for arc in range(s):
             print("> Corrections for arc =",arc)
@@ -508,11 +512,12 @@ class sgra():
             plt.grid(True)
             plt.ylabel('A: pos')
             plt.show()
-            
-#            plt.plot(self.t,A[:,1,arc])
-#            plt.grid(True)
-#            plt.ylabel('A: vel')
-#            plt.show()
+
+            if n>1:          
+                plt.plot(self.t,A[:,1,arc])
+                plt.grid(True)
+                plt.ylabel('A: vel')
+                plt.show()
             
             plt.plot(self.t,B[:,0,arc])
             plt.grid(True)
@@ -520,7 +525,7 @@ class sgra():
             plt.show()
             
             print("C[arc] =",C[arc])
-#                
+                
 #        input(" > ")
 ###############################################################################        
         

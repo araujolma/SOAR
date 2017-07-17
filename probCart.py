@@ -21,10 +21,10 @@ class prob(sgra):
         # matrix sizes
         n = 2
         m = 1
-        p = 1
-        q = 4
-        s = 1
-        N = 5000+1
+        p = 2
+        q = 6#8
+        s = 2
+        N = 1000+1
 
         self.N = N
         self.n = n
@@ -54,10 +54,13 @@ class prob(sgra):
         x = numpy.zeros((N,n,s))
         u = numpy.zeros((N,m,s))
         
-        x[:,0,0] = t.copy()
+        #x[:,0,0] = t.copy()
+        #x[:,0,0] = .5*t
+        #x[:,0,1] = .5+.5*t
+        
         lam = 0.0*x
         mu = numpy.zeros(q)
-        pi = numpy.array([1.0])
+        pi = numpy.ones(p)
         
         self.x = x
         self.u = u
@@ -80,8 +83,9 @@ class prob(sgra):
         u = self.u
         pi = self.pi
         
-        phi[:,0,0] = pi[0] * x[:,1,0]
-        phi[:,1,0] = pi[0] * numpy.tanh(u[:,0,0])
+        for arc in range(s):
+            phi[:,0,arc] = pi[arc] * x[:,1,arc]
+            phi[:,1,arc] = pi[arc] * numpy.tanh(u[:,0,arc])
     
         return phi
 
@@ -112,7 +116,15 @@ class prob(sgra):
         fu = numpy.zeros((N,m,s))
         fp = numpy.empty((N,p,s))        
                 
-        psiy = numpy.eye(q,2*n*s)
+        #psiy = numpy.eye(q,2*n*s)
+        psiy = numpy.zeros((q,2*n*s))
+        psiy[0,0] = 1.0
+        psiy[1,1] = 1.0
+        psiy[2,2] = 1.0; psiy[2,4] = -1.0
+        psiy[3,3] = 1.0; psiy[3,5] = -1.0
+        psiy[4,6] = 1.0
+        psiy[5,7] = 1.0
+        
 #        psiy[0,0] = 1.0
 #        psiy[1,1] = 1.0
 #        psiy[1,2] = -1.0
@@ -149,7 +161,11 @@ class prob(sgra):
     def calcPsi(self):
         x = self.x
         N = self.N
-        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-1.0,x[N-1,1,0]])
+#        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
+#                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
+        return numpy.array([x[0,0,0],x[0,1,0],\
+                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],\
+                            x[N-1,0,1]-1.0,x[N-1,1,1]])
         
     def calcF(self):
         N,s = self.N,self.s

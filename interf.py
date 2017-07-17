@@ -137,6 +137,7 @@ class ITman():
             solInit = self.loadSol('solInit.pkl')#sol.copy()
         #
     
+        sol.plotSol()
         self.checkPars(sol)
         
         self.prntDashStr()

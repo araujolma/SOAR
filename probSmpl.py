@@ -21,7 +21,7 @@ class prob(sgra):
         m = 1
         p = 2
         s = 2
-        q = 4
+        q = 3#4
         N = 1000+1
 
         self.N = N
@@ -52,7 +52,7 @@ class prob(sgra):
         x = numpy.zeros((N,n,s))
         u = numpy.zeros((N,m,s))
         
-#        x[:,0,0] = t.copy()
+        x[:,0,0] = t.copy() # very bad condition
         
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
@@ -111,7 +111,12 @@ class prob(sgra):
         fu = numpy.zeros((N,m,s))
         fp = numpy.empty((N,p,s))        
                 
-        psiy = numpy.eye(q,2*n*s)
+#        psiy = numpy.eye(q,2*n*s)
+
+        psiy = numpy.zeros((q,2*n*s))
+        psiy[0,0] = 1.0
+        psiy[1,1] = 1.0; psiy[1,2] = -1.0
+        psiy[2,3] = 1.0
 #        psiy[0,0] = 1.0
 #        psiy[1,1] = 1.0
 #        psiy[1,2] = -1.0
@@ -149,10 +154,13 @@ class prob(sgra):
     def calcPsi(self):
         x,N = self.x,self.N
         
+#        return numpy.array([x[0,0,0], \
+#                            x[N-1,0,0]-0.5,\
+#                            x[0,0,1]-0.5, \
+#                            x[N-1,0,1] - 1.0])
         return numpy.array([x[0,0,0], \
-                            x[N-1,0,0]-0.5,\
-                            x[0,0,1]-0.5, \
-                            x[N-1,0,1] - 1.0])
+                            x[N-1,0,0]-x[0,0,1], \
+                            x[N-1,0,1] - .5])
         
     def calcF(self):
         N,s = self.N,self.s

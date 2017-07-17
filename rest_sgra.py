@@ -184,7 +184,8 @@ def calcStepRest(self,corr):
             newSol.aplyCorr(alfa,corr)
             nP,_,_ = newSol.calcP()
             if nP < P0:
-                keepSearch = ((nP-P)/P < -.05)
+                keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
+        alfa /= 0.8
     else:
         # no "overdrive!"
         #return 1.0
