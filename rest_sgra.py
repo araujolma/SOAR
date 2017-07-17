@@ -150,6 +150,8 @@ def calcP(self):
     Pint = vetIP[N-1,:].sum()#P
     Ppsi = psi.transpose().dot(psi)
     P = Ppsi + Pint
+    print("P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\
+          ", Ppsi = {:.6E}.".format(Ppsi))
     return P,Pint,Ppsi    
 
 def calcStepRest(self,corr):
@@ -217,16 +219,15 @@ def rest(self):
 
     A,B,C,lam,mu = self.LMPBVP(rho=0.0)
     
-    if self.dbugOptRest['plotCorr']:
-        optPlot = {'mode':'var'}
-        solCorr = self.copy()
-        solCorr.x = A
-        solCorr.u = B
-        solCorr.pi = C
-        solCorr.printPars()
-        solCorr.plotSol(opt=optPlot)
-        #optPlot['mode'] = 'proposed (states: lambda)'
-        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
+    # TODO: must rethink the correction plot, 
+    # current design makes no sense because C=0 is a possibility
+#    if self.dbugOptRest['plotCorr']:
+#        solCorr = self.copy()
+#        solCorr.x = A; solCorr.u = B; solCorr.pi = C
+#        solCorr.printPars()
+#        solCorr.plotSol(opt={'mode':'var'})
+#        #optPlot['mode'] = 'proposed (states: lambda)'
+#        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
     
     corr = {'x':A,
             'u':B,
@@ -239,4 +240,5 @@ def rest(self):
     print("Leaving rest with alfa =",alfa)
     
     if self.dbugOptRest['pausRest']:
+        self.plotSol()
         input('Rest in debug mode. Press any key to continue...')

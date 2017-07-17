@@ -59,6 +59,8 @@ class sgra():
 
         self.histI = numpy.zeros(MaxIterGrad)
         
+        self.tol = {'P':1e-7,'Q':1e-7}
+        
         # Debugging options
         tf = True
         self.dbugOptRest = {'pausRest':tf,
@@ -109,6 +111,27 @@ class sgra():
 #        keyList = dPars.keys()
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
+        
+    def plotCat(self,func,color='b'):
+        
+        s = self.s
+        t = self.t
+        
+        pi = self.pi
+        # Total time
+        tTot = pi.sum()
+        accAdimTime = 0.0
+
+        for arc in range(s):
+            adimTimeDur = (pi[arc]/tTot)
+            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],color)
+            # arc beginning with circle
+            plt.plot(accAdimTime + adimTimeDur*t[0], \
+                     func[0,arc],'o'+color)
+            # arc end with square
+            plt.plot(accAdimTime + adimTimeDur*t[-1], \
+                     func[-1,arc],'s'+color)
+            accAdimTime += adimTimeDur    
 #%% Just for avoiding compatibilization issues with other problems
     
     def plotTraj(self):
@@ -122,6 +145,10 @@ class sgra():
     def plotSol(self,*args,**kwargs):
         print("plotSol: unimplemented method.")
         pass
+    
+    def calcI(self,*args,**kwargs):
+        pass
+    
 #%% RESTORATION-WISE METHODS
     
     def rest(self,*args,**kwargs):
@@ -236,16 +263,35 @@ class sgra():
 #%% LMPBVP
 
     def LMPBVP(self,rho=0.0):
+        
+        # TIRAR ISSO DEPOIS!!
+        #######################################################################
+        numpy.set_printoptions(threshold=500)
+        #######################################################################
+        
         # get sizes
         Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
-        x = self.x
         rho1 = rho-1.0
         
         # calculate phi and psi
         phi = self.calcPhi()
         psi = self.calcPsi()
         
-        err = phi - ddt(x,N)
+        err = phi - ddt(self.x,N)
+        
+        #######################################################################
+#        print("\nThis is err:")
+#        for arc in range(s):
+#            plt.plot(self.t,err[:,0,arc])
+#            plt.ylabel("errPos")
+#            plt.grid(True)
+#            plt.show()
+#            
+#            plt.plot(self.t,err[:,1,arc])
+#            plt.ylabel("errVel")
+#            plt.grid(True)
+#            plt.show()
+        #######################################################################        
         
         # get gradients
         #print("Calc grads...")
@@ -265,7 +311,6 @@ class sgra():
         phixTr = numpy.empty_like(phix)
         phiuTr = numpy.empty((N,m,n,s))
         phipTr = numpy.empty((N,p,n,s))
-        #psipTr = psip.transpose()
         
         phiuFu = numpy.empty((N,n,s))
         for arc in range(s):
@@ -320,7 +365,7 @@ class sgra():
         
         #optPlot = dict()
         
-        print("Beginning loop for solutions...")
+        print("\nBeginning loop for solutions...")
         for j in range(Ns+1):
             print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
             
@@ -341,8 +386,9 @@ class sgra():
             nonHom = numpy.empty((N,2*n,s))
             for arc in range(s):
                 for k in range(N):
+                    # minus sign in rho1 (rho-1) is on purpose!
                     nonHA = phip[k,:,:,arc].dot(C) + \
-                                rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
+                                -rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
                     nonHL = rho * fx[k,:,arc]
                     nonHom[k,:n,arc] = nonHA.copy()
                     nonHom[k,n:,arc] = nonHL.copy()
@@ -367,16 +413,47 @@ class sgra():
                 #
                 phiLamInt[:,j] -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
                 # Put data into matrices Dtilde and Etilde
-                Dt[(2*arc*n):(2*arc+1)*n,j] = A[0,:,arc]
-                Dt[(2*arc+1)*n:(2*arc+2)*n,j] = A[1,:,arc]
-                Et[(2*arc*n):(2*arc+1)*n,j] = -lam[0,:,arc]
-                Et[(2*arc+1)*n:(2*arc+2)*n,j] = lam[1,:,arc]                
+                Dt[(2*arc)*n   : (2*arc+1)*n, j] =    A[0,:,arc]   # eq (32a)
+                Dt[(2*arc+1)*n : (2*arc+2)*n, j] =    A[N-1,:,arc] # eq (32a)
+                Et[(2*arc)*n   : (2*arc+1)*n, j] = -lam[0,:,arc]   # eq (32b)
+                Et[(2*arc+1)*n : (2*arc+2)*n, j] =  lam[N-1,:,arc] # eq (32b)      
             #
-            
-            print("A =",A)
-            print("B =",B)
-            print("C =",C)
-            print("lam =",lam)
+             
+###############################################################################            
+#            print("\nHere are the corrections for iteration " + str(j+1) + \
+#                  " of " + str(Ns+1) + ":\n")
+#            for arc in range(s):
+#                print("> Corrections for arc =",arc)
+#                
+#                plt.plot(self.t,lam[:,0,arc])
+#                plt.grid(True)
+#                plt.ylabel('lam: pos')
+#                plt.show()
+#                
+#                plt.plot(self.t,lam[:,1,arc])
+#                plt.grid(True)
+#                plt.ylabel('lam: vel')
+#                plt.show()
+#                
+#                plt.plot(self.t,A[:,0,arc])
+#                plt.grid(True)
+#                plt.ylabel('A: pos')
+#                plt.show()
+#                
+#                plt.plot(self.t,A[:,1,arc])
+#                plt.grid(True)
+#                plt.ylabel('A: vel')
+#                plt.show()
+#                
+#                plt.plot(self.t,B[:,0,arc])
+#                plt.grid(True)
+#                plt.ylabel('B')
+#                plt.show()
+#                
+#                print("C[arc] =",C[arc])
+#                
+#            input(" > ")
+###############################################################################
 
             # store solution in arrays
             arrayA[j,:,:,:] = A.copy()#[:,:,arc]
@@ -386,16 +463,25 @@ class sgra():
             Ct[:,j] = C.copy()
         #
         
+        #######################################################################
+        print("\nMatrices Ct, Dt, Et:\n")
+        print("Ct =",Ct)
+        print("Dt =",Dt)
+        print("Et =",Et)
+        #######################################################################
+        
+        
         #All integrations ready!
         phiLamInt *= dt
         
         # Finish assembly of matrix M
         M[1:(q+1),:(Ns+1)] = psiy.dot(Dt) + psip.dot(Ct) # from eq (34a)
         M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt # from eq (34b)
+        M[(q+p+1):,:(Ns+1)] = Et
         
         # Calculations of weights k:        
         print("M =",M)
-        #print("col =",col)
+        print("col =",col)
         KMi = numpy.linalg.solve(M,col)
         print("Residual:",M.dot(KMi)-col)
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
@@ -412,5 +498,30 @@ class sgra():
             B += K[j]*arrayB[j,:,:,:]
             C += K[j]*arrayC[j,:]
             lam += K[j]*arrayL[j,:,:,:]
+        
+###############################################################################        
+#        print("\n------------------------------------------------------------")
+        print("Final corrections:\n")
+        for arc in range(s):
+            print("> Corrections for arc =",arc)
+            plt.plot(self.t,A[:,0,arc])
+            plt.grid(True)
+            plt.ylabel('A: pos')
+            plt.show()
+            
+            plt.plot(self.t,A[:,1,arc])
+            plt.grid(True)
+            plt.ylabel('A: vel')
+            plt.show()
+            
+            plt.plot(self.t,B[:,0,arc])
+            plt.grid(True)
+            plt.ylabel('B')
+            plt.show()
+            
+            print("C[arc] =",C[arc])
+#                
+#        input(" > ")
+###############################################################################        
         
         return A,B,C,lam,mu

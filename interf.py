@@ -161,14 +161,14 @@ class ITman():
             
             # turn off debug mode
             
-            sol.setAllDbugOptRest(False)
+            #sol.setAllDbugOptRest(False)
             
             if contRest%10 == 0:
                 print("\nLots of restorations! "+\
                       "Here is a partial convergence report:")
                 sol.showHistP()
                 print("\nChanging debug mode for next rest run.\n")
-                sol.setAllDbugOptRest(True)
+                #sol.setAllDbugOptRest(True)
                 
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")

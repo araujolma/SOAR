@@ -123,17 +123,15 @@ class prob(sgra):
         
         tanh_u = tanh(u)
         
-        for arc in range(s):            
-            for k in range(N):
-                
+        for k in range(N):
+            for arc in range(s):                
                 phix[k,:,:,arc] = -array([[pi[arc]]])
                 phiu[k,:,:,arc] = array([[pi[arc]*(1.0-tanh_u[k,0,arc]**2)]])
-                
-                for i in range(p):
-                    if i==arc:
-                        phip[k,:,i,arc] = array([[tanh_u[k,0,arc]-x[k,0,arc]]])
+                # The rest of the derivatives is zero 
+                # (time for other arcs do not interfere with current arc)
+                phip[k,:,arc,arc] = array([[tanh_u[k,0,arc]-x[k,0,arc]]])
 
-                fp[k,:,:] = Idp
+            fp[k,:,:] = Idp
      
         Grads['phix'] = phix
         Grads['phiu'] = phiu
@@ -176,28 +174,7 @@ class prob(sgra):
         Ivec *= 1.0/(N-1)
         return Ivec.sum()
 #%%
-    def plotCat(self,func,color='b'):
-        
-        s = self.s
-        t = self.t
-        
-        pi = self.pi
-        # Total time
-        tTot = pi.sum()
-        accAdimTime = 0.0
-
-        for arc in range(s):
-            adimTimeDur = (pi[arc]/tTot)
-            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],color)
-            # arc beginning with circle
-            plt.plot(accAdimTime + adimTimeDur*t[0], \
-                     func[0,arc],'o'+color)
-            # arc end with square
-            plt.plot(accAdimTime + adimTimeDur*t[-1], \
-                     func[-1,arc],'s'+color)
-            accAdimTime += adimTimeDur    
-        
-        
+                
     def plotSol(self,opt={},intv=[]):
         #t = self.t
         x = self.x

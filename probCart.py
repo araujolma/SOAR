@@ -22,7 +22,8 @@ class prob(sgra):
         n = 2
         m = 1
         p = 1
-        q = 2
+        q = 4
+        s = 1
         N = 5000+1
 
         self.N = N
@@ -30,6 +31,8 @@ class prob(sgra):
         self.m = m
         self.p = p
         self.q = q
+        self.s = s
+        self.Ns = 2*n*s + p
         
         dt = 1.0/(N-1)
         t = numpy.arange(0,1.0+dt,dt)
@@ -48,11 +51,11 @@ class prob(sgra):
         
         # Get initialization mode
         
-        x = numpy.zeros((N,n))
-        u = numpy.zeros((N,m))
+        x = numpy.zeros((N,n,s))
+        u = numpy.zeros((N,m,s))
         
-        x[:,0] = t.copy()
-        lam = 0.0*x.copy()
+        #x[:,0,0] = t.copy()
+        lam = 0.0*x
         mu = numpy.zeros(q)
         pi = numpy.array([1.0])
         
@@ -71,13 +74,14 @@ class prob(sgra):
     def calcPhi(self):
         N = self.N
         n = self.n
-        phi = numpy.empty((N,n))
+        s = self.s
+        phi = numpy.empty((N,n,s))
         x = self.x
         u = self.u
         pi = self.pi
         
-        phi[:,0] = pi[0] * x[:,1]
-        phi[:,1] = pi[0] * numpy.tanh(u[:,0])
+        phi[:,0,0] = pi[0] * x[:,1,0]
+        phi[:,1,0] = pi[0] * numpy.tanh(u[:,0,0])
     
         return phi
 
@@ -86,17 +90,9 @@ class prob(sgra):
     def calcGrads(self):
         Grads = dict()
     
-        N = self.N
-        n = self.n
-        m = self.m
-        p = self.p
-        #q = sizes['q']
-        #N0 = sizes['N0']
-    
-        x = self.x
-        u = self.u
-        pi = self.pi
-        
+        N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
+        x,u,pi = self.x,self.u,self.pi
+            
         # Pre-assign functions
         
         tanh = numpy.tanh
@@ -104,29 +100,39 @@ class prob(sgra):
         
         Grads['dt'] = 1.0/(N-1)
 
-        phix = numpy.zeros((N,n,n))
-        phiu = numpy.zeros((N,n,m))
+        phix = numpy.zeros((N,n,n,s))
+        phiu = numpy.zeros((N,n,m,s))
                     
         if p>0:
-            phip = numpy.zeros((N,n,p))
+            phip = numpy.zeros((N,n,p,s))
         else:
-            phip = numpy.zeros((N,n,1))
+            phip = numpy.zeros((N,n,1,s))
 
-        fx = numpy.zeros((N,n))
-        fu = numpy.zeros((N,m))
-        fp = numpy.ones((N,p))        
-        
-        for k in range(N):
+        fx = numpy.zeros((N,n,s))
+        fu = numpy.zeros((N,m,s))
+        fp = numpy.empty((N,p,s))        
                 
-            # Gradients from example 10.2:
-            psix = array([[1.0,0.0],[0.0,1.0]])   
-            psip = array([[0.0],[0.0]])
-            phix[k,:,:] = pi[0]*array([[0.0,1.0],[0.0,0.0]])
-            phiu[k,:,:] = phiu[k,:,:] = pi[0]*array([[0.0],
-                                                     [1.0-tanh(u[k])**2]])
-            phip[k,:,:] = array([[x[k,1]],
-                             [tanh(u[k])]])
-     
+        psiy = numpy.eye(q,2*n*s)
+#        psiy[0,0] = 1.0
+#        psiy[1,1] = 1.0
+#        psiy[1,2] = -1.0
+#        psiy[2,3] = 1.0
+        
+        psip = numpy.zeros((q,p))
+        
+        Idp = numpy.eye(p)
+        
+        tanh_u = tanh(u)
+        DynMat = array([[0.0,1.0],[0.0,0.0]]) 
+        for k in range(N):
+            for arc in range(s):    
+                
+                phix[k,:,:,arc] = pi[arc] * DynMat
+                phiu[k,:,:,arc] = pi[arc] * array([[0.0],\
+                                                   [1.0-tanh_u[k,0,arc]**2]])
+                phip[k,:,arc,arc] = array([x[k,1,arc],\
+                                           tanh_u[k,0,arc]])
+            fp[k,:] = Idp
         Grads['phix'] = phix
         Grads['phiu'] = phiu
         Grads['phip'] = phip
@@ -135,7 +141,7 @@ class prob(sgra):
         Grads['fp'] = fp
     #    Grads['gx'] = gx
     #    Grads['gp'] = gp
-        Grads['psix'] = psix
+        Grads['psiy'] = psiy
         Grads['psip'] = psip
         return Grads
 
@@ -143,39 +149,47 @@ class prob(sgra):
     def calcPsi(self):
         x = self.x
         N = self.N
-        return numpy.array([x[N-1,0]-1.0,x[N-1,1]])
+        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-1.0,x[N-1,1,0]])
         
     def calcF(self):
-        N = self.N
-        f = self.pi[0]*numpy.ones(N)
+        N,s = self.N,self.s
+        f = numpy.empty((N,s))
+        for arc in range(s):
+            f[:,arc] = self.pi[arc] * numpy.ones(N)
     
         return f
 
     def calcI(self):
-        N = self.N
+        N,s = self.N,self.s
         f = self.calcF()
-        I = .5*(f[0]+f[N-1])
-        I += f[1:(N-1)].sum()
-        I *= 1.0/(N-1)
 
-        return I
+        Ivec = numpy.empty(s)
+        for arc in range(s):
+            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
+            Ivec[arc] += f[1:(N-1),arc].sum()
+            
+        Ivec *= 1.0/(N-1)
+        return Ivec.sum()
 #%%
+            
     def plotSol(self,opt={},intv=[]):
-        t = self.t
+
         x = self.x
         u = self.u
         pi = self.pi
         
-        if len(intv)==0:
-            intv = numpy.arange(0,self.N,1,dtype='int')
-        else:
-             intv = list(intv)   
-        
+#        if len(intv)==0:
+#            intv = numpy.arange(0,self.N,1,dtype='int')
+#        else:
+#             intv = list(intv)   
+    
+        if len(intv)>0:       
+            print("plotSol: Sorry, currently ignoring plotting range.")
+    
         plt.subplot2grid((8,4),(0,0),colspan=5)
-        plt.plot(t[intv],x[intv,0],)
+        self.plotCat(x[:,0,:])
         plt.grid(True)
-        plt.ylabel("x")
-        
+        plt.ylabel("Position")
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
             titlStr = "Current solution: I = {:.4E}".format(I) + \
@@ -187,20 +201,49 @@ class prob(sgra):
         plt.title(titlStr)
         
         plt.subplot2grid((8,4),(1,0),colspan=5)
-        plt.plot(t[intv],x[intv,1],'g')
+        self.plotCat(x[:,1,:],color='g')
         plt.grid(True)
-        plt.ylabel("y")
+        plt.ylabel("Speed")
         plt.subplot2grid((8,4),(2,0),colspan=5)
-        plt.plot(t[intv],u[intv,0],'k')
+        self.plotCat(u[:,0,:],color='k')
         plt.grid(True)
         plt.ylabel("u1 [-]")
         plt.subplot2grid((8,4),(3,0),colspan=5)
-        plt.plot(t[intv],numpy.tanh(u[intv,0]),'r')
+        self.plotCat(numpy.tanh(u[:,0,:]),color='k')
         plt.grid(True)
-        plt.ylabel("contr [-]")
+        plt.ylabel('Control')    
+        plt.xlabel("Concat. adim. time [-]")
     
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.show()
         print("pi =",pi,"\n")
         
     #
+if __name__ == "__main__":
+    print("\n\nRunning probCart.py!\n")
+    exmpProb = prob()
+    
+    print("Initializing problem:")
+    exmpProb = exmpProb.initGues()
+    exmpProb.printPars()
+    s = exmpProb.s
+    
+    print("Plotting current version of solution:")
+    exmpProb.plotSol()
+    
+    print("Calculating f:")
+    f = exmpProb.calcF()
+    exmpProb.plotCat(f)
+    plt.grid(True)
+    plt.xlabel('Concat. adim. time')
+    plt.ylabel('f')
+    plt.show()
+    
+    print("Calculating grads:")
+    Grads = exmpProb.calcGrads()
+    for key in Grads.keys():
+        print("Grads['",key,"'] = ",Grads[key])
+    
+    print("Calculating I:")
+    I = exmpProb.calcI()
+    print("I = ",I)
