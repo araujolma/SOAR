@@ -54,7 +54,7 @@ class prob(sgra):
         x = numpy.zeros((N,n,s))
         u = numpy.zeros((N,m,s))
         
-        #x[:,0,0] = t.copy()
+        x[:,0,0] = t.copy()
         lam = 0.0*x
         mu = numpy.zeros(q)
         pi = numpy.array([1.0])

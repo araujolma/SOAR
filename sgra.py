@@ -280,13 +280,13 @@ class sgra():
         err = phi - ddt(self.x,N)
         
         #######################################################################
-#        print("\nThis is err:")
-#        for arc in range(s):
-#            plt.plot(self.t,err[:,0,arc])
-#            plt.ylabel("errPos")
-#            plt.grid(True)
-#            plt.show()
-#            
+        print("\nThis is err:")
+        for arc in range(s):
+            plt.plot(self.t,err[:,0,arc])
+            plt.ylabel("errPos")
+            plt.grid(True)
+            plt.show()
+            
 #            plt.plot(self.t,err[:,1,arc])
 #            plt.ylabel("errVel")
 #            plt.grid(True)
@@ -390,8 +390,8 @@ class sgra():
                     nonHA = phip[k,:,:,arc].dot(C) + \
                                 -rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
                     nonHL = rho * fx[k,:,arc]
-                    nonHom[k,:n,arc] = nonHA.copy()
-                    nonHom[k,n:,arc] = nonHL.copy()
+                    nonHom[k,:n,arc] = nonHA#.copy()
+                    nonHom[k,n:,arc] = nonHL#.copy()
                     
             # Integrate the LSODE:
             for arc in range(s):
@@ -420,37 +420,37 @@ class sgra():
             #
              
 ###############################################################################            
-#            print("\nHere are the corrections for iteration " + str(j+1) + \
-#                  " of " + str(Ns+1) + ":\n")
-#            for arc in range(s):
-#                print("> Corrections for arc =",arc)
-#                
-#                plt.plot(self.t,lam[:,0,arc])
-#                plt.grid(True)
-#                plt.ylabel('lam: pos')
-#                plt.show()
-#                
+            print("\nHere are the corrections for iteration " + str(j+1) + \
+                  " of " + str(Ns+1) + ":\n")
+            for arc in range(s):
+                print("> Corrections for arc =",arc)
+                
+                plt.plot(self.t,lam[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('lam: pos')
+                plt.show()
+                
 #                plt.plot(self.t,lam[:,1,arc])
 #                plt.grid(True)
 #                plt.ylabel('lam: vel')
 #                plt.show()
-#                
-#                plt.plot(self.t,A[:,0,arc])
-#                plt.grid(True)
-#                plt.ylabel('A: pos')
-#                plt.show()
-#                
+                
+                plt.plot(self.t,A[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('A: pos')
+                plt.show()
+                
 #                plt.plot(self.t,A[:,1,arc])
 #                plt.grid(True)
 #                plt.ylabel('A: vel')
 #                plt.show()
-#                
-#                plt.plot(self.t,B[:,0,arc])
-#                plt.grid(True)
-#                plt.ylabel('B')
-#                plt.show()
-#                
-#                print("C[arc] =",C[arc])
+                
+                plt.plot(self.t,B[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('B')
+                plt.show()
+                
+                print("C[arc] =",C[arc])
 #                
 #            input(" > ")
 ###############################################################################
@@ -487,18 +487,18 @@ class sgra():
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
         print("K =",K)
         print("mu =",mu)
-        
+         
         # summing up linear combinations
         A *= 0.0
         B *= 0.0
         C *= 0.0
         lam *= 0.0
-        for j in range(Ns):
-            A += K[j]*arrayA[j,:,:,:]
-            B += K[j]*arrayB[j,:,:,:]
-            C += K[j]*arrayC[j,:]
-            lam += K[j]*arrayL[j,:,:,:]
-        
+        for j in range(Ns+1):
+            A += K[j] * arrayA[j,:,:,:]
+            B += K[j] * arrayB[j,:,:,:]
+            C += K[j] * arrayC[j]
+            lam += K[j] * arrayL[j,:,:,:]
+            
 ###############################################################################        
 #        print("\n------------------------------------------------------------")
         print("Final corrections:\n")
@@ -509,10 +509,10 @@ class sgra():
             plt.ylabel('A: pos')
             plt.show()
             
-            plt.plot(self.t,A[:,1,arc])
-            plt.grid(True)
-            plt.ylabel('A: vel')
-            plt.show()
+#            plt.plot(self.t,A[:,1,arc])
+#            plt.grid(True)
+#            plt.ylabel('A: vel')
+#            plt.show()
             
             plt.plot(self.t,B[:,0,arc])
             plt.grid(True)
