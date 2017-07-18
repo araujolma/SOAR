@@ -66,7 +66,7 @@ class prob(sgra):
                 
         # boundary conditions
         h_initial = 0.0            # km
-        V_initial = 0.0            # km/s
+        V_initial = 1e-6#0.0            # km/s
         gamma_initial = numpy.pi/2 # rad
         m_initial = 50000          # kg
         h_final = 463.0   # km
@@ -176,6 +176,7 @@ class prob(sgra):
             pi = numpy.array([t_its[-1]])
             t_its = t_its/pi[0]
             
+            self.boundary['m_initial'] = x_its[0,3]
             solInit = self.copy()
             solInit.N = len(t_its)
             solInit.t = t_its.copy()
@@ -318,12 +319,12 @@ class prob(sgra):
         for k in range(N):
             dens[k] = rho(x[k,0])
         
-        pDynTimesSref = .5 * dens * (x[:,1]**2) * s_ref    
+        pDynTimesSref = .5 * dens * (x[:,1,:]**2) * s_ref    
         L = CL * pDynTimesSref
         D = CD * pDynTimesSref
         
         # calculate r
-        r = r_e + x[:,0]
+        r = r_e + x[:,0,:]
     
         # calculate grav
         grav = GM/r/r
@@ -331,14 +332,21 @@ class prob(sgra):
         # calculate phi:
         phi = numpy.empty((N,n,s))
     
-        sinGama = sin(x[:,2])
-        dt = 1.0/(N-1); t = pi[0]*numpy.arange(0,1.0+dt,dt)
-        phi[:,0,0] = pi[0] * x[:,1] * sinGama
-        phi[:,1,0] = pi[0] * ((beta * Thrust * cos(alpha) - D)/x[:,3] - grav * sinGama)
-        phi[:,2,0] = pi[0] * ( (beta * Thrust * sin(alpha) + L)/(x[:,3] * x[:,1]) + 
-                              cos(x[:,2]) * ( x[:,1]/r  -  grav/x[:,1] )) * \
-                   .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
-        phi[:,3,0] = - (pi[0] * beta * Thrust)/(grav_e * Isp)
+        sinGama = sin(x[:,2,:])
+        cosGama = cos(x[:,2,:])
+        sinAlfa = sin(alpha)
+        cosAlfa = cos(alpha)
+        dt = 1.0/(N-1); 
+        for arc in range(s):
+            t = pi[arc]*numpy.arange(0,1.0+dt,dt)
+        
+            phi[:,0,arc] = x[:,1,arc] * sinGama[:,arc]
+            phi[:,1,arc] = (beta[:,arc] * Thrust * cosAlfa[:,arc] - D[:,arc])/x[:,3,arc] - grav[:,arc] * sinGama[:,arc]
+            phi[:,2,arc] = ((beta[:,arc] * Thrust * sinAlfa[:,arc] + L[:,arc])/(x[:,3,arc] * x[:,1,arc]) + \
+                                  cosGama[:,arc] * ( x[:,1,arc]/r[:,arc]  -  grav[:,arc]/x[:,1,arc] )) * \
+                                  .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
+            phi[:,3,arc] = - (beta[:,arc] * Thrust)/(grav_e * Isp)
+            phi[:,:,arc] *= pi[arc]
     
         return phi
 
@@ -609,7 +617,7 @@ class prob(sgra):
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.show()
         print("pi =",pi)
-        print("Final rocket mass: {:.4E}\n".format(x[-1,3,self.s]))
+        print("Final rocket mass: {:.4E}\n".format(x[-1,3,self.s-1]))
     #
     
     def compWith(self,altSol,altSolLabl='altSol'):
