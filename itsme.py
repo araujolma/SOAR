@@ -231,7 +231,7 @@ class problem():
         if config.has_option(section, 'Nmax'):
             self.con['Nmax'] = config.getint(section, 'Nmax')
         else:
-            self.con['Nmax'] = 100
+            self.con['Nmax'] = 50
 
         if config.has_option(section, 'Ndiv'):
             self.con['Ndiv'] = config.getint(section, 'Ndiv')
@@ -326,7 +326,8 @@ class problem():
         tol = self.con['tol']
         fsup = self.con['fsup']
         finf = self.con['finf']
-        self.iteraction = problemIteractions()
+        self.iteractionAltitude = problemIteractions('Altitude error')
+        self.iteractionSpeedAndAng = problemIteractions('All errors')
         sepStr = "\n#################################" +\
                  "######################################"
 
@@ -368,7 +369,7 @@ class problem():
                 # Calculation of the new factor
                 # Checkings
                 # Division and step check
-                self.iteraction.update(e2)
+                self.iteractionAltitude.update(e2)
                 de = e2 - e1
                 # TODO: a new step check procedure is necessary
                 if abs(de) < tol*1e-2:
@@ -411,8 +412,10 @@ class problem():
                       (finf[0], finf[1], finf[2]))
             # if end
 
+        self.iteractionAltitude.update(e2)
         traj = model(factors, self.con)
         traj.simulate("design")
+
         num = "8.6e"
         print(sepStr)
         print("ITS the end (lol)")
@@ -425,10 +428,12 @@ class problem():
         print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
               (finf[0], finf[1], finf[2]))
         print('Total number of trajectory simulations: ',
-              self.iteraction.count)
+              (self.iteractionAltitude.count +
+               self.iteractionSpeedAndAng.count))
 
         solution1 = solution(factors, self.con)
-        self.iteraction.displayErrors()
+        solution1.iteractionAltitude = self.iteractionAltitude
+        solution1.iteractionSpeedAndAng = self.iteractionSpeedAndAng
 
         if not solution1.converged():
             print('itsme saying: solution has not converged :(')
@@ -493,8 +498,8 @@ class problem():
                 print(("Inf limits: %"+num+",  %"+num+",  %"+num)
                       % (finf[0], finf[1], finf[2]))
             else:
-                self.iteraction.update(errors2)
-                de = (errors2 - errors1)
+                self.iteractionSpeedAndAng.update(errors2)
+                de = errors2 - errors1
                 for ii in range(0, 2):
                     # Division and step check
                     # TODO: a new step check procedure is necessary
@@ -535,8 +540,9 @@ class problem():
 
 class problemIteractions():
 
-    def __init__(self):
+    def __init__(self, name):
 
+        self.name = name
         self.errorsList = []
         self.count = 0
 
@@ -547,17 +553,31 @@ class problemIteractions():
 
     def displayErrors(self):
 
-        # TODO: solve the problem of convert from list to a multi
-        # dimensional array
-        pass
-#        err = numpy.array(self.errorsList)
-#        print(self.count)
-#        print(err)
-#        raise
-#        plt.plot(err[], err[2, :], 'b')
-#        plt.grid(True)
-#        plt.ylabel("erros []")
-#        plt.show()
+        if self.count != 0:
+            err = numpy.array(self.errorsList)
+            for e in err:
+                e = numpy.array(e)
+            err = numpy.array(err)
+            plt.plot(range(0, self.count), err)
+            plt.grid(True)
+            plt.ylabel("erros []")
+            plt.xlabel("iteration number []")
+            plt.title(self.name)
+            plt.show()
+
+    def displayLogErrors(self):
+
+        if self.count != 0:
+            err = numpy.array(self.errorsList)
+            for e in err:
+                e = numpy.array(e)
+            err = numpy.array(err)
+            plt.semilogy(range(0, self.count), abs(err))
+            plt.grid(True)
+            plt.ylabel("erros []")
+            plt.xlabel("iteration number []")
+            plt.title(self.name)
+            plt.show()
 
 
 class problemInitialEstimate():
@@ -1378,12 +1398,17 @@ class solution():
         model2.simulate("orbital")
         self.orbital = model2
 
+        self.iteractionAltitude = problemIteractions('')
+        self.iteractionSpeedAndAng = problemIteractions('')
+
     def displayResults(self):
 
         # Results without orbital phase
         self.basic.displayInfo()
         self.basic.orbitResults()
         self.basic.plotResults()
+        self.iteractionAltitude.displayLogErrors()
+        self.iteractionSpeedAndAng.displayLogErrors()
 
         # Results with orbital phase
         if abs(self.basic.e - 1) > 0.1:
@@ -1391,6 +1416,7 @@ class solution():
             # of the singularity
             self.orbital.orbitResults()
             self.orbital.plotResults()
+
         print('Initial states:', self.basic.traj.xx[0])
         print('Final   states:', self.basic.traj.xx[-1])
 
