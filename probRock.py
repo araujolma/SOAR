@@ -165,9 +165,10 @@ class prob(sgra):
             solInit = None
         elif initMode == 'extSol':
     
-            its1 = itsme.its()
-            #t_its,x_its,u_its,tabAlpha,tabBeta = its1.tt,its1.xx,its1.uu,its1.tabAlpha,its1.tabBeta
-            t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
+            t_its,x_its,u_its,tabAlpha,tabBeta = itsme.sgra('default.its')
+            
+            #its1 = itsme.its()
+            #t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
                         
             # Solutions must be made compatible: t_its is dimensional, 
             # u_its consists of the actual controls (alpha and beta), etc.
@@ -315,7 +316,7 @@ class prob(sgra):
         # TODO: making atmosphere.rho vectorized (array compatible) would increase 
         # performance significantly!
         
-        dens = numpy.empty(N,s)
+        dens = numpy.empty((N,s))
         for arc in range(s):
             for k in range(N):
                 dens[k,arc] = rho(x[k,0,arc])
@@ -418,13 +419,14 @@ class prob(sgra):
         CD = CD0 + CD2*(alpha)**2
     
         # calculate L and D; atmosphere: numerical gradient
-        dens = numpy.empty(N,s)
-        del_rho = numpy.empty(N,s)
-        for k in range(N):
-            dens[k,:] = rho(x[k,0,:])
-            del_rho[k,:] = (rho(x[k,0,:]+.1) - dens[k,:])/.1
+        dens = numpy.empty((N,s))
+        del_rho = numpy.empty((N,s))
+        for arc in range(s):
+            for k in range(N):
+                dens[k,arc] = rho(x[k,0,arc])
+                del_rho[k,arc] = (rho(x[k,0,arc]+.1) - dens[k,arc])/.1
         
-        pDynTimesSref = .5 * dens * (x[:,1,0]**2) * s_ref    
+        pDynTimesSref = .5 * dens * (x[:,1,:]**2) * s_ref    
         L = CL * pDynTimesSref
         D = CD * pDynTimesSref
         
@@ -626,7 +628,6 @@ class prob(sgra):
         currSolLabl = 'currentSol'
         s = self.s
         
-        plt.hold(True)
         for arc in range(s):
         
             plt.plot(altSol.t,altSol.x[:,0,arc],label=altSolLabl)
