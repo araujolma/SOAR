@@ -207,7 +207,7 @@ class problem():
         # Solver parameters
         section = 'solver'
         self.con['tol'] = config.getfloat(section, 'tol')
-        self.con['contraction'] = (1.0e4)*numpy.finfo(float).eps
+        self.con['contraction'] = 0.0  # (1.0e4)*numpy.finfo(float).eps
 
         # Superior and inferior limits
         auxstr = config.get(section, 'guess')
@@ -231,7 +231,7 @@ class problem():
         if config.has_option(section, 'Nmax'):
             self.con['Nmax'] = config.getint(section, 'Nmax')
         else:
-            self.con['Nmax'] = 50
+            self.con['Nmax'] = 100
 
         if config.has_option(section, 'Ndiv'):
             self.con['Ndiv'] = config.getint(section, 'Ndiv')
@@ -427,7 +427,7 @@ class problem():
               (factors[0], factors[1], factors[2]))
         print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
               (finf[0], finf[1], finf[2]))
-        print('Total number of trajectory simulations: ',
+        print('\nTotal number of trajectory simulations: ',
               (self.iteractionAltitude.count +
                self.iteractionSpeedAndAng.count))
 
@@ -446,6 +446,7 @@ class problem():
         fsup = self.con['fsup']
         finf = self.con['finf']
         con = self.con
+        self.iteractionSpeedAndAng.reset()
 
         # Initializing parameters
         # Loop initialization
@@ -467,7 +468,6 @@ class problem():
 
         # Loop
         while (not stop) and (count <= self.con['Nmax']):
-
             # Error update
             model1 = model(factors2, con)
             model1.simulate("design")
@@ -497,12 +497,40 @@ class problem():
 
                 print(("Inf limits: %"+num+",  %"+num+",  %"+num)
                       % (finf[0], finf[1], finf[2]))
+
+            elif self.iteractionSpeedAndAng.stationary():
+
+                stop = True
+                # Display information
+                print("\n###################################" +
+                      "####################################")
+                print('stationary process')
+                if count == Nmax:
+                    print("bisecSpeedAndAng total iterations: ",  count,
+                          " (max)")
+                else:
+                    print("bisecSpeedAndAng total iterations: ",  count)
+                num = "8.6e"
+                print(("Errors    : %"+num+",  %"+num)
+                      % (errors2[0], errors2[1]))
+
+                print(("Sup limits: %"+num+",  %"+num+",  %"+num)
+                      % (fsup[0], fsup[1], fsup[2]))
+
+                print(("Factors   : %"+num+",  %"+num+",  %"+num)
+                      % (factors2[0], factors2[1], factors2[2]))
+
+                print(("Inf limits: %"+num+",  %"+num+",  %"+num)
+                      % (finf[0], finf[1], finf[2]))
+
             else:
                 self.iteractionSpeedAndAng.update(errors2)
+                self.iteractionSpeedAndAng.stationary()
                 de = errors2 - errors1
                 for ii in range(0, 2):
                     # Division and step check
                     # TODO: a new step check procedure is necessary
+
                     if de[ii] == 0:
                         step[ii] = 0.0
                     else:
@@ -545,10 +573,16 @@ class problemIteractions():
         self.name = name
         self.errorsList = []
         self.count = 0
+        self.countLocal = 0
+
+    def reset(self):
+
+        self.countLocal = 0
 
     def update(self, errors):
 
         self.count += 1
+        self.countLocal += 1
         self.errorsList.append(errors)
 
     def displayErrors(self):
@@ -565,6 +599,21 @@ class problemIteractions():
             plt.title(self.name)
             plt.show()
 
+    def stationary(self):
+
+        stat = False
+        if self.countLocal > 10:
+            e = numpy.array([numpy.array(self.errorsList[-3][0:2]),
+                             numpy.array(self.errorsList[-2][0:2]),
+                             numpy.array(self.errorsList[-1][0:2])])
+
+            ff = numpy.std(e, 0)/abs(numpy.mean(e, 0))
+
+            for f in ff:
+                stat = stat or (f < 1e-12)
+
+        return stat
+
     def displayLogErrors(self):
 
         if self.count != 0:
@@ -577,6 +626,8 @@ class problemIteractions():
             plt.ylabel("erros []")
             plt.xlabel("iteration number []")
             plt.title(self.name)
+            if self.name == 'All':
+                plt.legend(['V', 'gamma', 'h'])
             plt.show()
 
 
