@@ -39,7 +39,7 @@ def its(*arg):
 
     solution2 = problem1.solveForFineTune()
 
-    solution2.trajectory.plotResultsAed()
+    solution2.basic.plotResultsAed()
 
     solution2.displayResults()
 
@@ -58,11 +58,11 @@ def sgra(fname):
 
     solution = problem(fname).solveForFineTune()
 
-    solution.trajectory.displayInfo()
-    solution.trajectory.orbitResults()
+    solution.basic.displayInfo()
+    solution.basic.orbitResults()
 
-    print('Initial states:', solution.trajectory.xx[0])
-    print('Final   states:', solution.trajectory.xx[-1])
+    print('Initial states:', solution.basic.traj.xx[0])
+    print('Final   states:', solution.basic.traj.xx[-1])
 
     if not solution.converged():
             print('itsme saying: solution has not converged :(')
@@ -311,11 +311,11 @@ class problem():
     def solveForInitialGuess(self):
         #######################################################################
         # First guess trajectory
-        traj = model(self.con['guess'], self.con)
-        traj.simulate("design")
-        self.tabAlpha = traj.tabAlpha
-        self.tabBeta = traj.tabBeta
-        self.errors = traj.errors
+        model1 = model(self.con['guess'], self.con)
+        model1.simulate("design")
+        self.tabAlpha = model1.tabAlpha
+        self.tabBeta = model1.tabBeta
+        self.errors = model1.errors
         self.factors = self.con['guess']
 
         return solution(self.con['guess'], self.con)
@@ -369,7 +369,7 @@ class problem():
                 # Checkings
                 # Division and step check
                 self.iteraction.update(e2)
-                de = (e2 - e1)
+                de = e2 - e1
                 # TODO: a new step check procedure is necessary
                 if abs(de) < tol*1e-2:
                     step = df
@@ -454,9 +454,9 @@ class problem():
         factors1[2] = f3 + 0.0
         df[2] = 0.0
         factors2 = factors1 + df
-        traj = model(factors1, con)
-        traj.simulate("design")
-        errors1 = traj.errors
+        model1 = model(factors1, con)
+        model1.simulate("design")
+        errors1 = model1.errors
         step = df + 0.0
         factors3 = factors2 + 0.0
 
@@ -464,9 +464,9 @@ class problem():
         while (not stop) and (count <= self.con['Nmax']):
 
             # Error update
-            traj = model(factors2, con)
-            traj.simulate("design")
-            errors2 = traj.errors
+            model1 = model(factors2, con)
+            model1.simulate("design")
+            errors2 = model1.errors
 
             converged = abs(errors2) < con['tol']
             if converged[0] and converged[1]:
@@ -665,10 +665,7 @@ class model():
 
         self.factors = factors
         self.con = con
-        self.tt = []
-        self.xx = []
-        self.tp = []
-        self.xp = []
+        self.traj = modelTrajectory()
         self.flagAppend = False
         self.simulCounter = 0
 
@@ -699,35 +696,13 @@ class model():
                                  -con['AoAmax']*con['d2r'])
         self.tabAlpha = tabAlpha
 
-    def __append(self, tt, xx):
-
-        self.tt.append(tt)
-        self.xx.append(xx)
-
-    def __appendStar(self, tt, xx):
-
-        self.tt.append(tt)
-        self.xx.append([*xx])
-
-    def __appendP(self, tp, xp):
-
-        self.tp.append(tp)
-        self.xp.append(xp)
-
-    def __numpyArray(self):
-
-        self.tt = numpy.array(self.tt)
-        self.xx = numpy.array(self.xx)
-        self.tp = numpy.array(self.tp)
-        self.xp = numpy.array(self.xp)
-
     def __integrate(self, ode45, t0, x0):
 
         self.simulCounter += 1
 
         # Output variables
-        self.__append(t0, x0)
-        self.__appendP(t0, x0)
+        self.traj.append(t0, x0)
+        self.traj.appendP(t0, x0)
 
         N = len(self.tphases)
         for ii in range(1, N):
@@ -737,7 +712,7 @@ class model():
             t_final = self.tphases[ii] - self.con['contraction']
 
             # Stage separation mass reduction
-            y_initial = self.xp[-1]
+            y_initial = self.traj.xp[-1]
             y_initial[3] = y_initial[3] - self.mjetsoned[ii-1]
 
             # integration
@@ -746,7 +721,7 @@ class model():
             ode45.integrate(t_final)
 
             if ii != N-1:
-                self.__appendP(ode45.t+self.con['contraction'], ode45.y)
+                self.traj.appendP(ode45.t+self.con['contraction'], ode45.y)
 
             # Phase itegration display
             if self.flagAppend:
@@ -761,15 +736,15 @@ class model():
         # Final stage separation mass reduction
         y_final = ode45.y.copy()
         y_final[3] = y_final[3] - self.mjetsoned[-1]
-        self.__appendP(ode45.t+self.con['contraction'], y_final)
+        self.traj.appendP(ode45.t+self.con['contraction'], y_final)
 
         # Final point appending
-        self.__append(self.tp[-1], self.xp[-1])
-        self.__numpyArray()
+        self.traj.append(self.traj.tp[-1], self.traj.xp[-1])
+        self.traj.numpyArray()
 
     def __errorCalculate(self):
 
-        h, v, gamma, M = self.xp[-1]
+        h, v, gamma, M = self.traj.xp[-1]
         errors = ((v - self.con['V_final'])/0.01,
                   (gamma - self.con['gamma_final'])/0.1,
                   (h - self.con['h_final'])/10)
@@ -808,10 +783,10 @@ class model():
 
     def __cntrCalculate(self, tabAlpha, tabBeta):
 
-        self.uu = numpy.concatenate([tabAlpha.multValue(self.tt),
-                                     tabBeta.multValue(self.tt)],  axis=1)
-        self.up = numpy.concatenate([tabAlpha.multValue(self.tp),
-                                     tabBeta.multValue(self.tp)],  axis=1)
+        self.uu = numpy.concatenate([tabAlpha.multValue(self.traj.tt),
+                                     tabBeta.multValue(self.traj.tt)],  axis=1)
+        self.up = numpy.concatenate([tabAlpha.multValue(self.traj.tp),
+                                     tabBeta.multValue(self.traj.tp)],  axis=1)
 
     def __stagingCalculate(self, Dv1, Dv2):
 
@@ -936,16 +911,16 @@ class model():
                                     'not increase monotonically!')
 
             # Integration
-            ode45.set_solout(self.__appendStar)
+            ode45.set_solout(self.traj.appendStar)
             self.__integrate(ode45, t0, x0)
             self.__cntrCalculate(self.tabAlpha, self.tabBeta)
 
             # Check solution time monotonic increse
             if self.con['contraction'] > 0.0:
-                for ii in range(1, len(self.tt)):
-                    if self.tt[ii - 1] >= self.tt[ii]:
-                        print('ii = ', ii, ' tt[ii-1] = ',
-                              self.tt[ii-1], ' tt[ii] = ', self.tt[ii])
+                for ii in range(1, len(self.traj.tt)):
+                    if self.traj.tt[ii - 1] >= self.traj.tt[ii]:
+                        print('ii = ', ii, ' tt[ii-1] = ', self.traj.tt[ii-1],
+                              ' tt[ii] = ', self.traj.tt[ii])
                         raise Exception('itsme saying: tt does not' +
                                         ' increase monotonically!')
 
@@ -955,8 +930,8 @@ class model():
 
     def plotResults(self):
 
-        (tt, xx, uu, tp, xp, up) = (self.tt, self.xx, self.uu,
-                                    self.tp, self.xp, self.up)
+        (tt, xx, uu, tp, xp, up) = (self.traj.tt, self.traj.xx, self.uu,
+                                    self.traj.tp, self.traj.xp, self.up)
 
         ii = 0
         plt.subplot2grid((6, 4), (0, 0), rowspan=2, colspan=2)
@@ -1005,11 +980,13 @@ class model():
 
     def plotResultsAed(self):
 
-        tt = self.tt
-        tp = self.tp
+        tt = self.traj.tt
+        tp = self.traj.tp
         # Aed plots
-        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(self.tt, self.xx, self.uu)
-        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(self.tp, self.xp, self.up)
+        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(self.traj.tt,
+                                                     self.traj.xx, self.uu)
+        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(self.traj.tp,
+                                                     self.traj.xp, self.up)
 
         plt.subplot2grid((6, 2), (0, 0), rowspan=2, colspan=2)
         plt.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
@@ -1035,7 +1012,7 @@ class model():
         GM = self.con['GM']
         R = self.con['R']
 
-        h, v, gama, M = numpy.transpose(self.xx[-1, :])
+        h, v, gama, M = numpy.transpose(self.traj.xx[-1, :])
         r = R + h
 
         cosGama = numpy.cos(gama)
@@ -1355,51 +1332,83 @@ class modelAttitude():
         return ans
 
 
+class modelTrajectory():
+
+    def __init__(self):
+
+        self.tt = []
+        self.xx = []
+        self.tp = []
+        self.xp = []
+
+    def append(self, tt, xx):
+
+        self.tt.append(tt)
+        self.xx.append(xx)
+
+    def appendStar(self, tt, xx):
+
+        self.tt.append(tt)
+        self.xx.append([*xx])
+
+    def appendP(self, tp, xp):
+
+        self.tp.append(tp)
+        self.xp.append(xp)
+
+    def numpyArray(self):
+
+        self.tt = numpy.array(self.tt)
+        self.xx = numpy.array(self.xx)
+        self.tp = numpy.array(self.tp)
+        self.xp = numpy.array(self.xp)
+
+
 class solution():
 
     def __init__(self, factors, con):
 
         self.factors = factors
 
-        traj = model(factors, con)
-        traj.simulate("plot")
-        self.trajectory = traj
+        model1 = model(factors, con)
+        model1.simulate("plot")
+        self.basic = model1
 
-        traj = model(factors, con)
-        traj.simulate("orbital")
-        self.trajOrbital = traj
+        model2 = model(factors, con)
+        model2.simulate("orbital")
+        self.orbital = model2
 
     def displayResults(self):
 
         # Results without orbital phase
-        self.trajectory.displayInfo()
-        self.trajectory.orbitResults()
-        self.trajectory.plotResults()
+        self.basic.displayInfo()
+        self.basic.orbitResults()
+        self.basic.plotResults()
 
         # Results with orbital phase
-        if abs(self.trajectory.e - 1) > 0.1:
+        if abs(self.basic.e - 1) > 0.1:
             # The eccentricity test avoids simulations too close
             # of the singularity
-            self.trajOrbital.orbitResults()
-            self.trajOrbital.plotResults()
-        print('Initial states:', self.trajectory.xx[0])
-        print('Final   states:', self.trajectory.xx[-1])
+            self.orbital.orbitResults()
+            self.orbital.plotResults()
+        print('Initial states:', self.basic.traj.xx[0])
+        print('Final   states:', self.basic.traj.xx[-1])
 
         return None
 
     def converged(self):
 
         convergence = True
-        for error in self.trajectory.errors:
-            if abs(error) >= self.trajectory.con['tol']:
+        for error in self.basic.errors:
+            if abs(error) >= self.basic.con['tol']:
                 convergence = False
 
         return convergence
 
     def sgra(self):
 
-        ans = self.trajectory.tt, self.trajectory.xx, self.trajectory.uu,\
-              self.trajectory.tabAlpha, self.trajectory.tabBeta
+        ans = self.basic.traj.tt, self.basic.traj.xx, self.basic.uu,\
+              self.basic.tabAlpha, self.basic.tabBeta
         return ans
 
 
