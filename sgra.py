@@ -62,7 +62,7 @@ class sgra():
         self.tol = {'P':1e-7,'Q':1e-7}
         
         # Debugging options
-        tf = True
+        tf = False
         self.dbugOptRest = {'pausRest':tf,
                             'pausCalcP':tf,
                             'plotP_int':tf,
@@ -71,12 +71,12 @@ class sgra():
                             'plotSolMaxP':tf,
                             'plotRsidMaxP':tf,
                             'plotCorr':tf}
-        tf = False
+        tf = True
         self.dbugOptGrad = {'pausGrad':tf,
                             'pausCalcQ':tf,
                             'prntCalcStepGrad': tf,
                             'plotCalcStepGrad': tf,
-                            'pausCalcStepGrad':tf,
+                            'pausCalcStepGrad':False,
                             'plotQx':tf,
                             'plotQu':tf,
                             'plotQxZoom':tf,
@@ -201,9 +201,9 @@ class sgra():
         return grad_sgra.calcStepGrad(self,*args,**kwargs)
 
     def calcQ(self,*args,**kwargs):
-        print("calcQ: not implemented yet!")
-        return 1.0,1.0,1.0,1.0,1.0
-#        return grad_sgra.calcQ(self,*args,**kwargs)
+        #print("calcQ: not implemented yet!")
+        #return 1.0,1.0,1.0,1.0,1.0
+        return grad_sgra.calcQ(self,*args,**kwargs)
     
     def updtHistQ(self,alfa):
     
@@ -280,18 +280,18 @@ class sgra():
         err = phi - ddt(self.x,N)
         
         #######################################################################
-        print("\nThis is err:")
-        for arc in range(s):
-            plt.plot(self.t,err[:,0,arc])
-            plt.ylabel("errPos")
-            plt.grid(True)
-            plt.show()
-            
-            if n>1:
-                plt.plot(self.t,err[:,1,arc])
-                plt.ylabel("errVel")
-                plt.grid(True)
-                plt.show()
+#        print("\nThis is err:")
+#        for arc in range(s):
+#            plt.plot(self.t,err[:,0,arc])
+#            plt.ylabel("errPos")
+#            plt.grid(True)
+#            plt.show()
+#            
+#            if n>1:
+#                plt.plot(self.t,err[:,1,arc])
+#                plt.ylabel("errVel")
+#                plt.grid(True)
+#                plt.show()
         #######################################################################        
         
         # get gradients
@@ -366,10 +366,11 @@ class sgra():
         arrayL = numpy.empty((Ns+1,N,n,s))
         
         #optPlot = dict()
-        
-        print("\nBeginning loop for solutions...")
+        if rho>0.5:
+            print("\nBeginning loop for solutions...")
         for j in range(Ns+1):
-            print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
+            if rho > 0.5:
+                print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
             
             A = numpy.zeros((N,n,s))
             B = numpy.zeros((N,m,s))
@@ -421,42 +422,42 @@ class sgra():
                 Et[(2*arc+1)*n : (2*arc+2)*n, j] =  lam[N-1,:,arc] # eq (32b)      
             #
              
-###############################################################################            
-            print("\nHere are the corrections for iteration " + str(j+1) + \
-                  " of " + str(Ns+1) + ":\n")
-            for arc in range(s):
-                print("> Corrections for arc =",arc)
-                
-                plt.plot(self.t,lam[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('lam: pos')
-                plt.show()
-                
-                if n>1:
-                    plt.plot(self.t,lam[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('lam: vel')
-                    plt.show()
-                
-                plt.plot(self.t,A[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('A: pos')
-                plt.show()
-                
-                if n>1:
-                    plt.plot(self.t,A[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: vel')
-                    plt.show()
-                
-                plt.plot(self.t,B[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('B')
-                plt.show()
-                
-                print("C[arc] =",C[arc])
-#                
-#            input(" > ")
+###############################################################################  
+#            if rho>0.5:          
+#                print("\nHere are the corrections for iteration " + str(j+1) + \
+#                      " of " + str(Ns+1) + ":\n")
+#                for arc in range(s):
+#                    print("> Corrections for arc =",arc)
+#                    
+#                    plt.plot(self.t,lam[:,0,arc])
+#                    plt.grid(True)
+#                    plt.ylabel('lam: pos')
+#                    plt.show()
+#                    
+#                    if n>1:
+#                        plt.plot(self.t,lam[:,1,arc])
+#                        plt.grid(True)
+#                        plt.ylabel('lam: vel')
+#                        plt.show()
+#                    
+#                    plt.plot(self.t,A[:,0,arc])
+#                    plt.grid(True)
+#                    plt.ylabel('A: pos')
+#                    plt.show()
+#                    
+#                    if n>1:
+#                        plt.plot(self.t,A[:,1,arc])
+#                        plt.grid(True)
+#                        plt.ylabel('A: vel')
+#                        plt.show()
+#                    
+#                    plt.plot(self.t,B[:,0,arc])
+#                    plt.grid(True)
+#                    plt.ylabel('B')
+#                    plt.show()
+#                    
+#                    print("C[arc] =",C[arc])
+#                    #input(" > ")
 ###############################################################################
 
             # store solution in arrays
@@ -467,12 +468,13 @@ class sgra():
             Ct[:,j] = C.copy()
         #
         
-        #######################################################################
-        print("\nMatrices Ct, Dt, Et:\n")
-        print("Ct =",Ct)
-        print("Dt =",Dt)
-        print("Et =",Et)
-        #######################################################################
+###############################################################################
+        if rho > 0.5:
+            print("\nMatrices Ct, Dt, Et:\n")
+            print("Ct =",Ct)
+            print("Dt =",Dt)
+            print("Et =",Et)
+###############################################################################
         
         
         #All integrations ready!
@@ -504,29 +506,30 @@ class sgra():
             lam += K[j] * arrayL[j,:,:,:]
             
 ###############################################################################        
-        print("\n------------------------------------------------------------")
-        print("Final corrections:\n")
-        for arc in range(s):
-            print("> Corrections for arc =",arc)
-            plt.plot(self.t,A[:,0,arc])
-            plt.grid(True)
-            plt.ylabel('A: pos')
-            plt.show()
-
-            if n>1:          
-                plt.plot(self.t,A[:,1,arc])
+        if rho > 0.5:
+            print("\n------------------------------------------------------------")
+            print("Final corrections:\n")
+            for arc in range(s):
+                print("> Corrections for arc =",arc)
+                plt.plot(self.t,A[:,0,arc])
                 plt.grid(True)
-                plt.ylabel('A: vel')
+                plt.ylabel('A: pos')
                 plt.show()
-            
-            plt.plot(self.t,B[:,0,arc])
-            plt.grid(True)
-            plt.ylabel('B')
-            plt.show()
-            
-            print("C[arc] =",C[arc])
+    
+                if n>1:          
+                    plt.plot(self.t,A[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: vel')
+                    plt.show()
                 
-#        input(" > ")
+                plt.plot(self.t,B[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('B')
+                plt.show()
+                
+                print("C[arc] =",C[arc])
+                    
+            #input(" > ")
 ###############################################################################        
         
         return A,B,C,lam,mu

@@ -628,6 +628,7 @@ class prob(sgra):
         currSolLabl = 'currentSol'
         s = self.s
         
+
         for arc in range(s):
         
             plt.plot(altSol.t,altSol.x[:,0,arc],label=altSolLabl)

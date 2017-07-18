@@ -39,38 +39,46 @@ def calcP(self):
 
     vetIP *= dt
 
-    #if numpy.array(self.dbugOptRest.values()).any():
-    #    print(self.dbugOptRest)
+    somePlot = False
+    for key in self.dbugOptRest.keys():
+        if ('plot' in key) or ('Plot' in key):
+            if self.dbugOptRest[key]:
+                somePlot = True
+                break
+    if somePlot:
+        print("\nDebug plots for this calcP run:")
         
-    #    print("\nDebug plots for this calcP run:")
+        indMaxP = numpy.argmax(vetP, axis=0)
+        print(indMaxP)
+        for arc in range(s):
+            print("\nArc =",arc,"\n")
+            ind1 = numpy.array([indMaxP[arc]-20,0]).max()
+            ind2 = numpy.array([indMaxP[arc]+20,N]).min()
+    
+            if self.dbugOptRest['plotP_int']:
+                plt.plot(self.t,vetP[:,arc])
+                plt.grid(True)
+                plt.title("Integrand of P")
+                plt.show()
+            
+            if self.dbugOptRest['plotIntP_int']:
+                plt.plot(self.t,vetIP[:,arc])
+                plt.grid(True)
+                plt.title("Partially integrated P")
+                plt.show()
+
+            #for zoomed version:
+            if self.dbugOptRest['plotP_intZoom']:
+                plt.plot(self.t[ind1:ind2],vetP[ind1:ind2,arc],'o')
+                plt.grid(True)
+                plt.title("Integrand of P (zoom)")
+                plt.show()
+            
+            if self.dbugOptRest['plotSolMaxP']:
+                print("rest_sgra: plotSol @ MaxP region: not implemented yet!")
+                #print("\nSolution on the region of MaxP:")
+                #self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
         
-#    indMaxP = vetP.argmax()
-#    ind1 = numpy.array([indMaxP-20,0]).max()
-#    ind2 = numpy.array([indMaxP+20,N]).min()
-#    
-#    if self.dbugOptRest['plotP_int']:
-#        plt.plot(self.t,vetP)
-#        plt.grid(True)
-#        plt.title("Integrand of P")
-#        plt.show()
-#
-#    if self.dbugOptRest['plotIntP_int']:
-#        plt.plot(self.t,vetIP)
-#        plt.grid(True)
-#        plt.title("Partially integrated P")
-#        plt.show()
-#
-#    # for zoomed version:
-#    if self.dbugOptRest['plotP_intZoom']:
-#        plt.plot(self.t[ind1:ind2],vetP[ind1:ind2],'o')
-#        plt.grid(True)
-#        plt.title("Integrand of P (zoom)")
-#        plt.show()
-#    
-#    if self.dbugOptRest['plotSolMaxP']:
-#        print("\nSolution on the region of MaxP:")
-#        self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-#        
 #        # TODO: extend these debug plots
 #    if self.dbugOptRest['plotRsidMaxP']:
 #        

@@ -17,7 +17,7 @@ class ITman():
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = 'contHere.pkl'#"sols/solInitRest.pkl"
+        self.loadSolDir = 'solInitRest.pkl'#'contHere.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
@@ -166,10 +166,15 @@ class ITman():
             
             if contRest%10 == 0:
                 print("\nLots of restorations! "+\
-                      "Here is a partial convergence report:")
+                      "Here is the current solution:")
+                sol.plotSol()
+                      
+                print("And here is a partial convergence report:")
                 sol.showHistP()
-                print("\nChanging debug mode for next rest run.\n")
-                #sol.setAllDbugOptRest(True)
+                print("\nDon't worry, changing debug mode for next rest run.\n")
+                sol.setAllDbugOptRest(True)
+            else:
+                sol.setAllDbugOptRest(False)
                 
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")

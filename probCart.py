@@ -9,6 +9,9 @@ A module for the cart problem:
 get the cart from position 0 to position 1 in minimal time, 
 subject to restrictions on maximum acceleration and deceleration.
 
+There are two subarcs, connected through the "middle", equaling position and
+velocity.
+
 """
 
 import numpy
