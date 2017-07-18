@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 def calcQ(self):
     # Q expression from (15)
     #print("\nIn calcQ.\n")
-    N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
+    N,n,m,p,s = self.N,self.n,self.m,self.p,self.s
     dt = 1.0/(N-1)
 
 #    x = self.x
@@ -77,9 +77,10 @@ def calcQ(self):
     resVecIntQp = numpy.zeros(p)
     for arc in range(s):
         resVecIntQp += auxVecIntQp[:,arc]
-    resVecIntQp += psip.transpose().dot(mu)
-
     Qp = resVecIntQp.transpose().dot(resVecIntQp)
+    
+    resVecQp = psip.transpose().dot(mu)
+    Qp += resVecQp.transpose().dot(resVecQp)
     
     errQt = z + psiy.transpose().dot(mu)
     Qt = errQt.transpose().dot(errQt)
