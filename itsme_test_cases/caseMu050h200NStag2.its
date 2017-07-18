@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 600.0
+h = 200.0
 #
 # Final flight path angle [°]
 gamma = 0.0

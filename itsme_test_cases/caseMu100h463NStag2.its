@@ -7,7 +7,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 50
+Mu = 100
 #
 # Number of stages
 NStag = 2
@@ -25,8 +25,8 @@ T = 40.0
 softness = 0.2
 #
 # Aerodynamic coefficients
-# (B0 Miele 1998)
-CL0 =-0.03
+#
+CL0 = 0.0
 #
 # (B1 Miele 1998)
 CL1 = 0.8
@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 600.0
+h = 463.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -88,8 +88,8 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1.0, 1.2, 1.2
+guess = 0.75, 1.2, 1.2
 #
-limit = 1.0, 0.4, 0.4
+limit = 1.25, 0.4, 0.4
 #
 tol = 1e-7

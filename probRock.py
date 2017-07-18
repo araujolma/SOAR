@@ -19,7 +19,7 @@ class prob(sgra):
         p = 1
         q = 7
         s = 1
-        N = 50000+1#20000+1#5000000 + 1 #1000 + 1#
+        N = 50000+1#40000+1#20000+1#5000000 + 1 #1000 + 1#
 
         self.N = N
         self.n = n
@@ -315,9 +315,10 @@ class prob(sgra):
         # TODO: making atmosphere.rho vectorized (array compatible) would increase 
         # performance significantly!
         
-        dens = numpy.empty(N)
-        for k in range(N):
-            dens[k] = rho(x[k,0])
+        dens = numpy.empty(N,s)
+        for arc in range(s):
+            for k in range(N):
+                dens[k,arc] = rho(x[k,0,arc])
         
         pDynTimesSref = .5 * dens * (x[:,1,:]**2) * s_ref    
         L = CL * pDynTimesSref
