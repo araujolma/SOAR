@@ -323,6 +323,7 @@ class problem():
     def solveForFineTune(self):
         #######################################################################
         # Bisection altitude loop
+        index = 2
         tol = self.con['tol']
         fsup = self.con['fsup']
         finf = self.con['finf']
@@ -337,18 +338,21 @@ class problem():
         count = 0
 
         # Fators initilization
-        df = abs((fsup[2] - finf[2])/self.con['Ndiv'])
+        df = abs((fsup[index] - finf[index])/self.con['Ndiv'])
         factors = (fsup + finf)/2
         step = df.copy()
-        f1 = (fsup[2] + finf[2])/2
-        e1, factors = self.__bisecSpeedAndAng(factors, f1)
+        errors, factors = self.__bisecSpeedAndAng(factors)
+        e1 = errors[index]
+        f1 = factors[index]
         f2 = f1 + step
 
         # Loop
         while (not stop) and (count <= self.con['Nmax']):
 
             # bisecSpeedAndAng: Error update from speed and gamma loop
-            e2, factors = self.__bisecSpeedAndAng(factors, f2)
+            factors[index] = f2
+            errors, factors = self.__bisecSpeedAndAng(factors)
+            e2 = errors[index]
 
             # Loop checks
             if (abs(e2) < tol):
@@ -386,10 +390,10 @@ class problem():
                 # Factor definition and check
                 f3 = f2 - step
 
-                if f3 > fsup[2]:
-                    f3 = 0.0 + fsup[2]
-                elif f3 < finf[2]:
-                    f3 = 0.0 + finf[2]
+                if f3 > fsup[index]:
+                    f3 = 0.0 + fsup[index]
+                elif f3 < finf[index]:
+                    f3 = 0.0 + finf[index]
 
                 # Parameters update
                 f1 = f2.copy()
@@ -440,7 +444,7 @@ class problem():
 
         return solution1
 
-    def __bisecSpeedAndAng(self, factors1, f3):
+    def __bisecSpeedAndAng(self, factors1):
         #######################################################################
         # Bissection speed and gamma loop
         fsup = self.con['fsup']
@@ -457,7 +461,6 @@ class problem():
         # Fators initilization
         df = abs((fsup - finf)/20)
         # Making the 3 factor variarions null
-        factors1[2] = f3 + 0.0
         df[2] = 0.0
         factors2 = factors1 + df
         model1 = model(factors1, con)
@@ -562,8 +565,7 @@ class problem():
         # while end
         # Define output
         # print('bisecSpeedAndAng count', count)
-        errorh = errors2[2]
-        return errorh, factors2
+        return errors2, factors2
 
 
 class problemIteractions():
@@ -614,20 +616,28 @@ class problemIteractions():
 
         return stat
 
-    def displayLogErrors(self):
+    def displayLogErrors(self, legendList):
 
         if self.count != 0:
             err = numpy.array(self.errorsList)
             for e in err:
                 e = numpy.array(e)
             err = numpy.array(err)
-            plt.semilogy(range(0, self.count), abs(err))
+            plt.hold(True)
+            if numpy.ndim(err) == 2:
+                for ii in range(0, len(self.errorsList[-1])):
+                    plt.semilogy(range(0, self.count),
+                                 abs(err[:, ii]), label=legendList[ii])
+                plt.hold(False)
+            else:
+                plt.semilogy(range(0, self.count),
+                             abs(err), label=legendList[0])
             plt.grid(True)
             plt.ylabel("erros []")
             plt.xlabel("iteration number []")
             plt.title(self.name)
-            if self.name == 'All':
-                plt.legend(['V', 'gamma', 'h'])
+#            if self.name == 'All errors':
+            plt.legend()
             plt.show()
 
 
@@ -1458,8 +1468,8 @@ class solution():
         self.basic.displayInfo()
         self.basic.orbitResults()
         self.basic.plotResults()
-        self.iteractionAltitude.displayLogErrors()
-        self.iteractionSpeedAndAng.displayLogErrors()
+        self.iteractionAltitude.displayLogErrors(['h'])
+        self.iteractionSpeedAndAng.displayLogErrors(['V', 'gamma', 'h'])
 
         # Results with orbital phase
         if abs(self.basic.e - 1) > 0.1:
