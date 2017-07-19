@@ -327,8 +327,8 @@ class problem():
         tol = self.con['tol']
         fsup = self.con['fsup']
         finf = self.con['finf']
-        self.iteractionAltitude = problemIteractions('Altitude error')
-        self.iteractionSpeedAndAng = problemIteractions('All errors')
+        self.iteractionAltitude = problemIteractions('Altitude')
+        self.iteractionSpeedAndAng = problemIteractions('All')
         sepStr = "\n#################################" +\
                  "######################################"
 
@@ -353,6 +353,7 @@ class problem():
             factors[index] = f2
             errors, factors = self.__bisecSpeedAndAng(factors)
             e2 = errors[index]
+            self.iteractionAltitude.update(e2, f2)
 
             # Loop checks
             if (abs(e2) < tol):
@@ -373,7 +374,6 @@ class problem():
                 # Calculation of the new factor
                 # Checkings
                 # Division and step check
-                self.iteractionAltitude.update(e2)
                 de = e2 - e1
                 # TODO: a new step check procedure is necessary
                 if abs(de) < tol*1e-2:
@@ -415,8 +415,6 @@ class problem():
                 print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
                       (finf[0], finf[1], finf[2]))
             # if end
-
-        self.iteractionAltitude.update(e2)
         traj = model(factors, self.con)
         traj.simulate("design")
 
@@ -475,6 +473,7 @@ class problem():
             model1 = model(factors2, con)
             model1.simulate("design")
             errors2 = model1.errors
+            self.iteractionSpeedAndAng.update(errors2, factors2)
 
             converged = abs(errors2) < con['tol']
             if converged[0] and converged[1]:
@@ -527,7 +526,6 @@ class problem():
                       % (finf[0], finf[1], finf[2]))
 
             else:
-                self.iteractionSpeedAndAng.update(errors2)
                 self.iteractionSpeedAndAng.stationary()
                 de = errors2 - errors1
                 for ii in range(0, 2):
@@ -574,6 +572,7 @@ class problemIteractions():
 
         self.name = name
         self.errorsList = []
+        self.factorsList = []
         self.count = 0
         self.countLocal = 0
 
@@ -581,25 +580,12 @@ class problemIteractions():
 
         self.countLocal = 0
 
-    def update(self, errors):
+    def update(self, errors, factors):
 
         self.count += 1
         self.countLocal += 1
         self.errorsList.append(errors)
-
-    def displayErrors(self):
-
-        if self.count != 0:
-            err = numpy.array(self.errorsList)
-            for e in err:
-                e = numpy.array(e)
-            err = numpy.array(err)
-            plt.plot(range(0, self.count), err)
-            plt.grid(True)
-            plt.ylabel("erros []")
-            plt.xlabel("iteration number []")
-            plt.title(self.name)
-            plt.show()
+        self.factorsList.append(factors)
 
     def stationary(self):
 
@@ -634,6 +620,30 @@ class problemIteractions():
                              abs(err), label=legendList[0])
             plt.grid(True)
             plt.ylabel("erros []")
+            plt.xlabel("iteration number []")
+            plt.title(self.name)
+#            if self.name == 'All errors':
+            plt.legend()
+            plt.show()
+
+    def displayFactors(self, legendList):
+
+        if self.count != 0:
+            err = numpy.array(self.factorsList)
+            for e in err:
+                e = numpy.array(e)
+            err = numpy.array(err)
+            plt.hold(True)
+            if numpy.ndim(err) == 2:
+                for ii in range(0, len(self.factorsList[-1])):
+                    plt.plot(range(0, self.count),
+                             abs(err[:, ii]), label=legendList[ii])
+                plt.hold(False)
+            else:
+                plt.plot(range(0, self.count),
+                         abs(err), label=legendList[0])
+            plt.grid(True)
+            plt.ylabel("factors []")
             plt.xlabel("iteration number []")
             plt.title(self.name)
 #            if self.name == 'All errors':
@@ -1470,6 +1480,7 @@ class solution():
         self.basic.plotResults()
         self.iteractionAltitude.displayLogErrors(['h'])
         self.iteractionSpeedAndAng.displayLogErrors(['V', 'gamma', 'h'])
+        self.iteractionSpeedAndAng.displayFactors(['V', 'gamma', 'h'])
 
         # Results with orbital phase
         if abs(self.basic.e - 1) > 0.1:
