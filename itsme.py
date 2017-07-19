@@ -332,28 +332,29 @@ class problem():
         sepStr = "\n#################################" +\
                  "######################################"
 
-        # Parameters initialization
-        # Loop initialization
+        # Initilization
         stop = False
-        count = 0
-
-        # Fators initilization
         df = abs((fsup[index] - finf[index])/self.con['Ndiv'])
+
         factors = (fsup + finf)/2
-        step = df.copy()
         errors, factors = self.__bisecSpeedAndAng(factors)
+        self.iteractionSpeedAndAng.update(errors, factors)
+
         e1 = errors[index]
         f1 = factors[index]
+        self.iteractionAltitude.update([e1], [f1])
+
+        step = df.copy()
         f2 = f1 + step
 
         # Loop
-        while (not stop) and (count <= self.con['Nmax']):
+        while not stop and (self.iteractionAltitude.count <= self.con['Nmax']):
 
             # bisecSpeedAndAng: Error update from speed and gamma loop
             factors[index] = f2
             errors, factors = self.__bisecSpeedAndAng(factors)
             e2 = errors[index]
-            self.iteractionAltitude.update(e2, f2)
+            self.iteractionAltitude.update([e2], [f2])
 
             # Loop checks
             if (abs(e2) < tol):
@@ -361,7 +362,8 @@ class problem():
                 # Display final information
                 num = "8.6e"
                 print(sepStr)
-                print("bisecAltitude final iteration: ", count)
+                print("bisecAltitude final iteration: ",
+                      self.iteractionAltitude.count - 1)
                 print(("Error     : %"+num) % e2)
                 print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
                       (fsup[0], fsup[1], fsup[2]))
@@ -374,37 +376,38 @@ class problem():
                 # Calculation of the new factor
                 # Checkings
                 # Division and step check
-                de = e2 - e1
-                # TODO: a new step check procedure is necessary
-                if abs(de) < tol*1e-2:
-                    step = df
-
-                else:
-                    der = (f2 - f1)/de
-                    step = e2*der
-                    if step > df:
-                        step = 0.0 + df
-                    elif step < -df:
-                        step = 0.0 - df
-
-                # Factor definition and check
-                f3 = f2 - step
-
-                if f3 > fsup[index]:
-                    f3 = 0.0 + fsup[index]
-                elif f3 < finf[index]:
-                    f3 = 0.0 + finf[index]
-
-                # Parameters update
-                f1 = f2.copy()
-                f2 = f3.copy()
-                e1 = e2.copy()
-                count += 1
+                f2 = self.iteractionAltitude.newFactor(0, df, self.con)
+#                de = e2 - e1
+#                # TODO: a new step check procedure is necessary
+#                if abs(de) < tol*1e-2:
+#                    step = df
+#
+#                else:
+#                    der = (f2 - f1)/de
+#                    step = e2*der
+#                    if step > df:
+#                        step = 0.0 + df
+#                    elif step < -df:
+#                        step = 0.0 - df
+#
+#                # Factor definition and check
+#                f3 = f2 - step
+#
+#                if f3 > fsup[index]:
+#                    f3 = 0.0 + fsup[index]
+#                elif f3 < finf[index]:
+#                    f3 = 0.0 + finf[index]
+#
+#                # Parameters update
+#                f1 = f2.copy()
+#                f2 = f3.copy()
+#                e1 = e2.copy()
 
                 # Display information
                 num = "8.6e"
                 print(sepStr)
-                print("bisecAltitude iteration: ", count)
+                print("bisecAltitude iteration: ",
+                      self.iteractionAltitude.count - 1)
                 print(("Error     : %"+num) % e2)
                 print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
                       (fsup[0], fsup[1], fsup[2]))
@@ -586,6 +589,31 @@ class problemIteractions():
         self.countLocal += 1
         self.errorsList.append(errors)
         self.factorsList.append(factors)
+
+    def newFactor(self, index, df, con):
+
+        de = self.errorsList[-1][index] - self.errorsList[-2][index]
+        if abs(de) < con['tol']*1e-2:
+            step = df
+
+        else:
+            der = (self.factorsList[-1][index] -
+                   self.factorsList[-2][index])/de
+            step = self.errorsList[-1][index]*der
+            if step > df:
+                step = 0.0 + df
+            elif step < -df:
+                step = 0.0 - df
+
+        # Factor definition and check
+        f3 = self.factorsList[-1][index] - step
+
+        if f3 > con['fsup'][index]:
+            f3 = 0.0 + con['fsup'][index]
+        elif f3 < con['finf'][index]:
+            f3 = 0.0 + con['finf'][index]
+
+        return f3
 
     def stationary(self):
 
