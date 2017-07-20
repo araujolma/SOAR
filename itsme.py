@@ -138,175 +138,15 @@ class problem():
     def __init__(self, fileAdress):
 
         # TODO: solve the codification problem on configuration files
-        config = configparser.ConfigParser()
-        config.optionxform = str
-        config.read(fileAdress)
-        self.con = dict()
+        configuration = problemConfiguration(fileAdress)
+        configuration.environment()
+        configuration.initialState()
+        configuration.finalState()
+        configuration.vehicle()
+        configuration.trajectory()
+        configuration.solver()
 
-        #######################################################################
-        # Enviromental constants
-        section = 'enviroment'
-        items = config.items(section)
-        for para in items:
-            self.con[para[0]] = config.getfloat(section, para[0])
-        # [km/s2] gravity acceleration on earth surface
-        self.con['g0'] = self.con['GM']/(self.con['R']**2)
-
-        #######################################################################
-        # General constants
-        self.con['pi'] = numpy.pi
-        self.con['d2r'] = numpy.pi/180.0
-
-        #######################################################################
-        # Initial state constants
-        self.con['h_initial'] = config.getfloat('initial', 'h')
-        self.con['V_initial'] = config.getfloat('initial', 'V')
-        self.con['gamma_initial'] = config.getfloat('initial',
-                                                    'gamma')*self.con['d2r']
-
-        #######################################################################
-        # Final state constants
-        self.con['h_final'] = config.getfloat('final', 'h')
-        # Circular velocity
-        vc = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final']))
-        # Rotating referencial velocity effect
-        ve = self.con['we']*(self.con['R']+self.con['h_final'])
-        self.con['V_final'] = vc - ve  # km/s Final velocity
-        self.con['gamma_final'] = config.getfloat('final',
-                                                  'gamma')*self.con['d2r']
-
-        #######################################################################
-        # Vehicle parameters
-        section = 'vehicle'
-        items = config.items(section)
-
-        if not config.has_option(section, 'homogeneous'):
-            self.con['homogeneous'] = True
-        else:
-            self.con['homogeneous'] = config.getboolean(section, 'homogeneous')
-
-        # This flag show indicates if the vehicle shall be considered as having
-        # the same values of structural mass and thrust for all stages
-        if self.con['homogeneous']:
-            self.__getVehicleHomogeneous(config)
-        else:
-            self.__getVehicleHeterogeneous(config)
-
-        #######################################################################
-        # Trajectory parameters
-        section = 'trajectory'
-        items = config.items(section)
-        for para in items:
-            self.con[para[0]] = config.getfloat(section, para[0])
-        # Time of one orbit using the final velocity
-        self.con['torb'] = 2*self.con['pi']*(self.con['R'] +
-                                             self.con['h_final']
-                                             )/self.con['V_final']
-
-        #######################################################################
-        # Solver parameters
-        section = 'solver'
-        self.con['tol'] = config.getfloat(section, 'tol')
-        self.con['contraction'] = 0.0  # (1.0e4)*numpy.finfo(float).eps
-
-        # Superior and inferior limits
-        auxstr = config.get(section, 'guess')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        guess = numpy.array(auxnum)
-
-        auxstr = config.get(section, 'limit')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        limit = numpy.array(auxnum)
-
-        self.con['guess'] = guess
-        self.con['fsup'] = guess + limit
-        self.con['finf'] = guess - limit
-
-        if config.has_option(section, 'Nmax'):
-            self.con['Nmax'] = config.getint(section, 'Nmax')
-        else:
-            self.con['Nmax'] = 100
-
-        if config.has_option(section, 'Ndiv'):
-            self.con['Ndiv'] = config.getint(section, 'Ndiv')
-        else:
-            self.con['Ndiv'] = 10
-
-        #######################################################################
-        # Reference values
-        iniEst = problemInitialEstimate(self.con)
-        self.con['Dv1ref'] = iniEst.dv
-        self.con['tref'] = iniEst.t
-        self.con['vxref'] = iniEst.vx
-
-        return None
-
-    def __getVehicleHomogeneous(self, config):
-
-        section = 'vehicle'
-        items = config.items(section)
-
-        for para in items:
-            self.con[para[0]] = config.getfloat(section, para[0])
-
-        # Number of stages
-        self.con['NStag'] = config.getint('vehicle', 'NStag')
-        self.con['Isp1'] = self.con['Isp']
-        self.con['Isp2'] = self.con['Isp']
-
-        # This flag show indicates if the vehicle shall be considered as having
-        # the same
-        # values of structural mass and thrust for all stages
-        efflist = []
-        Tlist = []
-        if self.con['NStag'] > 1:
-            for jj in range(0, self.con['NStag']):
-                efflist = efflist+[self.con['efes']]
-                Tlist = Tlist+[self.con['T']]
-        else:
-            # This cases are similar to NStag == 2,  the differences are:
-            # for NStag == 0 no mass is jetsoned
-            # for NStag == 1 all structural mass is jetsoned at the end of all
-            # burning
-            for jj in range(0, 2):
-                efflist = efflist+[self.con['efes']]
-                Tlist = Tlist+[self.con['T']]
-
-        self.con['efflist'] = efflist
-        self.con['Tlist'] = Tlist
-
-    def __getVehicleHeterogeneous(self, config):
-
-        section = 'vehicle'
-        items = config.items(section)
-
-        for para in items:
-            if (para[0] != 'efes') and (para[0] != 'T'):
-                self.con[para[0]] = config.getfloat(section, para[0])
-
-        self.con['NStag'] = config.getint(section, 'NStag')  # Number of stages
-
-        print(self.con['Isp1'])
-
-        auxstr = config.get(section, 'efes')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        self.con['efflist'] = auxnum
-
-        auxstr = config.get(section, 'T')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        self.con['Tlist'] = auxnum
+        self.con = configuration.con
 
     def solveForInitialGuess(self):
         #######################################################################
@@ -329,15 +169,16 @@ class problem():
         finf = self.con['finf']
         errors, factors = self.__bisecAltitude()
 
-        traj = model(factors, self.con)
-        traj.simulate("design")
+        # Final test
+        model1 = model(factors, self.con)
+        model1.simulate("design")
 
         num = "8.6e"
         print("\n#################################" +
               "######################################")
         print("ITS the end (lol)")
         print(("Error     : %"+num+",  %"+num+",  %"+num) %
-              (traj.errors[0], traj.errors[1], traj.errors[2]))
+              (model1.errors[0], model1.errors[1], model1.errors[2]))
         print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
               (fsup[0], fsup[1], fsup[2]))
         print(("Factors   : %"+num+",  %"+num+",  %"+num) %
@@ -508,6 +349,178 @@ class problem():
                 factors2 = [f0, f1, factors2[2]]
 
         return errors2, factors2
+
+
+class problemConfiguration():
+
+    def __init__(self, fileAdress):
+        # TODO: solve the codification problem on configuration files
+        self.config = configparser.ConfigParser()
+        self.config.optionxform = str
+        self.config.read(fileAdress)
+        self.con = dict()
+
+    def environment(self):
+        # Enviromental constants
+        section = 'enviroment'
+        print(self.con)
+        items = self.config.items(section)
+        for para in items:
+            self.con[para[0]] = self.config.getfloat(section, para[0])
+        # [km/s2] gravity acceleration on earth surface
+        self.con['g0'] = self.con['GM']/(self.con['R']**2)
+
+        # General constants
+        self.con['pi'] = numpy.pi
+        self.con['d2r'] = numpy.pi/180.0
+
+    def initialState(self):
+        # Initial state constants
+        self.con['h_initial'] = self.config.getfloat('initial', 'h')
+        self.con['V_initial'] = self.config.getfloat('initial', 'V')
+        self.con['gamma_initial'] = \
+            self.config.getfloat('initial', 'gamma')*self.con['d2r']
+
+    def finalState(self):
+        # Final state constants
+        self.con['h_final'] = self.config.getfloat('final', 'h')
+        # Circular velocity
+        vc = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final']))
+        # Rotating referencial velocity effect
+        ve = self.con['we']*(self.con['R']+self.con['h_final'])
+        self.con['V_final'] = vc - ve  # km/s Final velocity
+        self.con['gamma_final'] = \
+            self.config.getfloat('final', 'gamma')*self.con['d2r']
+
+    def vehicle(self):
+        # Vehicle parameters
+        section = 'vehicle'
+
+        if not self.config.has_option(section, 'homogeneous'):
+            self.con['homogeneous'] = True
+        else:
+            self.con['homogeneous'] = \
+                self.config.getboolean(section, 'homogeneous')
+
+        # This flag show indicates if the vehicle shall be considered as having
+        # the same values of structural mass and thrust for all stages
+        if self.con['homogeneous']:
+            self.__getVehicleHomogeneous(self.config)
+        else:
+            self.__getVehicleHeterogeneous(self.config)
+
+    def trajectory(self):
+        # Trajectory parameters
+        section = 'trajectory'
+        items = self.config.items(section)
+        for para in items:
+            self.con[para[0]] = self.config.getfloat(section, para[0])
+        # Time of one orbit using the final velocity
+        self.con['torb'] = 2*self.con['pi']*(self.con['R'] +
+                                             self.con['h_final']
+                                             )/self.con['V_final']
+
+    def solver(self):
+        # Solver parameters
+        section = 'solver'
+        self.con['tol'] = self.config.getfloat(section, 'tol')
+        self.con['contraction'] = 0.0  # (1.0e4)*numpy.finfo(float).eps
+
+        # Superior and inferior limits
+        auxstr = self.config.get(section, 'guess')
+        auxstr = auxstr.split(', ')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        guess = numpy.array(auxnum)
+
+        auxstr = self.config.get(section, 'limit')
+        auxstr = auxstr.split(', ')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        limit = numpy.array(auxnum)
+
+        self.con['guess'] = guess
+        self.con['fsup'] = guess + limit
+        self.con['finf'] = guess - limit
+
+        if self.config.has_option(section, 'Nmax'):
+            self.con['Nmax'] = self.config.getint(section, 'Nmax')
+        else:
+            self.con['Nmax'] = 100
+
+        if self.config.has_option(section, 'Ndiv'):
+            self.con['Ndiv'] = self.config.getint(section, 'Ndiv')
+        else:
+            self.con['Ndiv'] = 10
+
+        # Reference values
+        iniEst = problemInitialEstimate(self.con)
+        self.con['Dv1ref'] = iniEst.dv
+        self.con['tref'] = iniEst.t
+        self.con['vxref'] = iniEst.vx
+
+    def __getVehicleHomogeneous(self, config):
+
+        section = 'vehicle'
+        items = config.items(section)
+
+        for para in items:
+            self.con[para[0]] = config.getfloat(section, para[0])
+
+        # Number of stages
+        self.con['NStag'] = config.getint('vehicle', 'NStag')
+        self.con['Isp1'] = self.con['Isp']
+        self.con['Isp2'] = self.con['Isp']
+
+        # This flag show indicates if the vehicle shall be considered as having
+        # the same
+        # values of structural mass and thrust for all stages
+        efflist = []
+        Tlist = []
+        if self.con['NStag'] > 1:
+            for jj in range(0, self.con['NStag']):
+                efflist = efflist+[self.con['efes']]
+                Tlist = Tlist+[self.con['T']]
+        else:
+            # This cases are similar to NStag == 2,  the differences are:
+            # for NStag == 0 no mass is jetsoned
+            # for NStag == 1 all structural mass is jetsoned at the end of all
+            # burning
+            for jj in range(0, 2):
+                efflist = efflist+[self.con['efes']]
+                Tlist = Tlist+[self.con['T']]
+
+        self.con['efflist'] = efflist
+        self.con['Tlist'] = Tlist
+
+    def __getVehicleHeterogeneous(self, config):
+
+        section = 'vehicle'
+        items = config.items(section)
+
+        for para in items:
+            if (para[0] != 'efes') and (para[0] != 'T'):
+                self.con[para[0]] = config.getfloat(section, para[0])
+
+        self.con['NStag'] = config.getint(section, 'NStag')  # Number of stages
+
+        print(self.con['Isp1'])
+
+        auxstr = config.get(section, 'efes')
+        auxstr = auxstr.split(', ')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        self.con['efflist'] = auxnum
+
+        auxstr = config.get(section, 'T')
+        auxstr = auxstr.split(', ')
+        auxnum = []
+        for n in auxstr:
+            auxnum = auxnum+[float(n)]
+        self.con['Tlist'] = auxnum
 
 
 class problemIteractions():
