@@ -321,80 +321,12 @@ class problem():
         return solution(self.con['guess'], self.con)
 
     def solveForFineTune(self):
-        #######################################################################
         # Bisection altitude loop
-#        index = 2
-#        tol = self.con['tol']
-#        fsup = self.con['fsup']
-#        finf = self.con['finf']
-#        self.iteractionAltitude = problemIteractions('Altitude')
-#        self.iteractionSpeedAndAng = problemIteractions('All')
-#        sepStr = "\n#################################" +\
-#                 "######################################"
-#
-#        # Initilization
-#        stop = False
-#        df = abs((fsup[index] - finf[index])/self.con['Ndiv'])
-#
-#        factors = (fsup + finf)/2
-#        errors, factors = self.__bisecSpeedAndAng(factors)
-#        self.iteractionSpeedAndAng.update(errors, factors)
-#
-#        e1 = errors[index]
-#        f1 = factors[index]
-#        self.iteractionAltitude.update([e1], [f1])
-#
-#        step = df.copy()
-#        f2 = f1 + step
-#
-#        # Loop
-#        while not stop and (self.iteractionAltitude.count <= self.con['Nmax']):
-#
-#            # bisecSpeedAndAng: Error update from speed and gamma loop
-#            factors[index] = f2
-#            errors, factors = self.__bisecSpeedAndAng(factors)
-#            e2 = errors[index]
-#            self.iteractionAltitude.update([e2], [f2])
-#
-#            # Loop checks
-#            if (abs(e2) < tol):
-#                stop = True
-#                # Display final information
-#                num = "8.6e"
-#                print(sepStr)
-#                print("bisecAltitude final iteration: ",
-#                      self.iteractionAltitude.count - 1)
-#                print(("Error     : %"+num) % e2)
-#                print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
-#                      (fsup[0], fsup[1], fsup[2]))
-#                print(("Factors   : %"+num+",  %"+num+",  %"+num) %
-#                      (factors[0], factors[1], f2))
-#                print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
-#                      (finf[0], finf[1], finf[2]))
-#
-#            else:
-#                # Calculation of the new factor
-#                f2 = self.iteractionAltitude.newFactor(0, df, self.con)
-#
-#                # Display information
-#                num = "8.6e"
-#                print(sepStr)
-#                print("bisecAltitude iteration: ",
-#                      self.iteractionAltitude.count - 1)
-#                print(("Error     : %"+num) % e2)
-#                print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
-#                      (fsup[0], fsup[1], fsup[2]))
-#
-#                print(("Factors   : %"+num+",  %"+num+",  %"+num) %
-#                      (factors[0], factors[1], f2))
-#
-#                print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
-#                      (finf[0], finf[1], finf[2]))
-#            # if end
+        self.iteractionAltitude = problemIteractions('Altitude')
+        self.iteractionSpeedAndAng = problemIteractions('All')
 
         fsup = self.con['fsup']
         finf = self.con['finf']
-
         errors, factors = self.__bisecAltitude()
 
         traj = model(factors, self.con)
@@ -432,8 +364,6 @@ class problem():
         tol = self.con['tol']
         fsup = self.con['fsup']
         finf = self.con['finf']
-        self.iteractionAltitude = problemIteractions('Altitude')
-        self.iteractionSpeedAndAng = problemIteractions('All')
         sepStr = "\n#################################" +\
                  "######################################"
 
@@ -449,8 +379,7 @@ class problem():
         f1 = factors[index]
         self.iteractionAltitude.update([e1], [f1])
 
-        step = df.copy()
-        f2 = f1 + step
+        f2 = f1 + df
 
         # Loop
         while not stop and (self.iteractionAltitude.count <= self.con['Nmax']):
@@ -490,8 +419,6 @@ class problem():
         # Bissection speed and gamma loop
         fsup = self.con['fsup']
         finf = self.con['finf']
-        con = self.con
-        self.iteractionSpeedAndAng.reset()
 
         # Initializing parameters
         # Loop initialization
@@ -503,7 +430,7 @@ class problem():
         # Making the 3 factor variarions null
         df[2] = 0.0
 
-        model1 = model(factors1, con)
+        model1 = model(factors1, self.con)
         model1.simulate("design")
         errors1 = model1.errors
         self.iteractionSpeedAndAng.update(errors1, factors1)
@@ -514,13 +441,13 @@ class problem():
         while ((not stop) and
                (self.iteractionSpeedAndAng.countLocal <= self.con['Nmax'])):
             # Error update
-            model1 = model(factors2, con)
+            model1 = model(factors2, self.con)
             model1.simulate("design")
             errors2 = model1.errors
 
             self.iteractionSpeedAndAng.update(errors2, factors2)
 
-            converged = abs(errors2) < con['tol']
+            converged = abs(errors2) < self.con['tol']
             if converged[0] and converged[1]:
 
                 stop = True
@@ -1152,6 +1079,15 @@ class model():
 
         cosGama = numpy.cos(gama)
         sinGama = numpy.sin(gama)
+
+        cosGama = numpy.cos(gama)
+        sinGama = numpy.sin(gama)
+        vt = v*cosGama + self.con['we']*r
+        vr = v*sinGama
+        v = numpy.sqrt(vt**2 + vr**2)
+        cosGama = vt/v
+        sinGama = vr/v
+
         momAng = r * v * cosGama
         print("Ang mom:", momAng)
         en = .5 * v * v - GM/r
