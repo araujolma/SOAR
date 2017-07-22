@@ -43,8 +43,8 @@ class prob(sgra):
         self.t = t
         
         #prepare tolerances
-        tolP = 1.0e-7#8
-        tolQ = 1.0e-7#5
+        tolP = 1.0e-6#8
+        tolQ = 1.0e-6#5
         tol = dict()
         tol['P'] = tolP
         tol['Q'] = tolQ

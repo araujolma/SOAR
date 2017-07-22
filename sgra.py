@@ -70,12 +70,14 @@ class sgra():
                             'plotIntP_int':tf,
                             'plotSolMaxP':tf,
                             'plotRsidMaxP':tf,
-                            'plotCorr':tf}
-        tf = True
+                            'plotErr':tf,
+                            'plotCorr':tf,
+                            'plotCorrFin':tf}
+        tf = True#False#
         self.dbugOptGrad = {'pausGrad':tf,
                             'pausCalcQ':tf,
-                            'prntCalcStepGrad': tf,
-                            'plotCalcStepGrad': tf,
+                            'prntCalcStepGrad':True,
+                            'plotCalcStepGrad': True,#tf,
                             'pausCalcStepGrad':False,
                             'plotQx':tf,
                             'plotQu':tf,
@@ -83,16 +85,21 @@ class sgra():
                             'plotQuZoom':tf,
                             'plotSolQxMax':tf,
                             'plotSolQuMax':tf,
-                            'plotCorr':tf}
+                            'plotCorr':tf,
+                            'plotCorrFin':tf}
    
-    def setAllDbugOptRest(self,tf):
+    def setDbugOptRest(self,allOpt=True,optSet={}):
         for key in self.dbugOptRest.keys():
-            self.dbugOptRest[key] = tf
+            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
     
-    def setAllDbugOptGrad(self,tf):
-        for key in self.dbugOptGrad.keys():
-            self.dbugOptRest[key] = tf
-            
+        print("\nSetting debug options for restoration as follows:")
+        pprint.pprint(self.dbugOptRest)
+    def setDbugOptGrad(self,allOpt=True,optSet={}):
+        for key in self.dbugOptRest.keys():
+            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
+        
+        print("\nSetting debug options for gradient as follows:")
+        pprint.pprint(self.dbugOptGrad)
     def copy(self):
         return copy.deepcopy(self)
     
@@ -280,18 +287,19 @@ class sgra():
         err = phi - ddt(self.x,N)
         
         #######################################################################
-#        print("\nThis is err:")
-#        for arc in range(s):
-#            plt.plot(self.t,err[:,0,arc])
-#            plt.ylabel("errPos")
-#            plt.grid(True)
-#            plt.show()
-#            
-#            if n>1:
-#                plt.plot(self.t,err[:,1,arc])
-#                plt.ylabel("errVel")
-#                plt.grid(True)
-#                plt.show()
+        if rho < 0.5 and self.dbugOptRest['plotErr']:
+            print("\nThis is err:")
+            for arc in range(s):
+                plt.plot(self.t,err[:,0,arc])
+                plt.ylabel("errPos")
+                plt.grid(True)
+                plt.show()
+                
+                if n>1:
+                    plt.plot(self.t,err[:,1,arc])
+                    plt.ylabel("errVel")
+                    plt.grid(True)
+                    plt.show()
         #######################################################################        
         
         # get gradients
@@ -377,6 +385,7 @@ class sgra():
             C = numpy.zeros((p,1))
             lam = numpy.zeros((N,n,s))
             
+            # the vector that will be integrated is Xi = [A; lam]
             Xi = numpy.zeros((N,2*n,s))
             # Initial conditions for LSODE:
             for arc in range(s):
@@ -385,7 +394,7 @@ class sgra():
                 Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
             C = InitCondMat[(2*n*s):,j]
             
-            # Non-homogeneous term for LSODE:
+            # Non-homogeneous terms for LSODE:
             nonHom = numpy.empty((N,2*n,s))
             for arc in range(s):
                 for k in range(N):
@@ -423,41 +432,69 @@ class sgra():
             #
              
 ###############################################################################  
-#            if rho>0.5:          
-#                print("\nHere are the corrections for iteration " + str(j+1) + \
-#                      " of " + str(Ns+1) + ":\n")
-#                for arc in range(s):
-#                    print("> Corrections for arc =",arc)
-#                    
-#                    plt.plot(self.t,lam[:,0,arc])
-#                    plt.grid(True)
-#                    plt.ylabel('lam: pos')
-#                    plt.show()
-#                    
-#                    if n>1:
-#                        plt.plot(self.t,lam[:,1,arc])
-#                        plt.grid(True)
-#                        plt.ylabel('lam: vel')
-#                        plt.show()
-#                    
-#                    plt.plot(self.t,A[:,0,arc])
-#                    plt.grid(True)
-#                    plt.ylabel('A: pos')
-#                    plt.show()
-#                    
-#                    if n>1:
-#                        plt.plot(self.t,A[:,1,arc])
-#                        plt.grid(True)
-#                        plt.ylabel('A: vel')
-#                        plt.show()
-#                    
-#                    plt.plot(self.t,B[:,0,arc])
-#                    plt.grid(True)
-#                    plt.ylabel('B')
-#                    plt.show()
-#                    
-#                    print("C[arc] =",C[arc])
-#                    #input(" > ")
+            if rho>0.5:          
+                print("\nHere are the corrections for iteration " + str(j+1) + \
+                      " of " + str(Ns+1) + ":\n")
+            for arc in range(s):
+                print("> Corrections for arc =",arc)
+                plt.plot(self.t,A[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('A: pos')
+                plt.show()
+                
+                plt.plot(self.t,lam[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('lambda: pos')
+                plt.show()
+    
+                if n>1:          
+                    plt.plot(self.t,A[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: vel')
+                    plt.show()
+                    
+                    plt.plot(self.t,lam[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: vel')
+                    plt.show()
+
+                if n>2:          
+                    plt.plot(self.t,A[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: gama')
+                    plt.show()
+                    
+                    plt.plot(self.t,lam[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: gamma')
+                    plt.show()
+
+                
+                if n>3:          
+                    plt.plot(self.t,A[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: m')
+                    plt.show()
+                    
+                    plt.plot(self.t,lam[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: m')
+                    plt.show()
+
+                
+                plt.plot(self.t,B[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('B0')
+                plt.show()
+
+                if m>1:
+                    plt.plot(self.t,B[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('B1')
+                    plt.show()
+                
+                print("C[arc] =",C[arc])
+                #input(" > ")
 ###############################################################################
 
             # store solution in arrays
@@ -506,7 +543,8 @@ class sgra():
             lam += K[j] * arrayL[j,:,:,:]
             
 ###############################################################################        
-        if rho > 0.5:
+        if (rho > 0.5 and self.dbugOptGrad['plotCorrFin']) or \
+           (rho < 0.5 and self.dbugOptRest['plotCorrFin']):
             print("\n------------------------------------------------------------")
             print("Final corrections:\n")
             for arc in range(s):
@@ -522,10 +560,29 @@ class sgra():
                     plt.ylabel('A: vel')
                     plt.show()
                 
+                if n>2:          
+                    plt.plot(self.t,A[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: gama')
+                    plt.show()
+                
+                if n>3:          
+                    plt.plot(self.t,A[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: m')
+                    plt.show()
+                
                 plt.plot(self.t,B[:,0,arc])
                 plt.grid(True)
-                plt.ylabel('B')
+                plt.ylabel('B0')
                 plt.show()
+
+                if m>1:
+                    plt.plot(self.t,B[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('B1')
+                    plt.show()
+
                 
                 print("C[arc] =",C[arc])
                     

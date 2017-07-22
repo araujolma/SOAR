@@ -14,7 +14,7 @@ class ITman():
     dashStr = '\n-------------------------------------------------------------'
     
     def __init__(self):
-        self.defOpt = 'newSol'#'loadSol'#
+        self.defOpt = 'loadSol'#'newSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
         self.loadSolDir = 'solInitRest.pkl'#'contHere.pkl'
@@ -150,12 +150,16 @@ class ITman():
         sol.histPpsi[sol.NIterRest] = Ppsi
     
         Q,Qx,Qu,Qp,Qt = sol.calcQ()
+        
         sol.plotSol()
         sol.plotTraj() 
         return sol,solInit
     
     def restRnds(self,sol):
         contRest = 0
+        origDbugOptRest = sol.dbugOptRest.copy()
+        print("Entering restRnds, origDbugOptRest is as follows:")
+        pprint.pprint(origDbugOptRest)
         while sol.P > sol.tol['P']:
             sol.rest()
             contRest += 1
@@ -164,21 +168,25 @@ class ITman():
             
             #sol.setAllDbugOptRest(False)
             
-            if contRest%10 == 0:
+            if contRest%20 == 0:
                 print("\nLots of restorations! "+\
                       "Here is the current solution:")
                 sol.plotSol()
                       
                 print("And here is a partial convergence report:")
                 sol.showHistP()
-                print("\nDon't worry, changing debug mode for next rest run.\n")
-                sol.setAllDbugOptRest(True)
+                print("Changing to debug mode:")
+                sol.setDbugOptRest(allOpt=True)
+                print("\nDon't worry, changing in next rest run, back to:\n")
+                pprint.pprint(origDbugOptRest)
+                #input(" > ")
             else:
-                sol.setAllDbugOptRest(False)
+                sol.setDbugOptRest(optSet=origDbugOptRest)
                 
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")
         sol.plotSol()
+        sol.setDbugOptRest(optSet=origDbugOptRest)
         return sol
     
     def frstRestRnds(self,sol):

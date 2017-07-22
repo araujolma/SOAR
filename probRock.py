@@ -51,7 +51,7 @@ class prob(sgra):
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
         
-        scal = 1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        scal = 1.0e-3#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
         Isp = 450.0                   # s
         s_f = 0.05
@@ -517,8 +517,9 @@ class prob(sgra):
         _,beta = self.calcDimCtrl()
     
         f = numpy.empty((self.N,self.s))
-        f[:,0] = scal*((Thrust * self.pi[0])/(grav_e * (1.0-s_f) * Isp)) * \
-                    beta[:,0]
+        for arc in range(self.s):
+            f[:,arc] = scal * beta[:,arc] * \
+                ( (Thrust * self.pi[arc])/(grav_e * (1.0-s_f) * Isp) )
     
         return f
 

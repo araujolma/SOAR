@@ -196,7 +196,7 @@ def calcStepRest(self,corr):
         alfa /= 0.8
     else:
         # no "overdrive!"
-        #return 1.0
+        return 1.0
     
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 
