@@ -22,7 +22,7 @@ class sgra():
         self.p = p
         self.q = q
         self.s = s
-
+        
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
         self.pi = numpy.zeros(p)
@@ -435,66 +435,66 @@ class sgra():
             if rho>0.5:          
                 print("\nHere are the corrections for iteration " + str(j+1) + \
                       " of " + str(Ns+1) + ":\n")
-            for arc in range(s):
-                print("> Corrections for arc =",arc)
-                plt.plot(self.t,A[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('A: pos')
-                plt.show()
-                
-                plt.plot(self.t,lam[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('lambda: pos')
-                plt.show()
+                for arc in range(s):
+                    print("> Corrections for arc =",arc)
+                    plt.plot(self.t,A[:,0,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: pos')
+                    plt.show()
+                    
+                    plt.plot(self.t,lam[:,0,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: pos')
+                    plt.show()
+        
+                    if n>1:          
+                        plt.plot(self.t,A[:,1,arc])
+                        plt.grid(True)
+                        plt.ylabel('A: vel')
+                        plt.show()
+                        
+                        plt.plot(self.t,lam[:,1,arc])
+                        plt.grid(True)
+                        plt.ylabel('lambda: vel')
+                        plt.show()
     
-                if n>1:          
-                    plt.plot(self.t,A[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: vel')
-                    plt.show()
+                    if n>2:          
+                        plt.plot(self.t,A[:,2,arc])
+                        plt.grid(True)
+                        plt.ylabel('A: gama')
+                        plt.show()
+                        
+                        plt.plot(self.t,lam[:,2,arc])
+                        plt.grid(True)
+                        plt.ylabel('lambda: gamma')
+                        plt.show()
+    
                     
-                    plt.plot(self.t,lam[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('lambda: vel')
-                    plt.show()
-
-                if n>2:          
-                    plt.plot(self.t,A[:,2,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: gama')
-                    plt.show()
+                    if n>3:          
+                        plt.plot(self.t,A[:,3,arc])
+                        plt.grid(True)
+                        plt.ylabel('A: m')
+                        plt.show()
+                        
+                        plt.plot(self.t,lam[:,3,arc])
+                        plt.grid(True)
+                        plt.ylabel('lambda: m')
+                        plt.show()
+    
                     
-                    plt.plot(self.t,lam[:,2,arc])
+                    plt.plot(self.t,B[:,0,arc])
                     plt.grid(True)
-                    plt.ylabel('lambda: gamma')
+                    plt.ylabel('B0')
                     plt.show()
-
-                
-                if n>3:          
-                    plt.plot(self.t,A[:,3,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: m')
-                    plt.show()
+    
+                    if m>1:
+                        plt.plot(self.t,B[:,1,arc])
+                        plt.grid(True)
+                        plt.ylabel('B1')
+                        plt.show()
                     
-                    plt.plot(self.t,lam[:,3,arc])
-                    plt.grid(True)
-                    plt.ylabel('lambda: m')
-                    plt.show()
-
-                
-                plt.plot(self.t,B[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('B0')
-                plt.show()
-
-                if m>1:
-                    plt.plot(self.t,B[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('B1')
-                    plt.show()
-                
-                print("C[arc] =",C[arc])
-                #input(" > ")
+                    print("C[arc] =",C[arc])
+                    #input(" > ")
 ###############################################################################
 
             # store solution in arrays

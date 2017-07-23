@@ -448,6 +448,7 @@ def calcStepGrad(self,corr):
     if self.dbugOptGrad['plotCalcStepGrad']:
         fig, ax1 = plt.subplots()
         
+        # Ax1: convergence history of Q
         ax1.loglog(histAlfa, histQ, 'ob')
         linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
         linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
@@ -457,6 +458,7 @@ def calcStepGrad(self,corr):
         ax1.tick_params('y', colors='b')
         ax1.grid(True)
         
+        # Ax2: convergence history of P
         ax2 = ax1.twinx()
         ax2.loglog(histAlfa,histP,'or')
         linP0 = P0 + 0.0*numpy.empty_like(linhAlfa)
@@ -465,17 +467,16 @@ def calcStepGrad(self,corr):
         ax2.tick_params('y', colors='r')
         ax2.grid(True)
 
+        # Get index for applied alfa
         for k in range(len(histAlfa)):
             if abs(histAlfa[k]-alfa)<1e-14:
                 break
             
-        Q = histQ[k]
-        P = histP[k]
+        # Get final values of Q and P, plot them in squares
+        Q = histQ[k]; P = histP[k]
+        ax1.loglog(alfa,Q,'sb'); ax2.loglog(alfa,P,'sr')
         
-        ax1.loglog(alfa,Q,'sb')
-        ax2.loglog(alfa,P,'sr')
-        
-        plt.title("Q versus Grad Step for current Grad run")
+        plt.title("Q and P versus Grad Step for this grad run")
         plt.show()
      
     if prntCond:           
@@ -492,8 +493,10 @@ def grad(self):
     
     print("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
+    # Calculate corrections
     A,B,C,lam,mu = self.LMPBVP(rho=1.0)
  
+    # Store corrections in solution
     self.lam = lam
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
@@ -501,6 +504,7 @@ def grad(self):
     # Calculation of alfa
     alfa = self.calcStepGrad(corr)
 
+    # Apply correction and update Q history
     self.aplyCorr(alfa,corr)
     self.updtHistQ(alfa)
     

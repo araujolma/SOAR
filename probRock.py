@@ -51,11 +51,11 @@ class prob(sgra):
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
         
-        scal = 1.0e-3#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        scal = 1.0e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
         Isp = 450.0                   # s
         s_f = 0.05
-        CL0 = 0.0#-0.03                   # (B0 Miele 1998)
+        CL0 = 0.0#-0.03               # (B0 Miele 1998)
         CL1 = 0.8                     # (B1 Miele 1998)
         CD0 = 0.05                    # (A0 Miele 1998)
         CD2 = 0.5                     # (A2 Miele 1998)
@@ -66,9 +66,9 @@ class prob(sgra):
                 
         # boundary conditions
         h_initial = 0.0            # km
-        V_initial = 1e-6#0.0            # km/s
+        V_initial = 1e-6#0.0       # km/s
         gamma_initial = numpy.pi/2 # rad
-        m_initial = 50000          # kg
+        #m_initial = 50000          # kg
         h_final = 463.0   # km
         V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
         gamma_final = 0.0 # rad
@@ -78,7 +78,7 @@ class prob(sgra):
         boundary['h_initial'] = h_initial
         boundary['V_initial'] = V_initial
         boundary['gamma_initial'] = gamma_initial
-        boundary['m_initial'] = m_initial
+        #boundary['m_initial'] = m_initial
         boundary['h_final'] = h_final
         boundary['V_final'] = V_final
         boundary['gamma_final'] = gamma_final
@@ -124,7 +124,6 @@ class prob(sgra):
         tol['Q'] = tolQ
         
         self.tol = tol
-
 
         # Get initialization mode
         initMode = opt.get('initMode','default')
@@ -241,7 +240,7 @@ class prob(sgra):
         
         alfa = .5*((alpha_max + alpha_min) + \
                 (alpha_max - alpha_min)*numpy.tanh(self.u[:,0,:]))
-        beta = .5*((beta_max + beta_min) +
+        beta = .5*((beta_max + beta_min) +  \
                 (beta_max - beta_min)*numpy.tanh(self.u[:,1,:]))
 
         return alfa,beta
@@ -415,8 +414,8 @@ class prob(sgra):
         alpha,beta = self.calcDimCtrl()
     
         # calculate variables CL and CD
-        CL = CL0 + CL1*alpha
-        CD = CD0 + CD2*(alpha)**2
+        CL = CL0 + CL1 * alpha
+        CD = CD0 + CD2 * alpha**2
     
         # calculate L and D; atmosphere: numerical gradient
         dens = numpy.empty((N,s))
@@ -475,8 +474,8 @@ class prob(sgra):
                                      [fNor/(m*V) + cosGama*((V/r[k,arc])-(grav[k,arc]/V)) ],
                                      [-(beta[k,arc]*Thrust)/(grav_e*Isp)              ]])
                 phip[k,2,:,arc] *= fdg
-                fu[k,:,arc] = array([0.0,(pi[arc]*Thrust*DBetaDu2)/(grav_e * Isp * (1-s_f))])
-                fp[k,arc] = (Thrust * beta[k,arc])/(grav_e * Isp * (1-s_f))
+                fu[k,:,arc] = array([0.0,(pi[arc]*Thrust*DBetaDu2)/(grav_e * Isp * (1.0-s_f))])
+                fp[k,arc] = (Thrust * beta[k,arc])/(grav_e * Isp * (1.0-s_f))
     #==============================================================================
     
         Grads['phix'] = phix
@@ -699,121 +698,133 @@ class prob(sgra):
      
 # TODO: re-implement plotTraj...
         
-#    def plotTraj(self):
-#        
-#        cos = numpy.cos
-#        sin = numpy.sin
-#        R = self.constants['r_e']
-#        N = self.N
-#        dt = self.dt * self.pi # Dimensional dt...
-#        
-#        X = numpy.empty(N)
-#        Z = numpy.empty(N)
-#    
-#        sigma = 0.0 #sigma: range angle
-#        X[0] = 0.0
-#        Z[0] = 0.0
-#        
-#        # Propulsive phases' starting and ending times
-#        isBurn = True
-#        indBurn = [0]
-#        indShut = []
-#        for i in range(1,N):
-#            if isBurn:
-#                if self.u[i,1] < -.999:
-#                    isBurn = False
-#                    indShut.append(i)
-#            else: #not burning
-#                if self.u[i,1] > -.999:
-#                    isBurn = True
-#                    indBurn.append(i)
-#
-#            # Propagate the trajectory by Euler method.
-#            v = self.x[i,1]
-#            gama = self.x[i,2]
-#            dsigma = v * cos(gama) / (R+self.x[i,0])
-#            sigma += dsigma*dt
-#    
-#            X[i] = X[i-1] + dt * v * cos(gama-sigma)
-#            Z[i] = Z[i-1] + dt * v * sin(gama-sigma)
-#        #
-#        indShut.append(N-1)    
-#            
-#        # Draw Earth segment corresponding to flight range
-#        s = numpy.arange(0,1.01,.01) * sigma
-#        x = R * cos(.5*numpy.pi - s)
-#        z = R * (sin(.5*numpy.pi - s) - 1.0)
-#        plt.plot(x,z,'k')
-#        
-#        # Get final orbit parameters
-#        h,v,gama,M = self.x[N-1,:]
-#        
-#        print("State @burnout time:")
-#        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
-#        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
-#        
-#        GM = self.constants['GM']       
-#        r = R + h
-##        print("Final altitude:",h)
-#        cosGama = cos(gama)
-#        sinGama = sin(gama)
-#        momAng = r * v * cosGama
-##        print("Ang mom:",momAng)
-#        en = .5 * v * v - GM/r
-##        print("Energy:",en)
-#        a = - .5*GM/en
-##        print("Semi-major axis:",a)
-#        aux = v * momAng / GM
-#        e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
-#        print("Eccentricity:",e)
-#        eccExpr = v * momAng * cosGama/GM - 1.0
-##        print("r =",r)
-#        f = numpy.arccos(eccExpr/e)
-#        print("True anomaly:",f*180/numpy.pi)
-#        ph = a * (1.0 - e) - R
-#        print("Perigee altitude:",ph)    
-#        ah = 2*(a - R) - ph        
-#        print("Apogee altitude:",ah)
-#
-#        # semi-latus rectum
-#        p = momAng**2 / GM #a * (1.0-e)**2
-#                
-#        
-#        # Plot orbit in green over the same range as the Earth shown 
-#        # (and a little but futher)
-#        
-#        s = numpy.arange(f-1.2*sigma,f+.2*sigma,.01)
-##        print("s =",s)
-#        # shifting angle
-#        sh = sigma - f - .5*numpy.pi
-#        rOrb = p/(1.0+e*cos(s))
-##        print("rOrb =",rOrb)
-#        xOrb = rOrb * cos(-s-sh)
-#        yOrb = rOrb * sin(-s-sh) - R
-#        plt.plot(xOrb,yOrb,'g--')
-# 
-#        # Draw orbit injection point       
-#        r0 = p/(1.0+e*cos(f))
-##        print("r0 =",r0)
-#        x0 = r0 * cos(-f-sh)
-#        y0 = r0 * sin(-f-sh) - R
-#        plt.plot(x0,y0,'og')
-#        
-#        # Plot trajectory in default color (blue)
-#        plt.plot(X,Z)
-#        plt.plot(X[0],Z[0],'ok')
-#        
-#        # Plot burning segments in red
-#        for i in range(len(indBurn)):
-#            ib,ish = indBurn[i],indShut[i]
-#            plt.plot(X[ib:ish],Z[ib:ish],'r')
-#        
-#        plt.grid(True)
-#        plt.xlabel("X [km]")
-#        plt.ylabel("Z [km]")
-#        plt.axis('equal')
-#        plt.title("Rocket trajectory on Earth")
-#        plt.show()
+    def plotTraj(self):
+        
+        cos = numpy.cos; sin = numpy.sin
+        R = self.constants['r_e']
+        N, s = self.N, self.s
+
+        X = numpy.empty(N*s); Z = numpy.empty(N*s)
+
+        sigma = 0.0 #sigma: range angle
+        X[0] = 0.0
+        Z[0] = 0.0
+
+        # Propulsive phases' starting and ending times
+        isBurn = True
+        indBurn = list(); indShut = list()
+        for arc in range(s):
+            indBurn.append(list())
+            indShut.append(list())
+
+        indBurn[0].append(0)
+        iCont = 0 # continuous counter (all arcs concatenated)
+        for arc in range(s):
+            dt = self.dt * self.pi[arc] # Dimensional dt...
+
+            for i in range(1,N):
+                iCont += 1
+
+                if isBurn:
+                    if self.u[i,1,arc] < -.999:
+                        isBurn = False
+                        indShut[arc].append(i)
+                else: #not burning
+                    if self.u[i,1,arc] > -.999:
+                        isBurn = True
+                        indBurn[arc].append(i)
+
+                # Propagate the trajectory by Euler method.
+                v = self.x[i,1,arc]
+                gama = self.x[i,2,arc]
+                dsigma = v * cos(gama) / (R + self.x[i,0,arc])
+                sigma += dsigma*dt
+
+                X[iCont] = X[iCont-1] + dt * v * cos(gama-sigma)
+                Z[iCont] = Z[iCont-1] + dt * v * sin(gama-sigma)
+            #
+        indShut[s-1].append(N-1)    
+                
+        # Draw Earth segment corresponding to flight range
+        sigVec = numpy.arange(0,1.01,.01) * sigma
+        x = R * cos(.5*numpy.pi - sigVec)
+        z = R * (sin(.5*numpy.pi - sigVec) - 1.0)
+        plt.plot(x,z,'k')
+        
+        # Get final orbit parameters
+        h,v,gama,M = self.x[N-1,:,s-1]
+        
+        print("State @burnout time:")
+        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+        
+        GM = self.constants['GM']       
+        r = R + h
+#        print("Final altitude:",h)
+        cosGama = cos(gama)
+        sinGama = sin(gama)
+        momAng = r * v * cosGama
+#        print("Ang mom:",momAng)
+        en = .5 * v * v - GM / r
+#        print("Energy:",en)
+        a = - .5 * GM / en
+#        print("Semi-major axis:",a)
+        aux = v * momAng / GM
+        e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
+        print("Eccentricity:",e)
+        eccExpr = v * momAng * cosGama / GM - 1.0
+#        print("r =",r)
+        f = numpy.arccos(eccExpr/e)
+        print("True anomaly:",f*180/numpy.pi)
+        ph = a * (1.0 - e) - R
+        print("Perigee altitude:",ph)    
+        ah = 2*(a - R) - ph        
+        print("Apogee altitude:",ah)
+
+        # semi-latus rectum
+        p = momAng**2 / GM #a * (1.0-e)**2
+                
+        
+        # Plot orbit in green over the same range as the Earth shown 
+        # (and a little but futher)
+        
+        sigVec = numpy.arange(f-1.2*sigma,f+.2*sigma,.01)
+#        print("s =",sigVec)
+        # shifting angle
+        sh = sigma - f - .5*numpy.pi
+        rOrb = p/(1.0+e*cos(sigVec))
+#        print("rOrb =",rOrb)
+        xOrb = rOrb * cos(-sigVec-sh)
+        yOrb = rOrb * sin(-sigVec-sh) - R
+        plt.plot(xOrb,yOrb,'g--')
+ 
+        # Draw orbit injection point       
+        r0 = p / (1.0 + e * cos(f))
+#        print("r0 =",r0)
+        x0 = r0 * cos(-f-sh)
+        y0 = r0 * sin(-f-sh) - R
+        plt.plot(x0,y0,'og')
+        
+        # Plot trajectory in default color (blue)
+        plt.plot(X,Z)
+        
+        # Plot launching point in black
+        plt.plot(X[0],Z[0],'ok')
+        
+        # Plot burning segments in red
+        for arc in range(s):
+            iOS = arc * N # offset index
+            for i in range(len(indBurn[arc])):
+                ib = indBurn[arc][i]+iOS
+                ish = indShut[arc][i]+iOS
+                plt.plot(X[ib:ish],Z[ib:ish],'r')
+        
+        plt.grid(True)
+        plt.xlabel("X [km]")
+        plt.ylabel("Z [km]")
+        plt.axis('equal')
+        plt.title("Rocket trajectory on Earth")
+        plt.show()
         
 #
 #%%
