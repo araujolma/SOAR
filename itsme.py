@@ -147,6 +147,8 @@ class problem():
         configuration.solver()
 
         self.con = configuration.con
+        self.fsup = self.con['fsup']
+        self.finf = self.con['finf']
 
     def solveForInitialGuess(self):
         #######################################################################
@@ -165,26 +167,17 @@ class problem():
         self.iteractionAltitude = problemIteractions('Altitude')
         self.iteractionSpeedAndAng = problemIteractions('All')
 
-        fsup = self.con['fsup']
-        finf = self.con['finf']
         errors, factors = self.__bisecAltitude()
 
         # Final test
         model1 = model(factors, self.con)
         model1.simulate("design")
 
-        num = "8.6e"
         print("\n#################################" +
               "######################################")
         print("ITS the end (lol)")
-        print(("Error     : %"+num+",  %"+num+",  %"+num) %
-              (model1.errors[0], model1.errors[1], model1.errors[2]))
-        print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
-              (fsup[0], fsup[1], fsup[2]))
-        print(("Factors   : %"+num+",  %"+num+",  %"+num) %
-              (factors[0], factors[1], factors[2]))
-        print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
-              (finf[0], finf[1], finf[2]))
+
+        self.displayErrorsFactors(errors, factors)
         print('\nTotal number of trajectory simulations: ',
               (self.iteractionAltitude.count +
                self.iteractionSpeedAndAng.count))
@@ -203,16 +196,14 @@ class problem():
         # Bisection altitude loop
         index = 2
         tol = self.con['tol']
-        fsup = self.con['fsup']
-        finf = self.con['finf']
         sepStr = "\n#################################" +\
                  "######################################"
 
         # Initilization
         stop = False
-        df = abs((fsup[index] - finf[index])/self.con['Ndiv'])
+        df = abs((self.fsup[index] - self.finf[index])/self.con['Ndiv'])
 
-        factors = (fsup + finf)/2
+        factors = (self.fsup + self.finf)/2
         errors, factors = self.__bisecSpeedAndAng(factors)
         self.iteractionSpeedAndAng.update(errors, factors)
 
@@ -220,7 +211,7 @@ class problem():
         f1 = factors[index]
         self.iteractionAltitude.update([e1], [f1])
 
-        f2 = f1 + df
+        f2 = f1 - df
 
         # Loop
         while not stop and (self.iteractionAltitude.count <= self.con['Nmax']):
@@ -244,30 +235,21 @@ class problem():
 
             # Display information
             print(title, self.iteractionAltitude.count - 1)
-            num = "8.6e"
-            print(("Error     : %"+num) % e2)
-            print(("Sup limits: %"+num+",  %"+num+",  %"+num) %
-                  (fsup[0], fsup[1], fsup[2]))
-            print(("Factors   : %"+num+",  %"+num+",  %"+num) %
-                  (factors[0], factors[1], f2))
-            print(("Inf limits: %"+num+",  %"+num+",  %"+num) %
-                  (finf[0], finf[1], finf[2]))
+
+            self.displayErrorsFactors(errors, factors)
 
         return errors, factors
 
     def __bisecSpeedAndAng(self, factors1):
         #######################################################################
         # Bissection speed and gamma loop
-        fsup = self.con['fsup']
-        finf = self.con['finf']
-
         # Initializing parameters
         # Loop initialization
         stop = False
         self.iteractionSpeedAndAng.reset()
 
         # Fators initilization
-        df = abs((fsup - finf)/self.con['Ndiv'])
+        df = abs((self.fsup - self.finf)/self.con['Ndiv'])
         # Making the 3 factor variarions null
         df[2] = 0.0
 
@@ -276,7 +258,7 @@ class problem():
         errors1 = model1.errors
         self.iteractionSpeedAndAng.update(errors1, factors1)
 
-        factors2 = factors1 + df
+        factors2 = factors1 - df
 
         # Loop
         while ((not stop) and
@@ -302,18 +284,8 @@ class problem():
                 else:
                     print("bisecSpeedAndAng total iterations: ",
                           self.iteractionSpeedAndAng.countLocal)
-                num = "8.6e"
-                print(("Errors    : %"+num+",  %"+num)
-                      % (errors2[0], errors2[1]))
 
-                print(("Sup limits: %"+num+",  %"+num+",  %"+num)
-                      % (fsup[0], fsup[1], fsup[2]))
-
-                print(("Factors   : %"+num+",  %"+num+",  %"+num)
-                      % (factors2[0], factors2[1], factors2[2]))
-
-                print(("Inf limits: %"+num+",  %"+num+",  %"+num)
-                      % (finf[0], finf[1], finf[2]))
+                self.displayErrorsFactors(errors2, factors2)
 
             elif self.iteractionSpeedAndAng.stationary():
 
@@ -329,18 +301,8 @@ class problem():
                 else:
                     print("bisecSpeedAndAng total iterations: ",
                           self.iteractionSpeedAndAng.countLocal)
-                num = "8.6e"
-                print(("Errors    : %"+num+",  %"+num)
-                      % (errors2[0], errors2[1]))
 
-                print(("Sup limits: %"+num+",  %"+num+",  %"+num)
-                      % (fsup[0], fsup[1], fsup[2]))
-
-                print(("Factors   : %"+num+",  %"+num+",  %"+num)
-                      % (factors2[0], factors2[1], factors2[2]))
-
-                print(("Inf limits: %"+num+",  %"+num+",  %"+num)
-                      % (finf[0], finf[1], finf[2]))
+                self.displayErrorsFactors(errors2, factors2)
 
             else:
                 # real iteractions
@@ -349,6 +311,18 @@ class problem():
                 factors2 = [f0, f1, factors2[2]]
 
         return errors2, factors2
+
+    def displayErrorsFactors(self, errors, factors):
+
+        num = "8.6e"
+        print(("Errors    : %"+num+",  %"+num+",  %"+num)
+              % (errors[0], errors[1], errors[2]))
+        print(("Sup limits: %"+num+",  %"+num+",  %"+num)
+              % (self.fsup[0], self.fsup[1], self.fsup[2]))
+        print(("Factors   : %"+num+",  %"+num+",  %"+num)
+              % (factors[0], factors[1], factors[2]))
+        print(("Inf limits: %"+num+",  %"+num+",  %"+num)
+              % (self.finf[0], self.finf[1], self.finf[2]))
 
 
 class problemConfiguration():
@@ -424,7 +398,7 @@ class problemConfiguration():
         # Solver parameters
         section = 'solver'
         self.con['tol'] = self.config.getfloat(section, 'tol')
-        self.con['contraction'] = 0.0  # (1.0e4)*numpy.finfo(float).eps
+        self.con['contraction'] = (1.0e4)*numpy.finfo(float).eps
 
         # Superior and inferior limits
         auxstr = self.config.get(section, 'guess')
