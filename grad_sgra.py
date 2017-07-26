@@ -90,6 +90,95 @@ def calcQ(self):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
+    self.Q = Q
+    somePlot = False
+    for key in self.dbugOptGrad.keys():
+        if ('plot' in key) or ('Plot' in key):
+            if self.dbugOptGrad[key]:
+                somePlot = True
+                break
+    if somePlot:
+        print("\nDebug plots for this calcQ run:\n")
+        self.plotSol()
+
+        indMaxQu = numpy.argmax(normErrQu, axis=0)
+
+        for arc in range(s):
+            print("\nArc =",arc,"\n")
+            ind1 = numpy.array([indMaxQu[arc]-20,0]).max()
+            ind2 = numpy.array([indMaxQu[arc]+20,N]).min()
+            
+            if self.dbugOptGrad['plotQu']:
+                plt.plot(self.t,normErrQu[:,arc])
+                plt.grid(True)
+                plt.title("Integrand of Qu")
+                plt.show()                    
+                                
+            #for zoomed version:
+            if self.dbugOptGrad['plotQuZoom']:
+                plt.plot(self.t[ind1:ind2],normErrQu[ind1:ind2,arc],'o')
+                plt.grid(True)
+                plt.title("Integrand of Qu (zoom)")
+                plt.show()
+                
+#            if self.dbugOptGrad['plotCtrl']:
+#                if self.m==2:
+#                    alfa,beta = self.calcDimCtrl()
+#                    plt.plot(self.t,alfa[:,arc]*180.0/numpy.pi)
+#                    plt.title("Ang. of attack")
+#                    plt.show()
+#                    
+#                    plt.plot(self.t,beta[:,arc]*180.0/numpy.pi)
+#                    plt.title("Thrust profile")
+#                    plt.show()
+            if self.dbugOptGrad['plotQuComp']:
+                plt.plot(self.t,errQu[:,0,arc])
+                plt.grid(True)
+                plt.title("Qu: component 1")
+                plt.show()
+                
+                if m>1:
+                    plt.plot(self.t,errQu[:,1,arc])
+                    plt.grid(True)
+                    plt.title("Qu: component 2")
+                    plt.show()
+
+            if self.dbugOptGrad['plotQuCompZoom']:
+                plt.plot(self.t[ind1:ind2],errQu[ind1:ind2,0,arc])
+                plt.grid(True)
+                plt.title("Qu: component 1 (zoom)")
+                plt.show()
+                
+                if m>1:
+                    plt.plot(self.t[ind1:ind2],errQu[ind1:ind2,1,arc])
+                    plt.grid(True)
+                    plt.title("Qu: component 2 (zoom)")
+                    plt.show()
+
+            if self.dbugOptGrad['plotLam']:
+                plt.plot(self.t,lam[:,0,arc])
+                plt.grid(True)
+                plt.title("Lambda_h")
+                plt.show()
+                
+                if n>1:
+                    plt.plot(self.t,lam[:,1,arc])
+                    plt.grid(True)
+                    plt.title("Lambda_v")
+                    plt.show()
+
+                if n>2:
+                    plt.plot(self.t,lam[:,2,arc])
+                    plt.grid(True)
+                    plt.title("Lambda_gama")
+                    plt.show()
+
+                if n>3:
+                    plt.plot(self.t,lam[:,3,arc])
+                    plt.grid(True)
+                    plt.title("Lambda_m")
+                    plt.show()
+
     # TODO: break these plots into more conditions
 
 #    if numpy.array(self.dbugOptGrad.values()).any:
@@ -285,6 +374,8 @@ def calcQ(self):
 ##            plt.ylabel("z_m")
 ##            plt.show()
 
+    if self.dbugOptGrad['pausCalcQ']:
+        input("calcQ in debug mode. Press any key to continue...")
     return Q,Qx,Qu,Qp,Qt
 
 def calcStepGrad(self,corr):
@@ -292,6 +383,7 @@ def calcStepGrad(self,corr):
     print("\nIn calcStepGrad.\n")
     cont = 0; prntCond = self.dbugOptGrad['prntCalcStepGrad']
     # Get initial status (Q0, no correction applied)
+    print("\nalfa :",0.0)
     Q0,_,_,_,_ = self.calcQ(); cont += 1
     P0,_,_ = self.calcP()
     if prntCond:

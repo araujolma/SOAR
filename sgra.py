@@ -81,8 +81,11 @@ class sgra():
                             'pausCalcStepGrad':False,
                             'plotQx':tf,
                             'plotQu':tf,
+                            'plotLam':tf,
                             'plotQxZoom':tf,
                             'plotQuZoom':tf,
+                            'plotQuComp':tf,
+                            'plotQuCompZoom':tf,
                             'plotSolQxMax':tf,
                             'plotSolQuMax':tf,
                             'plotCorr':tf,
@@ -104,7 +107,7 @@ class sgra():
         return copy.deepcopy(self)
     
     def aplyCorr(self,alfa,corr):
-        
+        print("\nApplying alfa =",alfa)
         self.x  += alfa * corr['x']
         self.u  += alfa * corr['u']
         self.pi += alfa * corr['pi']
@@ -432,7 +435,8 @@ class sgra():
             #
              
 ###############################################################################  
-            if rho>0.5:          
+            if (rho > 0.5 and self.dbugOptGrad['plotCorr']) or \
+               (rho < 0.5 and self.dbugOptRest['plotCorr']):          
                 print("\nHere are the corrections for iteration " + str(j+1) + \
                       " of " + str(Ns+1) + ":\n")
                 for arc in range(s):

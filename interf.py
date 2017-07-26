@@ -143,8 +143,8 @@ class ITman():
         self.prntDashStr()
         print("\nProposed initial guess:\n")
         P,Pint,Ppsi = sol.calcP()
-        print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-              ", Ppsi = {:.4E}".format(Ppsi)+"\n")
+        #print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
+        #      ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         sol.histP[sol.NIterRest] = P
         sol.histPint[sol.NIterRest] = Pint
         sol.histPpsi[sol.NIterRest] = Ppsi
@@ -158,8 +158,7 @@ class ITman():
     def restRnds(self,sol):
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
-        print("Entering restRnds, origDbugOptRest is as follows:")
-        pprint.pprint(origDbugOptRest)
+
         while sol.P > sol.tol['P']:
             sol.rest()
             contRest += 1

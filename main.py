@@ -28,9 +28,7 @@ if __name__ == "__main__":
     print('\n')
     
     sol = prob.prob()#probRock.probRock()
-    
     #GradStat = GradStat()
-
     ITman = ITman()
     ITman.greet()
     
@@ -51,7 +49,7 @@ if __name__ == "__main__":
     sol.plotSol()
 
     print("\n################################################################")
-    print("=== First Guess + SGRA execution: %s seconds ===\n" % \
+    print("=== First Guess + MSGRA execution: %s seconds ===\n" % \
           (time.time() - start_time))
 #    # Gradient rounds:
 #    NIterGrad = 0

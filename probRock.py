@@ -51,7 +51,7 @@ class prob(sgra):
         # rocket constants
         Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
         
-        scal = 1.0e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+        scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
         Isp = 450.0                   # s
         s_f = 0.05
@@ -183,7 +183,7 @@ class prob(sgra):
             
             alpha_its = numpy.empty((solInit.N,s)); alpha_its[:,0] = u_its[:,0]
             beta_its = numpy.empty((solInit.N,s)); beta_its[:,0] = u_its[:,1]
-            u_init = self.calcAdimCtrl(alpha_its,beta_its)
+            u_init = solInit.calcAdimCtrl(alpha_its,beta_its)
             
             x_init = numpy.empty((solInit.N,n,s)); x_init[:,:,0] = x_its
             
@@ -333,13 +333,11 @@ class prob(sgra):
         # calculate phi:
         phi = numpy.empty((N,n,s))
     
-        sinGama = sin(x[:,2,:])
-        cosGama = cos(x[:,2,:])
-        sinAlfa = sin(alpha)
-        cosAlfa = cos(alpha)
-        dt = 1.0/(N-1); 
+        sinGama = sin(x[:,2,:]); cosGama = cos(x[:,2,:])
+        sinAlfa = sin(alpha);    cosAlfa = cos(alpha)
+        dt = 1.0/(N-1) 
         for arc in range(s):
-            t = pi[arc]*numpy.arange(0,1.0+dt,dt)
+            t = pi[arc]*numpy.arange(0,1.0+dt,dt) # Dimensional time
         
             phi[:,0,arc] = x[:,1,arc] * sinGama[:,arc]
             phi[:,1,arc] = (beta[:,arc] * Thrust * cosAlfa[:,arc] - D[:,arc])/x[:,3,arc] - grav[:,arc] * sinGama[:,arc]
@@ -453,11 +451,11 @@ class prob(sgra):
                 m = x[k,3,arc]; m2 = m*m
                 fVel = beta[k,arc]*Thrust*cosAlpha-D[k,arc] # forces on velocity direction
                 fNor = beta[k,arc]*Thrust*sinAlpha+L[k,arc] # forces normal to velocity
-                fdg = .5*(1.0+numpy.tanh(DampSlop*(k*pi[0]/(N-1)-DampCent)))
+                fdg = .5*(1.0+tanh(DampSlop*(k*pi[arc]/(N-1)-DampCent)))
     
                 # Expanded notation:
-                DAlfaDu1 = aExp*(1-tanh(u1[k,arc])**2)
-                DBetaDu2 = bExp*(1-tanh(u2[k,arc])**2)
+                DAlfaDu1 = aExp*(1.0-tanh(u1[k,arc])**2)
+                DBetaDu2 = bExp*(1.0-tanh(u2[k,arc])**2)
         
                 phix[k,:,:,arc] = pi[arc]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
                                                [2*GM*sinGama/r3 - (0.5*CD[k,arc]*del_rho[k,arc]*s_ref*V2)/m              ,-CD[k,arc]*dens[k,arc]*s_ref*V/m                                                                       ,-grav[k,arc]*cosGama               ,-fVel/m2     ],
@@ -495,13 +493,13 @@ class prob(sgra):
         boundary = self.boundary
         x = self.x
         N = self.N
-        psi = numpy.array([x[0,0,0]-boundary['h_initial'],\
-                           x[0,1,0]-boundary['V_initial'],\
-                           x[0,2,0]-boundary['gamma_initial'],\
-                           x[0,3,0]-boundary['m_initial'],\
-                           x[N-1,0,0]-boundary['h_final'],\
-                           x[N-1,1,0]-boundary['V_final'],\
-                           x[N-1,2,0]-boundary['gamma_final']])
+        psi = numpy.array([x[0,0,0]   - boundary['h_initial'],\
+                           x[0,1,0]   - boundary['V_initial'],\
+                           x[0,2,0]   - boundary['gamma_initial'],\
+                           x[0,3,0]   - boundary['m_initial'],\
+                           x[N-1,0,0] - boundary['h_final'],\
+                           x[N-1,1,0] - boundary['V_final'],\
+                           x[N-1,2,0] - boundary['gamma_final']])
         return psi
         
     def calcF(self):
