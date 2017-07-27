@@ -17,7 +17,7 @@ class ITman():
         self.defOpt = 'loadSol'#'newSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = 'solInit.pkl'#'solInitRest.pkl'#'contHere.pkl'
+        self.loadSolDir = 'solInitRest.pkl'#'solInit.pkl'#'contHere.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
@@ -153,6 +153,40 @@ class ITman():
         
         sol.plotSol()
         sol.plotTraj() 
+        
+        # Debugging options
+        tf = False
+        sol.dbugOptRest = {'pausRest':tf,
+                           'pausCalcP':tf,
+                           'plotP_int':tf,
+                           'plotP_intZoom':tf,
+                           'plotIntP_int':tf,
+                           'plotSolMaxP':tf,
+                           'plotRsidMaxP':tf,
+                           'plotErr':tf,
+                           'plotCorr':tf,
+                           'plotCorrFin':tf}
+        tf = False#True#
+        sol.dbugOptGrad = {'pausGrad':True,
+                           'pausCalcQ':tf,
+                           'prntCalcStepGrad':True,
+                           'plotCalcStepGrad': True,#tf,
+                           'pausCalcStepGrad':False,
+                           'plotQx':False,#tf,
+                           'plotQu':False,#tf,
+                           'plotLam':tf,
+                           'plotQxZoom':False,#tf,
+                           'plotQuZoom':False,#tf,
+                           'plotQuComp':False,#tf,
+                           'plotQuCompZoom':False,#tf,
+                           'plotSolQxMax':False,#tf,
+                           'plotSolQuMax':False,#tf,
+                           'plotCorr':tf,
+                           'plotCorrFin':tf,
+                           'plotF':True,
+                           'plotFint':True,
+                           'plotI':True}
+        
         return sol,solInit
     
     def restRnds(self,sol):

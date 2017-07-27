@@ -93,7 +93,7 @@ def calcQ(self):
     self.Q = Q
     somePlot = False
     for key in self.dbugOptGrad.keys():
-        if ('plot' in key) or ('Plot' in key):
+        if ('plotQ' in key) or ('PlotQ' in key):
             if self.dbugOptGrad[key]:
                 somePlot = True
                 break
@@ -381,105 +381,113 @@ def calcQ(self):
 def calcStepGrad(self,corr):
     
     print("\nIn calcStepGrad.\n")
+
     cont = 0; prntCond = self.dbugOptGrad['prntCalcStepGrad']
     # Get initial status (Q0, no correction applied)
     print("\nalfa :",0.0)
     Q0,_,_,_,_ = self.calcQ(); cont += 1
     P0,_,_ = self.calcP()
-    if prntCond:
-        print("P0 = {:.4E}".format(P0))
-        I0 = self.calcI()
-        print("I0 = {:.4E}\n".format(I0))
+    I0 = self.calcI()
+#    if prntCond:
+#        print("P0 = {:.4E}".format(P0))
+#        print("I0 = {:.4E}\n".format(I0))
     
     # Get status associated with integral correction (alfa=1.0)
+    if prntCond:
+        print("\n> Trying alfa = 1.0 first, fingers crossed...")
     newSol = self.copy()
     newSol.aplyCorr(1.0,corr)
     Q1,_,_,_,_ = newSol.calcQ(); cont += 1
-    histQ = [Q1]; histAlfa = [1.0]
+    I1 = newSol.calcI()
+    histQ = [Q1]; histI = [I1]; histAlfa = [1.0]
     P1,_,_ = newSol.calcP(); histP = [P1]
-    if prntCond:
-        print("\n> Trying alfa = 1.0 first, fingers crossed...")
-        print("P1 = {:.4E}".format(P1))
-        I1 = newSol.calcI()
-        print("I1 = {:.4E}\n".format(I1))
+#    if prntCond:
+#        print("P1 = {:.4E}".format(P1))
+#        print("I1 = {:.4E}\n".format(I1))
         
     # Search for a better starting point for alfa, one that does not make Q
     # more than 10 times bigger.
-    Q = Q1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
-    if Q/Q0 >= 10.0:#Q>Q0:#
+    I = I1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
+    if I>I0:#I/I0 >= 10.0:#Q>Q0:#
         if prntCond:
             print("\n> Whoa! Going back to safe region of alphas...\n")
         keepLook = True
         dAlfa = 0.1
-        cond = lambda nQ,Q: nQ>Q0 #nQ/Q0>1.1
+        cond = lambda nI,I: nI>I0 #nQ/Q0>1.1
     # Or increase alfa, if the conditions seem Ok for it
-    elif Q<Q0:#se:#if Q<Q0:
+    elif I<I0:#se:#if Q<Q0:
         if prntCond:
             print("\n> This seems boring. Going forward!\n")
         keepLook = True
         dAlfa = 10.0
-        cond = lambda nQ,Q: nQ<Q
+        cond = lambda nI,I: nI<I
 
-    nQ = Q
+    nI = I
     while keepLook:
-        Q = nQ
+        I = nI.copy()
         alfa *= dAlfa
         newSol = self.copy()
         newSol.aplyCorr(alfa,corr)
-        nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-        histQ.append(nQ); histAlfa.append(alfa)
+        nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
+        histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
         nP,_,_ = newSol.calcP(); histP.append(nP)
-        if prntCond:
-            print("alfa =",alfa,", P = {:.4E}".format(nP),\
-                  ", Q = {:.6E}".format(nQ),\
-                  " (Q0 = {:.6E})\n".format(Q0))
+        print("alfa =",alfa,"I =",nI)
+#        if prntCond:
+#            print("alfa =",alfa,", P = {:.4E}".format(nP),\
+#                  ", Q = {:.6E}".format(nQ),\
+ #                 " (Q0 = {:.6E})\n".format(Q0))
             
-        keepLook = cond(nQ,Q)
+        keepLook = cond(nI,I)
     #
     if dAlfa > 1.0:
         alfa /= dAlfa
+    elif dAlfa < 1.0:
+        I = nI.copy()
+
+    #alfa=1.0; Q = Q1; I = I1
     
-    # Now Q is not so much bigger than Q0. Start "bilateral analysis"
+    # Now I is not so much bigger than I0. Start "bilateral analysis"
     if prntCond:
         print("\n> Starting bilateral analysis...\n")
     alfa0 = alfa
     alfa = 1.2*alfa0 
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
-    QM,_,_,_,_ = newSol.calcQ(); cont += 1
-    histQ.append(QM); histAlfa.append(alfa)
+    QM,_,_,_,_ = newSol.calcQ(); IM = newSol.calcI(); cont += 1
+    histQ.append(QM); histAlfa.append(alfa); histI.append(IM)
     PM,_,_ = newSol.calcP(); histP.append(PM)
-    if prntCond:
-        print("alfa =",alfa,", P = {:.4E}".format(PM),\
-              ", Q = {:.6E}".format(QM),\
-              " (Q0 = {:.6E})\n".format(Q0))
-    
+    print("IM =",IM)
+#    if prntCond:
+#        print("alfa =",alfa,", P = {:.4E}".format(PM),\
+#              ", Q = {:.6E}".format(QM),\
+#              " (Q0 = {:.6E})\n".format(Q0))
     
     alfa = .8*alfa0 
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
-    Qm,_,_,_,_ = newSol.calcQ(); cont += 1
-    histQ.append(Qm); histAlfa.append(alfa)
+    Qm,_,_,_,_ = newSol.calcQ(); Im = newSol.calcI(); cont += 1
+    histQ.append(Qm); histAlfa.append(alfa); histI.append(Im)
     Pm,_,_ = newSol.calcP(); histP.append(Pm)
-    if prntCond:
-        print("alfa =",alfa,", P = {:.4E}".format(Pm),\
-              ", Q = {:.6E}".format(Qm),\
-              " (Q0 = {:.6E})\n".format(Q0))
+    print("Im =",Im)
+#    if prntCond:
+#        print("alfa =",alfa,", P = {:.4E}".format(Pm),\
+#              ", Q = {:.6E}".format(Qm),\
+#              " (Q0 = {:.6E})\n".format(Q0))
     
     # Start refined search
-    
-    if Qm < Q: 
+    print("\nI =",I)
+    if Im < I: 
         if self.dbugOptGrad['prntCalcStepGrad']:
             print("\n> Beginning search for decreasing alfa...")
         # if the tendency is to still decrease alfa, do it...
-        nQ = Q; keepSearch = True#(nQ<Q0)
+        nI = I; keepSearch = True#(nQ<Q0)
         while keepSearch and alfa > 1.0e-15:
-            Q = nQ
+            I = nI
             alfa *= .8
             newSol = self.copy()
             newSol.aplyCorr(alfa,corr)
-            nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-            histQ.append(nQ); histAlfa.append(alfa)
+            nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
+            histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
             nP,_,_ = newSol.calcP(); histP.append(nP)
             if prntCond:
                 print("alfa = {:.6E}".format(alfa),", Q = {:.6E}".format(nQ),\
@@ -487,52 +495,52 @@ def calcStepGrad(self,corr):
 
             # TODO: use testAlgn to test alignment of points, 
             # and use it to improve calcStepGrad.
-            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
-                           histQ[(cont-4):(cont-1)])) < 1e-3)
-
-            if isAlgn:
-                m = (histQ[cont-2]-histQ[cont-3]) / \
-                    (histAlfa[cont-2]-histAlfa[cont-3])
-                b = histQ[cont-2] - m * histAlfa[cont-2]
-                print("m =",m,"b =",b)
+#            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
+#                           histQ[(cont-4):(cont-1)])) < 1e-3)
+#
+#            if isAlgn:
+#                m = (histQ[cont-2]-histQ[cont-3]) / \
+#                    (histAlfa[cont-2]-histAlfa[cont-3])
+#                b = histQ[cont-2] - m * histAlfa[cont-2]
+#                print("m =",m,"b =",b)
                         
-            if nQ < Q0:
-                keepSearch = ((nQ-Q)/Q < -.001)#nQ<Q#
+            if nI < I0:
+                keepSearch = ((nI-I)/I < -.001)#nQ<Q#
         alfa /= 0.8
     else:
-        
+
         # no overdrive!
-        if prntCond:
-                print("\n> Apparently alfa =",alfa0,"is the best.")
-        alfa = alfa0 # BRASIL
-        
-#        if Q <= QM: 
-#            if prntCond:
+#        if prntCond:
 #                print("\n> Apparently alfa =",alfa0,"is the best.")
-#            alfa = alfa0 # BRASIL
-#        else:
-#            if prntCond:
-#                print("\n> Beginning search for increasing alfa...")
-#            # There still seems to be a negative gradient here. Increase alfa!
-#            nQ = QM
-#            alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
-#            while keepSearch:
-#                Q = nQ
-#                alfa *= 1.2
-#                newSol = self.copy()
-#                newSol.aplyCorr(alfa,corr)
-#                nQ,_,_,_,_ = newSol.calcQ(); cont += 1
-#                histQ.append(nQ); histAlfa.append(alfa)
-#                
-#                P,_,_ = newSol.calcP()
-#                
+#        alfa = alfa0 # BRASIL
+        
+        if I <= IM: 
+            if prntCond:
+                print("\n> Apparently alfa =",alfa0,"is the best.")
+            alfa = alfa0 # BRASIL
+        else:
+            if prntCond:
+                print("\n> Beginning search for increasing alfa...")
+            # There still seems to be a negative gradient here. Increase alfa!
+            nI = IM
+            alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
+            while keepSearch:
+                Q = nQ; I = nI.copy()
+                alfa *= 1.2
+                newSol = self.copy()
+                newSol.aplyCorr(alfa,corr)
+                nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
+                histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
+                
+                nP,_,_ = newSol.calcP(); histP.append(nP)
+                
 #                if prntCond:
 #                    print("alfa = {:.4E}".format(alfa),", Q = {:.4E}".format(nQ),\
 #                          " (Q0 = {:.4E})".format(Q0),\
-#                          "P = {:.4E}".format(P)+"\n")
-#                keepSearch = nQ<Q
-#                #if nPint < Pint0:
-#            alfa /= 1.2
+#                          "P = {:.4E}".format(nP)+"\n")
+                keepSearch = nI<I
+                #if nPint < Pint0:
+            alfa /= 1.2
      
        
     # after all this analysis, plot the history of the tried alfas, and 
@@ -571,6 +579,16 @@ def calcStepGrad(self,corr):
         plt.title("Q and P versus Grad Step for this grad run")
         plt.show()
      
+        plt.loglog(histAlfa,histI,'o')
+        linI = I0 + 0.0*numpy.empty_like(linhAlfa)
+        plt.loglog(linhAlfa,linI,'--')
+        plt.plot(alfa,histI[k],'s')
+        plt.ylabel("I")
+        plt.xlabel("alpha")
+        plt.title("I versus grad step for this grad run")
+        plt.grid(True)
+        plt.show()
+        
     if prntCond:           
         print("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
         print("> Number of calcQ evaluations:",cont)

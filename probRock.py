@@ -530,6 +530,20 @@ class prob(sgra):
             Ivec[arc] += f[1:(N-1),arc].sum()
             
         Ivec *= 1.0/(N-1)
+        
+        if self.dbugOptGrad.get('plotF',False):
+            print("\nThis is f:")
+            for arc in range(s):
+                print("Arc =",arc)
+                plt.plot(self.t,f[:,arc])
+                plt.grid(True)
+                plt.xlabel("t")
+                plt.ylabel("f")
+                plt.show()
+
+        if self.dbugOptGrad.get('plotI',False):
+            print("I =",Ivec)
+
         return Ivec.sum()
 #%%
     def plotSol(self,opt={},intv=[]):
@@ -545,11 +559,7 @@ class prob(sgra):
     
         if len(intv)>0:       
             print("plotSol: Sorry, currently ignoring plotting range.")
-            
-        plt.subplot2grid((8,4),(0,0),colspan=5)
-        self.plotCat(x[:,0,:])
-        plt.grid(True)
-        plt.ylabel("h [km]")
+
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
             titlStr = "Current solution: I = {:.4E}".format(I) + \
@@ -566,6 +576,11 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
         #
+            
+        plt.subplot2grid((8,4),(0,0),colspan=5)
+        self.plotCat(x[:,0,:])
+        plt.grid(True)
+        plt.ylabel("h [km]")
         plt.title(titlStr)
         
         plt.subplot2grid((8,4),(1,0),colspan=5)

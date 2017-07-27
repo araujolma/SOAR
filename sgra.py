@@ -73,12 +73,12 @@ class sgra():
                             'plotErr':tf,
                             'plotCorr':tf,
                             'plotCorrFin':tf}
-        tf = True#False#
+        tf = False#True#
         self.dbugOptGrad = {'pausGrad':tf,
                             'pausCalcQ':tf,
-                            'prntCalcStepGrad':True,
-                            'plotCalcStepGrad': True,#tf,
-                            'pausCalcStepGrad':False,
+                            'prntCalcStepGrad':tf,
+                            'plotCalcStepGrad': tf,
+                            'pausCalcStepGrad':tf,
                             'plotQx':tf,
                             'plotQu':tf,
                             'plotLam':tf,
@@ -89,7 +89,9 @@ class sgra():
                             'plotSolQxMax':tf,
                             'plotSolQuMax':tf,
                             'plotCorr':tf,
-                            'plotCorrFin':tf}
+                            'plotCorrFin':tf,
+                            'plotF':tf,
+                            'plotFint':tf}
    
     def setDbugOptRest(self,allOpt=True,optSet={}):
         for key in self.dbugOptRest.keys():
