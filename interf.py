@@ -25,7 +25,7 @@ class ITman():
         self.mustAsk = True
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
-        self.GRpausRate = 10
+        self.GRpausRate = 1000#1000#10
     
     def prntDashStr(self):
         print(self.dashStr)
@@ -167,25 +167,44 @@ class ITman():
                            'plotCorr':tf,
                            'plotCorrFin':tf}
         tf = False#True#
-        sol.dbugOptGrad = {'pausGrad':True,
+#        sol.dbugOptGrad = {'pausGrad':True,
+#                           'pausCalcQ':tf,
+#                           'prntCalcStepGrad':True,
+#                           'plotCalcStepGrad': True,#tf,
+#                           'pausCalcStepGrad':False,
+#                           'plotQx':False,#tf,
+#                           'plotQu':False,#tf,
+#                           'plotLam':tf,
+#                           'plotQxZoom':False,#tf,
+#                           'plotQuZoom':False,#tf,
+#                           'plotQuComp':False,#tf,
+#                           'plotQuCompZoom':False,#tf,
+#                           'plotSolQxMax':False,#tf,
+#                           'plotSolQuMax':False,#tf,
+#                           'plotCorr':tf,
+#                           'plotCorrFin':tf,
+#                           'plotF':True,
+#                           'plotFint':True,
+#                           'plotI':True}
+        sol.dbugOptGrad = {'pausGrad':tf,
                            'pausCalcQ':tf,
                            'prntCalcStepGrad':True,
                            'plotCalcStepGrad': True,#tf,
-                           'pausCalcStepGrad':False,
-                           'plotQx':False,#tf,
-                           'plotQu':False,#tf,
+                           'pausCalcStepGrad':tf,
+                           'plotQx':tf,#tf,
+                           'plotQu':tf,#tf,
                            'plotLam':tf,
-                           'plotQxZoom':False,#tf,
-                           'plotQuZoom':False,#tf,
-                           'plotQuComp':False,#tf,
-                           'plotQuCompZoom':False,#tf,
-                           'plotSolQxMax':False,#tf,
-                           'plotSolQuMax':False,#tf,
+                           'plotQxZoom':tf,#tf,
+                           'plotQuZoom':tf,#tf,
+                           'plotQuComp':tf,#tf,
+                           'plotQuCompZoom':tf,#tf,
+                           'plotSolQxMax':tf,#tf,
+                           'plotSolQuMax':tf,#tf,
                            'plotCorr':tf,
                            'plotCorrFin':tf,
-                           'plotF':True,
-                           'plotFint':True,
-                           'plotI':True}
+                           'plotF':tf,#True,
+                           'plotFint':tf,
+                           'plotI':tf}#True}
         
         return sol,solInit
     
@@ -193,6 +212,17 @@ class ITman():
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
 
+        fullDbugOptRest = {'pausRest':False,
+                           'pausCalcP':False,
+                           'plotP_int':True,
+                           'plotP_intZoom':True,
+                           'plotIntP_int':True,
+                           'plotSolMaxP':True,
+                           'plotRsidMaxP':True,
+                           'plotErr':True,
+                           'plotCorr':True,
+                           'plotCorrFin':True}
+        
         while sol.P > sol.tol['P']:
             sol.rest()
             contRest += 1
@@ -209,9 +239,10 @@ class ITman():
                 print("And here is a partial convergence report:")
                 sol.showHistP()
                 print("Changing to debug mode:")
-                sol.setDbugOptRest(allOpt=True)
+                sol.setDbugOptRest(optSet=fullDbugOptRest)#allOpt=True)
                 print("\nDon't worry, changing in next rest run, back to:\n")
                 pprint.pprint(origDbugOptRest)
+                self.saveSol(sol,'dbugSol.pkl')
                 #input(" > ")
             else:
                 sol.setDbugOptRest(optSet=origDbugOptRest)
@@ -278,7 +309,8 @@ class ITman():
             if self.gradRestPausCond(sol):
                 print("\a")
                 self.prntDashStr()
-                print("\nGrad-Rest cycle pause condition has been reached.")
+                print("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
+                print("Grad-Rest cycle pause condition has been reached.")
                 print("Press any key to continue, or ctrl+C to stop.")                
                 print("Load last saved solution to go back to GR cycle.")
                 self.prom()

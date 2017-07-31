@@ -10,6 +10,56 @@ import numpy
 from utils import ddt, testAlgn
 import matplotlib.pyplot as plt
 
+class stepMngr():
+    """ Class for the step manager """
+    def __init__(self,k=1e3):
+        self.cont = -1
+        self.histStep = list()
+        self.histI = list()
+        self.histP = list()
+        self.histQ = list()
+        self.histObj = list()
+        self.k = k
+
+    def calcObj(self,P,Q,I):
+        return (I + (self.k)*P)
+    
+    def getLast(self):
+        P = self.histP[self.cont]
+        Q = self.histQ[self.cont]
+        I = self.histI[self.cont]
+        Obj = self.histObj[self.cont]
+
+        return P,Q,I,Obj
+    
+    def tryStep(self,sol,corr,alfa,mustPrnt=False):
+        self.cont += 1
+        
+        if mustPrnt:
+            print("\nTrying alfa = {:.4E}".format(alfa))
+            
+        newSol = sol.copy()
+        newSol.aplyCorr(alfa,corr)
+        
+        P,_,_ = newSol.calcP()
+        Q,_,_,_,_ = newSol.calcQ()
+        I = newSol.calcI()
+        
+        Obj = self.calcObj(P,Q,I)
+
+        if mustPrnt:
+            print("\nResults:\nalfa = {:.4E}".format(alfa)+\
+                  " P = {:.4E}".format(P)+" Q = {:.4E}".format(Q)+\
+                  " I = {:.4E}".format(I)+" Obj = {:.4E}".format(Obj))
+
+        self.histStep.append(alfa)
+        self.histP.append(P)
+        self.histQ.append(Q)
+        self.histI.append(I)
+        self.histObj.append(Obj)
+        
+        return self.getLast()
+
 def calcQ(self):
     # Q expression from (15)
     #print("\nIn calcQ.\n")
@@ -382,12 +432,19 @@ def calcStepGrad(self,corr):
     
     print("\nIn calcStepGrad.\n")
 
-    cont = 0; prntCond = self.dbugOptGrad['prntCalcStepGrad']
+
+    
+    prntCond = self.dbugOptGrad['prntCalcStepGrad']
     # Get initial status (Q0, no correction applied)
+
     print("\nalfa :",0.0)
-    Q0,_,_,_,_ = self.calcQ(); cont += 1
+    Q0,_,_,_,_ = self.calcQ()
     P0,_,_ = self.calcP()
     I0 = self.calcI()
+    stepMan = stepMngr(k = 1e-10*I0/P0)
+    Obj0 = stepMan.calcObj(P0,Q0,I0)
+    print("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
+
 #    if prntCond:
 #        print("P0 = {:.4E}".format(P0))
 #        print("I0 = {:.4E}\n".format(I0))
@@ -395,103 +452,63 @@ def calcStepGrad(self,corr):
     # Get status associated with integral correction (alfa=1.0)
     if prntCond:
         print("\n> Trying alfa = 1.0 first, fingers crossed...")
-    newSol = self.copy()
-    newSol.aplyCorr(1.0,corr)
-    Q1,_,_,_,_ = newSol.calcQ(); cont += 1
-    I1 = newSol.calcI()
-    histQ = [Q1]; histI = [I1]; histAlfa = [1.0]
-    P1,_,_ = newSol.calcP(); histP = [P1]
+    alfa = 1.0
+    P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa,prntCond)
+
 #    if prntCond:
 #        print("P1 = {:.4E}".format(P1))
 #        print("I1 = {:.4E}\n".format(I1))
         
-    # Search for a better starting point for alfa, one that does not make Q
-    # more than 10 times bigger.
-    I = I1; alfa = 1.0; keepLook = False; dAlfa = 1.0 #;  contGran = 0
-    if I>I0:#I/I0 >= 10.0:#Q>Q0:#
+    # Search for a better starting point for alfa
+    Obj = Obj1; keepLook = False; dAlfa = 1.0
+    if Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
         if prntCond:
             print("\n> Whoa! Going back to safe region of alphas...\n")
         keepLook = True
         dAlfa = 0.1
-        cond = lambda nI,I: nI>I0 #nQ/Q0>1.1
+        cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
     # Or increase alfa, if the conditions seem Ok for it
-    elif I<I0:#se:#if Q<Q0:
+    elif Obj<Obj0:#se:#if Q<Q0:
         if prntCond:
             print("\n> This seems boring. Going forward!\n")
         keepLook = True
         dAlfa = 10.0
-        cond = lambda nI,I: nI<I
+        cond = lambda nObj,Obj: nObj<Obj
 
-    nI = I
+    nObj = Obj.copy()
     while keepLook:
-        I = nI.copy()
+        Obj = nObj.copy()
         alfa *= dAlfa
-        newSol = self.copy()
-        newSol.aplyCorr(alfa,corr)
-        nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
-        histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
-        nP,_,_ = newSol.calcP(); histP.append(nP)
-        print("alfa =",alfa,"I =",nI)
-#        if prntCond:
-#            print("alfa =",alfa,", P = {:.4E}".format(nP),\
-#                  ", Q = {:.6E}".format(nQ),\
- #                 " (Q0 = {:.6E})\n".format(Q0))
-            
-        keepLook = cond(nI,I)
+        nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)            
+        keepLook = cond(nObj,Obj)
     #
     if dAlfa > 1.0:
         alfa /= dAlfa
     elif dAlfa < 1.0:
-        I = nI.copy()
+        Obj = nObj.copy()
 
-    #alfa=1.0; Q = Q1; I = I1
     
-    # Now I is not so much bigger than I0. Start "bilateral analysis"
+    # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
     if prntCond:
         print("\n> Starting bilateral analysis...\n")
     alfa0 = alfa
-    alfa = 1.2*alfa0 
-    newSol = self.copy()
-    newSol.aplyCorr(alfa,corr)
-    QM,_,_,_,_ = newSol.calcQ(); IM = newSol.calcI(); cont += 1
-    histQ.append(QM); histAlfa.append(alfa); histI.append(IM)
-    PM,_,_ = newSol.calcP(); histP.append(PM)
-    print("IM =",IM)
-#    if prntCond:
-#        print("alfa =",alfa,", P = {:.4E}".format(PM),\
-#              ", Q = {:.6E}".format(QM),\
-#              " (Q0 = {:.6E})\n".format(Q0))
+    alfa = 1.2*alfa0
+    PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa,prntCond)
     
     alfa = .8*alfa0 
-    newSol = self.copy()
-    newSol.aplyCorr(alfa,corr)
-    Qm,_,_,_,_ = newSol.calcQ(); Im = newSol.calcI(); cont += 1
-    histQ.append(Qm); histAlfa.append(alfa); histI.append(Im)
-    Pm,_,_ = newSol.calcP(); histP.append(Pm)
-    print("Im =",Im)
-#    if prntCond:
-#        print("alfa =",alfa,", P = {:.4E}".format(Pm),\
-#              ", Q = {:.6E}".format(Qm),\
-#              " (Q0 = {:.6E})\n".format(Q0))
+    Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa,prntCond)
     
     # Start refined search
-    print("\nI =",I)
-    if Im < I: 
+    print("\nObj =",Obj)
+    if Objm < Obj: 
         if self.dbugOptGrad['prntCalcStepGrad']:
             print("\n> Beginning search for decreasing alfa...")
         # if the tendency is to still decrease alfa, do it...
-        nI = I; keepSearch = True#(nQ<Q0)
+        nObj = Obj.copy(); keepSearch = True
         while keepSearch and alfa > 1.0e-15:
-            I = nI
+            Obj = nObj.copy()
             alfa *= .8
-            newSol = self.copy()
-            newSol.aplyCorr(alfa,corr)
-            nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
-            histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
-            nP,_,_ = newSol.calcP(); histP.append(nP)
-            if prntCond:
-                print("alfa = {:.6E}".format(alfa),", Q = {:.6E}".format(nQ),\
-                      ", Q0 = {:.6E}".format(Q0),", dQ = {:6E}".format(nQ-Q0))
+            nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
 
             # TODO: use testAlgn to test alignment of points, 
             # and use it to improve calcStepGrad.
@@ -504,8 +521,8 @@ def calcStepGrad(self,corr):
 #                b = histQ[cont-2] - m * histAlfa[cont-2]
 #                print("m =",m,"b =",b)
                         
-            if nI < I0:
-                keepSearch = ((nI-I)/I < -.001)#nQ<Q#
+            if nObj < Obj0:
+                keepSearch = ((nObj-Obj)/Obj < -.001)#nQ<Q#
         alfa /= 0.8
     else:
 
@@ -514,31 +531,22 @@ def calcStepGrad(self,corr):
 #                print("\n> Apparently alfa =",alfa0,"is the best.")
 #        alfa = alfa0 # BRASIL
         
-        if I <= IM: 
+        if Obj <= ObjM: 
             if prntCond:
                 print("\n> Apparently alfa =",alfa0,"is the best.")
             alfa = alfa0 # BRASIL
         else:
             if prntCond:
                 print("\n> Beginning search for increasing alfa...")
-            # There still seems to be a negative gradient here. Increase alfa!
-            nI = IM
+            # There still seems to be a negative gradient here. Objncrease alfa!
+            nObj = ObjM.copy()
             alfa = 1.2*alfa0; keepSearch = True#(nPint>Pint1M)
             while keepSearch:
-                Q = nQ; I = nI.copy()
+                Obj = nObj.copy()
                 alfa *= 1.2
-                newSol = self.copy()
-                newSol.aplyCorr(alfa,corr)
-                nQ,_,_,_,_ = newSol.calcQ(); nI = newSol.calcI(); cont += 1
-                histQ.append(nQ); histAlfa.append(alfa); histI.append(nI)
+                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
                 
-                nP,_,_ = newSol.calcP(); histP.append(nP)
-                
-#                if prntCond:
-#                    print("alfa = {:.4E}".format(alfa),", Q = {:.4E}".format(nQ),\
-#                          " (Q0 = {:.4E})".format(Q0),\
-#                          "P = {:.4E}".format(nP)+"\n")
-                keepSearch = nI<I
+                keepSearch = nObj<Obj
                 #if nPint < Pint0:
             alfa /= 1.2
      
@@ -546,9 +554,15 @@ def calcStepGrad(self,corr):
     # after all this analysis, plot the history of the tried alfas, and 
     # corresponding Q's        
     if self.dbugOptGrad['plotCalcStepGrad']:
-        fig, ax1 = plt.subplots()
+        
+        histAlfa = stepMan.histStep
+        histP = stepMan.histP
+        histQ = stepMan.histQ
+        histI = stepMan.histI
+        histObj = stepMan.histObj
         
         # Ax1: convergence history of Q
+        fig, ax1 = plt.subplots()
         ax1.loglog(histAlfa, histQ, 'ob')
         linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
         linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
@@ -579,6 +593,7 @@ def calcStepGrad(self,corr):
         plt.title("Q and P versus Grad Step for this grad run")
         plt.show()
      
+        # Plot history of I
         plt.loglog(histAlfa,histI,'o')
         linI = I0 + 0.0*numpy.empty_like(linhAlfa)
         plt.loglog(linhAlfa,linI,'--')
@@ -589,9 +604,21 @@ def calcStepGrad(self,corr):
         plt.grid(True)
         plt.show()
         
+        # Plot history of Obj
+        plt.loglog(histAlfa,histObj,'o')
+        linObj = Obj0 + 0.0*numpy.empty_like(linhAlfa)
+        plt.loglog(linhAlfa,linObj,'--')
+        plt.plot(alfa,histObj[k],'s')
+        plt.ylabel("Obj")
+        plt.xlabel("alpha")
+        plt.title("Obj versus grad step for this grad run")
+        plt.grid(True)
+        plt.show()
+
+        
     if prntCond:           
         print("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
-        print("> Number of calcQ evaluations:",cont)
+        print("> Number of objective evaluations:",stepMan.cont)
         
     if self.dbugOptGrad['pausCalcStepGrad']:
         input("\n> Run of calcStepGrad terminated. Press any key to continue.")
