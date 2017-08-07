@@ -11,6 +11,14 @@ import matplotlib.pyplot as plt
 from utils import ddt
 
 class sgra():
+    """Class for a general instance of the SGRA problem. 
+    
+    Here are all the methods and variables that are independent of a specific
+    instance of a problem. 
+    
+    Each instance of an optimization problem must then inherit these methods 
+    and properties. """
+    
     def __init__(self):
         # these numbers should not make any sense; 
         # they should change with the problem
@@ -39,7 +47,7 @@ class sgra():
         
         # Basic maximum number of iterations for grad/rest. 
         # May be overriden in the problem definition
-        MaxIterRest = 10000
+        MaxIterRest = 100000
         self.MaxIterRest = MaxIterRest
         self.NIterRest = 0
         self.histStepRest = numpy.zeros(MaxIterRest)
@@ -47,7 +55,7 @@ class sgra():
         self.histPint = numpy.zeros(MaxIterRest)
         self.histPpsi = numpy.zeros(MaxIterRest)
         
-        MaxIterGrad = 1000
+        MaxIterGrad = 10000
         self.MaxIterGrad = MaxIterGrad
         self.NIterGrad = 0
         self.histStepGrad = numpy.zeros(MaxIterGrad)
@@ -92,6 +100,14 @@ class sgra():
                             'plotCorrFin':tf,
                             'plotF':tf,
                             'plotFint':tf}
+        
+        # Solution plot saving status:
+        self.save = {'sol':True,
+                     'histP':True,
+                     'histQ':True,
+                     'histI':True,
+                     'traj':True,
+                     'comp':True}
    
     def setDbugOptRest(self,allOpt=True,optSet={}):
         for key in self.dbugOptRest.keys():
@@ -124,7 +140,7 @@ class sgra():
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
         
-    def plotCat(self,func,color='b'):
+    def plotCat(self,func,mark='',color='b'):
         
         s = self.s
         t = self.t
@@ -136,7 +152,7 @@ class sgra():
 
         for arc in range(s):
             adimTimeDur = (pi[arc]/tTot)
-            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],color)
+            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],mark+color)
             # arc beginning with circle
             plt.plot(accAdimTime + adimTimeDur*t[0], \
                      func[0,arc],'o'+color)
@@ -145,6 +161,7 @@ class sgra():
                      func[-1,arc],'s'+color)
             accAdimTime += adimTimeDur    
 #%% Just for avoiding compatibilization issues with other problems
+    # These methods are all properly implemented in probRock class.
     
     def plotTraj(self):
         print("plotTraj: unimplemented method.")
@@ -197,12 +214,20 @@ class sgra():
             plt.semilogy(IterRest,self.histPpsi[IterRest],'r',label='P_psi')
         
         plt.plot(IterRest,self.tol['P']+0.0*IterRest,'-.b',label='tolP')
-        print("\nConvergence report on P:")
+        plt.title("Convergence report on P")
         plt.grid(True)
-        plt.xlabel("Iterations")
+        plt.xlabel("Rest iterations")
         plt.ylabel("P values")
         plt.legend()
-        plt.show()
+        
+        if self.save['histP']:
+            print("Saving P convergence history plot to currSol_histP.pdf!")
+            plt.savefig('currSol_histP.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
+
 
 #%% GRADIENT-WISE METHODS
 
@@ -255,12 +280,21 @@ class sgra():
         if self.histQt[IterGrad].any() > 0:
             plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
 
+        plt.plot(IterGrad,self.tol['P']+0.0*IterGrad,'-.b',label='tolQ')
         plt.title("Convergence report on Q")
         plt.grid(True)
-        plt.xlabel("Iterations")
+        plt.xlabel("Grad iterations")
         plt.ylabel("Q values")
         plt.legend()
-        plt.show()
+        
+        if self.save['histQ']:
+            print("Saving Q convergence history plot to currSol_histQ.pdf!")
+            plt.savefig('currSol_histQ.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
+
         
     def showHistI(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -268,9 +302,17 @@ class sgra():
         plt.title("Convergence report on I")
         plt.plot(IterGrad,self.histI[IterGrad])
         plt.grid(True)
-        plt.xlabel("Iterations")
+        plt.xlabel("Grad iterations")
         plt.ylabel("I values")
-        plt.show()
+        
+        if self.save['histI']:
+            print("Saving I convergence history plot to currSol_histI.pdf!")
+            plt.savefig('currSol_histI.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
+
         
 #%% LMPBVP
 
@@ -299,12 +341,17 @@ class sgra():
                 plt.ylabel("errPos")
                 plt.grid(True)
                 plt.show()
-                
+                plt.clf()
+                plt.close('all')
+
                 if n>1:
                     plt.plot(self.t,err[:,1,arc])
                     plt.ylabel("errVel")
                     plt.grid(True)
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
+
         #######################################################################        
         
         # get gradients
@@ -447,33 +494,46 @@ class sgra():
                     plt.grid(True)
                     plt.ylabel('A: pos')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
+
                     
                     plt.plot(self.t,lam[:,0,arc])
                     plt.grid(True)
                     plt.ylabel('lambda: pos')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
         
                     if n>1:          
                         plt.plot(self.t,A[:,1,arc])
                         plt.grid(True)
                         plt.ylabel('A: vel')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
                         
                         plt.plot(self.t,lam[:,1,arc])
                         plt.grid(True)
                         plt.ylabel('lambda: vel')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
     
                     if n>2:          
                         plt.plot(self.t,A[:,2,arc])
                         plt.grid(True)
                         plt.ylabel('A: gama')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
                         
                         plt.plot(self.t,lam[:,2,arc])
                         plt.grid(True)
                         plt.ylabel('lambda: gamma')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
     
                     
                     if n>3:          
@@ -481,23 +541,31 @@ class sgra():
                         plt.grid(True)
                         plt.ylabel('A: m')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
                         
                         plt.plot(self.t,lam[:,3,arc])
                         plt.grid(True)
                         plt.ylabel('lambda: m')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
     
                     
                     plt.plot(self.t,B[:,0,arc])
                     plt.grid(True)
                     plt.ylabel('B0')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
     
                     if m>1:
                         plt.plot(self.t,B[:,1,arc])
                         plt.grid(True)
                         plt.ylabel('B1')
                         plt.show()
+                        plt.clf()
+                        plt.close('all')
                     
                     print("C[arc] =",C[arc])
                     #input(" > ")
@@ -559,35 +627,47 @@ class sgra():
                 plt.grid(True)
                 plt.ylabel('A: pos')
                 plt.show()
+                plt.clf()
+                plt.close('all')
     
                 if n>1:          
                     plt.plot(self.t,A[:,1,arc])
                     plt.grid(True)
                     plt.ylabel('A: vel')
                     plt.show()
-                
+                    plt.clf()
+                    plt.close('all')
+
                 if n>2:          
                     plt.plot(self.t,A[:,2,arc])
                     plt.grid(True)
                     plt.ylabel('A: gama')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
                 
                 if n>3:          
                     plt.plot(self.t,A[:,3,arc])
                     plt.grid(True)
                     plt.ylabel('A: m')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
                 
                 plt.plot(self.t,B[:,0,arc])
                 plt.grid(True)
                 plt.ylabel('B0')
                 plt.show()
+                plt.clf()
+                plt.close('all')
 
                 if m>1:
                     plt.plot(self.t,B[:,1,arc])
                     plt.grid(True)
                     plt.ylabel('B1')
                     plt.show()
+                    plt.clf()
+                    plt.close('all')
 
                 
                 print("C[arc] =",C[arc])

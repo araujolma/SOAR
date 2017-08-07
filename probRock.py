@@ -540,6 +540,9 @@ class prob(sgra):
                 plt.xlabel("t")
                 plt.ylabel("f")
                 plt.show()
+                plt.clf()
+                plt.close('all')
+
 
         if self.dbugOptGrad.get('plotI',False):
             print("I =",Ivec)
@@ -576,34 +579,35 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
         #
-            
-        plt.subplot2grid((8,4),(0,0),colspan=5)
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        
+        plt.subplot2grid((8,1),(0,0))
         self.plotCat(x[:,0,:])
         plt.grid(True)
         plt.ylabel("h [km]")
         plt.title(titlStr)
         
-        plt.subplot2grid((8,4),(1,0),colspan=5)
+        plt.subplot2grid((8,1),(1,0))
         self.plotCat(x[:,1,:],color='g')
         plt.grid(True)
         plt.ylabel("V [km/s]")
         
-        plt.subplot2grid((8,4),(2,0),colspan=5)
+        plt.subplot2grid((8,1),(2,0))
         self.plotCat(x[:,2,:]*180/numpy.pi,color='r')
         plt.grid(True)
         plt.ylabel("gamma [deg]")
         
-        plt.subplot2grid((8,4),(3,0),colspan=5)
+        plt.subplot2grid((8,1),(3,0))
         self.plotCat(x[:,3,:],color='m')
         plt.grid(True)
         plt.ylabel("m [kg]")
         
-        plt.subplot2grid((8,4),(4,0),colspan=5)
+        plt.subplot2grid((8,1),(4,0))
         self.plotCat(u[:,0,:],color='k')
         plt.grid(True)
         plt.ylabel("u1 [-]")
         
-        plt.subplot2grid((8,4),(5,0),colspan=5)
+        plt.subplot2grid((8,1),(5,0))
         self.plotCat(u[:,1,:],color='c')
         plt.grid(True)
         plt.xlabel("t")
@@ -612,7 +616,7 @@ class prob(sgra):
         ######################################
         alpha,beta = self.calcDimCtrl()
         alpha *= 180.0/numpy.pi
-        plt.subplot2grid((8,4),(6,0),colspan=5)
+        plt.subplot2grid((8,1),(6,0))
         self.plotCat(alpha)
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
@@ -621,7 +625,7 @@ class prob(sgra):
         plt.xlabel("t")
         plt.ylabel("alpha [deg]")
         
-        plt.subplot2grid((8,4),(7,0),colspan=5)
+        plt.subplot2grid((8,1),(7,0))
         self.plotCat(beta)
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
@@ -630,11 +634,24 @@ class prob(sgra):
         plt.xlabel("t")
         plt.ylabel("beta [-]")
         ######################################
-        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.show()
+        #plt.suptitle(titlStr)
+        
+
+        # TODO: include a plot for visualization of pi!
+
+        if self.save['sol']:
+            print("Saving solution plot to currSol.pdf!")
+            plt.savefig('currSol.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
+            
         print("pi =",pi)
         print("Final rocket mass: {:.4E}\n".format(x[-1,3,self.s-1]))
     #
+    
+    # TODO: make compWith more like the plotSol! (subarcs and everything)
     
     def compWith(self,altSol,altSolLabl='altSol'):
         print("\nComparing solutions...\n")
@@ -652,6 +669,9 @@ class prob(sgra):
             plt.title('Height')
             plt.legend()
             plt.show()
+            plt.clf()
+            plt.close('all')
+
             
             plt.plot(altSol.t,altSol.x[:,1,arc],label=altSolLabl)
             plt.plot(self.t,self.x[:,1,arc],'--g',label=currSolLabl)
@@ -661,7 +681,9 @@ class prob(sgra):
             plt.title('Absolute speed')
             plt.legend()
             plt.show()
-            
+            plt.clf()
+            plt.close('all')
+     
             plt.plot(altSol.t,altSol.x[:,2,arc]*180/numpy.pi,label=altSolLabl)
             plt.plot(self.t,self.x[:,2,arc]*180/numpy.pi,'--r',label=currSolLabl)    
             plt.grid()
@@ -670,7 +692,9 @@ class prob(sgra):
             plt.title('Flight path angle')
             plt.legend()
             plt.show()
-            
+            plt.clf()
+            plt.close('all')
+       
             plt.plot(altSol.t,altSol.x[:,3,arc],label=altSolLabl)
             plt.plot(self.t,self.x[:,3,arc],'--m',label=currSolLabl)
             plt.grid()
@@ -679,6 +703,9 @@ class prob(sgra):
             plt.title('Rocket mass')
             plt.legend()
             plt.show()
+            plt.clf()
+            plt.close('all')
+
                         
             alpha,beta = self.calcDimCtrl()
             alpha_alt,beta_alt = altSol.calcDimCtrl()
@@ -690,6 +717,8 @@ class prob(sgra):
             plt.title('Attack angle')
             plt.legend()
             plt.show()
+            plt.clf()
+            plt.close('all')
             
             plt.plot(altSol.t,beta_alt[:,arc],label=altSolLabl)
             plt.plot(self.t,beta[:,arc],'--k',label=currSolLabl)
@@ -699,6 +728,8 @@ class prob(sgra):
             plt.title('Thrust profile')
             plt.legend()
             plt.show()
+            plt.clf()
+            plt.close('all')
             
         print("Final rocket mass:")       
         mFinSol, mFinAlt = self.x[self.N-1,3,s-1], altSol.x[altSol.N-1,3,s-1]
@@ -837,7 +868,14 @@ class prob(sgra):
         plt.ylabel("Z [km]")
         plt.axis('equal')
         plt.title("Rocket trajectory on Earth")
-        plt.show()
+        
+        if self.save['traj']:
+            print("Saving trajectory plot to currSol_traj.pdf!")
+            plt.savefig('currSol_traj.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
         
 #
 #%%

@@ -17,7 +17,7 @@ class ITman():
         self.defOpt = 'loadSol'#'newSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = 'solInitRest.pkl'#'solInit.pkl'#'contHere.pkl'
+        self.loadSolDir = 'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
@@ -296,7 +296,7 @@ class ITman():
             
             if self.saveSolCond(sol):
                 self.prntDashStr()
-                self.saveSol(sol,'contHere.pkl')
+                self.saveSol(sol,'currSol.pkl')
             
             if self.plotSolCond(sol):
                 self.prntDashStr()
