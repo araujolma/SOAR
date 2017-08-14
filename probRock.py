@@ -633,9 +633,7 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("beta [-]")
-        ######################################
-        #plt.suptitle(titlStr)
-        
+        ######################################        
 
         # TODO: include a plot for visualization of pi!
 
@@ -651,88 +649,171 @@ class prob(sgra):
         print("Final rocket mass: {:.4E}\n".format(x[-1,3,self.s-1]))
     #
     
-    # TODO: make compWith more like the plotSol! (subarcs and everything)
-    
     def compWith(self,altSol,altSolLabl='altSol'):
         print("\nComparing solutions...\n")
+
         currSolLabl = 'currentSol'
-        s = self.s
+
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
-
-        for arc in range(s):
+        plt.subplot2grid((8,1),(0,0))
+        altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("h [km]")
+        plt.legend()
+        plt.title("Comparing solutions: "+currSolLabl+" and "+\
+                  altSolLabl)
         
-            plt.plot(altSol.t,altSol.x[:,0,arc],label=altSolLabl)
-            plt.plot(self.t,self.x[:,0,arc],'--y',label=currSolLabl)
-            plt.grid()
-            plt.ylabel("h [km]")
-            plt.xlabel("t [-]")
-            plt.title('Height')
-            plt.legend()
-            plt.show()
-            plt.clf()
-            plt.close('all')
+        plt.subplot2grid((8,1),(1,0))
+        altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("V [km/s]")
+        plt.legend()
+        
+        plt.subplot2grid((8,1),(2,0))
+        altSol.plotCat(altSol.x[:,2,:]*180/numpy.pi,labl=altSolLabl)
+        self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
+                     labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("gamma [deg]")
+        plt.legend()
+        
+        plt.subplot2grid((8,1),(3,0))
+        altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
+        self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("m [kg]")
+        plt.legend()
+        
+        plt.subplot2grid((8,1),(4,0))
+        altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],mark='--',color='k',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("u1 [-]")
+        plt.legend()
+        
+        plt.subplot2grid((8,1),(5,0))
+        altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
+        self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
+        plt.grid(True)
+        plt.xlabel("t")
+        plt.ylabel("u2 [-]")
+        plt.legend()
+        
+        ######################################
+        alpha,beta = self.calcDimCtrl()
+        alpha_alt,beta_alt = altSol.calcDimCtrl()
+        plt.subplot2grid((8,1),(6,0))
+        altSol.plotCat(alpha_alt*180/numpy.pi,labl=altSolLabl)
+        self.plotCat(alpha*180/numpy.pi,mark='--',color='g',labl=currSolLabl)
 
-            
-            plt.plot(altSol.t,altSol.x[:,1,arc],label=altSolLabl)
-            plt.plot(self.t,self.x[:,1,arc],'--g',label=currSolLabl)
-            plt.grid()
-            plt.ylabel("V [km/s]")
-            plt.xlabel("t [-]")
-            plt.title('Absolute speed')
-            plt.legend()
-            plt.show()
-            plt.clf()
-            plt.close('all')
-     
-            plt.plot(altSol.t,altSol.x[:,2,arc]*180/numpy.pi,label=altSolLabl)
-            plt.plot(self.t,self.x[:,2,arc]*180/numpy.pi,'--r',label=currSolLabl)    
-            plt.grid()
-            plt.ylabel("gamma [deg]")
-            plt.xlabel("t [-]")
-            plt.title('Flight path angle')
-            plt.legend()
-            plt.show()
-            plt.clf()
-            plt.close('all')
-       
-            plt.plot(altSol.t,altSol.x[:,3,arc],label=altSolLabl)
-            plt.plot(self.t,self.x[:,3,arc],'--m',label=currSolLabl)
-            plt.grid()
-            plt.ylabel("m [kg]")
-            plt.xlabel("t [-]")
-            plt.title('Rocket mass')
-            plt.legend()
-            plt.show()
-            plt.clf()
-            plt.close('all')
+        #plt.hold(True)
+        #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
+        #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
+        plt.grid(True)
+        plt.xlabel("t")
+        plt.ylabel("alpha [deg]")
+        plt.legend()
+        
+        plt.subplot2grid((8,1),(7,0))
+        altSol.plotCat(beta_alt,labl=altSolLabl)
+        self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
 
-                        
-            alpha,beta = self.calcDimCtrl()
-            alpha_alt,beta_alt = altSol.calcDimCtrl()
-            plt.plot(altSol.t,alpha_alt[:,arc]*180/numpy.pi,label=altSolLabl)
-            plt.plot(self.t,alpha[:,arc]*180/numpy.pi,'--g',label=currSolLabl)
-            plt.grid()
-            plt.xlabel("t [-]")
-            plt.ylabel("alfa [deg]")
-            plt.title('Attack angle')
-            plt.legend()
+        #plt.hold(True)
+        #plt.plot(t,beta*0+beta_max,'-.k')
+        #plt.plot(t,beta*0+beta_min,'-.k')
+        plt.grid(True)
+        plt.xlabel("t")
+        plt.ylabel("beta [-]")
+        plt.legend()
+        ######################################
+        
+        if self.save['comp']:
+            print("Saving comparisons plot to currSol_comp.pdf!")
+            plt.savefig('currSol_comp.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
             plt.show()
-            plt.clf()
-            plt.close('all')
-            
-            plt.plot(altSol.t,beta_alt[:,arc],label=altSolLabl)
-            plt.plot(self.t,beta[:,arc],'--k',label=currSolLabl)
-            plt.grid()
-            plt.xlabel("t [-]")
-            plt.ylabel("beta [-]")
-            plt.title('Thrust profile')
-            plt.legend()
-            plt.show()
-            plt.clf()
-            plt.close('all')
+        plt.clf()
+        plt.close('all')
+
+#        
+#        for arc in range(s):
+#        
+#            plt.plot(altSol.t,altSol.x[:,0,arc],label=altSolLabl)
+#            plt.plot(self.t,self.x[:,0,arc],'--y',label=currSolLabl)
+#            plt.grid()
+#            plt.ylabel("h [km]")
+#            plt.xlabel("t [-]")
+#            plt.title('Height')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
+#
+#            
+#            plt.plot(altSol.t,altSol.x[:,1,arc],label=altSolLabl)
+#            plt.plot(self.t,self.x[:,1,arc],'--g',label=currSolLabl)
+#            plt.grid()
+#            plt.ylabel("V [km/s]")
+#            plt.xlabel("t [-]")
+#            plt.title('Absolute speed')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
+#     
+#            plt.plot(altSol.t,altSol.x[:,2,arc]*180/numpy.pi,label=altSolLabl)
+#            plt.plot(self.t,self.x[:,2,arc]*180/numpy.pi,'--r',label=currSolLabl)    
+#            plt.grid()
+#            plt.ylabel("gamma [deg]")
+#            plt.xlabel("t [-]")
+#            plt.title('Flight path angle')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
+#       
+#            plt.plot(altSol.t,altSol.x[:,3,arc],label=altSolLabl)
+#            plt.plot(self.t,self.x[:,3,arc],'--m',label=currSolLabl)
+#            plt.grid()
+#            plt.ylabel("m [kg]")
+#            plt.xlabel("t [-]")
+#            plt.title('Rocket mass')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
+#
+#                        
+#            alpha,beta = self.calcDimCtrl()
+#            alpha_alt,beta_alt = altSol.calcDimCtrl()
+#            plt.plot(altSol.t,alpha_alt[:,arc]*180/numpy.pi,label=altSolLabl)
+#            plt.plot(self.t,alpha[:,arc]*180/numpy.pi,'--g',label=currSolLabl)
+#            plt.grid()
+#            plt.xlabel("t [-]")
+#            plt.ylabel("alfa [deg]")
+#            plt.title('Attack angle')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
+#            
+#            plt.plot(altSol.t,beta_alt[:,arc],label=altSolLabl)
+#            plt.plot(self.t,beta[:,arc],'--k',label=currSolLabl)
+#            plt.grid()
+#            plt.xlabel("t [-]")
+#            plt.ylabel("beta [-]")
+#            plt.title('Thrust profile')
+#            plt.legend()
+#            plt.show()
+#            plt.clf()
+#            plt.close('all')
             
         print("Final rocket mass:")       
-        mFinSol, mFinAlt = self.x[self.N-1,3,s-1], altSol.x[altSol.N-1,3,s-1]
+        mFinSol = self.x[self.N-1,3,self.s-1]
+        mFinAlt = altSol.x[altSol.N-1,3,altSol.s-1]
         print(currSolLabl+": {:.4E}".format(mFinSol)+" kg.")
         print(altSolLabl+": {:.4E}".format(mFinAlt)+" kg.")
         print("Difference: {:.4E}".format(mFinSol-mFinAlt)+" kg, "+\

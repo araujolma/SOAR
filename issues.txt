@@ -1,9 +1,9 @@
 For upload:
-- @plotSol: include a plot for visualization of pi
-- @compWith: change the layout for compatibilization with plotSol
 - Update README.md
 
 Already up:
+- @compWith: change the layout for compatibilization with plotSol
+- @plotSol: include a plot for visualization of pi
 - Introduce the acceleration limitation
 - Enter the parallel computing!
 - plotTraj does not compare two trajectories

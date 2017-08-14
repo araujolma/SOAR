@@ -140,7 +140,7 @@ class sgra():
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
         
-    def plotCat(self,func,mark='',color='b'):
+    def plotCat(self,func,mark='',color='b',labl=''):
         
         s = self.s
         t = self.t
@@ -152,7 +152,8 @@ class sgra():
 
         for arc in range(s):
             adimTimeDur = (pi[arc]/tTot)
-            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],mark+color)
+            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],mark+color,\
+                     label=labl)
             # arc beginning with circle
             plt.plot(accAdimTime + adimTimeDur*t[0], \
                      func[0,arc],'o'+color)
@@ -325,7 +326,7 @@ class sgra():
         
         # get sizes
         Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
-        rho1 = rho-1.0
+        rho1 = rho - 1.0
         
         # calculate phi and psi
         phi = self.calcPhi()

@@ -14,7 +14,7 @@ class ITman():
     dashStr = '\n-------------------------------------------------------------'
     
     def __init__(self):
-        self.defOpt = 'loadSol'#'newSol'#
+        self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
         self.loadSolDir = 'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
@@ -101,7 +101,8 @@ class ITman():
         
         print(self.dashStr)
         sol.printPars()
-        self.prntDashStr
+        sol.plotSol()
+        self.prntDashStr()
         print("\nAre these parameters OK?")
         print("Press any key to continue, or ctrl+C to stop.")
         input(self.bscImpStr)
@@ -190,7 +191,7 @@ class ITman():
                            'pausCalcQ':tf,
                            'prntCalcStepGrad':True,
                            'plotCalcStepGrad': True,#tf,
-                           'pausCalcStepGrad':tf,
+                           'pausCalcStepGrad':tf,#True,#tf,
                            'plotQx':tf,#tf,
                            'plotQu':tf,#tf,
                            'plotLam':tf,

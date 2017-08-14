@@ -174,13 +174,9 @@ def calcStepRest(self,corr):
     newSol = self.copy()
     newSol.aplyCorr(1.0,corr)
     P1,_,_ = newSol.calcP()
-
-    newSol = self.copy()
-    newSol.aplyCorr(1.2,corr)
-    P1M,_,_ = newSol.calcP()
             
     if P1 >= P1m or P1 >= P0:
-        print("alfa=1.0 is too much.")
+        print("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
         nP = P1; alfa=1.0
         cont = 0; keepSearch = (nP>P0)
@@ -193,10 +189,18 @@ def calcStepRest(self,corr):
             nP,_,_ = newSol.calcP()
             if nP < P0:
                 keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
-        alfa /= 0.8
+        if cont>0:
+            alfa /= 0.8
     else:
         # no "overdrive!"
         return 1.0
+    
+    
+        # with "overdrive":
+        newSol = self.copy()
+        newSol.aplyCorr(1.2,corr)
+        P1M,_,_ = newSol.calcP()
+
     
         if P1 <= P1M:
             # alfa = 1.0 is likely to be best value. 

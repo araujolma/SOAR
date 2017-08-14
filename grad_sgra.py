@@ -431,8 +431,6 @@ def calcQ(self):
 def calcStepGrad(self,corr):
     
     print("\nIn calcStepGrad.\n")
-
-
     
     prntCond = self.dbugOptGrad['prntCalcStepGrad']
     # Get initial status (Q0, no correction applied)
@@ -441,7 +439,7 @@ def calcStepGrad(self,corr):
     Q0,_,_,_,_ = self.calcQ()
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)
+    stepMan = stepMngr(k = 1e-3*I0/P0)#(k = 1e-9*I0/P0)
     Obj0 = stepMan.calcObj(P0,Q0,I0)
     print("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
