@@ -168,25 +168,6 @@ class ITman():
                            'plotCorr':tf,
                            'plotCorrFin':tf}
         tf = False#True#
-#        sol.dbugOptGrad = {'pausGrad':True,
-#                           'pausCalcQ':tf,
-#                           'prntCalcStepGrad':True,
-#                           'plotCalcStepGrad': True,#tf,
-#                           'pausCalcStepGrad':False,
-#                           'plotQx':False,#tf,
-#                           'plotQu':False,#tf,
-#                           'plotLam':tf,
-#                           'plotQxZoom':False,#tf,
-#                           'plotQuZoom':False,#tf,
-#                           'plotQuComp':False,#tf,
-#                           'plotQuCompZoom':False,#tf,
-#                           'plotSolQxMax':False,#tf,
-#                           'plotSolQuMax':False,#tf,
-#                           'plotCorr':tf,
-#                           'plotCorrFin':tf,
-#                           'plotF':True,
-#                           'plotFint':True,
-#                           'plotI':True}
         sol.dbugOptGrad = {'pausGrad':tf,
                            'pausCalcQ':tf,
                            'prntCalcStepGrad':True,
@@ -228,10 +209,8 @@ class ITman():
             sol.rest()
             contRest += 1
             
-            # turn off debug mode
-            
-            #sol.setAllDbugOptRest(False)
-            
+            # turn off debug mode            
+            # TODO: remove this hardcoded number (20) and use a variable...
             if contRest%20 == 0:
                 print("\nLots of restorations! "+\
                       "Here is the current solution:")
@@ -294,6 +273,7 @@ class ITman():
             sol.grad()
             sol.showHistQ()
             sol.showHistI()
+            sol.showHistGradStep()
             
             if self.saveSolCond(sol):
                 self.prntDashStr()

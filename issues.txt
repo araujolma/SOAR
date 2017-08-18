@@ -1,5 +1,9 @@
 For upload:
 - Update README.md
+- Transition to object: dbugOptGrad, dbugOptRest, plotSavingStatus
+- Avoid excessive memory usage plotting everything every time, but without saving plots every time!
+- External configuration file…
+- Re-discuss transition for ‘restDbugMode’ in ITman.restRnds(), implement a better method
 
 Already up:
 - @compWith: change the layout for compatibilization with plotSol

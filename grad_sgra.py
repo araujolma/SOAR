@@ -50,7 +50,7 @@ class stepMngr():
         if mustPrnt:
             print("\nResults:\nalfa = {:.4E}".format(alfa)+\
                   " P = {:.4E}".format(P)+" Q = {:.4E}".format(Q)+\
-                  " I = {:.4E}".format(I)+" Obj = {:.4E}".format(Obj))
+                  " I = {:.4E}".format(I)+" Obj = {:.7E}".format(Obj))
 
         self.histStep.append(alfa)
         self.histP.append(P)
@@ -439,7 +439,10 @@ def calcStepGrad(self,corr):
     Q0,_,_,_,_ = self.calcQ()
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-3*I0/P0)#(k = 1e-9*I0/P0)
+    stepMan = stepMngr(k = 1e-4*I0/P0)#(k = 1e-9*I0/P0)
+    # TODO: ideias
+    # usar tolP ao inves de P0
+    # usar P-tolP ao inves de P
     Obj0 = stepMan.calcObj(P0,Q0,I0)
     print("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
@@ -459,7 +462,7 @@ def calcStepGrad(self,corr):
         
     # Search for a better starting point for alfa
     Obj = Obj1; keepLook = False; dAlfa = 1.0
-    if Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
+    if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
         if prntCond:
             print("\n> Whoa! Going back to safe region of alphas...\n")
         keepLook = True
@@ -509,7 +512,8 @@ def calcStepGrad(self,corr):
             nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
 
             # TODO: use testAlgn to test alignment of points, 
-            # and use it to improve calcStepGrad.
+            # and use it to improve calcStepGrad. E.G.:
+            
 #            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
 #                           histQ[(cont-4):(cont-1)])) < 1e-3)
 #
@@ -520,7 +524,7 @@ def calcStepGrad(self,corr):
 #                print("m =",m,"b =",b)
                         
             if nObj < Obj0:
-                keepSearch = ((nObj-Obj)/Obj < -.001)#nQ<Q#
+                keepSearch = ((nObj-Obj)/Obj < -.1)#-.001)#nQ<Q#
         alfa /= 0.8
     else:
 

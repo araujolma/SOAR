@@ -106,21 +106,33 @@ class sgra():
                      'histP':True,
                      'histQ':True,
                      'histI':True,
+                     'histGradStep':True,
                      'traj':True,
                      'comp':True}
    
+    # TODO: these methods all seem very much alike. 
+    # Letting another object take care of this would probably be better. 
     def setDbugOptRest(self,allOpt=True,optSet={}):
         for key in self.dbugOptRest.keys():
             self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
     
         print("\nSetting debug options for restoration as follows:")
         pprint.pprint(self.dbugOptRest)
+
     def setDbugOptGrad(self,allOpt=True,optSet={}):
         for key in self.dbugOptRest.keys():
             self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
         
         print("\nSetting debug options for gradient as follows:")
         pprint.pprint(self.dbugOptGrad)
+    
+    def setPlotSaveStat(self,allOpt=True,optSet={}):
+        for key in self.save.keys():
+            self.save[key] = (allOpt and optSet.get(key,True))
+        
+        print("\nSetting plot saving options as follows:")
+        pprint.pprint(self.save)    
+    
     def copy(self):
         return copy.deepcopy(self)
     
@@ -309,6 +321,23 @@ class sgra():
         if self.save['histI']:
             print("Saving I convergence history plot to currSol_histI.pdf!")
             plt.savefig('currSol_histI.pdf',bbox_inches='tight', pad_inches=0.1)
+        else:
+            plt.show()
+        plt.clf()
+        plt.close('all')
+
+    def showHistGradStep(self):
+        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+        
+        plt.title("Gradient step history")
+        plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
+        plt.grid(True)
+        plt.xlabel("Grad iterations")
+        plt.ylabel("Step values")
+        
+        if self.save['histGradStep']:
+            print("Saving GradStep convergence history plot to currSol_histGradStep.pdf!")
+            plt.savefig('currSol_histGradStep.pdf',bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()

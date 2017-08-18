@@ -27,7 +27,7 @@ class prob(sgra):
         p = 2
         q = 6#8
         s = 2
-        N = 1000+1
+        N = 2000+1
 
         self.N = N
         self.n = n
