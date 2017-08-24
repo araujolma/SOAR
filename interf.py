@@ -9,7 +9,14 @@ Created on Wed Jun 28 09:35:29 2017
 import dill, datetime, pprint
 
 class ITman():
-    # iterations manager
+    """Class for the ITerations MANager.
+
+    Only one object from this class is intended to be active during a program
+    run. It manages the iterations in the solution, commands solution saving, 
+    plotting, debug modes, etc.
+    
+    """
+
     bscImpStr = "\n >> "
     dashStr = '\n-------------------------------------------------------------'
     
@@ -35,12 +42,16 @@ class ITman():
         return inp
     
     def printPars(self):
-        dPars = self.__dict__
-#        keyList = dPars.keys()
         print("\nThese are the attributes for the Iterations manager:\n")
-        pprint.pprint(dPars)
+        pprint.pprint(self.__dict__)
     
     def greet(self):
+        """This is the first command to be run at the beggining of the 
+        MSGRA. 
+        
+        The idea is to let the user choose whether he/she wants to load a 
+        previously prepared solution, or generate a new one."""
+        
         self.prntDashStr()      
         print("\nWelcome to SGRA!")
         
@@ -98,7 +109,6 @@ class ITman():
             return
         
     def checkPars(self,sol):
-        
         print(self.dashStr)
         sol.printPars()
         sol.plotSol()
@@ -118,7 +128,8 @@ class ITman():
 
     def saveSol(self,sol,path=''):
         if path == '':
-           path = 'sol_'+str(datetime.datetime.now())+'.pkl'
+           path = 'sol_' + str(datetime.datetime.now()).replace(' ','_') + \
+                  '.pkl'
 
         print("\nWriting solution to '"+path+"'.")        
         with open(path,'wb') as outp:
@@ -127,7 +138,6 @@ class ITman():
     def setInitSol(self,sol):
         if self.isNewSol:
             # declare problem:
-            #opt = {'initMode': 'extSol'}#'crazy'#'default'#'extSol'
             solInit = sol.initGues({'initMode':self.initOpt})
             self.saveSol(sol,'solInit.pkl')
         else:
@@ -136,57 +146,56 @@ class ITman():
             sol = self.loadSol()
             print('Loading "initial" solution (for comparing purposes only)...')
             solInit = self.loadSol('solInit.pkl')#sol.copy()
-        #
-    
-        sol.plotSol()
-        self.checkPars(sol)
         
+        # Plot obtained solution, check parameters
         self.prntDashStr()
         print("\nProposed initial guess:\n")
+        sol.plotSol()
+        self.checkPars(sol)
+
+        # Calculate P values, store them        
         P,Pint,Ppsi = sol.calcP()
-        #print("P = {:.4E}".format(P)+", Pint = {:.4E}".format(Pint)+\
-        #      ", Ppsi = {:.4E}".format(Ppsi)+"\n")
         sol.histP[sol.NIterRest] = P
         sol.histPint[sol.NIterRest] = Pint
         sol.histPpsi[sol.NIterRest] = Ppsi
     
+        # Calculate Q values, just for show. They don't even mean anything.
         Q,Qx,Qu,Qp,Qt = sol.calcQ()
         
-        sol.plotSol()
+        # Plot trajectory
         sol.plotTraj() 
         
-        # Debugging options
-        tf = False
-        sol.dbugOptRest = {'pausRest':tf,
-                           'pausCalcP':tf,
-                           'plotP_int':tf,
-                           'plotP_intZoom':tf,
-                           'plotIntP_int':tf,
-                           'plotSolMaxP':tf,
-                           'plotRsidMaxP':tf,
-                           'plotErr':tf,
-                           'plotCorr':tf,
-                           'plotCorrFin':tf}
-        tf = False#True#
-        sol.dbugOptGrad = {'pausGrad':tf,
-                           'pausCalcQ':tf,
+        # Setting debugging options (rest and grad)
+        sol.dbugOptRest.setAll(tf=True,opt={'pausRest':False,
+                           'pausCalcP':False,
+                           'plotP_int':False,
+                           'plotP_intZoom':False,
+                           'plotIntP_int':False,
+                           'plotSolMaxP':False,
+                           'plotRsidMaxP':False,
+                           'plotErr':False,
+                           'plotCorr':False,
+                           'plotCorrFin':False})
+        flag = False#True#
+        sol.dbugOptGrad.setAll(tf=True,opt={'pausGrad':flag,
+                           'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
-                           'plotCalcStepGrad': True,#tf,
-                           'pausCalcStepGrad':tf,#True,#tf,
-                           'plotQx':tf,#tf,
-                           'plotQu':tf,#tf,
-                           'plotLam':tf,
-                           'plotQxZoom':tf,#tf,
-                           'plotQuZoom':tf,#tf,
-                           'plotQuComp':tf,#tf,
-                           'plotQuCompZoom':tf,#tf,
-                           'plotSolQxMax':tf,#tf,
-                           'plotSolQuMax':tf,#tf,
-                           'plotCorr':tf,
-                           'plotCorrFin':tf,
-                           'plotF':tf,#True,
-                           'plotFint':tf,
-                           'plotI':tf}#True}
+                           'plotCalcStepGrad': True,
+                           'pausCalcStepGrad':flag,#True,
+                           'plotQx':flag,
+                           'plotQu':flag,
+                           'plotLam':flag,
+                           'plotQxZoom':flag,
+                           'plotQuZoom':flag,
+                           'plotQuComp':flag,
+                           'plotQuCompZoom':flag,
+                           'plotSolQxMax':flag,
+                           'plotSolQuMax':flag,
+                           'plotCorr':flag,
+                           'plotCorrFin':flag,
+                           'plotF':flag,#True,
+                           'plotFint':flag,
+                           'plotI':flag})
         
         return sol,solInit
     
@@ -219,18 +228,21 @@ class ITman():
                 print("And here is a partial convergence report:")
                 sol.showHistP()
                 print("Changing to debug mode:")
-                sol.setDbugOptRest(optSet=fullDbugOptRest)#allOpt=True)
+                sol.dbugOptRest.setAll(optSet=fullDbugOptRest)#allOpt=True)
                 print("\nDon't worry, changing in next rest run, back to:\n")
                 pprint.pprint(origDbugOptRest)
-                self.saveSol(sol,'dbugSol.pkl')
+
+                nowStr = str(datetime.datetime.now()).replace(' ','_')
+                self.saveSol(sol,'dbugSol_'+nowStr+'.pkl')
                 #input(" > ")
             else:
-                sol.setDbugOptRest(optSet=origDbugOptRest)
-                
+                sol.dbugOptRest.setAll(opt=origDbugOptRest)
+         
+        
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")
         sol.plotSol()
-        sol.setDbugOptRest(optSet=origDbugOptRest)
+        sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol
     
     def frstRestRnds(self,sol):

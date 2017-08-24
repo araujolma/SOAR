@@ -15,7 +15,7 @@ from interf import ITman
 import probCart as prob
 #import probCartMod as prob
 #import probSmpl as prob
-            
+import os            
 #%%
             
 # ##################
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
     print('\n')
     
-    sol = prob.prob()#probRock.probRock()
+    sol = prob.prob()
     #GradStat = GradStat()
     ITman = ITman()
     ITman.greet()
@@ -51,6 +51,11 @@ if __name__ == "__main__":
     print("\n################################################################")
     print("=== First Guess + MSGRA execution: %s seconds ===\n" % \
           (time.time() - start_time))
+    
+    for k in range(3):
+        print("\a")
+        time.sleep(.1)
+
 #    # Gradient rounds:
 #    NIterGrad = 0
 #    histQ = histP*0.0; histQ[0] = Q

@@ -10,6 +10,23 @@ import rest_sgra, grad_sgra, numpy, copy, pprint
 import matplotlib.pyplot as plt
 from utils import ddt
 
+class binFlagDict(dict):
+    """Class for binary flag dictionaries.
+    Provides good grounding for any settings or options dictionary. """
+
+    def __init__(self,inpDict={},inpName='options'):
+        self.name = inpName
+        
+        for key in inpDict.keys():
+            self[key] = inpDict[key]
+        
+    def setAll(self,tf=True,opt={}):
+        for key in self.keys():
+            self[key] = (tf and opt.get(key,True))
+        
+        print("\nSetting '"+self.name+"' as follows:")
+        pprint.pprint(self)
+
 class sgra():
     """Class for a general instance of the SGRA problem. 
     
@@ -71,7 +88,7 @@ class sgra():
         
         # Debugging options
         tf = False
-        self.dbugOptRest = {'pausRest':tf,
+        self.dbugOptRest = binFlagDict(inpDict={'pausRest':tf,
                             'pausCalcP':tf,
                             'plotP_int':tf,
                             'plotP_intZoom':tf,
@@ -80,9 +97,10 @@ class sgra():
                             'plotRsidMaxP':tf,
                             'plotErr':tf,
                             'plotCorr':tf,
-                            'plotCorrFin':tf}
+                            'plotCorrFin':tf},\
+                                        inpName='Debug options for Rest')
         tf = False#True#
-        self.dbugOptGrad = {'pausGrad':tf,
+        self.dbugOptGrad = binFlagDict(inpDict={'pausGrad':tf,
                             'pausCalcQ':tf,
                             'prntCalcStepGrad':tf,
                             'plotCalcStepGrad': tf,
@@ -99,39 +117,41 @@ class sgra():
                             'plotCorr':tf,
                             'plotCorrFin':tf,
                             'plotF':tf,
-                            'plotFint':tf}
+                            'plotFint':tf},\
+                                        inpName='Debug options for Grad')
         
         # Solution plot saving status:
-        self.save = {'sol':True,
+        self.save = binFlagDict(inpDict={'sol':True,
                      'histP':True,
                      'histQ':True,
                      'histI':True,
                      'histGradStep':True,
                      'traj':True,
-                     'comp':True}
+                     'comp':True},\
+                                inpName='Plot saving options')
    
     # TODO: these methods all seem very much alike. 
     # Letting another object take care of this would probably be better. 
-    def setDbugOptRest(self,allOpt=True,optSet={}):
-        for key in self.dbugOptRest.keys():
-            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
-    
-        print("\nSetting debug options for restoration as follows:")
-        pprint.pprint(self.dbugOptRest)
-
-    def setDbugOptGrad(self,allOpt=True,optSet={}):
-        for key in self.dbugOptRest.keys():
-            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
-        
-        print("\nSetting debug options for gradient as follows:")
-        pprint.pprint(self.dbugOptGrad)
-    
-    def setPlotSaveStat(self,allOpt=True,optSet={}):
-        for key in self.save.keys():
-            self.save[key] = (allOpt and optSet.get(key,True))
-        
-        print("\nSetting plot saving options as follows:")
-        pprint.pprint(self.save)    
+#    def setDbugOptRest(self,allOpt=True,optSet={}):
+#        for key in self.dbugOptRest.keys():
+#            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
+#    
+#        print("\nSetting debug options for restoration as follows:")
+#        pprint.pprint(self.dbugOptRest)
+#
+#    def setDbugOptGrad(self,allOpt=True,optSet={}):
+#        for key in self.dbugOptRest.keys():
+#            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
+#        
+#        print("\nSetting debug options for gradient as follows:")
+#        pprint.pprint(self.dbugOptGrad)
+#    
+#    def setPlotSaveStat(self,allOpt=True,optSet={}):
+#        for key in self.save.keys():
+#            self.save[key] = (allOpt and optSet.get(key,True))
+#        
+#        print("\nSetting plot saving options as follows:")
+#        pprint.pprint(self.save)    
     
     def copy(self):
         return copy.deepcopy(self)
@@ -348,9 +368,8 @@ class sgra():
 
     def LMPBVP(self,rho=0.0):
         
-        # TIRAR ISSO DEPOIS!!
         #######################################################################
-        numpy.set_printoptions(threshold=500)
+        #numpy.set_printoptions(threshold=500)
         #######################################################################
         
         # get sizes
@@ -381,7 +400,6 @@ class sgra():
                     plt.show()
                     plt.clf()
                     plt.close('all')
-
         #######################################################################        
         
         # get gradients
