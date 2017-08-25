@@ -10,9 +10,9 @@ import datetime, time
 #import matplotlib.pyplot as plt
 
 from interf import ITman
-#import probRock as prob
+import probRock as prob
 #import prob101 as prob
-import probCart as prob
+#import probCart as prob
 #import probCartMod as prob
 #import probSmpl as prob
 import os            
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     sol = prob.prob()
     #GradStat = GradStat()
-    ITman = ITman()
+    ITman = ITman(probName=sol.probName)
     ITman.greet()
     
     start_time = time.time()
@@ -40,6 +40,17 @@ if __name__ == "__main__":
     sol = ITman.gradRestCycl(sol,solInit)
     
     sol = ITman.restRnds(sol)
+    
+    print("\n\n")
+    print("##################################################################")
+    print("                   OPTIMIZATION FINISHED!                         ")
+    print("##################################################################")
+    ITman.saveSol(sol,ITman.probName+'_currSol.pkl')
+    sol.showHistP()
+
+    sol.showHistQ()
+    sol.showHistI()
+    sol.showHistGradStep()
     
     print("\n\n")
     print("##################################################################")

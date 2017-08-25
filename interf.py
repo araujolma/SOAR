@@ -20,19 +20,25 @@ class ITman():
     bscImpStr = "\n >> "
     dashStr = '\n-------------------------------------------------------------'
     
-    def __init__(self):
+    def __init__(self,probName='currSol'):
+        self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = 'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
+        self.loadSolDir = probName+'_initRest.pkl'
+        #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
         self.NSlntRuns = 0
         self.mustAsk = True
-        self.GRplotSolRate = 1
+        self.GRplotSolRate = 5
         self.GRsaveSolRate = 5
         self.GRpausRate = 1000#1000#10
+        self.GradHistShowRate = 5
+        self.RestPlotSolRate = 5
+        self.RestHistShowRate = 5
+        
     
     def prntDashStr(self):
         print(self.dashStr)
@@ -54,7 +60,7 @@ class ITman():
         
         self.prntDashStr()      
         print("\nWelcome to SGRA!")
-        
+        print("Loading settings for problem: "+self.probName)
         self.prntDashStr()      
         self.printPars()     
         
@@ -128,8 +134,8 @@ class ITman():
 
     def saveSol(self,sol,path=''):
         if path == '':
-           path = 'sol_' + str(datetime.datetime.now()).replace(' ','_') + \
-                  '.pkl'
+           path = self.probName + '_sol_' + \
+           str(datetime.datetime.now()).replace(' ','_') + '.pkl'
 
         print("\nWriting solution to '"+path+"'.")        
         with open(path,'wb') as outp:
@@ -139,13 +145,13 @@ class ITman():
         if self.isNewSol:
             # declare problem:
             solInit = sol.initGues({'initMode':self.initOpt})
-            self.saveSol(sol,'solInit.pkl')
+            self.saveSol(sol,self.probName+'_solInit.pkl')
         else:
             # load previously prepared solution
             print('Loading "current" solution...')
             sol = self.loadSol()
             print('Loading "initial" solution (for comparing purposes only)...')
-            solInit = self.loadSol('solInit.pkl')#sol.copy()
+            solInit = self.loadSol(self.probName+'_solInit.pkl')#sol.copy()
         
         # Plot obtained solution, check parameters
         self.prntDashStr()
@@ -199,6 +205,18 @@ class ITman():
         
         return sol,solInit
     
+    def showHistPCond(self,sol):
+        if sol.NIterRest % self.RestHistShowRate == 0:
+            return True
+        else:
+            return False
+        
+    def plotSolRestCond(self,sol):
+        if sol.NIterRest % self.RestPlotSolRate == 0:
+            return True
+        else:
+            return False
+    
     def restRnds(self,sol):
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
@@ -228,12 +246,12 @@ class ITman():
                 print("And here is a partial convergence report:")
                 sol.showHistP()
                 print("Changing to debug mode:")
-                sol.dbugOptRest.setAll(optSet=fullDbugOptRest)#allOpt=True)
+                sol.dbugOptRest.setAll(opt=fullDbugOptRest)#allOpt=True)
                 print("\nDon't worry, changing in next rest run, back to:\n")
                 pprint.pprint(origDbugOptRest)
 
                 nowStr = str(datetime.datetime.now()).replace(' ','_')
-                self.saveSol(sol,'dbugSol_'+nowStr+'.pkl')
+                self.saveSol(sol,self.probName+'_dbugSol_'+nowStr+'.pkl')
                 #input(" > ")
             else:
                 sol.dbugOptRest.setAll(opt=origDbugOptRest)
@@ -251,12 +269,30 @@ class ITman():
         sol.P,_,_ = sol.calcP()
         sol = self.restRnds(sol)
         
-        self.saveSol(sol,'solInitRest.pkl')
+        self.saveSol(sol,self.probName+'_solInitRest.pkl')
     
         return sol
     
-    def plotSolCond(self,sol):
-        if sol.NIterGrad % self.GRplotSolRate==0:
+    def showHistQCond(self,sol):
+        if sol.NIterGrad % self.GradHistShowRate == 0:
+            return True
+        else:
+            return False
+
+    def showHistICond(self,sol):
+        if sol.NIterGrad % self.GradHistShowRate == 0:
+            return True
+        else:
+            return False
+
+    def showHistGradStepCond(self,sol):
+        if sol.NIterGrad % self.GradHistShowRate == 0:
+            return True
+        else:
+            return False
+        
+    def plotSolGradCond(self,sol):
+        if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
         else:
             return False
@@ -283,15 +319,21 @@ class ITman():
             sol = self.restRnds(sol)
 
             sol.grad()
-            sol.showHistQ()
-            sol.showHistI()
-            sol.showHistGradStep()
+            
+            if self.showHistQCond(sol):
+                sol.showHistQ()
+                
+            if self.showHistICond(sol):
+                sol.showHistI()
+            
+            if self.showHistGradStepCond(sol):
+                sol.showHistGradStep()
             
             if self.saveSolCond(sol):
                 self.prntDashStr()
-                self.saveSol(sol,'currSol.pkl')
+                self.saveSol(sol,self.probName+'_currSol.pkl')
             
-            if self.plotSolCond(sol):
+            if self.plotSolGradCond(sol):
                 self.prntDashStr()
                 print("\nSolution so far:")
                 sol.plotSol()

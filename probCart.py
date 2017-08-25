@@ -19,7 +19,8 @@ from sgra import sgra
 import matplotlib.pyplot as plt
 
 class prob(sgra):
-
+    probName = 'probCart'
+    
     def initGues(self,opt={}):
         # matrix sizes
         n = 2

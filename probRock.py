@@ -11,6 +11,7 @@ from atmosphere import rho
 import matplotlib.pyplot as plt
 
 class prob(sgra):
+    probName = 'probRock'
 
     def initGues(self,opt={}):
         # matrix sizes
@@ -19,7 +20,7 @@ class prob(sgra):
         p = 1
         q = 7
         s = 1
-        N = 20000+1#40000+1#20000+1#5000000 + 1 #1000 + 1#
+        N = 10000 + 1#20000+1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -638,8 +639,8 @@ class prob(sgra):
         # TODO: include a plot for visualization of pi!
 
         if self.save['sol']:
-            print("Saving solution plot to currSol.pdf!")
-            plt.savefig('currSol.pdf',bbox_inches='tight', pad_inches=0.1)
+            print("Saving solution plot to "+self.probName+"_currSol.pdf!")
+            plt.savefig(self.probName+"_currSol.pdf",bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
@@ -731,8 +732,8 @@ class prob(sgra):
         ######################################
         
         if self.save['comp']:
-            print("Saving comparisons plot to currSol_comp.pdf!")
-            plt.savefig('currSol_comp.pdf',bbox_inches='tight', pad_inches=0.1)
+            print("Saving comparisons plot to "+self.probName+"_comp.pdf!")
+            plt.savefig(self.probName+"_comp.pdf",bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
@@ -951,8 +952,9 @@ class prob(sgra):
         plt.title("Rocket trajectory on Earth")
         
         if self.save['traj']:
-            print("Saving trajectory plot to currSol_traj.pdf!")
-            plt.savefig('currSol_traj.pdf',bbox_inches='tight', pad_inches=0.1)
+            print("Saving trajectory plot to " + self.probName + \
+                  "_traj.pdf!")
+            plt.savefig(self.probName + "_traj.pdf",bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()

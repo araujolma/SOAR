@@ -36,6 +36,8 @@ class sgra():
     Each instance of an optimization problem must then inherit these methods 
     and properties. """
     
+    probName = 'probSGRA'
+    
     def __init__(self):
         # these numbers should not make any sense; 
         # they should change with the problem
@@ -254,8 +256,9 @@ class sgra():
         plt.legend()
         
         if self.save['histP']:
-            print("Saving P convergence history plot to currSol_histP.pdf!")
-            plt.savefig('currSol_histP.pdf',bbox_inches='tight', pad_inches=0.1)
+            print('Saving P convergence history plot to ' + self.probName + \
+                  '_histP.pdf!')
+            plt.savefig(self.probName+'_histP.pdf',bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
@@ -321,8 +324,9 @@ class sgra():
         plt.legend()
         
         if self.save['histQ']:
-            print("Saving Q convergence history plot to currSol_histQ.pdf!")
-            plt.savefig('currSol_histQ.pdf',bbox_inches='tight', pad_inches=0.1)
+            print('Saving Q convergence history plot to '+ self.probName + \
+                  'l_histQ.pdf!')
+            plt.savefig(self.probName+'_histQ.pdf',bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
@@ -339,8 +343,9 @@ class sgra():
         plt.ylabel("I values")
         
         if self.save['histI']:
-            print("Saving I convergence history plot to currSol_histI.pdf!")
-            plt.savefig('currSol_histI.pdf',bbox_inches='tight', pad_inches=0.1)
+            print('Saving I convergence history plot to '+ self.probName + \
+                  '_histI.pdf!')
+            plt.savefig(self.probName+'_histI.pdf',bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
@@ -356,8 +361,9 @@ class sgra():
         plt.ylabel("Step values")
         
         if self.save['histGradStep']:
-            print("Saving GradStep convergence history plot to currSol_histGradStep.pdf!")
-            plt.savefig('currSol_histGradStep.pdf',bbox_inches='tight', pad_inches=0.1)
+            print('Saving GradStep convergence history plot to '+ \
+                  self.probName + '_histGradStep.pdf!')
+            plt.savefig(self.probName+'_histGradStep.pdf',bbox_inches='tight', pad_inches=0.1)
         else:
             plt.show()
         plt.clf()
