@@ -511,7 +511,7 @@ class sgra():
                     nonHom[k,:n,arc] = nonHA#.copy()
                     nonHom[k,n:,arc] = nonHL#.copy()
                     
-            # Integrate the LSODE:
+            # Integrate the LSODE (Heun's method):
             for arc in range(s):
                 B[0,:,arc] = -rho*fu[0,:,arc] + \
                                     phiuTr[0,:,:,arc].dot(lam[0,:,arc])
@@ -631,7 +631,11 @@ class sgra():
             arrayC[j,:] = C.copy()
             arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
             Ct[:,j] = C.copy()
-        #
+        # 
+        # Outputs: arrayA,arrayB,arrayC,arrayL; Ct,Dt,Et; phiLamInt
+        
+        #All integrations ready!
+        phiLamInt *= dt
         
 ###############################################################################
         if rho > 0.5:
@@ -640,10 +644,6 @@ class sgra():
             print("Dt =",Dt)
             print("Et =",Et)
 ###############################################################################
-        
-        
-        #All integrations ready!
-        phiLamInt *= dt
         
         # Finish assembly of matrix M
         M[1:(q+1),:(Ns+1)] = psiy.dot(Dt) + psip.dot(Ct) # from eq (34a)

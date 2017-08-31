@@ -47,10 +47,10 @@ class prob(sgra):
         # Earth constants
         r_e = 6371.0           # km
         GM = 398600.4415       # km^3 s^-2
-        grav_e = GM/r_e/r_e#9.8e-3        # km/s^2
+        grav_e = GM/r_e/r_e    #9.8e-3       km/s^2
     
         # rocket constants
-        Thrust = 40.0                 # kg km/s²  1.3*m_initial # N
+        Thrust = 40.0                 # kg km/s² [= kN] 1.3*m_initial # N
         
         scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
