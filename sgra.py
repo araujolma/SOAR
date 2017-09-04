@@ -9,6 +9,7 @@ Created on Tue Jun 27 13:07:35 2017
 import rest_sgra, grad_sgra, numpy, copy, pprint
 import matplotlib.pyplot as plt
 from utils import ddt
+from multiprocessing import Pool
 
 class binFlagDict(dict):
     """Class for binary flag dictionaries.
@@ -26,6 +27,430 @@ class binFlagDict(dict):
         
         print("\nSetting '"+self.name+"' as follows:")
         pprint.pprint(self)
+
+class LMPBVPhelp():
+
+    def __init__(self,sol,rho):
+
+        # debug options...
+        self.dbugOptGrad = sol.dbugOptGrad
+        self.dbugOptRest = sol.dbugOptRest
+        self.t = sol.t
+        
+        # get sizes
+        Ns,N,m,n,p,q,s = sol.Ns,sol.N,sol.m,sol.n,sol.p,sol.q,sol.s
+        self.Ns,self.N,self.m,self.n,self.p,self.q,self.s = Ns,N,m,n,p,q,s
+        self.dt = 1.0/(N-1)
+        self.rho = rho
+        rho1 = rho - 1.0
+
+        self.arrayA = numpy.empty((Ns+1,N,n,s))
+        self.arrayB = numpy.empty((Ns+1,N,m,s))
+        self.arrayC = numpy.empty((Ns+1,p))
+        self.arrayL = numpy.empty((Ns+1,N,n,s))
+        
+        # calculate integration error (only if necessary)
+        psi = sol.calcPsi()
+        if rho < .5:
+            # calculate phi and psi
+            phi = sol.calcPhi()
+            err = phi - ddt(sol.x,N)
+        else:
+            err = numpy.zeros((N,n,s))
+                
+        self.err = err
+        
+        #######################################################################
+        if rho < 0.5 and self.dbugOptRest['plotErr']:
+            print("\nThis is err:")
+            for arc in range(s):
+                plt.plot(self.t,err[:,0,arc])
+                plt.ylabel("errPos")
+                plt.grid(True)
+                plt.show()
+                plt.clf()
+                plt.close('all')
+
+                if n>1:
+                    plt.plot(self.t,err[:,1,arc])
+                    plt.ylabel("errVel")
+                    plt.grid(True)
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+        #######################################################################        
+        
+        # get gradients
+        #print("Calc grads...")
+        Grads = sol.calcGrads()
+        
+        #dt6 = dt/6
+        phix = Grads['phix']
+        phiu = Grads['phiu']
+        phip = Grads['phip']
+        psiy = Grads['psiy']
+        psip = Grads['psip']
+        fx = Grads['fx']
+        fu = Grads['fu']
+        fp = Grads['fp']
+        
+        self.phip = phip
+        self.psiy = psiy
+        self.psip = psip
+        self.fx = fx
+        self.fu = fu
+        
+        #print("Preparing matrices...")
+        phixTr = numpy.empty_like(phix)
+        phiuTr = numpy.empty((N,m,n,s))
+        phipTr = numpy.empty((N,p,n,s))
+        phiuFu = numpy.empty((N,n,s))
+        for arc in range(s):
+            for k in range(N):
+                phixTr[k,:,:,arc] = phix[k,:,:,arc].transpose()
+                phiuTr[k,:,:,arc] = phiu[k,:,:,arc].transpose()
+                phipTr[k,:,:,arc] = phip[k,:,:,arc].transpose()
+                phiuFu[k,:,arc] = phiu[k,:,:,arc].dot(fu[k,:,arc])
+        self.phiuFu = phiuFu
+        self.phiuTr = phiuTr
+        self.phipTr = phipTr
+        
+        InitCondMat = numpy.eye(Ns,Ns+1)
+        self.InitCondMat = InitCondMat
+        
+        # Matrices Ctilde, Dtilde, Etilde
+        self.Ct = numpy.empty((p,Ns+1))
+        self.Dt = numpy.empty((2*n*s,Ns+1))
+        self.Et = numpy.empty((2*n*s,Ns+1))
+        
+        # Dynamics matrix for propagating the LSODE:
+        DynMat = numpy.zeros((N,2*n,2*n,s))
+        for arc in range(s):
+            for k in range(N):                
+                DynMat[k,:n,:n,arc] = phix[k,:,:,arc]
+                DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
+                DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
+        self.DynMat = DynMat
+        
+        # Matrix for linear system involving k's
+        M = numpy.zeros((Ns+q+1,Ns+q+1))
+        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
+        M[(q+1):(q+1+p),(Ns+1):] = psip.transpose()
+        M[(p+q+1):,(Ns+1):] = psiy.transpose()
+        self.M = M
+        self.phiLamInt = numpy.zeros((p,Ns+1))
+        
+        # column vector for linear system involving k's    [eqs (34)]
+        col = numpy.zeros(Ns+q+1)
+        col[0] = 1.0 # eq (34d)
+        col[1:(q+1)] = rho1 * psi
+
+        sumIntFpi = numpy.zeros(p)
+        if rho > 0.0:
+            for arc in range(s):
+                thisInt = numpy.zeros(p)
+                for ind in range(p):
+                    thisInt[ind] += fp[:,ind,arc].sum()
+                    thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
+                    thisInt *= self.dt
+                    sumIntFpi += thisInt
+        
+        col[(q+1):(q+p+1)] = -rho * sumIntFpi
+        
+        self.col = col
+        
+        #self.grads = grads
+
+    def propagate(self,j):
+        # TODO: ponto do início do propagate
+        
+        rho = self.rho
+        rho1 = self.rho-1.0
+        Ns,N,n,m,p,s = self.Ns,self.N,self.n,self.m,self.p,self.s
+        dt = self.dt
+        
+        InitCondMat = self.InitCondMat
+        phip = self.phip
+        err = self.err
+        phiuFu = self.phiuFu
+        fx = self.fx
+        fu = self.fu
+        phiuTr = self.phiuTr
+        phipTr = self.phipTr
+        DynMat = self.DynMat
+        
+        if rho > 0.5:
+            print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
+        
+        A = numpy.zeros((N,n,s))
+        B = numpy.zeros((N,m,s))
+        C = numpy.zeros((p,1))
+        lam = numpy.zeros((N,n,s))
+        
+        # the vector that will be integrated is Xi = [A; lam]
+        Xi = numpy.zeros((N,2*n,s))
+        # Initial conditions for LSODE:
+        for arc in range(s):
+            A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+            lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]     
+            Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+        C = InitCondMat[(2*n*s):,j]
+        
+        # Non-homogeneous terms for LSODE:
+        nonHom = numpy.empty((N,2*n,s))
+        for arc in range(s):
+            for k in range(N):
+                # minus sign in rho1 (rho-1) is on purpose!
+                nonHA = phip[k,:,:,arc].dot(C) + \
+                            -rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
+                nonHL = rho * fx[k,:,arc]
+                nonHom[k,:n,arc] = nonHA#.copy()
+                nonHom[k,n:,arc] = nonHL#.copy()
+                
+        # Integrate the LSODE (Heun's method):
+        for arc in range(s):
+            B[0,:,arc] = -rho*fu[0,:,arc] + \
+                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+            self.phiLamInt[:,j] += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+            for k in range(N-1):
+                derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+                        nonHom[k,:,arc]
+                aux = Xi[k,:,arc] + dt * derXik
+                Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
+                                DynMat[k+1,:,:,arc].dot(aux) + \
+                                nonHom[k+1,:,arc])
+                A[k+1,:,arc] = Xi[k+1,:n,arc]
+                lam[k+1,:,arc] = Xi[k+1,n:,arc]
+                B[k+1,:,arc] = -rho*fu[k+1,:,arc] + \
+                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                self.phiLamInt[:,j] += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+            #
+            self.phiLamInt[:,j] -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
+            # Put data into matrices Dtilde and Etilde
+            self.Dt[(2*arc)*n   : (2*arc+1)*n, j] =    A[0,:,arc]   # eq (32a)
+            self.Dt[(2*arc+1)*n : (2*arc+2)*n, j] =    A[N-1,:,arc] # eq (32a)
+            self.Et[(2*arc)*n   : (2*arc+1)*n, j] = -lam[0,:,arc]   # eq (32b)
+            self.Et[(2*arc+1)*n : (2*arc+2)*n, j] =  lam[N-1,:,arc] # eq (32b)      
+        #
+         
+###############################################################################  
+        if (rho > 0.5 and self.dbugOptGrad['plotCorr']) or \
+           (rho < 0.5 and self.dbugOptRest['plotCorr']):          
+            print("\nHere are the corrections for iteration " + str(j+1) + \
+                  " of " + str(Ns+1) + ":\n")
+            for arc in range(s):
+                print("> Corrections for arc =",arc)
+                plt.plot(self.t,A[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('A: pos')
+                plt.show()
+                plt.clf()
+                plt.close('all')
+
+                
+                plt.plot(self.t,lam[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('lambda: pos')
+                plt.show()
+                plt.clf()
+                plt.close('all')
+    
+                if n>1:          
+                    plt.plot(self.t,A[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: vel')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                    
+                    plt.plot(self.t,lam[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: vel')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+
+                if n>2:          
+                    plt.plot(self.t,A[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: gama')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                    
+                    plt.plot(self.t,lam[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: gamma')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+
+                
+                if n>3:          
+                    plt.plot(self.t,A[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: m')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                    
+                    plt.plot(self.t,lam[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('lambda: m')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+
+                
+                plt.plot(self.t,B[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('B0')
+                plt.show()
+                plt.clf()
+                plt.close('all')
+
+                if m>1:
+                    plt.plot(self.t,B[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('B1')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                
+                print("C[arc] =",C[arc])
+                #input(" > ")
+###############################################################################
+            
+        # store solution in arrays
+        print("Writing to arrays in j =",j)
+        self.arrayA[j,:,:,:] = A.copy()#[:,:,arc]
+        self.arrayB[j,:,:,:] = B.copy()#[:,:,arc]
+        self.arrayC[j,:] = C.copy()
+        self.arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
+        self.Ct[:,j] = C.copy()
+
+    def getCorr(self):
+        Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
+        
+        #All integrations ready!
+        self.phiLamInt *= self.dt
+        
+###############################################################################
+        if self.rho > 0.5:
+            print("\nMatrices Ct, Dt, Et:\n")
+            print("Ct =",self.Ct)
+            print("Dt =",self.Dt)
+            print("Et =",self.Et)
+###############################################################################
+        
+        # Finish assembly of matrix M
+        M = self.M
+        # from eq (34a):
+        M[1:(q+1),:(Ns+1)] = self.psiy.dot(self.Dt) + self.psip.dot(self.Ct) 
+        # from eq (34b):
+        M[(q+1):(q+p+1),:(Ns+1)] = self.Ct - self.phiLamInt 
+        # from eq (34c):
+        M[(q+p+1):,:(Ns+1)] = self.Et 
+        
+        # Calculations of weights k:        
+        print("M =",M)
+        print("col =",self.col)
+
+#        with open("debugParallel.txt",'w+') as fHand:
+#            fHand.write("Ns = "+str(Ns)+", q = "+str(q)+"\n")
+#            fHand.write("Ns+q+1 = "+str(Ns+q+1)+"\n")
+#            fHand.write("M = \n")
+#            for i in range(Ns+q+1):
+#                fHand.write("    ")
+#                for j in range(Ns+q+1):
+#                    fHand.write(str(M[i,j])+' ')
+#                fHand.write("\n")
+#                
+#            fHand.write("\n\ncol = \n")
+#            for j in range(Ns+q+1):
+#                fHand.write(str(self.col[j])+'\n')
+#            fHand.write("\n\n")
+#            fHand.close()
+#        input("\nCheca lá se escreveu!")
+        
+        KMi = numpy.linalg.solve(M,self.col)
+        print("Residual:",M.dot(KMi)-self.col)
+        K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
+        print("K =",K)
+        print("mu =",mu)
+        
+
+        # summing up linear combinations
+        A = numpy.zeros((N,n,s))
+        B = numpy.zeros((N,m,s))
+        C = numpy.zeros(p)
+        lam = numpy.zeros((N,n,s))
+        
+        for j in range(Ns+1):
+            A += K[j] * self.arrayA[j,:,:,:]
+            B += K[j] * self.arrayB[j,:,:,:]
+            C += K[j] * self.arrayC[j,:]
+            lam += K[j] * self.arrayL[j,:,:,:]
+            
+###############################################################################        
+        if (self.rho > 0.5 and self.dbugOptGrad['plotCorrFin']) or \
+           (self.rho < 0.5 and self.dbugOptRest['plotCorrFin']):
+            print("\n------------------------------------------------------------")
+            print("Final corrections:\n")
+            for arc in range(s):
+                print("> Corrections for arc =",arc)
+                plt.plot(self.t,A[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('A: pos')
+                plt.show()
+                plt.clf()
+                plt.close('all')
+    
+                if n>1:          
+                    plt.plot(self.t,A[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: vel')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+
+                if n>2:          
+                    plt.plot(self.t,A[:,2,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: gama')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                
+                if n>3:          
+                    plt.plot(self.t,A[:,3,arc])
+                    plt.grid(True)
+                    plt.ylabel('A: m')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+                
+                plt.plot(self.t,B[:,0,arc])
+                plt.grid(True)
+                plt.ylabel('B0')
+                plt.show()
+                plt.clf()
+                plt.close('all')
+
+                if m>1:
+                    plt.plot(self.t,B[:,1,arc])
+                    plt.grid(True)
+                    plt.ylabel('B1')
+                    plt.show()
+                    plt.clf()
+                    plt.close('all')
+
+                
+                print("C[arc] =",C[arc])
+                    
+            #input(" > ")
+###############################################################################        
+        return A,B,C,lam,mu
 
 class sgra():
     """Class for a general instance of the SGRA problem. 
@@ -132,7 +557,7 @@ class sgra():
                      'comp':True},\
                                 inpName='Plot saving options')
    
-    # TODO: these methods all seem very much alike. 
+    # solvedTODO: these methods all seem very much alike. 
     # Letting another object take care of this would probably be better. 
 #    def setDbugOptRest(self,allOpt=True,optSet={}):
 #        for key in self.dbugOptRest.keys():
@@ -374,359 +799,21 @@ class sgra():
 
     def LMPBVP(self,rho=0.0):
         
-        #######################################################################
-        #numpy.set_printoptions(threshold=500)
-        #######################################################################
+        helper = LMPBVPhelp(self,rho)
         
-        # get sizes
-        Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
-        rho1 = rho - 1.0
-        
-        # calculate phi and psi
-        phi = self.calcPhi()
-        psi = self.calcPsi()
-        
-        err = phi - ddt(self.x,N)
-        
-        #######################################################################
-        if rho < 0.5 and self.dbugOptRest['plotErr']:
-            print("\nThis is err:")
-            for arc in range(s):
-                plt.plot(self.t,err[:,0,arc])
-                plt.ylabel("errPos")
-                plt.grid(True)
-                plt.show()
-                plt.clf()
-                plt.close('all')
-
-                if n>1:
-                    plt.plot(self.t,err[:,1,arc])
-                    plt.ylabel("errVel")
-                    plt.grid(True)
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-        #######################################################################        
-        
-        # get gradients
-        #print("Calc grads...")
-        Grads = self.calcGrads()
-        dt = 1.0/(N-1)
-        #dt6 = dt/6
-        phix = Grads['phix']
-        phiu = Grads['phiu']
-        phip = Grads['phip']
-        psiy = Grads['psiy']
-        psip = Grads['psip']
-        fx = Grads['fx']
-        fu = Grads['fu']
-        fp = Grads['fp']
-        
-        #print("Preparing matrices...")
-        phixTr = numpy.empty_like(phix)
-        phiuTr = numpy.empty((N,m,n,s))
-        phipTr = numpy.empty((N,p,n,s))
-        
-        phiuFu = numpy.empty((N,n,s))
-        for arc in range(s):
-            for k in range(N):
-                phixTr[k,:,:,arc] = phix[k,:,:,arc].transpose()
-                phiuTr[k,:,:,arc] = phiu[k,:,:,arc].transpose()
-                phipTr[k,:,:,arc] = phip[k,:,:,arc].transpose()
-                phiuFu[k,:,arc] = phiu[k,:,:,arc].dot(fu[k,:,arc])
-        
-        InitCondMat = numpy.eye(Ns,Ns+1)
-        
-        # Matrices Ctilde, Dtilde, Etilde
-        Ct = numpy.empty((p,Ns+1))
-        Dt = numpy.empty((2*n*s,Ns+1))
-        Et = numpy.empty((2*n*s,Ns+1))
-        
-        # Dynamics matrix for propagating the LSODE:
-        DynMat = numpy.zeros((N,2*n,2*n,s))
-        for arc in range(s):
-            for k in range(N):                
-                DynMat[k,:n,:n,arc] = phix[k,:,:,arc]
-                DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
-                DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
-        
-        # Matrix for linear system involving k's
-        M = numpy.zeros((Ns+q+1,Ns+q+1))
-        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
-        M[(q+1):(q+1+p),(Ns+1):] = psip.transpose()
-        M[(p+q+1):,(Ns+1):] = psiy.transpose()
-        
-        phiLamInt = numpy.zeros((p,Ns+1))
-        # column vector for linear system involving k's    [eqs (34)]
-        col = numpy.zeros(Ns+q+1)
-        col[0] = 1.0 # eq (34d)
-        col[1:(q+1)] = rho1 * psi
-
-        sumIntFpi = numpy.zeros(p)
-        if rho > 0.0:
-            for arc in range(s):
-                thisInt = numpy.zeros(p)
-                for ind in range(p):
-                    thisInt[ind] += fp[:,ind,arc].sum()
-                    thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
-                    thisInt *= dt
-                    sumIntFpi += thisInt
-        
-        col[(q+1):(q+p+1)] = -rho * sumIntFpi
-
-        arrayA = numpy.empty((Ns+1,N,n,s))
-        arrayB = numpy.empty((Ns+1,N,m,s))
-        arrayC = numpy.empty((Ns+1,p))
-        arrayL = numpy.empty((Ns+1,N,n,s))
-        
-        #optPlot = dict()
         if rho>0.5:
             print("\nBeginning loop for solutions...")
-        for j in range(Ns+1):
-            if rho > 0.5:
-                print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
+
+        # TODO: paralelize aqui!
+
+        pool = Pool()
+        pool.map(helper.propagate,range(self.Ns+1))
+        pool.close()
+        pool.join()
+        
+#        for j in range(self.Ns+1):
+#            helper.propagate(j)
             
-            A = numpy.zeros((N,n,s))
-            B = numpy.zeros((N,m,s))
-            C = numpy.zeros((p,1))
-            lam = numpy.zeros((N,n,s))
-            
-            # the vector that will be integrated is Xi = [A; lam]
-            Xi = numpy.zeros((N,2*n,s))
-            # Initial conditions for LSODE:
-            for arc in range(s):
-                A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
-                lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]     
-                Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
-            C = InitCondMat[(2*n*s):,j]
-            
-            # Non-homogeneous terms for LSODE:
-            nonHom = numpy.empty((N,2*n,s))
-            for arc in range(s):
-                for k in range(N):
-                    # minus sign in rho1 (rho-1) is on purpose!
-                    nonHA = phip[k,:,:,arc].dot(C) + \
-                                -rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
-                    nonHL = rho * fx[k,:,arc]
-                    nonHom[k,:n,arc] = nonHA#.copy()
-                    nonHom[k,n:,arc] = nonHL#.copy()
-                    
-            # Integrate the LSODE (Heun's method):
-            for arc in range(s):
-                B[0,:,arc] = -rho*fu[0,:,arc] + \
-                                    phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                phiLamInt[:,j] += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-                for k in range(N-1):
-                    derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                            nonHom[k,:,arc]
-                    aux = Xi[k,:,arc] + dt * derXik
-                    Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
-                                    DynMat[k+1,:,:,arc].dot(aux) + \
-                                    nonHom[k+1,:,arc])
-                    A[k+1,:,arc] = Xi[k+1,:n,arc]
-                    lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                    B[k+1,:,arc] = -rho*fu[k+1,:,arc] + \
-                                    phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    phiLamInt[:,j] += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                #
-                phiLamInt[:,j] -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
-                # Put data into matrices Dtilde and Etilde
-                Dt[(2*arc)*n   : (2*arc+1)*n, j] =    A[0,:,arc]   # eq (32a)
-                Dt[(2*arc+1)*n : (2*arc+2)*n, j] =    A[N-1,:,arc] # eq (32a)
-                Et[(2*arc)*n   : (2*arc+1)*n, j] = -lam[0,:,arc]   # eq (32b)
-                Et[(2*arc+1)*n : (2*arc+2)*n, j] =  lam[N-1,:,arc] # eq (32b)      
-            #
-             
-###############################################################################  
-            if (rho > 0.5 and self.dbugOptGrad['plotCorr']) or \
-               (rho < 0.5 and self.dbugOptRest['plotCorr']):          
-                print("\nHere are the corrections for iteration " + str(j+1) + \
-                      " of " + str(Ns+1) + ":\n")
-                for arc in range(s):
-                    print("> Corrections for arc =",arc)
-                    plt.plot(self.t,A[:,0,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: pos')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-
-                    
-                    plt.plot(self.t,lam[:,0,arc])
-                    plt.grid(True)
-                    plt.ylabel('lambda: pos')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-        
-                    if n>1:          
-                        plt.plot(self.t,A[:,1,arc])
-                        plt.grid(True)
-                        plt.ylabel('A: vel')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-                        
-                        plt.plot(self.t,lam[:,1,arc])
-                        plt.grid(True)
-                        plt.ylabel('lambda: vel')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-    
-                    if n>2:          
-                        plt.plot(self.t,A[:,2,arc])
-                        plt.grid(True)
-                        plt.ylabel('A: gama')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-                        
-                        plt.plot(self.t,lam[:,2,arc])
-                        plt.grid(True)
-                        plt.ylabel('lambda: gamma')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-    
-                    
-                    if n>3:          
-                        plt.plot(self.t,A[:,3,arc])
-                        plt.grid(True)
-                        plt.ylabel('A: m')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-                        
-                        plt.plot(self.t,lam[:,3,arc])
-                        plt.grid(True)
-                        plt.ylabel('lambda: m')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-    
-                    
-                    plt.plot(self.t,B[:,0,arc])
-                    plt.grid(True)
-                    plt.ylabel('B0')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-    
-                    if m>1:
-                        plt.plot(self.t,B[:,1,arc])
-                        plt.grid(True)
-                        plt.ylabel('B1')
-                        plt.show()
-                        plt.clf()
-                        plt.close('all')
-                    
-                    print("C[arc] =",C[arc])
-                    #input(" > ")
-###############################################################################
-
-            # store solution in arrays
-            arrayA[j,:,:,:] = A.copy()#[:,:,arc]
-            arrayB[j,:,:,:] = B.copy()#[:,:,arc]
-            arrayC[j,:] = C.copy()
-            arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
-            Ct[:,j] = C.copy()
-        # 
-        # Outputs: arrayA,arrayB,arrayC,arrayL; Ct,Dt,Et; phiLamInt
-        
-        #All integrations ready!
-        phiLamInt *= dt
-        
-###############################################################################
-        if rho > 0.5:
-            print("\nMatrices Ct, Dt, Et:\n")
-            print("Ct =",Ct)
-            print("Dt =",Dt)
-            print("Et =",Et)
-###############################################################################
-        
-        # Finish assembly of matrix M
-        M[1:(q+1),:(Ns+1)] = psiy.dot(Dt) + psip.dot(Ct) # from eq (34a)
-        M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt # from eq (34b)
-        M[(q+p+1):,:(Ns+1)] = Et # from eq (34c)
-        
-        # Calculations of weights k:        
-        print("M =",M)
-        print("col =",col)
-        KMi = numpy.linalg.solve(M,col)
-        print("Residual:",M.dot(KMi)-col)
-        K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
-        print("K =",K)
-        print("mu =",mu)
-         
-        # summing up linear combinations
-        A *= 0.0
-        B *= 0.0
-        C *= 0.0
-        lam *= 0.0
-        for j in range(Ns+1):
-            A += K[j] * arrayA[j,:,:,:]
-            B += K[j] * arrayB[j,:,:,:]
-            C += K[j] * arrayC[j]
-            lam += K[j] * arrayL[j,:,:,:]
-            
-###############################################################################        
-        if (rho > 0.5 and self.dbugOptGrad['plotCorrFin']) or \
-           (rho < 0.5 and self.dbugOptRest['plotCorrFin']):
-            print("\n------------------------------------------------------------")
-            print("Final corrections:\n")
-            for arc in range(s):
-                print("> Corrections for arc =",arc)
-                plt.plot(self.t,A[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('A: pos')
-                plt.show()
-                plt.clf()
-                plt.close('all')
-    
-                if n>1:          
-                    plt.plot(self.t,A[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: vel')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-
-                if n>2:          
-                    plt.plot(self.t,A[:,2,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: gama')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-                
-                if n>3:          
-                    plt.plot(self.t,A[:,3,arc])
-                    plt.grid(True)
-                    plt.ylabel('A: m')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-                
-                plt.plot(self.t,B[:,0,arc])
-                plt.grid(True)
-                plt.ylabel('B0')
-                plt.show()
-                plt.clf()
-                plt.close('all')
-
-                if m>1:
-                    plt.plot(self.t,B[:,1,arc])
-                    plt.grid(True)
-                    plt.ylabel('B1')
-                    plt.show()
-                    plt.clf()
-                    plt.close('all')
-
-                
-                print("C[arc] =",C[arc])
-                    
-            #input(" > ")
-###############################################################################        
+        A,B,C,lam,mu = helper.getCorr()
         
         return A,B,C,lam,mu
