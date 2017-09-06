@@ -29,9 +29,14 @@ class binFlagDict(dict):
         pprint.pprint(self)
 
 class LMPBVPhelp():
-
+    """Class for processing the Linear Multipoint Boundary Value Problem.
+    The biggest advantage in using an object is that the parallelization of
+    the computations for each solution is much easier."""
+    
     def __init__(self,sol,rho):
-
+        """Initialization method. Comprises all the "common" calculations for 
+        each independent solution to be added over."""
+        
         # debug options...
         self.dbugOptGrad = sol.dbugOptGrad
         self.dbugOptRest = sol.dbugOptRest
@@ -42,15 +47,10 @@ class LMPBVPhelp():
         self.Ns,self.N,self.m,self.n,self.p,self.q,self.s = Ns,N,m,n,p,q,s
         self.dt = 1.0/(N-1)
         self.rho = rho
-        rho1 = rho - 1.0
-
-        self.arrayA = numpy.empty((Ns+1,N,n,s))
-        self.arrayB = numpy.empty((Ns+1,N,m,s))
-        self.arrayC = numpy.empty((Ns+1,p))
-        self.arrayL = numpy.empty((Ns+1,N,n,s))
         
         # calculate integration error (only if necessary)
         psi = sol.calcPsi()
+        self.psi = psi
         if rho < .5:
             # calculate phi and psi
             phi = sol.calcPhi()
@@ -59,6 +59,7 @@ class LMPBVPhelp():
             err = numpy.zeros((N,n,s))
                 
         self.err = err
+
         
         #######################################################################
         if rho < 0.5 and self.dbugOptRest['plotErr']:
@@ -80,10 +81,8 @@ class LMPBVPhelp():
                     plt.close('all')
         #######################################################################        
         
-        # get gradients
-        #print("Calc grads...")
+        # Get gradients
         Grads = sol.calcGrads()
-        
         #dt6 = dt/6
         phix = Grads['phix']
         phiu = Grads['phiu']
@@ -99,8 +98,9 @@ class LMPBVPhelp():
         self.psip = psip
         self.fx = fx
         self.fu = fu
+        self.fp = fp
         
-        #print("Preparing matrices...")
+        # Prepare matrices with derivatives:
         phixTr = numpy.empty_like(phix)
         phiuTr = numpy.empty((N,m,n,s))
         phipTr = numpy.empty((N,p,n,s))
@@ -118,11 +118,6 @@ class LMPBVPhelp():
         InitCondMat = numpy.eye(Ns,Ns+1)
         self.InitCondMat = InitCondMat
         
-        # Matrices Ctilde, Dtilde, Etilde
-        self.Ct = numpy.empty((p,Ns+1))
-        self.Dt = numpy.empty((2*n*s,Ns+1))
-        self.Et = numpy.empty((2*n*s,Ns+1))
-        
         # Dynamics matrix for propagating the LSODE:
         DynMat = numpy.zeros((N,2*n,2*n,s))
         for arc in range(s):
@@ -131,39 +126,12 @@ class LMPBVPhelp():
                 DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
                 DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
         self.DynMat = DynMat
-        
-        # Matrix for linear system involving k's
-        M = numpy.zeros((Ns+q+1,Ns+q+1))
-        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
-        M[(q+1):(q+1+p),(Ns+1):] = psip.transpose()
-        M[(p+q+1):,(Ns+1):] = psiy.transpose()
-        self.M = M
-        self.phiLamInt = numpy.zeros((p,Ns+1))
-        
-        # column vector for linear system involving k's    [eqs (34)]
-        col = numpy.zeros(Ns+q+1)
-        col[0] = 1.0 # eq (34d)
-        col[1:(q+1)] = rho1 * psi
-
-        sumIntFpi = numpy.zeros(p)
-        if rho > 0.0:
-            for arc in range(s):
-                thisInt = numpy.zeros(p)
-                for ind in range(p):
-                    thisInt[ind] += fp[:,ind,arc].sum()
-                    thisInt -= .5*(fp[0,:,arc] + fp[N-1,:,arc])
-                    thisInt *= self.dt
-                    sumIntFpi += thisInt
-        
-        col[(q+1):(q+p+1)] = -rho * sumIntFpi
-        
-        self.col = col
-        
-        #self.grads = grads
 
     def propagate(self,j):
-        # TODO: ponto do início do propagate
+        """This method computes each solution, via propagation of the 
+        applicable Linear System of Ordinary Differential Equations."""
         
+        # Load data (sizes, common matrices, etc)
         rho = self.rho
         rho1 = self.rho-1.0
         Ns,N,n,m,p,s = self.Ns,self.N,self.n,self.m,self.p,self.s
@@ -179,9 +147,13 @@ class LMPBVPhelp():
         phipTr = self.phipTr
         DynMat = self.DynMat
         
-        if rho > 0.5:
-            print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
+        #if rho > 0.5:
+        #    print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
         
+        # Declare matrices for corrections
+        phiLamIntCol = numpy.zeros(p)
+        DtCol = numpy.empty(2*n*s)
+        EtCol = numpy.empty(2*n*s)
         A = numpy.zeros((N,n,s))
         B = numpy.zeros((N,m,s))
         C = numpy.zeros((p,1))
@@ -189,14 +161,14 @@ class LMPBVPhelp():
         
         # the vector that will be integrated is Xi = [A; lam]
         Xi = numpy.zeros((N,2*n,s))
-        # Initial conditions for LSODE:
+        # Initial conditions for the LSODE:
         for arc in range(s):
             A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
             lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]     
             Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
         C = InitCondMat[(2*n*s):,j]
         
-        # Non-homogeneous terms for LSODE:
+        # Non-homogeneous terms for the LSODE:
         nonHom = numpy.empty((N,2*n,s))
         for arc in range(s):
             for k in range(N):
@@ -207,11 +179,11 @@ class LMPBVPhelp():
                 nonHom[k,:n,arc] = nonHA#.copy()
                 nonHom[k,n:,arc] = nonHL#.copy()
                 
-        # Integrate the LSODE (Heun's method):
+        # Integrate the LSODE (by Heun's method):
         for arc in range(s):
             B[0,:,arc] = -rho*fu[0,:,arc] + \
                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-            self.phiLamInt[:,j] += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+            phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
             for k in range(N-1):
                 derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
                         nonHom[k,:,arc]
@@ -223,15 +195,21 @@ class LMPBVPhelp():
                 lam[k+1,:,arc] = Xi[k+1,n:,arc]
                 B[k+1,:,arc] = -rho*fu[k+1,:,arc] + \
                                 phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                self.phiLamInt[:,j] += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
             #
-            self.phiLamInt[:,j] -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
-            # Put data into matrices Dtilde and Etilde
-            self.Dt[(2*arc)*n   : (2*arc+1)*n, j] =    A[0,:,arc]   # eq (32a)
-            self.Dt[(2*arc+1)*n : (2*arc+2)*n, j] =    A[N-1,:,arc] # eq (32a)
-            self.Et[(2*arc)*n   : (2*arc+1)*n, j] = -lam[0,:,arc]   # eq (32b)
-            self.Et[(2*arc+1)*n : (2*arc+2)*n, j] =  lam[N-1,:,arc] # eq (32b)      
+            phiLamIntCol -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
+
+            # Put initial and final conditions of A and Lambda into matrices 
+            # DtCol and EtCol, which represent the columns of Dtilde(Dt) and 
+            # Etilde(Et) 
+            DtCol[(2*arc)*n   : (2*arc+1)*n] =    A[0,:,arc]   # eq (32a)
+            DtCol[(2*arc+1)*n : (2*arc+2)*n] =    A[N-1,:,arc] # eq (32a)
+            EtCol[(2*arc)*n   : (2*arc+1)*n] = -lam[0,:,arc]   # eq (32b)
+            EtCol[(2*arc+1)*n : (2*arc+2)*n] =  lam[N-1,:,arc] # eq (32b)      
         #
+
+        # All integrations ready!
+        phiLamIntCol *= dt
          
 ###############################################################################  
         if (rho > 0.5 and self.dbugOptGrad['plotCorr']) or \
@@ -322,63 +300,97 @@ class LMPBVPhelp():
 ###############################################################################
             
         # store solution in arrays
-        print("Writing to arrays in j =",j)
-        self.arrayA[j,:,:,:] = A.copy()#[:,:,arc]
-        self.arrayB[j,:,:,:] = B.copy()#[:,:,arc]
-        self.arrayC[j,:] = C.copy()
-        self.arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
-        self.Ct[:,j] = C.copy()
-
-    def getCorr(self):
+        #print("Writing to arrays in j =",j)
+        
+        #self.arrayA[j,:,:,:] = A.copy()#[:,:,arc]
+        #self.arrayB[j,:,:,:] = B.copy()#[:,:,arc]
+        #self.arrayC[j,:] = C.copy()
+        #self.arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
+        #Ct[:,j] = C.copy()
+        
+        # All the outputs go to main output dictionary; the final solution is 
+        # computed by the next method, 'getCorr'.
+        outp = {'A':A,'B':B,'C':C,'L':lam,'Dt':DtCol,'Et':EtCol,
+                'phiLam':phiLamIntCol}
+    
+        return outp
+    
+    
+    def getCorr(self,res):
+        """ Computes the actual correction for this grad/rest step, by linear
+        combination of the solutions generated by method 'propagate'."""
+        
+        # Get sizes
         Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
+        rho1 = self.rho - 1.0
         
-        #All integrations ready!
-        self.phiLamInt *= self.dt
+        # Declare matrices Ctilde, Dtilde, Etilde, and the integral term
+        Ct = numpy.empty((p,Ns+1))
+        Dt = numpy.empty((2*n*s,Ns+1))
+        Et = numpy.empty((2*n*s,Ns+1))
+        phiLamInt = numpy.empty((p,Ns+1))
         
+        # Unpack outputs from 'propagate' into proper matrices Ct, Dt, etc.
+        for j in range(Ns+1):
+#            arrayA[j,:,:,:] = res[j]['A']#[:,:,arc]
+#            arrayB[j,:,:,:] = res[j]['B']#[:,:,arc]
+#            arrayC[j,:] = res[j]['C']
+#            arrayL[j,:,:,:] = res[j]['L']#lam.copy()#[:,:,arc]
+            Ct[:,j] = res[j]['C']
+            Dt[:,j] = res[j]['Dt']
+            Et[:,j] = res[j]['Et']
+            phiLamInt[:,j] = res[j]['phiLam']
+
 ###############################################################################
-        if self.rho > 0.5:
-            print("\nMatrices Ct, Dt, Et:\n")
-            print("Ct =",self.Ct)
-            print("Dt =",self.Dt)
-            print("Et =",self.Et)
+#        if self.rho > 0.5:
+#            print("\nMatrices Ct, Dt, Et:\n")
+#            print("Ct =",Ct)
+#            print("Dt =",Dt)
+#            print("Et =",Et)
 ###############################################################################
         
-        # Finish assembly of matrix M
-        M = self.M
+        
+        # Assembly of matrix M and column 'Col'
+        
+        # Matrix for linear system involving k's and mu's
+        M = numpy.zeros((Ns+q+1,Ns+q+1))
+        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
+        M[(q+1):(q+1+p),(Ns+1):] = self.psip.transpose()
+        M[(p+q+1):,(Ns+1):] = self.psiy.transpose()
         # from eq (34a):
-        M[1:(q+1),:(Ns+1)] = self.psiy.dot(self.Dt) + self.psip.dot(self.Ct) 
+        M[1:(q+1),:(Ns+1)] = self.psiy.dot(Dt) + self.psip.dot(Ct) 
         # from eq (34b):
-        M[(q+1):(q+p+1),:(Ns+1)] = self.Ct - self.phiLamInt 
+        M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt 
         # from eq (34c):
-        M[(q+p+1):,:(Ns+1)] = self.Et 
+        M[(q+p+1):,:(Ns+1)] = Et 
+
+        # column vector for linear system involving k's and mu's  [eqs (34)]
+        col = numpy.zeros(Ns+q+1)
+        col[0] = 1.0 # eq (34d)
+        col[1:(q+1)] = rho1 * self.psi
+        # Integral term
+        sumIntFpi = numpy.zeros(p)
+        if self.rho > 0.0:
+            for arc in range(s):
+                thisInt = numpy.zeros(p)
+                for ind in range(p):
+                    thisInt[ind] += self.fp[:,ind,arc].sum()
+                    thisInt -= .5*(self.fp[0,:,arc] + self.fp[N-1,:,arc])
+                    thisInt *= self.dt
+                    sumIntFpi += thisInt
+        
+        col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
         
         # Calculations of weights k:        
-        print("M =",M)
-        print("col =",self.col)
-
-#        with open("debugParallel.txt",'w+') as fHand:
-#            fHand.write("Ns = "+str(Ns)+", q = "+str(q)+"\n")
-#            fHand.write("Ns+q+1 = "+str(Ns+q+1)+"\n")
-#            fHand.write("M = \n")
-#            for i in range(Ns+q+1):
-#                fHand.write("    ")
-#                for j in range(Ns+q+1):
-#                    fHand.write(str(M[i,j])+' ')
-#                fHand.write("\n")
-#                
-#            fHand.write("\n\ncol = \n")
-#            for j in range(Ns+q+1):
-#                fHand.write(str(self.col[j])+'\n')
-#            fHand.write("\n\n")
-#            fHand.close()
-#        input("\nCheca lá se escreveu!")
+#        print("M =",M)
+#        print("col =",self.col)
         
-        KMi = numpy.linalg.solve(M,self.col)
-        print("Residual:",M.dot(KMi)-self.col)
+        KMi = numpy.linalg.solve(M,col)
+        Res = M.dot(KMi)-col
+        print("Residual of the Linear System:",Res.transpose().dot(Res))
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
-        print("K =",K)
-        print("mu =",mu)
-        
+#        print("K =",K)
+#        print("mu =",mu)   
 
         # summing up linear combinations
         A = numpy.zeros((N,n,s))
@@ -387,10 +399,10 @@ class LMPBVPhelp():
         lam = numpy.zeros((N,n,s))
         
         for j in range(Ns+1):
-            A += K[j] * self.arrayA[j,:,:,:]
-            B += K[j] * self.arrayB[j,:,:,:]
-            C += K[j] * self.arrayC[j,:]
-            lam += K[j] * self.arrayL[j,:,:,:]
+            A += K[j] * res[j]['A']#self.arrayA[j,:,:,:]
+            B += K[j] * res[j]['B']#self.arrayB[j,:,:,:]
+            C += K[j] * res[j]['C']#self.arrayC[j,:]
+            lam += K[j] * res[j]['L']#self.arrayL[j,:,:,:]
             
 ###############################################################################        
         if (self.rho > 0.5 and self.dbugOptGrad['plotCorrFin']) or \
@@ -556,29 +568,6 @@ class sgra():
                      'traj':True,
                      'comp':True},\
                                 inpName='Plot saving options')
-   
-    # solvedTODO: these methods all seem very much alike. 
-    # Letting another object take care of this would probably be better. 
-#    def setDbugOptRest(self,allOpt=True,optSet={}):
-#        for key in self.dbugOptRest.keys():
-#            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
-#    
-#        print("\nSetting debug options for restoration as follows:")
-#        pprint.pprint(self.dbugOptRest)
-#
-#    def setDbugOptGrad(self,allOpt=True,optSet={}):
-#        for key in self.dbugOptRest.keys():
-#            self.dbugOptRest[key] = (allOpt and optSet.get(key,True))
-#        
-#        print("\nSetting debug options for gradient as follows:")
-#        pprint.pprint(self.dbugOptGrad)
-#    
-#    def setPlotSaveStat(self,allOpt=True,optSet={}):
-#        for key in self.save.keys():
-#            self.save[key] = (allOpt and optSet.get(key,True))
-#        
-#        print("\nSetting plot saving options as follows:")
-#        pprint.pprint(self.save)    
     
     def copy(self):
         return copy.deepcopy(self)
@@ -801,19 +790,20 @@ class sgra():
         
         helper = LMPBVPhelp(self,rho)
         
-        if rho>0.5:
-            print("\nBeginning loop for solutions...")
+#        if rho>0.5:
+#            print("\nBeginning loop for solutions...")
 
         # TODO: paralelize aqui!
 
         pool = Pool()
-        pool.map(helper.propagate,range(self.Ns+1))
+        res = pool.map(helper.propagate,range(self.Ns+1))
         pool.close()
         pool.join()
         
+#        res = list()
 #        for j in range(self.Ns+1):
-#            helper.propagate(j)
+#            res.append(helper.propagate(j))
             
-        A,B,C,lam,mu = helper.getCorr()
+        A,B,C,lam,mu = helper.getCorr(res)
         
         return A,B,C,lam,mu
