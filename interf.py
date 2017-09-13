@@ -73,7 +73,8 @@ class ITman():
                 self.isNewSol = True
                 print("\nOk, default mode is '"+self.initOpt+"'.")
                 print("Hit 'enter' to proceed with it, or 'd' for 'default',")
-                print("or 'n' for 'naive'. See 'rockSol.py' for details. ")
+                print("or 'n' for 'naive'. See '" + self.probName + \
+                      "' for details. ")
                 inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
