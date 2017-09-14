@@ -122,6 +122,7 @@ class ITman():
         sol.printPars()
         sol.plotSol()
         self.prntDashStr()
+        print("\a")
         print("\nAre these parameters OK?")
         print("Press any key to continue, or ctrl+C to stop.")
         input(self.bscImpStr)
@@ -177,7 +178,7 @@ class ITman():
         sol.plotTraj() 
         
         # Setting debugging options (rest and grad)
-        sol.dbugOptRest.setAll(tf=True,opt={'pausRest':False,
+        sol.dbugOptRest.setAll(opt={'pausRest':False,
                            'pausCalcP':False,
                            'plotP_int':False,
                            'plotP_intZoom':False,
@@ -188,10 +189,10 @@ class ITman():
                            'plotCorr':False,
                            'plotCorrFin':False})
         flag = False#True#
-        sol.dbugOptGrad.setAll(tf=True,opt={'pausGrad':flag,
+        sol.dbugOptGrad.setAll(opt={'pausGrad':flag,
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
-                           'plotCalcStepGrad': True,
+                           'plotCalcStepGrad': flag,#True,
                            'pausCalcStepGrad':flag,#True,
                            'plotQx':flag,
                            'plotQu':flag,

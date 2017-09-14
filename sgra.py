@@ -560,7 +560,7 @@ class sgra():
                                         inpName='Debug options for Grad')
         
         # Solution plot saving status:
-        self.save = binFlagDict(inpDict={'sol':True,
+        self.save = binFlagDict(inpDict={'currSol':True,
                      'histP':True,
                      'histQ':True,
                      'histI':True,
@@ -616,7 +616,7 @@ class sgra():
             
     def savefig(self,keyName='',fullName=''):
         if self.save.get(keyName,'False'):
-            print('Saving ' + fullName + ' convergence history plot to ' + \
+            print('Saving ' + fullName + ' plot to ' + \
                   self.probName + '_'+keyName+'.pdf!')
             try:
                 plt.savefig(self.probName+'_'+keyName+'.pdf',\
@@ -750,7 +750,7 @@ class sgra():
         plt.ylabel("Q values")
         plt.legend()
         
-        self.savefig(keyName='histQ',fullName='Q')
+        self.savefig(keyName='histQ',fullName='Q convergence history')
         
     def showHistI(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -761,7 +761,7 @@ class sgra():
         plt.xlabel("Grad iterations")
         plt.ylabel("I values")
         
-        self.savefig(keyName='histI',fullName='I')
+        self.savefig(keyName='histI',fullName='I convergence history')
 
     def showHistGradStep(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -772,7 +772,7 @@ class sgra():
         plt.xlabel("Grad iterations")
         plt.ylabel("Step values")
         
-        self.savefig(keyName='histGradStep',fullName='GradStep')
+        self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
 
         
 #%% LMPBVP

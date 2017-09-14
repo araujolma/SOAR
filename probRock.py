@@ -50,17 +50,17 @@ class prob(sgra):
         grav_e = GM/r_e/r_e    #9.8e-3       km/s^2
     
         # rocket constants
-        Thrust = 40.0                 # kg km/s² [= kN] 1.3*m_initial # N
+        Thrust = numpy.array([40.0])                 # kg km/s² [= kN] 1.3*m_initial # N
         
         scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
         
-        Isp = 450.0                   # s
-        s_f = 0.05
-        CL0 = 0.0#-0.03               # (B0 Miele 1998)
-        CL1 = 0.8                     # (B1 Miele 1998)
-        CD0 = 0.05                    # (A0 Miele 1998)
-        CD2 = 0.5                     # (A2 Miele 1998)
-        s_ref = numpy.pi*(0.0005)**2  # km^2
+        Isp = 450.0*numpy.ones(s)                     # s
+        s_f = 0.05*numpy.ones(s)   
+        CL0 = 0.0*numpy.ones(s)#-0.03                 # (B0 Miele 1998)
+        CL1 = 0.8*numpy.ones(s)                       # (B1 Miele 1998)
+        CD0 = 0.05*numpy.ones(s)                      # (A0 Miele 1998)
+        CD2 = 0.5*numpy.ones(s)                       # (A2 Miele 1998)
+        s_ref = (numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
         DampCent = 3.0#2.0#
         DampSlop = 3.0
 
@@ -197,20 +197,21 @@ class prob(sgra):
             dt = pi[0]/(N-1); dt6 = dt/6.0
             x[0,:,0] = x_its[0,:]
             uip1 = numpy.array([tabAlpha.value(0.0),tabBeta.value(0.0)])
-            for i in range(N-1):
-                tt = i * dt
-                ui = uip1
-                u[i,:,0] = ui
-                uipm = numpy.array([tabAlpha.value(tt+.5*dt),tabBeta.value(tt+.5*dt)])
-                uip1 = numpy.array([tabAlpha.value(tt+dt),tabBeta.value(tt+dt)])
-                if i == N-2:
-                    print("Bypassing here...")
-                    uip1 = ui
-                k1 = calcXdot(sizes,tt,x[i,:,0],ui,constants,restrictions)  
-                k2 = calcXdot(sizes,tt+.5*dt,x[i,:,0]+.5*dt*k1,uipm,constants,restrictions)
-                k3 = calcXdot(sizes,tt+.5*dt,x[i,:,0]+.5*dt*k2,uipm,constants,restrictions)  
-                k4 = calcXdot(sizes,tt+dt,x[i,:,0]+dt*k3,uip1,constants,restrictions)
-                x[i+1,:,0] = x[i,:,0] + dt6 * (k1+k2+k2+k3+k3+k4) 
+            for arc in range(s):
+                for i in range(N-1):
+                    tt = i * dt
+                    ui = uip1
+                    u[i,:,0] = ui
+                    uipm = numpy.array([tabAlpha.value(tt+.5*dt),tabBeta.value(tt+.5*dt)])
+                    uip1 = numpy.array([tabAlpha.value(tt+dt),tabBeta.value(tt+dt)])
+                    if i == N-2:
+                        print("Bypassing here...")
+                        uip1 = ui
+                    k1 = calcXdot(sizes,tt,x[i,:,arc],ui,constants,restrictions,arc)  
+                    k2 = calcXdot(sizes,tt+.5*dt,x[i,:,arc]+.5*dt*k1,uipm,constants,restrictions,arc)
+                    k3 = calcXdot(sizes,tt+.5*dt,x[i,:,arc]+.5*dt*k2,uipm,constants,restrictions,arc)  
+                    k4 = calcXdot(sizes,tt+dt,x[i,:,arc]+dt*k3,uip1,constants,restrictions,arc)
+                    x[i+1,:,arc] = x[i,:,arc] + dt6 * (k1+k2+k2+k3+k3+k4) 
 
             u[N-1,:,0] = u[N-2,:,0]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
 
@@ -309,8 +310,11 @@ class prob(sgra):
         pi = self.pi
         
         # calculate variables CL and CD
-        CL = CL0 + CL1*alpha
-        CD = CD0 + CD2*(alpha)**2
+        CL = numpy.empty_like(alpha)
+        CD = numpy.empty_like(alpha)
+        for arc in range(s):
+            CL[:,arc] = CL0[arc] + CL1[arc]*alpha[:,arc]
+            CD[:,arc] = CD0[arc] + CD2[arc]*(alpha[:,arc]**2)
     
         # calculate L and D
         # TODO: making atmosphere.rho vectorized (array compatible) would increase 
@@ -321,7 +325,9 @@ class prob(sgra):
             for k in range(N):
                 dens[k,arc] = rho(x[k,0,arc])
         
-        pDynTimesSref = .5 * dens * (x[:,1,:]**2) * s_ref    
+        pDynTimesSref = numpy.empty_like(CL)
+        for arc in range(s):
+            pDynTimesSref[:,arc] = .5 * dens[:,arc] * (x[:,1,arc]**2) * s_ref[arc]    
         L = CL * pDynTimesSref
         D = CD * pDynTimesSref
         
@@ -341,11 +347,11 @@ class prob(sgra):
             t = pi[arc]*numpy.arange(0,1.0+dt,dt) # Dimensional time
         
             phi[:,0,arc] = x[:,1,arc] * sinGama[:,arc]
-            phi[:,1,arc] = (beta[:,arc] * Thrust * cosAlfa[:,arc] - D[:,arc])/x[:,3,arc] - grav[:,arc] * sinGama[:,arc]
-            phi[:,2,arc] = ((beta[:,arc] * Thrust * sinAlfa[:,arc] + L[:,arc])/(x[:,3,arc] * x[:,1,arc]) + \
+            phi[:,1,arc] = (beta[:,arc] * Thrust[arc] * cosAlfa[:,arc] - D[:,arc])/x[:,3,arc] - grav[:,arc] * sinGama[:,arc]
+            phi[:,2,arc] = ((beta[:,arc] * Thrust[arc] * sinAlfa[:,arc] + L[:,arc])/(x[:,3,arc] * x[:,1,arc]) + \
                                   cosGama[:,arc] * ( x[:,1,arc]/r[:,arc]  -  grav[:,arc]/x[:,1,arc] )) * \
                                   .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
-            phi[:,3,arc] = - (beta[:,arc] * Thrust)/(grav_e * Isp)
+            phi[:,3,arc] = - (beta[:,arc] * Thrust[arc])/(grav_e * Isp[arc])
             phi[:,:,arc] *= pi[arc]
     
         return phi
@@ -413,8 +419,11 @@ class prob(sgra):
         alpha,beta = self.calcDimCtrl()
     
         # calculate variables CL and CD
-        CL = CL0 + CL1 * alpha
-        CD = CD0 + CD2 * alpha**2
+        CL = numpy.empty_like(alpha)
+        CD = numpy.empty_like(alpha)
+        for arc in range(s):
+            CL[:,arc] = CL0[arc] + CL1[arc]*alpha[:,arc]
+            CD[:,arc] = CD0[arc] + CD2[arc]*(alpha[:,arc]**2)
     
         # calculate L and D; atmosphere: numerical gradient
         dens = numpy.empty((N,s))
@@ -424,7 +433,10 @@ class prob(sgra):
                 dens[k,arc] = rho(x[k,0,arc])
                 del_rho[k,arc] = (rho(x[k,0,arc]+.1) - dens[k,arc])/.1
         
-        pDynTimesSref = .5 * dens * (x[:,1,:]**2) * s_ref    
+        pDynTimesSref = numpy.empty_like(CL)
+        for arc in range(s):
+            pDynTimesSref[:,arc] = .5 * dens[:,arc] * (x[:,1,arc]**2) * s_ref[arc]    
+
         L = CL * pDynTimesSref
         D = CD * pDynTimesSref
         
@@ -450,8 +462,8 @@ class prob(sgra):
                 r2 = r[k,arc]**2; r3 = r2*r[k,arc]
                 V = x[k,1,arc]; V2 = V*V
                 m = x[k,3,arc]; m2 = m*m
-                fVel = beta[k,arc]*Thrust*cosAlpha-D[k,arc] # forces on velocity direction
-                fNor = beta[k,arc]*Thrust*sinAlpha+L[k,arc] # forces normal to velocity
+                fVel = beta[k,arc]*Thrust[arc]*cosAlpha-D[k,arc] # forces on velocity direction
+                fNor = beta[k,arc]*Thrust[arc]*sinAlpha+L[k,arc] # forces normal to velocity
                 fdg = .5*(1.0+tanh(DampSlop*(k*pi[arc]/(N-1)-DampCent)))
     
                 # Expanded notation:
@@ -464,17 +476,17 @@ class prob(sgra):
                                                [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
                 phix[k,2,:] *= fdg
                 phiu[k,:,:,arc] = pi[arc]*array([[0.0                                                        ,0.0                           ],
-                     [(-beta[k,arc]*Thrust*sinAlpha*DAlfaDu1 - CD2*alpha[k,arc]*dens[k,arc]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
-                     [(beta[k,arc]*Thrust*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k,arc]*s_ref*(V)*DAlfaDu1)/m      ,Thrust*sinAlpha*DBetaDu2/(m*V)],
+                     [(-beta[k,arc]*Thrust[arc]*sinAlpha*DAlfaDu1 - CD2*alpha[k,arc]*dens[k,arc]*s_ref*V2*DAlfaDu1)/m   ,Thrust*cosAlpha*DBetaDu2/m    ],
+                     [(beta[k,arc]*Thrust[arc]*cosAlpha*DAlfaDu1/V + 0.5*CL1*dens[k,arc]*s_ref*(V)*DAlfaDu1)/m      ,Thrust*sinAlpha*DBetaDu2/(m*V)],
                      [0.0                                                                              ,-Thrust*DBetaDu2/(grav_e*Isp) ]])
                 phiu[k,2,:,arc] *= fdg
                 phip[k,:,:,arc] = array([[V*sinGama                                   ],
                                      [fVel/m - grav[k]*sinGama                    ],
                                      [fNor/(m*V) + cosGama*((V/r[k,arc])-(grav[k,arc]/V)) ],
-                                     [-(beta[k,arc]*Thrust)/(grav_e*Isp)              ]])
+                                     [-(beta[k,arc]*Thrust[arc])/(grav_e*Isp[arc])              ]])
                 phip[k,2,:,arc] *= fdg
-                fu[k,:,arc] = array([0.0,(pi[arc]*Thrust*DBetaDu2)/(grav_e * Isp * (1.0-s_f))])
-                fp[k,arc] = (Thrust * beta[k,arc])/(grav_e * Isp * (1.0-s_f))
+                fu[k,:,arc] = array([0.0,(pi[arc]*Thrust[arc]*DBetaDu2)/(grav_e * Isp[arc] * (1.0-s_f[arc]))])
+                fp[k,arc] = (Thrust[arc] * beta[k,arc])/(grav_e * Isp[arc] * (1.0-s_f[arc]))
     #==============================================================================
     
         Grads['phix'] = phix
@@ -517,7 +529,7 @@ class prob(sgra):
         f = numpy.empty((self.N,self.s))
         for arc in range(self.s):
             f[:,arc] = scal * beta[:,arc] * \
-                ( (Thrust * self.pi[arc])/(grav_e * (1.0-s_f) * Isp) )
+                ( (Thrust * self.pi[arc])/(grav_e * (1.0-s_f[arc]) * Isp[arc]) )
     
         return f
 
@@ -556,6 +568,8 @@ class prob(sgra):
         u = self.u
         pi = self.pi
         
+        paylPercMassGain = 100.0*(x[self.N-1,3,self.s-1]-self.mPayl)/self.mPayl
+        
 #        if len(intv)==0:
 #            intv = numpy.arange(0,self.N,1,dtype='int')
 #        else:
@@ -567,7 +581,8 @@ class prob(sgra):
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
             titlStr = "Current solution: I = {:.4E}".format(I) + \
-            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
+            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q) + \
+            "\nPayload mass gain: {:.4G}%".format(paylPercMassGain)
 #            titlStr = "Current solution: I = {:.4E}".format(I)
 #            if opt.get('dispP',False):
 #                P = opt['P']
@@ -638,13 +653,14 @@ class prob(sgra):
 
         # TODO: include a plot for visualization of pi!
 
-        if self.save['sol']:
-            print("Saving solution plot to "+self.probName+"_currSol.pdf!")
-            plt.savefig(self.probName+"_currSol.pdf",bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
+        self.savefig(keyName='currSol',fullName='solution')
+        #if self.save['sol']:
+        #    print("Saving solution plot to "+self.probName+"_currSol.pdf!")
+        #    plt.savefig(self.probName+"_currSol.pdf",bbox_inches='tight', pad_inches=0.1)
+        #else:
+        #    plt.show()
+        #plt.clf()
+        #plt.close('all')
             
         print("pi =",pi)
         print("Final rocket mass: {:.4E}\n".format(x[-1,3,self.s-1]))
@@ -655,6 +671,13 @@ class prob(sgra):
 
         currSolLabl = 'currentSol'
 
+        # Comparing final mass:
+        mFinSol = self.x[self.N-1,3,self.s-1]
+        mFinAlt = altSol.x[altSol.N-1,3,altSol.s-1]
+        paylMassGain = mFinSol-mFinAlt
+        paylPercMassGain = 100.0*paylMassGain/self.mPayl
+        
+
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
         plt.subplot2grid((8,1),(0,0))
@@ -663,8 +686,9 @@ class prob(sgra):
         plt.grid(True)
         plt.ylabel("h [km]")
         plt.legend()
-        plt.title("Comparing solutions: "+currSolLabl+" and "+\
-                  altSolLabl)
+        plt.title("Comparing solutions: " + currSolLabl + " and " + \
+                  altSolLabl+\
+                  "\nPayload mass gain: {:.4G}%".format(paylPercMassGain))
         
         plt.subplot2grid((8,1),(1,0))
         altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
@@ -731,13 +755,14 @@ class prob(sgra):
         plt.legend()
         ######################################
         
-        if self.save['comp']:
-            print("Saving comparisons plot to "+self.probName+"_comp.pdf!")
-            plt.savefig(self.probName+"_comp.pdf",bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
+        self.savefig(keyName='comp',fullName='comparisons')
+        #if self.save['comp']:
+        #    print("Saving comparisons plot to "+self.probName+"_comp.pdf!")
+        #    plt.savefig(self.probName+"_comp.pdf",bbox_inches='tight', pad_inches=0.1)
+        #else:
+        #    plt.show()
+        #plt.clf()
+        #plt.close('all')
 
 #        
 #        for arc in range(s):
@@ -812,13 +837,11 @@ class prob(sgra):
 #            plt.clf()
 #            plt.close('all')
             
-        print("Final rocket mass:")       
-        mFinSol = self.x[self.N-1,3,self.s-1]
-        mFinAlt = altSol.x[altSol.N-1,3,altSol.s-1]
+        print("Final rocket mass:")  
         print(currSolLabl+": {:.4E}".format(mFinSol)+" kg.")
         print(altSolLabl+": {:.4E}".format(mFinAlt)+" kg.")
-        print("Difference: {:.4E}".format(mFinSol-mFinAlt)+" kg, "+\
-              "{:.4G}".format(100.0*(mFinSol-mFinAlt)/self.mPayl)+\
+        print("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
+              "{:.4G}".format(paylPercMassGain)+\
               "% more payload!\n")
         
      
@@ -949,20 +972,21 @@ class prob(sgra):
         plt.xlabel("X [km]")
         plt.ylabel("Z [km]")
         plt.axis('equal')
-        plt.title("Rocket trajectory on Earth")
+        plt.title("Rocket trajectory over Earth")
         
-        if self.save['traj']:
-            print("Saving trajectory plot to " + self.probName + \
-                  "_traj.pdf!")
-            plt.savefig(self.probName + "_traj.pdf",bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
+        self.savefig(keyName='traj',fullName='trajectory')
+#        if self.save['traj']:
+#            print("Saving trajectory plot to " + self.probName + \
+#                  "_traj.pdf!")
+#            plt.savefig(self.probName + "_traj.pdf",bbox_inches='tight', pad_inches=0.1)
+#        else:
+#            plt.show()
+#        plt.clf()
+#        plt.close('all')
         
 #
 #%%
-def calcXdot(sizes,t,x,u,constants,restrictions):
+def calcXdot(sizes,t,x,u,constants,restrictions,arc):
     n = sizes['n']
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
@@ -991,13 +1015,13 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     beta = u2#(beta_max + beta_min)/2 + tanh(u2)*(beta_max - beta_min)/2
 
     # calculate variables CL and CD
-    CL = CL0 + CL1*alpha
-    CD = CD0 + CD2*(alpha)**2
+    CL = CL0[arc] + CL1[arc]*alpha
+    CD = CD0[arc] + CD2[arc]*(alpha)**2
 
     # calculate L and D
     
     dens = rho(x[0])
-    pDynTimesSref = .5 * dens * (x[1]**2) * s_ref    
+    pDynTimesSref = .5 * dens * (x[1]**2) * s_ref[arc]    
     L = CL * pDynTimesSref
     D = CD * pDynTimesSref
     
@@ -1013,11 +1037,11 @@ def calcXdot(sizes,t,x,u,constants,restrictions):
     # example rocket single stage to orbit with Lift and Drag
     sinGama = sin(x[2])
     dx[0] = x[1] * sinGama
-    dx[1] = (beta * Thrust * cos(alpha) - D)/x[3] - grav * sinGama
-    dx[2] = (beta * Thrust * sin(alpha) + L)/(x[3] * x[1]) + \
+    dx[1] = (beta * Thrust[arc] * cos(alpha) - D)/x[3] - grav * sinGama
+    dx[2] = (beta * Thrust[arc]* sin(alpha) + L)/(x[3] * x[1]) + \
             cos(x[2]) * ( x[1]/r  -  grav/x[1] )
     dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
-    dx[3] = -(beta * Thrust)/(grav_e * Isp)
+    dx[3] = -(beta * Thrust[arc])/(grav_e * Isp[arc])
     #if t < 3.0:
 #        print(t)
     #    dx[2] = 0.0

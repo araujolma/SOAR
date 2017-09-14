@@ -552,14 +552,22 @@ def calcStepGrad(self,corr):
                 #if nPint < Pint0:
             alfa /= 1.2
      
+    # Get index for applied alfa
+    histAlfa = stepMan.histStep
+    histP = stepMan.histP
+    histQ = stepMan.histQ
+    for k in range(len(histAlfa)):
+        if abs(histAlfa[k]-alfa)<1e-14:
+            break
+            
+    # Get final values of Q and P
+    Q = histQ[k]; P = histP[k]      
        
     # after all this analysis, plot the history of the tried alfas, and 
-    # corresponding Q's        
+    # corresponding Q's  
+
     if self.dbugOptGrad['plotCalcStepGrad']:
         
-        histAlfa = stepMan.histStep
-        histP = stepMan.histP
-        histQ = stepMan.histQ
         histI = stepMan.histI
         histObj = stepMan.histObj
         
@@ -583,13 +591,7 @@ def calcStepGrad(self,corr):
         ax2.tick_params('y', colors='r')
         ax2.grid(True)
 
-        # Get index for applied alfa
-        for k in range(len(histAlfa)):
-            if abs(histAlfa[k]-alfa)<1e-14:
-                break
-            
-        # Get final values of Q and P, plot them in squares
-        Q = histQ[k]; P = histP[k]
+        # Plot final values of Q and P in squares
         ax1.loglog(alfa,Q,'sb'); ax2.loglog(alfa,P,'sr')
         
         plt.title("Q and P versus Grad Step for this grad run")
