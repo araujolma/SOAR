@@ -475,7 +475,7 @@ class sgra():
     
     probName = 'probSGRA'
     
-    def __init__(self):
+    def __init__(self,parallel={}):
         # these numbers should not make any sense; 
         # they should change with the problem
         N,n,m,p,q,s = 50000,4,2,1,3,2
@@ -568,6 +568,10 @@ class sgra():
                      'traj':True,
                      'comp':True},\
                                 inpName='Plot saving options')
+        
+        self.isParallel = dict()
+        self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False) 
+        self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
     
     def copy(self):
         return copy.deepcopy(self)
@@ -609,6 +613,23 @@ class sgra():
             plt.plot(accAdimTime + adimTimeDur*t[-1], \
                      func[-1,arc],'s'+color)
             accAdimTime += adimTimeDur    
+            
+    def savefig(self,keyName='',fullName=''):
+        if self.save.get(keyName,'False'):
+            print('Saving ' + fullName + ' convergence history plot to ' + \
+                  self.probName + '_'+keyName+'.pdf!')
+            try:
+                plt.savefig(self.probName+'_'+keyName+'.pdf',\
+                            bbox_inches='tight', pad_inches=0.1)
+            except:
+                print("Sorry, pdf saving failed... Are you using Windows?")
+                print("Anyway, you can always load the object and use some "+ \
+                      "of its plotting methods later, I guess.")
+        else:
+            plt.show()
+        #
+        plt.clf()
+        plt.close('all')
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
     
@@ -669,15 +690,7 @@ class sgra():
         plt.ylabel("P values")
         plt.legend()
         
-        if self.save['histP']:
-            print('Saving P convergence history plot to ' + self.probName + \
-                  '_histP.pdf!')
-            plt.savefig(self.probName+'_histP.pdf',bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
-
+        self.savefig(keyName='histP',fullName='P')
 
 #%% GRADIENT-WISE METHODS
 
@@ -737,15 +750,7 @@ class sgra():
         plt.ylabel("Q values")
         plt.legend()
         
-        if self.save['histQ']:
-            print('Saving Q convergence history plot to '+ self.probName + \
-                  'l_histQ.pdf!')
-            plt.savefig(self.probName+'_histQ.pdf',bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
-
+        self.savefig(keyName='histQ',fullName='Q')
         
     def showHistI(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -756,14 +761,7 @@ class sgra():
         plt.xlabel("Grad iterations")
         plt.ylabel("I values")
         
-        if self.save['histI']:
-            print('Saving I convergence history plot to '+ self.probName + \
-                  '_histI.pdf!')
-            plt.savefig(self.probName+'_histI.pdf',bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
+        self.savefig(keyName='histI',fullName='I')
 
     def showHistGradStep(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -774,19 +772,12 @@ class sgra():
         plt.xlabel("Grad iterations")
         plt.ylabel("Step values")
         
-        if self.save['histGradStep']:
-            print('Saving GradStep convergence history plot to '+ \
-                  self.probName + '_histGradStep.pdf!')
-            plt.savefig(self.probName+'_histGradStep.pdf',bbox_inches='tight', pad_inches=0.1)
-        else:
-            plt.show()
-        plt.clf()
-        plt.close('all')
+        self.savefig(keyName='histGradStep',fullName='GradStep')
 
         
 #%% LMPBVP
 
-    def LMPBVP(self,rho=0.0):
+    def LMPBVP(self,rho=0.0,isParallel=False):
         
         helper = LMPBVPhelp(self,rho)
         
@@ -794,15 +785,15 @@ class sgra():
 #            print("\nBeginning loop for solutions...")
 
         # TODO: paralelize aqui!
-
-        pool = Pool()
-        res = pool.map(helper.propagate,range(self.Ns+1))
-        pool.close()
-        pool.join()
-        
-#        res = list()
-#        for j in range(self.Ns+1):
-#            res.append(helper.propagate(j))
+        if isParallel:
+            pool = Pool()
+            res = pool.map(helper.propagate,range(self.Ns+1))
+            pool.close()
+            pool.join()
+        else:
+            res = list()
+            for j in range(self.Ns+1):
+                res.append(helper.propagate(j))
             
         A,B,C,lam,mu = helper.getCorr(res)
         

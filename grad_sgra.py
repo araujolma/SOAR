@@ -628,12 +628,13 @@ def calcStepGrad(self,corr):
     return alfa
 
 
-def grad(self):
+def grad(self,parallelOpt={}):
     
     print("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
     # Calculate corrections
-    A,B,C,lam,mu = self.LMPBVP(rho=1.0)
+    isParallel = parallelOpt.get('gradLMPBVP',False)
+    A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
  
     # Store corrections in solution
     self.lam = lam

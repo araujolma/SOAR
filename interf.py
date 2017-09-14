@@ -25,7 +25,7 @@ class ITman():
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.isNewSol = False
-        self.loadSolDir = probName+'_initRest.pkl'
+        self.loadSolDir = probName+'_solInitRest.pkl'
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.mustPlotGrad = True
         self.mustPlotRest = False
@@ -38,7 +38,8 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
-        
+        self.parallelOpt = {'gradLMPBVP':True,
+                         'restLMPBVP':True}
     
     def prntDashStr(self):
         print(self.dashStr)
@@ -63,18 +64,19 @@ class ITman():
         print("Loading settings for problem: "+self.probName)
         self.prntDashStr()      
         self.printPars()     
+        print("(You can always change these here in '"+__name__+".py').")
         
         if self.defOpt == 'newSol':
-            print("\nDefault starting option is to generate new initial guess.")
+            print("\nDefault starting option (defOpt) is to generate new initial guess.")
             print("Hit 'enter' to do it, or any other key to load a "+\
                   "previous solution.")
             inp = self.prom()
             if inp == '':
                 self.isNewSol = True
-                print("\nOk, default mode is '"+self.initOpt+"'.")
+                print("\nOk, default mode (initOpt) is '"+self.initOpt+"'.")
                 print("Hit 'enter' to proceed with it, or 'd' for 'default',")
                 print("or 'n' for 'naive'. See '" + self.probName + \
-                      "' for details. ")
+                      ".py' for details. ")
                 inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
@@ -91,7 +93,7 @@ class ITman():
                 self.isNewSol = False
                 # execution only gets here if the default init is to generate 
                 # new init guess, but user wants to load solution
-                print("\nOk, default path to loading solution is: '"+\
+                print("\nOk, default path to loading solution (loadSolDir) is: '"+\
                       self.loadSolDir+"'.")
                 print("Hit 'enter' to load it, or type the path to "+\
                       "alternative solution to be loaded.")
@@ -100,8 +102,8 @@ class ITman():
                     self.loadSolDir = inp
                 
         elif self.defOpt == 'loadSol':
-            print("\nDefault starting option is to load solution.")
-            print("The default path to loading solution is: "+self.loadSolDir)
+            print("\nDefault starting option (defOpt) is to load solution.")
+            print("The default path to loading solution (loadSolDir) is: "+self.loadSolDir)
             print("Hit 'enter' to do it, 'I' to generate new initial guess,")
             print("or type the path to alternative solution to be loaded.")
             inp = input(self.bscImpStr)
@@ -143,6 +145,8 @@ class ITman():
             dill.dump(sol,outp,-1)
    
     def setInitSol(self,sol):
+        print("Setting initial solution.")
+        print("Please wait, you will be asked to confirm it later.\n\n")
         if self.isNewSol:
             # declare problem:
             solInit = sol.initGues({'initMode':self.initOpt})
@@ -319,7 +323,7 @@ class ITman():
         while sol.Q > sol.tol['Q']:
             sol = self.restRnds(sol)
 
-            sol.grad()
+            sol.grad(parallelOpt=self.parallelOpt)
             
             if self.showHistQCond(sol):
                 sol.showHistQ()

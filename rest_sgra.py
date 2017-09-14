@@ -226,11 +226,12 @@ def calcStepRest(self,corr):
     return alfa
 
 
-def rest(self):
+def rest(self,parallelOpt={}):
      
     print("\nIn rest, P0 = {:.4E}.".format(self.P))
 
-    A,B,C,lam,mu = self.LMPBVP(rho=0.0)
+    isParallel = parallelOpt.get('restLMPBVP',False)
+    A,B,C,lam,mu = self.LMPBVP(rho=0.0,isParallel=isParallel)
     
     # TODO: must rethink the correction plot, 
     # current design makes no sense because C=0 is a possibility
