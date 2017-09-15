@@ -748,6 +748,7 @@ class model():
     def __integrate(self, ode45, t0, x0):
 
         self.simulCounter += 1
+        self.traj.tphases = self.tphases
 
         # Output variables
         self.traj.append(t0, x0)
@@ -763,6 +764,8 @@ class model():
             # Stage separation mass reduction
             y_initial = self.traj.xp[-1]
             y_initial[3] = y_initial[3] - self.mjetsoned[ii-1]
+
+            self.traj.mass0.append(y_initial[3].copy())
 
             # integration
             ode45.set_initial_value(y_initial, t_initial)
@@ -1398,6 +1401,8 @@ class modelTrajectory():
         self.xx = []
         self.tp = []
         self.xp = []
+        self.tphases = []
+        self.mass0 = []
 
     def append(self, tt, xx):
 
@@ -1427,6 +1432,7 @@ class solution():
     def __init__(self, factors, con):
 
         self.factors = factors
+        self.con = con
 
         model1 = model(factors, con)
         model1.simulate("plot")
@@ -1473,7 +1479,8 @@ class solution():
     def sgra(self):
 
         ans = self.basic.traj.tt, self.basic.traj.xx, self.basic.uu,\
-              self.basic.tabAlpha, self.basic.tabBeta
+              self.basic.tabAlpha, self.basic.tabBeta, self.con,\
+              self.basic.traj.tphases, self.basic.traj.mass0
         return ans
 
 
