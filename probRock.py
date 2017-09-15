@@ -163,8 +163,12 @@ class prob(sgra):
         elif initMode == 'extSol':
 
             # itsme application
-            t_its,x_its,u_its,tabAlpha,tabBeta = itsme.sgra('default.its')
+            t_its,x_its,u_its,tabAlpha,\
+            tabBeta,inputDict,tphases,mass0 = itsme.sgra('default.its')
 
+            # The inputDict corresponds to the con dictionary from itsme.
+            # The con dictionary storages all input information and other
+            # informations.
             # Solutions must be made compatible: t_its is dimensional,
             # u_its consists of the actual controls (alpha and beta), etc.
             # Besides, all arrays are in a different time discretization
