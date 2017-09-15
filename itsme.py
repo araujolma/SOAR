@@ -749,6 +749,7 @@ class model():
 
         self.simulCounter += 1
         self.traj.tphases = self.tphases
+        self.traj.massJet = self.mjetsoned
 
         # Output variables
         self.traj.append(t0, x0)
@@ -1403,6 +1404,7 @@ class modelTrajectory():
         self.xp = []
         self.tphases = []
         self.mass0 = []
+        self.massJet = []
 
     def append(self, tt, xx):
 
@@ -1480,7 +1482,8 @@ class solution():
 
         ans = self.basic.traj.tt, self.basic.traj.xx, self.basic.uu,\
               self.basic.tabAlpha, self.basic.tabBeta, self.con,\
-              self.basic.traj.tphases, self.basic.traj.mass0
+              self.basic.traj.tphases, self.basic.traj.mass0,\
+              self.basic.traj.massJet
         return ans
 
 
