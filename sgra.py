@@ -593,12 +593,11 @@ class sgra():
         pprint.pprint(dPars)
         
     def plotCat(self,func,mark='',color='b',labl=''):
-        
         s = self.s
         t = self.t
-        
         pi = self.pi
-        # Total time
+
+        # Total dimensional time
         tTot = pi.sum()
         accAdimTime = 0.0
 
