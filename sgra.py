@@ -593,6 +593,8 @@ class sgra():
         pprint.pprint(dPars)
         
     def plotCat(self,func,mark='',color='b',labl=''):
+        """Plot a given function with several subarcs."""
+        
         s = self.s
         t = self.t
         pi = self.pi
@@ -603,8 +605,13 @@ class sgra():
 
         for arc in range(s):
             adimTimeDur = (pi[arc]/tTot)
-            plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],mark+color,\
-                     label=labl)
+            # Plot the function at each arc. Label only the first arc
+            if arc == 0:
+                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+                         mark+color,label=labl)
+            else:
+                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+                         mark+color)
             # arc beginning with circle
             plt.plot(accAdimTime + adimTimeDur*t[0], \
                      func[0,arc],'o'+color)

@@ -10,15 +10,17 @@ from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
 
+
 class prob(sgra):
     probName = 'probRock'
         
     def initGues(self,opt={}):
+
         # matrix sizes
         n = 4
         m = 2
         
-        N = 10000 + 1#20000+1#40000+1#20000+1#5000000 + 1 #
+        N = 7500+1#10000 + 1#20000+1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -1039,7 +1041,7 @@ class prob(sgra):
               "% more payload!\n")
         
      
-# TODO: re-implement plotTraj...
+# TODO: re-implement plotTraj, allowing comparison of trajectories...
         
     def plotTraj(self):
         
@@ -1047,7 +1049,7 @@ class prob(sgra):
         R = self.constants['r_e']
         N, s = self.N, self.s
 
-        X = numpy.empty(N*s); Z = numpy.empty(N*s)
+        X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
 
         sigma = 0.0 #sigma: range angle
         X[0] = 0.0
@@ -1088,6 +1090,10 @@ class prob(sgra):
             #
         indShut[s-1].append(N-1)    
                 
+        # Remaining points are unused; it is best to repeat the final point
+        X[iCont+1 :] = X[iCont]
+        Z[iCont+1 :] = Z[iCont]
+        
         # Draw Earth segment corresponding to flight range
         sigVec = numpy.arange(0,1.01,.01) * sigma
         x = R * cos(.5*numpy.pi - sigVec)

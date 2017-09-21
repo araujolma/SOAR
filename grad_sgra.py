@@ -439,7 +439,7 @@ def calcStepGrad(self,corr):
     Q0,_,_,_,_ = self.calcQ()
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-7*I0/P0)#(k = 1e-9*I0/P0)
+    stepMan = stepMngr(k = 1e-8*I0/P0)#(k = 1e-9*I0/P0)
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P

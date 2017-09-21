@@ -24,7 +24,8 @@ class ITman():
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
-        self.isNewSol = False
+        self.caseName = 'default2st'
+#        self.isNewSol = False
         self.loadSolDir = probName+'_solInitRest.pkl'
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.mustPlotGrad = True
@@ -257,6 +258,8 @@ class ITman():
                 pprint.pprint(origDbugOptRest)
 
                 nowStr = str(datetime.datetime.now()).replace(' ','_')
+                nowStr.replace('/','-')
+                nowStr.replace('.','-')
                 self.saveSol(sol,self.probName+'_dbugSol_'+nowStr+'.pkl')
                 #input(" > ")
             else:
