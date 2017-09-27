@@ -35,7 +35,11 @@ class LMPBVPhelp():
     
     def __init__(self,sol,rho):
         """Initialization method. Comprises all the "common" calculations for 
-        each independent solution to be added over."""
+        each independent solution to be added over.
+        
+        According to the Miele (2003) convention, 
+            rho = 0 for rest, and rho = 1 for grad.
+        """
         
         # debug options...
         self.dbugOptGrad = sol.dbugOptGrad
@@ -82,7 +86,7 @@ class LMPBVPhelp():
         #######################################################################        
         
         # Get gradients
-        Grads = sol.calcGrads()
+        Grads = sol.calcGrads(calcCostTerm=(rho>0.5))
         #dt6 = dt/6
         phix = Grads['phix']
         phiu = Grads['phiu']
@@ -298,15 +302,6 @@ class LMPBVPhelp():
                 print("C[arc] =",C[arc])
                 #input(" > ")
 ###############################################################################
-            
-        # store solution in arrays
-        #print("Writing to arrays in j =",j)
-        
-        #self.arrayA[j,:,:,:] = A.copy()#[:,:,arc]
-        #self.arrayB[j,:,:,:] = B.copy()#[:,:,arc]
-        #self.arrayC[j,:] = C.copy()
-        #self.arrayL[j,:,:,:] = lam.copy()#[:,:,arc]
-        #Ct[:,j] = C.copy()
         
         # All the outputs go to main output dictionary; the final solution is 
         # computed by the next method, 'getCorr'.
@@ -332,10 +327,6 @@ class LMPBVPhelp():
         
         # Unpack outputs from 'propagate' into proper matrices Ct, Dt, etc.
         for j in range(Ns+1):
-#            arrayA[j,:,:,:] = res[j]['A']#[:,:,arc]
-#            arrayB[j,:,:,:] = res[j]['B']#[:,:,arc]
-#            arrayC[j,:] = res[j]['C']
-#            arrayL[j,:,:,:] = res[j]['L']#lam.copy()#[:,:,arc]
             Ct[:,j] = res[j]['C']
             Dt[:,j] = res[j]['Dt']
             Et[:,j] = res[j]['Et']
@@ -367,10 +358,10 @@ class LMPBVPhelp():
         # column vector for linear system involving k's and mu's  [eqs (34)]
         col = numpy.zeros(Ns+q+1)
         col[0] = 1.0 # eq (34d)
-        col[1:(q+1)] = rho1 * self.psi
+        
         # Integral term
-        sumIntFpi = numpy.zeros(p)
-        if self.rho > 0.0:
+        if self.rho > 0.5:
+            sumIntFpi = numpy.zeros(p)
             for arc in range(s):
                 thisInt = numpy.zeros(p)
                 for ind in range(p):
@@ -378,13 +369,14 @@ class LMPBVPhelp():
                     thisInt -= .5*(self.fp[0,:,arc] + self.fp[N-1,:,arc])
                     thisInt *= self.dt
                     sumIntFpi += thisInt
-        
-        col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
+            col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
+        else:
+            col[1:(q+1)] = rho1 * self.psi
+
         
         # Calculations of weights k:        
 #        print("M =",M)
 #        print("col =",self.col)
-        
         KMi = numpy.linalg.solve(M,col)
         Res = M.dot(KMi)-col
         print("Residual of the Linear System:",Res.transpose().dot(Res))
@@ -399,9 +391,9 @@ class LMPBVPhelp():
         lam = numpy.zeros((N,n,s))
         
         for j in range(Ns+1):
-            A += K[j] * res[j]['A']#self.arrayA[j,:,:,:]
-            B += K[j] * res[j]['B']#self.arrayB[j,:,:,:]
-            C += K[j] * res[j]['C']#self.arrayC[j,:]
+            A   += K[j] * res[j]['A']#self.arrayA[j,:,:,:]
+            B   += K[j] * res[j]['B']#self.arrayB[j,:,:,:]
+            C   += K[j] * res[j]['C']#self.arrayC[j,:]
             lam += K[j] * res[j]['L']#self.arrayL[j,:,:,:]
             
 ###############################################################################        
@@ -786,11 +778,8 @@ class sgra():
     def LMPBVP(self,rho=0.0,isParallel=False):
         
         helper = LMPBVPhelp(self,rho)
-        
-#        if rho>0.5:
-#            print("\nBeginning loop for solutions...")
 
-        # TODO: paralelize aqui!
+
         if isParallel:
             pool = Pool()
             res = pool.map(helper.propagate,range(self.Ns+1))

@@ -20,7 +20,7 @@ class prob(sgra):
         n = 4
         m = 2
         
-        N = 7500+1#10000 + 1#20000+1#40000+1#20000+1#5000000 + 1 #
+        N = 20000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -225,6 +225,8 @@ class prob(sgra):
             boundary['h_final'] = h_final
             boundary['V_final'] = V_final
             boundary['gamma_final'] = gamma_final        
+            boundary['mission_dv'] = numpy.sqrt((GM/r_e)*\
+                    (2.0-r_e/(r_e+h_final)))
             self.boundary = boundary
         
             constants = dict()
@@ -347,6 +349,13 @@ class prob(sgra):
 
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
+
+        print("Bypass BIZARRO...")
+        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
+        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
+        self.constants['Thrust'] *= 100.0/40.0
+        u[:,1,:] *= 40.0/100.0
+
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
         
         self.x = x
@@ -490,22 +499,21 @@ class prob(sgra):
 
 #%%
 
-    def calcGrads(self):
+    def calcGrads(self,calcCostTerm=True):
         Grads = dict()
-    
-        N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
         
-    
         # Pre-assign functions
         sin = numpy.sin
         cos = numpy.cos
         tanh = numpy.tanh
-        array = numpy.array
     
+        # Load constants
+        N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
         constants = self.constants
         grav_e = constants['grav_e']
-        Thrust = constants['Thrust'] 
+        MaxThrs = constants['Thrust'] 
         Isp = constants['Isp']
+        g0Isp = Isp * grav_e
         scal = constants['costScalingFactor']
         r_e = constants['r_e']
         GM = constants['GM']
@@ -524,9 +532,16 @@ class prob(sgra):
         beta_min = restrictions['beta_min']
         beta_max = restrictions['beta_max']
         
+        # Load states, controls
         u = self.u
-        u1 = u[:,0]
-        u2 = u[:,1]
+        u1 = numpy.empty((N,s))
+        u2 = numpy.empty((N,s))
+        
+        u1 = u[:,0,:]
+        u2 = u[:,1,:]
+        tanhU1 = tanh(u1)
+        tanhU2 = tanh(u2)
+        
         x = self.x
         pi = self.pi
         
@@ -542,6 +557,8 @@ class prob(sgra):
         fu = numpy.zeros((N,m,s))
         fp = numpy.zeros((N,p,s))
     
+        ## Psi derivatives
+        
         # For reference:
         # y = [x[0,:,0],\
         #      x[N-1,:,0],\
@@ -561,7 +578,7 @@ class prob(sgra):
         for ind in range(n-1):
             psiy[q-1-ind,2*n*s-2-ind] = 1.0
             
-        # Intermediate conditions (except for mass)
+        # Intermediate conditions
         i0 = n
         for arc in range(s-1): 
             # For height, speed and angle:
@@ -576,17 +593,46 @@ class prob(sgra):
          
         psip = numpy.zeros((q,p))
     
+        # calculate r, V, etc
+        r = r_e + x[:,0,:]
+        r2 = r * r
+        r3 = r2 * r
+        V = x[:,1,:]
+        V2 = V * V
+        gama = x[:,2,:]
+        # GAMMA FACTOR
+        fdg = numpy.empty_like(r)
+        t0 = 0.0
+        for arc in range(s):
+            t = t0 + self.t * pi[arc]
+            fdg[:,arc] = .5*(1.0+tanh(DampSlop*(t-DampCent)))
+            t0 += pi[arc] 
+        m = x[:,3,:]
+        m2 = m * m
+        sinGama = sin(gama)
+        cosGama = cos(gama)
+        
         # Calculate variables (arrays) alpha and beta
         aExp = .5*(alpha_max - alpha_min)
         bExp = .5*(beta_max - beta_min)
+        # TODO: change calcDimCtrl so that the derivatives 
+        # DAlfaDu1 and DBetaDu2 are also calculated there... 
+        # (with an optional command so that these are not calculated all the
+        # time, of course!)
         alpha,beta = self.calcDimCtrl()
+        sinAlpha = sin(alpha)
+        cosAlpha = cos(alpha)
+        
+        # Derivatives
+        DAlfaDu1 = aExp*(1.0-tanhU1**2)
+        DBetaDu2 = bExp*(1.0-tanhU2**2)
     
         # calculate variables CL and CD
-        CL = numpy.empty_like(alpha)
-        CD = numpy.empty_like(alpha)
+        CLsref = numpy.empty_like(alpha)
+        CDsref = numpy.empty_like(alpha)
         for arc in range(s):
-            CL[:,arc] = CL0[arc] + CL1[arc]*alpha[:,arc]
-            CD[:,arc] = CD0[arc] + CD2[arc]*(alpha[:,arc]**2)
+            CLsref[:,arc] = (CL0[arc] + CL1[arc]*alpha[:,arc])*s_ref[arc]
+            CDsref[:,arc] = (CD0[arc] + CD2[arc]*(alpha[:,arc]**2))*s_ref[arc]
     
         # calculate L and D; atmosphere: numerical gradient
         dens = numpy.empty((N,s))
@@ -596,60 +642,128 @@ class prob(sgra):
                 dens[k,arc] = rho(x[k,0,arc])
                 del_rho[k,arc] = (rho(x[k,0,arc]+.1) - dens[k,arc])/.1
         
-        pDynTimesSref = numpy.empty_like(CL)
-        for arc in range(s):
-            pDynTimesSref[:,arc] = .5 * dens[:,arc] * (x[:,1,arc]**2) * s_ref[arc]    
+        pDyn = .5 * dens * V2
 
-        L = CL * pDynTimesSref
-        D = CD * pDynTimesSref
+        # Calculate Lift and Drag
+        L, D = CLsref * pDyn, CDsref * pDyn
         
-        # calculate r
-        r = r_e + x[:,0,:]
+        # calculate gravity (at each time/arc!)
+        g = GM/r/r
     
-        # calculate grav
-        grav = GM/r/r
+        ## "common" expressions
+
+        # TODO: also compute d thrust d u2        
+        # Actual (dimensional thrust):
+        thrust = numpy.empty_like(beta)
+        for arc in range(s):
+            thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
+            
+        # Normal and axial forces
+        fVel = thrust * cosAlpha - D # forces on velocity direction
+        fNor = thrust * sinAlpha + L # forces normal to velocity (90 deg +)
+        
+        # acceleration solely due to thrust
+        bTm = thrust/m
     
     #==============================================================================
-    # TODO: rewrite this, leaving the : as the time axis.
-        for arc in range(s):
-            for k in range(N):
-                sinGama = sin(x[k,2,arc])
-                cosGama = cos(x[k,2,arc])
-         
-                sinAlpha = sin(alpha[k,arc])
-                cosAlpha = cos(alpha[k,arc])
-         
-                #cosu1 = cos(u1[k])
-                #cosu2 = cos(u2[k])
-         
-                r2 = r[k,arc]**2; r3 = r2*r[k,arc]
-                V = x[k,1,arc]; V2 = V*V
-                m = x[k,3,arc]; m2 = m*m
-                fVel = beta[k,arc]*Thrust[arc]*cosAlpha-D[k,arc] # forces on velocity direction
-                fNor = beta[k,arc]*Thrust[arc]*sinAlpha+L[k,arc] # forces normal to velocity
-                fdg = .5*(1.0+tanh(DampSlop*(k*pi[arc]/(N-1)-DampCent)))
-    
-                # Expanded notation:
-                DAlfaDu1 = aExp*(1.0-tanh(u1[k,arc])**2)
-                DBetaDu2 = bExp*(1.0-tanh(u2[k,arc])**2)
+        ## fu derivatives:
+        if calcCostTerm:
+            for arc in range(s):
+            # d f d u1: 0.0
+            # d f d u2:
+                fu[:,1,arc] = (pi[arc] * MaxThrs[arc] * DBetaDu2[:,arc]) / \
+                (g0Isp[arc] * (1.0-s_f[arc]))
+            
+            ## fp derivatives
+            # d f d pi:
+                fp[:,arc,arc] = (thrust[:,arc])/ (g0Isp[arc] * (1.0-s_f[arc]))
         
-                phix[k,:,:,arc] = pi[arc]*array([[0.0                                                              ,sinGama                                                                                        ,V*cosGama                      ,0.0          ],
-                                               [2*GM*sinGama/r3 - (0.5*CD[k,arc]*del_rho[k,arc]*s_ref[arc]*V2)/m              ,-CD[k,arc]*dens[k,arc]*s_ref[arc]*V/m                                                                       ,-grav[k,arc]*cosGama               ,-fVel/m2     ],
-                                               [cosGama*(-V/r2+2*GM/(V*r3)) + (0.5*CL[k,arc]*del_rho[k,arc]*s_ref[arc]*V)/m   ,-beta[k,arc]*Thrust[arc]*sinAlpha/(m*V2) + cosGama*((1/r[k,arc])+grav[k,arc]/(V2)) + 0.5*CL[k,arc]*dens[k,arc]*s_ref[arc]/m  ,-sinGama*((V/r[k,arc])-grav[k,arc]/V)  ,-fNor/(m2*V) ],
-                                               [0.0                                                              ,0.0                                                                                            ,0.0                            ,0.0          ]])
-                phix[k,2,:] *= fdg
-                phiu[k,:,:,arc] = pi[arc]*array([[0.0                                                        ,0.0                           ],
-                     [(-beta[k,arc]*Thrust[arc]*sinAlpha*DAlfaDu1 - CD2[arc]*alpha[k,arc]*dens[k,arc]*s_ref[arc]*V2*DAlfaDu1)/m   ,Thrust[arc]*cosAlpha*DBetaDu2/m    ],
-                     [(beta[k,arc]*Thrust[arc]*cosAlpha*DAlfaDu1/V + 0.5*CL1[arc]*dens[k,arc]*s_ref[arc]*(V)*DAlfaDu1)/m      ,Thrust[arc]*sinAlpha*DBetaDu2/(m*V)],
-                     [0.0                                                                              ,-Thrust[arc]*DBetaDu2/(grav_e*Isp[arc]) ]])
-                phiu[k,2,:,arc] *= fdg
-                phip[k,:,:,arc] = array([[V*sinGama                                   ],
-                                     [fVel/m - grav[k,arc]*sinGama                    ],
-                                     [fNor/(m*V) + cosGama*((V/r[k,arc])-(grav[k,arc]/V)) ],
-                                     [-(beta[k,arc]*Thrust[arc])/(grav_e*Isp[arc])              ]])
-                phip[k,2,:,arc] *= fdg
-                fu[k,:,arc] = array([0.0,(pi[arc]*Thrust[arc]*DBetaDu2)/(grav_e * Isp[arc] * (1.0-s_f[arc]))])
-                fp[k,arc,arc] = (Thrust[arc] * beta[k,arc])/(grav_e * Isp[arc] * (1.0-s_f[arc]))
+        #fVel = beta * MaxThrs * cosAlpha - D
+        #fNor = beta * MaxThrs * sinAlpha + L
+        
+        ## phip derivatives
+        for arc in range(s):
+        # d hdot d pi
+            phip[:,0,arc,arc] = V[:,arc] * sinGama[:,arc]
+        # d vdot d pi
+            phip[:,1,arc,arc] = fVel[:,arc]/m[:,arc] - g[:,arc]*sinGama[:,arc]
+        # d gamadot d pi
+            phip[:,2,arc,arc] = fNor[:,arc]/(m[:,arc] * V[:,arc]) + \
+            cosGama[:,arc] * (V[:,arc]/r[:,arc] - g[:,arc]/V[:,arc])
+        # d mdot d pi
+            phip[:,3,arc,arc] = -thrust[:,arc] / g0Isp[arc]
+
+        ## phix derivatives
+
+        # d hdot d h: 0.0
+        # d hdot d V:
+        phix[:,0,1,:] = sinGama
+        # d hdot d gama:
+        phix[:,0,2,:] = V * cosGama
+        # d hdot d m: 0.0
+
+        # d Vdot d h:
+        phix[:,1,0,:] = 2.0 * GM * sinGama/r3 - (0.5 * del_rho * V2 * CDsref)/m
+        # d Vdot d v:
+        phix[:,1,1,:] = - CDsref * dens * V/m
+        # d Vdot d gama:
+        phix[:,1,2,:] = - g * cosGama
+        # d Vdot d m: 0.0
+        phix[:,1,3,:] = - fVel / m2
+
+        # d gamadot d h:
+        phix[:,2,0,:] = cosGama * (-V/r2 + 2.0*GM/(V*r3)) + \
+            (0.5 * CLsref * del_rho * V)/m
+        # d gamadot d v:
+        phix[:,2,1,:] = - bTm * sinAlpha /V2 + \
+        cosGama * ( 1.0/r + g/V2 ) +  0.5 * CLsref * dens/m
+        # d gamadot d gama:
+        phix[:,2,2,:] = - sinGama * ( V/r - g/V )
+        # d gamadot d m: 0.0
+        phix[:,2,3,:] = -fNor / ( m2 * V )
+
+        # d mdot d h: 0.0
+        # d mdot d v: 0.0
+        # d mdot d gama: 0.0
+        # d mdot d m: 0.0
+
+        ## phiu derivatives
+        for arc in range(s):
+        # d hdot d u1: 0.0
+        # d hdot d u2: 0.0
+
+        # d vdot d u1:
+            phiu[:,1,0,arc] = - bTm[:,arc] * sinAlpha[:,arc] * DAlfaDu1[:,arc]\
+            - CD2[arc] * alpha[:,arc] * DAlfaDu1[:,arc] * dens[:,arc] * \
+            s_ref[arc] * V2[:,arc] / m[:,arc]
+        # d vdot d u2:
+            phiu[:,1,1,arc] = MaxThrs[arc] * cosAlpha[:,arc] * \
+            DBetaDu2[:,arc] / m[:,arc]
+
+        # d gamadot d u1:
+            phiu[:,2,0,arc] = ( thrust[:,arc] * cosAlpha[:,arc] / V[:,arc] + \
+            0.5 * dens[:,arc] * V[:,arc] * s_ref[arc] * CL1[arc] * \
+            DAlfaDu1[:,arc] ) * DAlfaDu1[:,arc]/m[:,arc]
+        # d gamadot d u2:
+            phiu[:,2,1,arc] = MaxThrs[arc] * DBetaDu2[:,arc] * \
+            sinAlpha[:,arc] / (m[:,arc] * V[:,arc])
+
+        # d mdot d u1: 0.0
+        # d mdot d u2:
+            phiu[:,3,1,arc] = - MaxThrs[arc] * DBetaDu2[:,arc] / g0Isp[arc]
+
+        ## include fdg
+        for i in range(4):
+            phix[:,2,i,:] *= fdg
+        for i in range(2):
+            phiu[:,2,i,:] *= fdg
+        for i in range(p):
+            phip[:,2,i,:] *= fdg
+
+        ## multiplication by "pi"
+        for arc in range(s):
+            phix[:,:,:,arc] *= pi[arc]
+            phiu[:,:,:,arc] *= pi[arc]
     #==============================================================================
     
         Grads['phix'] = phix
@@ -749,6 +863,19 @@ class prob(sgra):
 
         return Ivec.sum()
 #%%
+    def calcIdDv(self):
+        """Calculate ideal Delta v (Tsiolkovsky)."""
+        
+        DvAcc = 0.0
+        g0Isp = self.constants['Isp']*self.constants['grav_e']
+        for ind in range(self.s):
+            arc = self.s - ind - 1
+            M0 = self.x[0,3,arc]
+            Mf = self.x[-1,3,arc]
+            DvAcc += g0Isp[arc]*numpy.log(M0/Mf)
+        return DvAcc 
+        
+
     def plotSol(self,opt={},intv=[]):
 
         x = self.x
@@ -765,7 +892,7 @@ class prob(sgra):
 
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
-            print("In plotSol.")
+            print("\nIn plotSol.")
             print("Initial mass:",x[0,3,0])
             print("I:",I)
             print("CostScalFact:",self.constants['costScalingFactor'])
@@ -773,10 +900,18 @@ class prob(sgra):
             mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
             print("'Final' mass:",mFinl)
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
+            DvId = self.calcIdDv()
+            print("Ideal Delta v (Tsiolkovsky) with used propellants:",DvId)
+            missDv = self.boundary['mission_dv']
+            print("Mission Delta v (orbital height + speed):",missDv)
+            dvLossPerc = 100.0*(DvId-missDv)/DvId#100.0*(DvId-missDv)/missDv
+            print("Losses (%):",dvLossPerc)
 
+            
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q) + \
-            "\nPayload mass gain: {:.4G}%".format(paylPercMassGain)
+            "\nPayload mass gain: {:.4G}%".format(paylPercMassGain) + \
+            "\nLosses (w.r.t. ideal Delta v): {:.4G}%".format(dvLossPerc)
 #            titlStr = "Current solution: I = {:.4E}".format(I)
 #            if opt.get('dispP',False):
 #                P = opt['P']
@@ -868,12 +1003,26 @@ class prob(sgra):
         currSolLabl = 'currentSol'
 
         # Comparing final mass:
-        mFinSol = self.x[self.N-1,3,self.s-1]
-        mFinAlt = altSol.x[altSol.N-1,3,altSol.s-1]
-        paylMassGain = mFinSol-mFinAlt
-        paylPercMassGain = 100.0*paylMassGain/self.mPayl
+#        mFinSol = self.x[-1,3,-1]
+#        mFinAlt = altSol.x[-1,3,-1]
+#        paylMassGain = mFinSol-mFinAlt
+#        paylPercMassGain = 100.0*paylMassGain/mFinAlt
         
+        mFinSol = self.x[-1,3,-1]
+        mP = self.x[0,3,-1] - mFinSol
+        e = self.constants['s_f'][-1]
+        mStrFinStgSol = mP * e/(1.0-e)
+        mPaySol = mFinSol - mStrFinStgSol
 
+        mFinAlt = altSol.x[-1,3,-1]
+        mP = altSol.x[0,3,-1] - mFinAlt
+        e = altSol.constants['s_f'][-1]
+        mStrFinStgAlt = mP * e/(1.0-e)
+        mPayAlt = mFinAlt - mStrFinStgAlt
+        
+        paylMassGain = mPaySol - mPayAlt
+        paylPercMassGain = 100.0*paylMassGain/mPayAlt
+        print(paylPercMassGain)
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
         plt.subplot2grid((8,1),(0,0))
@@ -960,82 +1109,11 @@ class prob(sgra):
         #plt.clf()
         #plt.close('all')
 
-#        
-#        for arc in range(s):
-#        
-#            plt.plot(altSol.t,altSol.x[:,0,arc],label=altSolLabl)
-#            plt.plot(self.t,self.x[:,0,arc],'--y',label=currSolLabl)
-#            plt.grid()
-#            plt.ylabel("h [km]")
-#            plt.xlabel("t [-]")
-#            plt.title('Height')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
-#
-#            
-#            plt.plot(altSol.t,altSol.x[:,1,arc],label=altSolLabl)
-#            plt.plot(self.t,self.x[:,1,arc],'--g',label=currSolLabl)
-#            plt.grid()
-#            plt.ylabel("V [km/s]")
-#            plt.xlabel("t [-]")
-#            plt.title('Absolute speed')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
-#     
-#            plt.plot(altSol.t,altSol.x[:,2,arc]*180/numpy.pi,label=altSolLabl)
-#            plt.plot(self.t,self.x[:,2,arc]*180/numpy.pi,'--r',label=currSolLabl)    
-#            plt.grid()
-#            plt.ylabel("gamma [deg]")
-#            plt.xlabel("t [-]")
-#            plt.title('Flight path angle')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
-#       
-#            plt.plot(altSol.t,altSol.x[:,3,arc],label=altSolLabl)
-#            plt.plot(self.t,self.x[:,3,arc],'--m',label=currSolLabl)
-#            plt.grid()
-#            plt.ylabel("m [kg]")
-#            plt.xlabel("t [-]")
-#            plt.title('Rocket mass')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
-#
-#                        
-#            alpha,beta = self.calcDimCtrl()
-#            alpha_alt,beta_alt = altSol.calcDimCtrl()
-#            plt.plot(altSol.t,alpha_alt[:,arc]*180/numpy.pi,label=altSolLabl)
-#            plt.plot(self.t,alpha[:,arc]*180/numpy.pi,'--g',label=currSolLabl)
-#            plt.grid()
-#            plt.xlabel("t [-]")
-#            plt.ylabel("alfa [deg]")
-#            plt.title('Attack angle')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
-#            
-#            plt.plot(altSol.t,beta_alt[:,arc],label=altSolLabl)
-#            plt.plot(self.t,beta[:,arc],'--k',label=currSolLabl)
-#            plt.grid()
-#            plt.xlabel("t [-]")
-#            plt.ylabel("beta [-]")
-#            plt.title('Thrust profile')
-#            plt.legend()
-#            plt.show()
-#            plt.clf()
-#            plt.close('all')
+
             
-        print("Final rocket mass:")  
-        print(currSolLabl+": {:.4E}".format(mFinSol)+" kg.")
-        print(altSolLabl+": {:.4E}".format(mFinAlt)+" kg.")
+        print('Final rocket "payload":')  
+        print(currSolLabl+": {:.4E}".format(mPaySol)+" kg.")
+        print(altSolLabl+": {:.4E}".format(mPayAlt)+" kg.")
         print("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
               "{:.4G}".format(paylPercMassGain)+\
               "% more payload!\n")
@@ -1071,11 +1149,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -.999:
+                    if self.u[i,1,arc] < -5.0:#.999:
                         isBurn = False
                         indShut[arc].append(i)
                 else: #not burning
-                    if self.u[i,1,arc] > -.999:
+                    if self.u[i,1,arc] > -5.0:#-.999:
                         isBurn = True
                         indBurn[arc].append(i)
 
@@ -1175,18 +1253,10 @@ class prob(sgra):
         plt.title("Rocket trajectory over Earth")
         
         self.savefig(keyName='traj',fullName='trajectory')
-#        if self.save['traj']:
-#            print("Saving trajectory plot to " + self.probName + \
-#                  "_traj.pdf!")
-#            plt.savefig(self.probName + "_traj.pdf",bbox_inches='tight', pad_inches=0.1)
-#        else:
-#            plt.show()
-#        plt.clf()
-#        plt.close('all')
         
 #
 #%%
-def calcXdot(t,x,u,constants,arc):
+def calcXdot(td,x,u,constants,arc):
     grav_e = constants['grav_e']
     Thrust = constants['Thrust']
     Isp = constants['Isp']
@@ -1236,9 +1306,7 @@ def calcXdot(t,x,u,constants,arc):
     dx[1] = (beta * Thrust[arc] * cos(alpha) - D)/x[3] - grav * sinGama
     dx[2] = (beta * Thrust[arc] * sin(alpha) + L)/(x[3] * x[1]) + \
             cos(x[2]) * ( x[1]/r  -  grav/x[1] )
-    dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(t-DampCent)))
+    # "Gamma factor" in the gamma equation. td is dimensional time
+    dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
     dx[3] = -(beta * Thrust[arc])/(grav_e * Isp[arc])
-    #if t < 3.0:
-#        print(t)
-    #    dx[2] = 0.0
     return dx

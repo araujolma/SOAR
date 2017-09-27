@@ -160,25 +160,33 @@ def calcP(self):
     P = Ppsi + Pint
     print("P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\
           ", Ppsi = {:.6E}.".format(Ppsi))
+    self.P = P
     return P,Pint,Ppsi    
 
 def calcStepRest(self,corr):
     print("\nIn calcStepRest.\n")
     
-    P0,_,_ = calcP(self)
+    newSol = self.copy()
+    newSol.aplyCorr(1.0,corr)
+    P1,_,_ = newSol.calcP()
+    
+    # if applying alfa = 1.0 already meets the tolerance requirements, 
+    # why waste time decreasing alfa?
+    if P1 < self.tol['P']:
+        return 1.0
+    
+    #P0,_,_ = calcP(self)
+    P0 = self.P
 
     newSol = self.copy()
     newSol.aplyCorr(.8,corr)
     P1m,_,_ = newSol.calcP()
 
-    newSol = self.copy()
-    newSol.aplyCorr(1.0,corr)
-    P1,_,_ = newSol.calcP()
             
     if P1 >= P1m or P1 >= P0:
         print("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
-        nP = P1; alfa=1.0
+        nP = P1m; alfa=.8#1.0
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1

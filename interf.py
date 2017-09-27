@@ -353,6 +353,7 @@ class ITman():
             if self.gradRestPausCond(sol):
                 print("\a")
                 self.prntDashStr()
+                print(datetime.datetime.now())
                 print("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
                 print("Grad-Rest cycle pause condition has been reached.")
                 print("Press any key to continue, or ctrl+C to stop.")                
