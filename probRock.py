@@ -862,7 +862,8 @@ class prob(sgra):
             print("I =",Ivec)
 
         return Ivec.sum()
-#%%
+#%% Plotting commands and related functions
+        
     def calcIdDv(self):
         """Calculate ideal Delta v (Tsiolkovsky)."""
         
@@ -1127,6 +1128,35 @@ class prob(sgra):
         R = self.constants['r_e']
         N, s = self.N, self.s
 
+        # Calculate qmax point
+        dens = numpy.empty((N,s))
+        for arc in range(s):
+            for k in range(N):
+                dens[k,arc] = rho(self.x[k,0,arc])
+        
+        pDyn = .5 * dens * (self.x[:,1,:]**2)
+        indPdynMax = numpy.argmax(pDyn)
+        pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
+        print(indPdynMax)
+        print("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
+        print("State @ max q:")
+        print(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
+        
+#        self.plotCat(dens*1e-9)
+#        plt.grid(True)
+#        plt.title("Density vs. time")
+#        plt.xlabel('t [s]')
+#        plt.ylabel('Dens [kg/m³]')
+#        plt.show()
+#        
+#        self.plotCat(pDyn*1e-3)
+#        plt.grid(True)
+#        plt.title("Dynamic pressure vs. time")
+#        plt.xlabel('t [s]')
+#        plt.ylabel('P [Pa]')
+#        plt.show()
+        
+
         X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
 
         sigma = 0.0 #sigma: range angle
@@ -1238,6 +1268,9 @@ class prob(sgra):
         # Plot launching point in black
         plt.plot(X[0],Z[0],'ok')
         
+        # Plot Max Pdyn point in orange
+        plt.plot(X[indPdynMax],Z[indPdynMax],marker='o',color='orange')
+        
         # Plot burning segments in red
         for arc in range(s):
             iOS = arc * N # offset index
@@ -1253,7 +1286,7 @@ class prob(sgra):
         plt.title("Rocket trajectory over Earth")
         
         self.savefig(keyName='traj',fullName='trajectory')
-        
+        #input("Oia la a trajetoria!")
 #
 #%%
 def calcXdot(td,x,u,constants,arc):

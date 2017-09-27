@@ -584,33 +584,73 @@ class sgra():
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
         
-    def plotCat(self,func,mark='',color='b',labl=''):
-        """Plot a given function with several subarcs."""
+    def plotCat(self,func,mark='',color='b',labl='',piIsTime=True):
+        """Plot a given function with several subarcs.
+            Since this function should serve all the SGRA instances, the pi
+            parameters (if exist!) are not necessarily the times for each 
+            subarc. Hence, the optional parameter "piIsTime".
+        """
+        
+#        s = self.s
+#        t = self.t
+#        pi = self.pi
+#
+#        # Total dimensional time
+#        if piIsTime:
+#            tTot = pi.sum()
+#        else:
+#            tTot = t[-1]*s
+#            adimTimeDur = t[-1]
+#        
+#        accAdimTime = 0.0
+#
+#        for arc in range(s):
+#            if piIsTime:
+#                adimTimeDur = (pi[arc]/tTot)
+#        
+#            # Plot the function at each arc. Label only the first arc
+#            if arc == 0:
+#                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+#                         mark+color,label=labl)
+#            else:
+#                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+#                         mark+color)
+#            # arc beginning with circle
+#            plt.plot(accAdimTime + adimTimeDur*t[0], \
+#                     func[0,arc],'o'+color)
+#            # arc end with square
+#            plt.plot(accAdimTime + adimTimeDur*t[-1], \
+#                     func[-1,arc],'s'+color)
+#            accAdimTime += adimTimeDur    
         
         s = self.s
         t = self.t
         pi = self.pi
 
         # Total dimensional time
-        tTot = pi.sum()
-        accAdimTime = 0.0
+        if not (piIsTime):
+            TimeDur = t[-1]
+        
+        accTime = 0.0
 
         for arc in range(s):
-            adimTimeDur = (pi[arc]/tTot)
+            if piIsTime:
+                TimeDur = pi[arc]
+        
             # Plot the function at each arc. Label only the first arc
             if arc == 0:
-                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+                plt.plot(accTime + TimeDur * t, func[:,arc],\
                          mark+color,label=labl)
             else:
-                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
+                plt.plot(accTime + TimeDur * t, func[:,arc],\
                          mark+color)
             # arc beginning with circle
-            plt.plot(accAdimTime + adimTimeDur*t[0], \
+            plt.plot(accTime + TimeDur*t[0], \
                      func[0,arc],'o'+color)
             # arc end with square
-            plt.plot(accAdimTime + adimTimeDur*t[-1], \
+            plt.plot(accTime + TimeDur*t[-1], \
                      func[-1,arc],'s'+color)
-            accAdimTime += adimTimeDur    
+            accTime += TimeDur
             
     def savefig(self,keyName='',fullName=''):
         if self.save.get(keyName,'False'):
