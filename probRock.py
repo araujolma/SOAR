@@ -1123,41 +1123,20 @@ class prob(sgra):
 # TODO: re-implement plotTraj, allowing comparison of trajectories...
         
     def plotTraj(self):
-        
+        print("\nIn plotTraj!")
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
         N, s = self.N, self.s
 
-        # Calculate qmax point
+        # Density and acceleration, for all times/arcs
         dens = numpy.empty((N,s))
-        for arc in range(s):
-            for k in range(N):
-                dens[k,arc] = rho(self.x[k,0,arc])
-        
-        pDyn = .5 * dens * (self.x[:,1,:]**2)
-        indPdynMax = numpy.argmax(pDyn)
-        pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
-        print(indPdynMax)
-        print("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
-        print("State @ max q:")
-        print(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
-        
-#        self.plotCat(dens*1e-9)
-#        plt.grid(True)
-#        plt.title("Density vs. time")
-#        plt.xlabel('t [s]')
-#        plt.ylabel('Dens [kg/m³]')
-#        plt.show()
-#        
-#        self.plotCat(pDyn*1e-3)
-#        plt.grid(True)
-#        plt.title("Dynamic pressure vs. time")
-#        plt.xlabel('t [s]')
-#        plt.ylabel('P [Pa]')
-#        plt.show()
+        acc = numpy.empty((N,s))
         
 
         X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
+        StgSepPnts = numpy.zeros((s,2))
+#        StgInitAcc = numpy.zeros(s)
+#        StgFinlAcc = numpy.zeros(s)
 
         sigma = 0.0 #sigma: range angle
         X[0] = 0.0
@@ -1172,10 +1151,18 @@ class prob(sgra):
 
         indBurn[0].append(0)
         iCont = 0 # continuous counter (all arcs concatenated)
+        strtInd = 1
         for arc in range(s):
             dtd = self.dt * self.pi[arc] # Dimensional dt...
 
-            for i in range(1,N):
+#            dv0 = self.x[1,1,arc]-self.x[0,1,arc]
+#            StgInitAcc[arc] = dv0/dtd/self.constants['grav_e']
+
+            for i in range(strtInd,N):
+                dens[i,arc] = rho(self.x[i,0,arc])
+                dv = self.x[i,1,arc]-self.x[i-1,1,arc]
+                acc[i,arc] = dv/dtd/self.constants['grav_e']
+                
                 iCont += 1
 
                 if isBurn:
@@ -1195,18 +1182,60 @@ class prob(sgra):
 
                 X[iCont] = X[iCont-1] + dtd * v * cos(gama-sigma)
                 Z[iCont] = Z[iCont-1] + dtd * v * sin(gama-sigma)
+            
             #
+            StgSepPnts[arc,:] = X[iCont],Z[iCont]
+#            dvF = self.x[N-1,1,arc]-self.x[N-2,1,arc]
+#            StgFinlAcc[arc] = dvF/dtd/self.constants['grav_e']
+
+            #strtInd = 0
+        #
         indShut[s-1].append(N-1)    
                 
         # Remaining points are unused; it is best to repeat the final point
         X[iCont+1 :] = X[iCont]
         Z[iCont+1 :] = Z[iCont]
         
+        # Calculate dynamic pressure, get point of max pdyn
+        pDyn = .5 * dens * (self.x[:,1,:]**2)
+        indPdynMax = numpy.argmax(pDyn)
+        pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
+        pDynMax = pDyn[pairIndPdynMax]
+        
+        #pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
+        #print(indPdynMax)
+        #print("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
+        #print("State @ max q:")
+        #print(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
+        
+#        self.plotCat(dens*1e-9)
+#        plt.grid(True)
+#        plt.title("Density vs. time")
+#        plt.xlabel('t [s]')
+#        plt.ylabel('Dens [kg/m³]')
+#        plt.show()
+#        
+#        self.plotCat(pDyn*1e-3)
+#        plt.grid(True)
+#        plt.title("Dynamic pressure vs. time")
+#        plt.xlabel('t [s]')
+#        plt.ylabel('P [Pa]')
+#        plt.show()
+        
+#        indAccMax = numpy.argmax(acc,0)
+#        self.plotCat(acc)
+#        plt.grid(True)
+#        plt.title("Acceleration vs. time")
+#        plt.xlabel('t [s]')
+#        plt.ylabel('a [g]')
+#        plt.show()
+        
+        
         # Draw Earth segment corresponding to flight range
         sigVec = numpy.arange(0,1.01,.01) * sigma
         x = R * cos(.5*numpy.pi - sigVec)
         z = R * (sin(.5*numpy.pi - sigVec) - 1.0)
-        plt.plot(x,z,'k')
+        plt.plot(x,z,'k',label='Earth surface')
         
         # Get final orbit parameters
         h,v,gama,M = self.x[N-1,:,s-1]
@@ -1217,22 +1246,18 @@ class prob(sgra):
         
         GM = self.constants['GM']       
         r = R + h
-#        print("Final altitude:",h)
-        cosGama = cos(gama)
-        sinGama = sin(gama)
+        cosGama, sinGama = cos(gama), sin(gama)
         momAng = r * v * cosGama
-#        print("Ang mom:",momAng)
+        # specific mechanic energy
         en = .5 * v * v - GM / r
-#        print("Energy:",en)
+        # "Semi-major axis"
         a = - .5 * GM / en
-#        print("Semi-major axis:",a)
+        # Eccentricity
         aux = v * momAng / GM
         e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
-        print("Eccentricity:",e)
+        # True anomaly
         eccExpr = v * momAng * cosGama / GM - 1.0
-#        print("r =",r)
         f = numpy.arccos(eccExpr/e)
-        print("True anomaly:",f*180/numpy.pi)
         ph = a * (1.0 - e) - R
         print("Perigee altitude:",ph)    
         ah = 2*(a - R) - ph        
@@ -1243,50 +1268,71 @@ class prob(sgra):
                 
         
         # Plot orbit in green over the same range as the Earth shown 
-        # (and a little but futher)
+        # (and a little bit futher)
         
         sigVec = numpy.arange(f-1.2*sigma,f+.2*sigma,.01)
-#        print("s =",sigVec)
         # shifting angle
         sh = sigma - f - .5*numpy.pi
         rOrb = p/(1.0+e*cos(sigVec))
-#        print("rOrb =",rOrb)
         xOrb = rOrb * cos(-sigVec-sh)
         yOrb = rOrb * sin(-sigVec-sh) - R
-        plt.plot(xOrb,yOrb,'g--')
+        plt.plot(xOrb,yOrb,'g--',label='Target orbit')
  
-        # Draw orbit injection point       
+        # Draw orbit injection point (green)
         r0 = p / (1.0 + e * cos(f))
-#        print("r0 =",r0)
         x0 = r0 * cos(-f-sh)
         y0 = r0 * sin(-f-sh) - R
         plt.plot(x0,y0,'og')
         
         # Plot trajectory in default color (blue)
-        plt.plot(X,Z)
+        plt.plot(X,Z,label='Ballistic flight (coasting)')
         
-        # Plot launching point in black
+        # Plot launching point (black)
         plt.plot(X[0],Z[0],'ok')
         
-        # Plot Max Pdyn point in orange
-        plt.plot(X[indPdynMax],Z[indPdynMax],marker='o',color='orange')
-        
         # Plot burning segments in red
+        mustLabl = True
         for arc in range(s):
             iOS = arc * N # offset index
             for i in range(len(indBurn[arc])):
                 ib = indBurn[arc][i]+iOS
                 ish = indShut[arc][i]+iOS
-                plt.plot(X[ib:ish],Z[ib:ish],'r')
+                if mustLabl:
+                    plt.plot(X[ib:ish],Z[ib:ish],'r',label='Propulsed flight')
+                    mustLabl = False
+                else:
+                    plt.plot(X[ib:ish],Z[ib:ish],'r')
         
+        # Plot Max Pdyn point in orange
+        plt.plot(X[indPdynMax],Z[indPdynMax],marker='o',color='orange',\
+                 label='Max dynamic pressure')            
+        
+        # Plot stage separation points in blue
+        mustLabl = True
+        for arc in range(s-1):
+            # this trick only labels the first segment, to avoid multiple 
+            # labels afterwards
+            if mustLabl:
+                plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
+                 color='blue',label='Stage separation point')
+                mustLabl = False
+            else:
+                plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
+                
+
+        # Final plotting commands
         plt.grid(True)
         plt.xlabel("X [km]")
         plt.ylabel("Z [km]")
         plt.axis('equal')
-        plt.title("Rocket trajectory over Earth")
+        plt.title("Rocket trajectory over Earth\n"+\
+                  "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6))
+        plt.legend()
         
         self.savefig(keyName='traj',fullName='trajectory')
-        #input("Oia la a trajetoria!")
+#        print("\nInitStgAcc[g] =",StgInitAcc)
+#        print("FinlStgAcc[g] =",StgFinlAcc)
+#        input("\nOia la a trajetoria!")
 #
 #%%
 def calcXdot(td,x,u,constants,arc):
