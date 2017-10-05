@@ -239,17 +239,8 @@ def rest(self,parallelOpt={}):
     print("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     isParallel = parallelOpt.get('restLMPBVP',False)
-    A,B,C,lam,mu = self.LMPBVP(rho=0.0,isParallel=isParallel)
+    A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
     
-    # TODO: must rethink the correction plot, 
-    # current design makes no sense because C=0 is a possibility
-#    if self.dbugOptRest['plotCorr']:
-#        solCorr = self.copy()
-#        solCorr.x = A; solCorr.u = B; solCorr.pi = C
-#        solCorr.printPars()
-#        solCorr.plotSol(opt={'mode':'var'})
-#        #optPlot['mode'] = 'proposed (states: lambda)'
-#        #plotSol(sizes,t,lam,B,C,constants,restrictions,optPlot)
     
     corr = {'x':A,
             'u':B,

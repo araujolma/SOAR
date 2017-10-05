@@ -28,7 +28,7 @@ class prob(sgra):
         p = 2
         q = 6#8
         s = 2
-        N = 2000+1
+        N = 2000+1#20000+1#2000+1
 
         self.N = N
         self.n = n
@@ -44,8 +44,8 @@ class prob(sgra):
         self.t = t
         
         #prepare tolerances
-        tolP = 1.0e-6#8
-        tolQ = 1.0e-6#5
+        tolP = 1.0e-4#7#8
+        tolQ = 1.0e-2#8#5
         tol = dict()
         tol['P'] = tolP
         tol['Q'] = tolQ
@@ -64,7 +64,7 @@ class prob(sgra):
         
         lam = 0.0*x
         mu = numpy.zeros(q)
-        pi = numpy.ones(p)
+        pi = 10.0*numpy.ones(p)
         
         self.x = x
         self.u = u
@@ -95,7 +95,7 @@ class prob(sgra):
 
 #%%
 
-    def calcGrads(self):
+    def calcGrads(self,calcCostTerm=False):
         Grads = dict()
     
         N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
@@ -206,37 +206,68 @@ class prob(sgra):
         if len(intv)>0:       
             print("plotSol: Sorry, currently ignoring plotting range.")
     
-        plt.subplot2grid((8,4),(0,0),colspan=5)
-        self.plotCat(x[:,0,:])
-        plt.grid(True)
-        plt.ylabel("Position")
+
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
+            
+            plt.subplot2grid((8,4),(0,0),colspan=5)
+            self.plotCat(x[:,0,:])
+            plt.grid(True)
+            plt.ylabel("Position")
+            plt.title(titlStr)
+            plt.subplot2grid((8,4),(1,0),colspan=5)
+            self.plotCat(x[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("Speed")
+            plt.subplot2grid((8,4),(2,0),colspan=5)
+            self.plotCat(u[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            plt.subplot2grid((8,4),(3,0),colspan=5)
+            self.plotCat(numpy.tanh(u[:,0,:]),color='k')
+            plt.grid(True)
+            plt.ylabel('Control')    
+            plt.xlabel("Concat. adim. time [-]")
+        
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+            plt.show()    
+            
+            print("pi =",pi,"\n")
         elif opt['mode'] == 'var':
             titlStr = "Proposed variations"
+        elif opt['mode'] == 'lambda':
+            titlStr = "Lambda for current solution"
+            
+            plt.subplot2grid((8,4),(0,0),colspan=5)
+            self.plotCat(self.lam[:,0,:])
+            plt.grid(True)
+            plt.ylabel("lambda: Position")
+            plt.title(titlStr)
+            plt.subplot2grid((8,4),(1,0),colspan=5)
+            self.plotCat(self.lam[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("lambda: Speed")
+            plt.subplot2grid((8,4),(2,0),colspan=5)
+            self.plotCat(u[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            plt.subplot2grid((8,4),(3,0),colspan=5)
+            self.plotCat(numpy.tanh(u[:,0,:]),color='k')
+            plt.grid(True)
+            plt.ylabel('Control')    
+            plt.xlabel("Time [s]")
+        
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+            plt.show()    
+            
+            print("mu =",self.mu)
+            
         else:
             titlStr = opt['mode']
-        plt.title(titlStr)
-        
-        plt.subplot2grid((8,4),(1,0),colspan=5)
-        self.plotCat(x[:,1,:],color='g')
-        plt.grid(True)
-        plt.ylabel("Speed")
-        plt.subplot2grid((8,4),(2,0),colspan=5)
-        self.plotCat(u[:,0,:],color='k')
-        plt.grid(True)
-        plt.ylabel("u1 [-]")
-        plt.subplot2grid((8,4),(3,0),colspan=5)
-        self.plotCat(numpy.tanh(u[:,0,:]),color='k')
-        plt.grid(True)
-        plt.ylabel('Control')    
-        plt.xlabel("Concat. adim. time [-]")
-    
-        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.show()
-        print("pi =",pi,"\n")
+
+  
         
     #
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ import probRock as prob
 #import probCart as prob
 #import probCartMod as prob
 #import probSmpl as prob
-import os            
+#import os            
 #%%
             
 # ##################

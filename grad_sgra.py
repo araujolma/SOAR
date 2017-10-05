@@ -69,7 +69,9 @@ class stepMngr():
         return self.getLast()
 
 def calcQ(self):
-    # Q expression from (15)
+    # Q expression from (15). 
+    # FYI: Miele (2003) is wrong in oh so many ways...
+    
     #print("\nIn calcQ.\n")
     N,n,m,p,s = self.N,self.n,self.m,self.p,self.s
     dt = 1.0/(N-1)
@@ -125,21 +127,21 @@ def calcQ(self):
         #
         Qx -= .5*(normErrQx[0,arc]+normErrQx[N-1,arc])
         Qu -= .5*(normErrQu[0,arc]+normErrQu[N-1,arc])
-        Qx *= dt
-        Qu *= dt
+        
 
         auxVecIntQp[:,arc] -= .5*(errQp[0,:,arc]+errQp[N-1,:,arc])
     
     auxVecIntQp *= dt
+    Qx *= dt
+    Qu *= dt
     
     resVecIntQp = numpy.zeros(p)
     for arc in range(s):
         resVecIntQp += auxVecIntQp[:,arc]
+
+    resVecIntQp += psip.transpose().dot(mu)
     Qp = resVecIntQp.transpose().dot(resVecIntQp)
-    
-    resVecQp = psip.transpose().dot(mu)
-    Qp += resVecQp.transpose().dot(resVecQp)
-    
+        
     errQt = z + psiy.transpose().dot(mu)
     Qt = errQt.transpose().dot(errQt)
 
@@ -149,6 +151,29 @@ def calcQ(self):
           ", Qt = {:.4E}".format(Qt))
 
     self.Q = Q
+
+###############################################################################    
+#    self.plotCat(normErrQx,piIsTime=False)
+#    plt.grid(True)
+#    plt.ylabel("normErrQx")
+#    plt.xlabel("t")
+#    plt.show()
+#    
+#    self.plotCat(normErrQu,color='g',piIsTime=False)
+#    plt.grid(True)
+#    plt.ylabel("normErrQu")
+#    plt.xlabel("t")
+#    plt.show()
+#
+#    for j in range(p):
+#        self.plotCat(errQp[:,j,:],piIsTime=False)
+#        plt.grid(True)
+#        plt.xlabel("t")
+#        plt.ylabel("ErrQp, j ="+str(j))
+#        plt.show()
+#    print("resVecQp =",resVecIntQp)
+###############################################################################
+
     somePlot = False
     for key in self.dbugOptGrad.keys():
         if ('plotQ' in key) or ('PlotQ' in key):
@@ -448,7 +473,7 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)#(k = 1e-9*I0/P0)
+    stepMan = stepMngr(k = 1e-9*I0/P0)#(k = 1e-6*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
@@ -659,9 +684,15 @@ def grad(self,parallelOpt={}):
     self.lam = lam
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
- 
+     
     # Calculation of alfa
     alfa = self.calcStepGrad(corr)
+
+
+    self.plotSol(opt={'mode':'lambda'})
+    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+    #input("@Grad: Waiting for lambda/corrections check...")
+
 
     # Apply correction and update Q history
     self.aplyCorr(alfa,corr)

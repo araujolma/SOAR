@@ -781,7 +781,7 @@ class sgra():
         if self.histQt[IterGrad].any() > 0:
             plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
 
-        plt.plot(IterGrad,self.tol['P']+0.0*IterGrad,'-.b',label='tolQ')
+        plt.plot(IterGrad,self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
         plt.title("Convergence report on Q")
         plt.grid(True)
         plt.xlabel("Grad iterations")

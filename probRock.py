@@ -289,60 +289,44 @@ class prob(sgra):
             #print(t_its[arcBginIndx])
             #print("\n\n")
             #print("New initial masses:",x_its[arcBginIndx,3])
-            
-            
+
             pi = numpy.empty(s)
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
             
             self.boundary['m_initial'] = x_its[0,3]
 
-#            solInit = self.copy()
-#            solInit.N = len(t_its)
-#            solInit.t = t_its.copy()
-#            
-#            alpha_its = numpy.empty((solInit.N,s)) 
-#            beta_its = numpy.empty((solInit.N,s))
-#            for arc in range(s):
-#                alpha_its[:,arc] = u_its[:,arc]
-#                beta_its[:,arc] = u_its[:,arc]
-#            u_init = solInit.calcAdimCtrl(alpha_its,beta_its)
-#            
-#            x_init = numpy.empty((solInit.N,n,s)); x_init[:,:,0] = x_its
-#            
-#            solInit.x = x_init.copy()
-#            solInit.u = u_init.copy()
-#            solInit.pi = pi.copy()
+
             
-            # Re-integration of proposed solution. 
+            # Re-integration of proposed solution (RK4) 
             # Only the controls are used, not the integrated state itself       
             for arc in range(s):
-                dt = pi[arc]/(N-1); dt6 = dt/6.0
+                dtd = pi[arc]/(N-1); dtd6 = dtd/6.0
                 x[0,:,arc] = x_its[arcBginIndx[arc],:]
                 t0arc = t_its[arcBginIndx[arc]]
                 uip1 = numpy.array([tabAlpha.value(t0arc),\
                                     tabBeta.value(t0arc)])
-                # tt: dimensional time (for integration)
+                # td: dimensional time (for integration)
                 for i in range(N-1):
-                    tt = t0arc + i * dt
+                    td = t0arc + i * dtd
                     ui = uip1
                     u[i,:,arc] = ui
-                    uipm = numpy.array([tabAlpha.value(tt+.5*dt),\
-                                        tabBeta.value(tt+.5*dt)])
-                    uip1 = numpy.array([tabAlpha.value(tt+dt),\
-                                        tabBeta.value(tt+dt)])
+                    uipm = numpy.array([tabAlpha.value(td+.5*dtd),\
+                                        tabBeta.value(td+.5*dtd)])
+                    uip1 = numpy.array([tabAlpha.value(td+dtd),\
+                                        tabBeta.value(td+dtd)])
                     if (i == N-2 and arc == s-1):
                         print("Bypassing here...")
                         uip1 = ui
-                    f1 = calcXdot(tt,x[i,:,arc],ui,constants,arc)  
-                    ttm = tt+.5*dt # time at half the integration interval
-                    x2 = x[i,:,arc] + .5*dt*f1 # x at half step, with f1
-                    f2 = calcXdot(ttm,x2,uipm,constants,arc)
-                    x3 = x[i,:,arc] + .5*dt*f2 # x at half step, with f2
-                    f3 = calcXdot(tt+.5*dt,x3,uipm,constants,arc) 
-                    x4 = x[i,:,arc] + dt*f3 # x at next step, with f3
-                    f4 = calcXdot(tt+dt,x4,uip1,constants,arc)
-                    x[i+1,:,arc] = x[i,:,arc] + dt6 * (f1+f2+f2+f3+f3+f4) 
+                    f1 = calcXdot(td,x[i,:,arc],ui,constants,arc)  
+                    tdm = td+.5*dtd # time at half the integration interval
+                    x2 = x[i,:,arc] + .5*dtd*f1 # x at half step, with f1
+                    f2 = calcXdot(tdm,x2,uipm,constants,arc)
+                    x3 = x[i,:,arc] + .5*dtd*f2 # x at half step, with f2
+                    f3 = calcXdot(tdm,x3,uipm,constants,arc) 
+                    x4 = x[i,:,arc] + dtd*f3 # x at next step, with f3
+                    f4 = calcXdot(td+dtd,x4,uip1,constants,arc)
+                    x[i+1,:,arc] = x[i,:,arc] + dtd6 * (f1+f2+f2+f3+f3+f4) 
 
             u[N-1,:,s-1] = u[N-2,:,s-1]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
 
@@ -371,7 +355,7 @@ class prob(sgra):
         print("\nInitialization complete.\n")        
         return solInit
 #%%
-    def calcDimCtrl(self):        
+    def calcDimCtrl(self,ext_u=None):        
         # calculate variables alpha (ang. of att.) and beta (prop. thrust)
         
         restrictions = self.restrictions
@@ -379,11 +363,17 @@ class prob(sgra):
         alpha_max = restrictions['alpha_max']
         beta_min = restrictions['beta_min']
         beta_max = restrictions['beta_max']
-        
-        alfa = .5*((alpha_max + alpha_min) + \
-                (alpha_max - alpha_min)*numpy.tanh(self.u[:,0,:]))
-        beta = .5*((beta_max + beta_min) +  \
-                (beta_max - beta_min)*numpy.tanh(self.u[:,1,:]))
+        if ext_u is None:
+            alfa = .5*((alpha_max + alpha_min) + \
+                       (alpha_max - alpha_min)*numpy.tanh(self.u[:,0,:]))
+            beta = .5*((beta_max + beta_min) +  \
+                       (beta_max - beta_min)*numpy.tanh(self.u[:,1,:]))
+        else:
+            alfa = .5*((alpha_max + alpha_min) + \
+                       (alpha_max - alpha_min)*numpy.tanh(ext_u[:,0,:]))
+            beta = .5*((beta_max + beta_min) +  \
+                       (beta_max - beta_min)*numpy.tanh(ext_u[:,1,:]))
+                
 
         return alfa,beta
     
@@ -780,7 +770,7 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        
+        print("In calcPsi.")
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
@@ -811,7 +801,8 @@ class prob(sgra):
         psi[q-2] = x[N-1,1,s-1] - boundary['V_final']
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
 #        strPrnt = strPrnt+str(q-3)+","+str(q-2)+","+str(q-1)+","
-        print("In calcPsi. Psi =",psi)
+
+        print("Psi =",psi)
 #        print("q =",q)
 #        print(strPrnt)
         return psi
@@ -913,89 +904,210 @@ class prob(sgra):
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q) + \
             "\nPayload mass gain: {:.4G}%".format(paylPercMassGain) + \
             "\nLosses (w.r.t. ideal Delta v): {:.4G}%".format(dvLossPerc)
-#            titlStr = "Current solution: I = {:.4E}".format(I)
-#            if opt.get('dispP',False):
-#                P = opt['P']
-#                titlStr = titlStr + " P = {:.4E} ".format(P)
-#            if opt.get('dispQ',False):
-#                Q = opt['Q']
-#                titlStr = titlStr + " Q = {:.4E} ".format(Q)
+            
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        
+            plt.subplot2grid((8,1),(0,0))
+            self.plotCat(x[:,0,:])
+            plt.grid(True)
+            plt.ylabel("h [km]")
+            plt.title(titlStr)
+            
+            plt.subplot2grid((8,1),(1,0))
+            self.plotCat(x[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("V [km/s]")
+            
+            plt.subplot2grid((8,1),(2,0))
+            self.plotCat(x[:,2,:]*180/numpy.pi,color='r')
+            plt.grid(True)
+            plt.ylabel("gamma [deg]")
+            
+            plt.subplot2grid((8,1),(3,0))
+            self.plotCat(x[:,3,:],color='m')
+            plt.grid(True)
+            plt.ylabel("m [kg]")
+            
+            plt.subplot2grid((8,1),(4,0))
+            self.plotCat(u[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            
+            plt.subplot2grid((8,1),(5,0))
+            self.plotCat(u[:,1,:],color='c')
+            plt.grid(True)
+            #plt.xlabel("t")
+            plt.ylabel("u2 [-]")
+            
+            ######################################
+            alpha,beta = self.calcDimCtrl()
+            alpha *= 180.0/numpy.pi
+            plt.subplot2grid((8,1),(6,0))
+            self.plotCat(alpha)
+            #plt.hold(True)
+            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
+            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
+            plt.grid(True)
+            #plt.xlabel("t")
+            plt.ylabel("alpha [deg]")
+            
+            plt.subplot2grid((8,1),(7,0))
+            self.plotCat(beta)
+            #plt.hold(True)
+            #plt.plot(t,beta*0+beta_max,'-.k')
+            #plt.plot(t,beta*0+beta_min,'-.k')
+            plt.grid(True)
+            plt.xlabel("t [s]")
+            plt.ylabel("beta [-]")
+            ######################################        
+    
+            # TODO: include a plot for visualization of pi!
+    
+            self.savefig(keyName='currSol',fullName='solution')
+                
+            print("pi =",pi)
+            print("Final (injected into orbit) rocket mass: "+\
+                  "{:.4E}\n".format(x[-1,3,self.s-1]))
+            print("Ejected mass (1st-2nd stage):",x[-1,3,0]-x[0,3,1])
+            
+        elif opt['mode'] == 'lambda':
+            titlStr = "Lambdas"
+            
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        
+            plt.subplot2grid((8,1),(0,0))
+            self.plotCat(self.lam[:,0,:])
+            plt.grid(True)
+            plt.ylabel("lam - h")
+            plt.title(titlStr)
+            
+            plt.subplot2grid((8,1),(1,0))
+            self.plotCat(self.lam[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("lam - V")
+            
+            plt.subplot2grid((8,1),(2,0))
+            self.plotCat(self.lam[:,2,:],color='r')
+            plt.grid(True)
+            plt.ylabel("lam - gamma")
+            
+            plt.subplot2grid((8,1),(3,0))
+            self.plotCat(self.lam[:,3,:],color='m')
+            plt.grid(True)
+            plt.ylabel("lam - m")
+            
+            plt.subplot2grid((8,1),(4,0))
+            self.plotCat(u[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            
+            plt.subplot2grid((8,1),(5,0))
+            self.plotCat(u[:,1,:],color='c')
+            plt.grid(True)
+            #plt.xlabel("t")
+            plt.ylabel("u2 [-]")
+            
+            ######################################
+            alpha,beta = self.calcDimCtrl()
+            alpha *= 180.0/numpy.pi
+            plt.subplot2grid((8,1),(6,0))
+            self.plotCat(alpha)
+            #plt.hold(True)
+            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
+            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
+            plt.grid(True)
+            plt.xlabel("t")
+            plt.ylabel("alpha [deg]")
+            
+            plt.subplot2grid((8,1),(7,0))
+            self.plotCat(beta)
+            #plt.hold(True)
+            #plt.plot(t,beta*0+beta_max,'-.k')
+            #plt.plot(t,beta*0+beta_min,'-.k')
+            plt.grid(True)
+            plt.xlabel("t")
+            plt.ylabel("beta [-]")
+            ######################################        
+    
+    
+            self.savefig(keyName='currLamb',fullName='lambdas')
+            print("mu =",self.mu)
         elif opt['mode'] == 'var':
-            titlStr = "Proposed variations"
+            dx = opt['x']
+            du = opt['u']
+            dp = opt['pi']
+
+            titlStr = "Proposed variations\n"+"Delta pi: "
+            for i in range(self.p):
+                titlStr += "{:.4E}, ".format(dp[i])
+                #titlStr += str(dp[i])+", "
+                        
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        
+            plt.subplot2grid((8,1),(0,0))
+            self.plotCat(dx[:,0,:])
+            plt.grid(True)
+            plt.ylabel("h [km]")
+            plt.title(titlStr)
+            
+            plt.subplot2grid((8,1),(1,0))
+            self.plotCat(dx[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("V [km/s]")
+            
+            plt.subplot2grid((8,1),(2,0))
+            self.plotCat(dx[:,2,:]*180/numpy.pi,color='r')
+            plt.grid(True)
+            plt.ylabel("gamma [deg]")
+            
+            plt.subplot2grid((8,1),(3,0))
+            self.plotCat(dx[:,3,:],color='m')
+            plt.grid(True)
+            plt.ylabel("m [kg]")
+            
+            plt.subplot2grid((8,1),(4,0))
+            self.plotCat(du[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            
+            plt.subplot2grid((8,1),(5,0))
+            self.plotCat(du[:,1,:],color='c')
+            plt.grid(True)
+            #plt.xlabel("t")
+            plt.ylabel("u2 [-]")
+            
+            ######################################
+            new_u = self.u + du
+            alpha,beta = self.calcDimCtrl()
+            alpha *= 180.0/numpy.pi
+            new_alpha,new_beta = self.calcDimCtrl(ext_u=new_u)
+            new_alpha *= 180.0/numpy.pi
+            plt.subplot2grid((8,1),(6,0))
+            self.plotCat(new_alpha-alpha)
+            #plt.hold(True)
+            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
+            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
+            plt.grid(True)
+            #plt.xlabel("t")
+            plt.ylabel("alpha [deg]")
+            
+            plt.subplot2grid((8,1),(7,0))
+            self.plotCat(new_beta-beta)
+            #plt.hold(True)
+            #plt.plot(t,beta*0+beta_max,'-.k')
+            #plt.plot(t,beta*0+beta_min,'-.k')
+            plt.grid(True)
+            plt.xlabel("t [s]")
+            plt.ylabel("beta [-]")
+            ######################################        
+    
+            # TODO: include a plot for visualization of pi!
+    
+            self.savefig(keyName='corr',fullName='corrections')
         else:
             titlStr = opt['mode']
         #
-        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
-        plt.subplot2grid((8,1),(0,0))
-        self.plotCat(x[:,0,:])
-        plt.grid(True)
-        plt.ylabel("h [km]")
-        plt.title(titlStr)
-        
-        plt.subplot2grid((8,1),(1,0))
-        self.plotCat(x[:,1,:],color='g')
-        plt.grid(True)
-        plt.ylabel("V [km/s]")
-        
-        plt.subplot2grid((8,1),(2,0))
-        self.plotCat(x[:,2,:]*180/numpy.pi,color='r')
-        plt.grid(True)
-        plt.ylabel("gamma [deg]")
-        
-        plt.subplot2grid((8,1),(3,0))
-        self.plotCat(x[:,3,:],color='m')
-        plt.grid(True)
-        plt.ylabel("m [kg]")
-        
-        plt.subplot2grid((8,1),(4,0))
-        self.plotCat(u[:,0,:],color='k')
-        plt.grid(True)
-        plt.ylabel("u1 [-]")
-        
-        plt.subplot2grid((8,1),(5,0))
-        self.plotCat(u[:,1,:],color='c')
-        plt.grid(True)
-        plt.xlabel("t")
-        plt.ylabel("u2 [-]")
-        
-        ######################################
-        alpha,beta = self.calcDimCtrl()
-        alpha *= 180.0/numpy.pi
-        plt.subplot2grid((8,1),(6,0))
-        self.plotCat(alpha)
-        #plt.hold(True)
-        #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
-        #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
-        plt.grid(True)
-        plt.xlabel("t")
-        plt.ylabel("alpha [deg]")
-        
-        plt.subplot2grid((8,1),(7,0))
-        self.plotCat(beta)
-        #plt.hold(True)
-        #plt.plot(t,beta*0+beta_max,'-.k')
-        #plt.plot(t,beta*0+beta_min,'-.k')
-        plt.grid(True)
-        plt.xlabel("t")
-        plt.ylabel("beta [-]")
-        ######################################        
-
-        # TODO: include a plot for visualization of pi!
-
-        self.savefig(keyName='currSol',fullName='solution')
-        #if self.save['sol']:
-        #    print("Saving solution plot to "+self.probName+"_currSol.pdf!")
-        #    plt.savefig(self.probName+"_currSol.pdf",bbox_inches='tight', pad_inches=0.1)
-        #else:
-        #    plt.show()
-        #plt.clf()
-        #plt.close('all')
-            
-        print("pi =",pi)
-        print("Final (injected into orbit) rocket mass: "+\
-              "{:.4E}\n".format(x[-1,3,self.s-1]))
-        print("Ejected mass (1st-2nd stage):",x[-1,3,0]-x[0,3,1])
     #
     
     def compWith(self,altSol,altSolLabl='altSol'):
