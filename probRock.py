@@ -350,7 +350,26 @@ class prob(sgra):
         
         solInit = self.copy()
         
+# =============================================================================
+        # TODO: Eigirardi!
+        
+        # TODO: Eigirardi!
+        
+        # TODO: Eigirardi!
+        print("\a")
+        print("\n\n\n\n\n\n\n")
+        print("ALTERAÇAO ESCROTAAAAA")
+        print("\n\n\n\n\n\n\n")
+        for arc in range(s):
+            for k in range(N):
+                if u[k,1,arc] < -2.5:
+                    u[k,1,arc] = -2.5
+# =============================================================================
+        self.u = u
+        
+        
         self.compWith(solInit,'solZA')
+        #input("Da la uma olhada no compWith")
         
         print("\nInitialization complete.\n")        
         return solInit
@@ -1244,7 +1263,6 @@ class prob(sgra):
         dens = numpy.empty((N,s))
         acc = numpy.empty((N,s))
         
-
         X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
         StgSepPnts = numpy.zeros((s,2))
 #        StgInitAcc = numpy.zeros(s)
@@ -1278,11 +1296,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -5.0:#.999:
+                    if self.u[i,1,arc] < -2.4:#.999:
                         isBurn = False
                         indShut[arc].append(i)
                 else: #not burning
-                    if self.u[i,1,arc] > -5.0:#-.999:
+                    if self.u[i,1,arc] > -2.4:#-.999:
                         isBurn = True
                         indBurn[arc].append(i)
 

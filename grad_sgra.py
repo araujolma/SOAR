@@ -153,25 +153,25 @@ def calcQ(self):
     self.Q = Q
 
 ###############################################################################    
-#    self.plotCat(normErrQx,piIsTime=False)
-#    plt.grid(True)
-#    plt.ylabel("normErrQx")
-#    plt.xlabel("t")
-#    plt.show()
-#    
-#    self.plotCat(normErrQu,color='g',piIsTime=False)
-#    plt.grid(True)
-#    plt.ylabel("normErrQu")
-#    plt.xlabel("t")
-#    plt.show()
-#
-#    for j in range(p):
-#        self.plotCat(errQp[:,j,:],piIsTime=False)
-#        plt.grid(True)
-#        plt.xlabel("t")
-#        plt.ylabel("ErrQp, j ="+str(j))
-#        plt.show()
-#    print("resVecQp =",resVecIntQp)
+    self.plotCat(normErrQx,piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("normErrQx")
+    plt.xlabel("t")
+    plt.show()
+    
+    self.plotCat(normErrQu,color='g',piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("normErrQu")
+    plt.xlabel("t")
+    plt.show()
+
+    for j in range(p):
+        self.plotCat(errQp[:,j,:],piIsTime=False)
+        plt.grid(True)
+        plt.xlabel("t")
+        plt.ylabel("ErrQp, j ="+str(j))
+        plt.show()
+    print("resVecQp =",resVecIntQp)
 ###############################################################################
 
     somePlot = False
@@ -473,7 +473,7 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)#(k = 1e-6*I0/P0)#
+    stepMan = stepMngr(k = 1e-9*I0/P0)#stepMngr(k = 1e-6*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P

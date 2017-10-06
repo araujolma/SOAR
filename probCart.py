@@ -56,7 +56,7 @@ class prob(sgra):
         # Get initialization mode
         
         x = numpy.zeros((N,n,s))
-        u = numpy.zeros((N,m,s))
+        u = 5.0*numpy.ones((N,m,s))
         
         #x[:,0,0] = t.copy()
         #x[:,0,0] = .5*t
