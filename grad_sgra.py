@@ -153,25 +153,47 @@ def calcQ(self):
     self.Q = Q
 
 ###############################################################################    
-    self.plotCat(normErrQx,piIsTime=False)
+    self.plotCat(normErrQx)#,piIsTime=False)
     plt.grid(True)
-    plt.ylabel("normErrQx")
+    plt.ylabel("Integrand of Qx")
     plt.xlabel("t")
-    plt.show()
+    plt.title("Qx = int || dlam - f_x + phi_x^T*lam || = {:.4E}".format(Qx))
+    self.savefig(keyName='Qx',fullName='Qx')
+    #plt.show()
     
-    self.plotCat(normErrQu,color='g',piIsTime=False)
+    self.plotCat(normErrQu,color='g')#,piIsTime=False)
     plt.grid(True)
-    plt.ylabel("normErrQu")
+    plt.ylabel("Integrand of Qu")
     plt.xlabel("t")
-    plt.show()
+    plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(Qu))
+    self.savefig(keyName='Qu',fullName='Qu')
+    #plt.show()
 
+#    plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+    plt.subplot2grid((p,1),(0,0))
+    self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
+    plt.grid(True)
+    plt.ylabel("ErrQp, j = 0")
+    titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
     for j in range(p):
-        self.plotCat(errQp[:,j,:],piIsTime=False)
+        titlStr += "{:.4E}, ".format(resVecIntQp[j])
+    plt.title(titlStr)
+    
+    for j in range(1,p):
+        plt.subplot2grid((p,1),(j,0))
+        self.plotCat(errQp[:,j,:],color='k')
         plt.grid(True)
-        plt.xlabel("t")
         plt.ylabel("ErrQp, j ="+str(j))
-        plt.show()
-    print("resVecQp =",resVecIntQp)
+    plt.xlabel("t [s]")
+    self.savefig(keyName='Qp',fullName='Qp')
+
+#    for j in range(p):
+#        self.plotCat(errQp[:,j,:],piIsTime=False)
+#        plt.grid(True)
+#        plt.xlabel("t")
+#        plt.ylabel("ErrQp, j ="+str(j))
+#        plt.show()
+#    print("resVecQp =",resVecIntQp)
 ###############################################################################
 
     somePlot = False

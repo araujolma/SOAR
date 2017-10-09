@@ -341,18 +341,21 @@ class LMPBVPhelp():
 ###############################################################################
         
         
-        # Assembly of matrix M and column 'Col'
+        # Assembly of matrix M and column 'Col' for the linear system
         
         # Matrix for linear system involving k's and mu's
         M = numpy.zeros((Ns+q+1,Ns+q+1))
-        M[0,:(Ns+1)] = numpy.ones(Ns+1) # eq (34d)
-        M[(q+1):(q+1+p),(Ns+1):] = self.psip.transpose()
+        # from eq (34d) - k term
+        M[0,:(Ns+1)] = numpy.ones(Ns+1)
+        # from eq (34b) - mu term
+        M[(q+1):(q+1+p),(Ns+1):] = self.psip.transpose() 
+        # from eq (34c) - mu term
         M[(p+q+1):,(Ns+1):] = self.psiy.transpose()
-        # from eq (34a):
+        # from eq (34a) - k term
         M[1:(q+1),:(Ns+1)] = self.psiy.dot(Dt) + self.psip.dot(Ct) 
-        # from eq (34b):
+        # from eq (34b) - k term
         M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt 
-        # from eq (34c):
+        # from eq (34c) - k term
         M[(q+p+1):,:(Ns+1)] = Et 
 
         # column vector for linear system involving k's and mu's  [eqs (34)]
@@ -361,6 +364,7 @@ class LMPBVPhelp():
         
         # Integral term
         if self.rho > 0.5:
+            # eq (34b) - only applicable for grad
             sumIntFpi = numpy.zeros(p)
             for arc in range(s):
                 thisInt = numpy.zeros(p)
@@ -371,6 +375,7 @@ class LMPBVPhelp():
                     sumIntFpi += thisInt
             col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
         else:
+            # eq (34a) - only applicable for rest
             col[1:(q+1)] = rho1 * self.psi
 
         
@@ -680,8 +685,36 @@ class sgra():
         pass
     
     def plotSol(self,*args,**kwargs):
-        print("plotSol: unimplemented method.")
-        pass
+        titlStr = "Current solution"
+            
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        Np = self.n + self.m
+
+        
+        # First state
+        plt.subplot2grid((Np,1),(0,0))
+        self.plotCat(self.x[:,0,:],piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("State #1")
+        plt.title(titlStr)
+
+        ind = 1
+        for i in range(1,self.n):
+            plt.subplot2grid((Np,1),(ind,0))
+            ind+=1
+            self.plotCat(self.x[:,i,:],piIsTime=False)
+            plt.grid(True)
+            plt.ylabel("State #"+str(i+1))
+
+        # Controls
+        for i in range(self.m):
+            plt.subplot2grid((Np,1),(ind,0))
+            ind+=1
+            self.plotCat(self.u[:,i,:],piIsTime=False)
+            plt.grid(True)
+            plt.ylabel("Control #"+str(i+1))
+        
+        self.savefig(keyName='currSol',fullName='solution')
     
     def calcI(self,*args,**kwargs):
         pass
