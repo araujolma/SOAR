@@ -228,42 +228,42 @@ class ITman():
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
 
-        fullDbugOptRest = {'pausRest':False,
-                           'pausCalcP':False,
-                           'plotP_int':True,
-                           'plotP_intZoom':True,
-                           'plotIntP_int':True,
-                           'plotSolMaxP':True,
-                           'plotRsidMaxP':True,
-                           'plotErr':True,
-                           'plotCorr':True,
-                           'plotCorrFin':True}
+#        fullDbugOptRest = {'pausRest':False,
+#                           'pausCalcP':False,
+#                           'plotP_int':True,
+#                           'plotP_intZoom':True,
+#                           'plotIntP_int':True,
+#                           'plotSolMaxP':True,
+#                           'plotRsidMaxP':True,
+#                           'plotErr':True,
+#                           'plotCorr':True,
+#                           'plotCorrFin':True}
         
         while sol.P > sol.tol['P']:
-            sol.rest()
+            sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
             
             # turn off debug mode            
             # TODO: remove this hardcoded number (20) and use a variable...
-            if contRest%20 == 0:
-                print("\nLots of restorations! "+\
-                      "Here is the current solution:")
-                sol.plotSol()
-                      
-                print("And here is a partial convergence report:")
-                sol.showHistP()
-                print("Changing to debug mode:")
-                sol.dbugOptRest.setAll(opt=fullDbugOptRest)#allOpt=True)
-                print("\nDon't worry, changing in next rest run, back to:\n")
-                pprint.pprint(origDbugOptRest)
-
-                nowStr = str(datetime.datetime.now()).replace(' ','_')
-                nowStr.replace('/','-')
-                nowStr.replace('.','-')
-                self.saveSol(sol,self.probName+'_dbugSol_'+nowStr+'.pkl')
-                #input(" > ")
-            else:
-                sol.dbugOptRest.setAll(opt=origDbugOptRest)
+#            if contRest%20 == 0:
+#                print("\nLots of restorations! "+\
+#                      "Here is the current solution:")
+#                sol.plotSol()
+#                      
+#                print("And here is a partial convergence report:")
+#                sol.showHistP()
+#                print("Changing to debug mode:")
+#                sol.dbugOptRest.setAll(opt=fullDbugOptRest)#allOpt=True)
+#                print("\nDon't worry, changing in next rest run, back to:\n")
+#                pprint.pprint(origDbugOptRest)
+#
+#                nowStr = str(datetime.datetime.now()).replace(' ','_')
+#                nowStr.replace('/','-')
+#                nowStr.replace('.','-')
+#                self.saveSol(sol,self.probName+'_dbugSol_'+nowStr+'.pkl')
+#                #input(" > ")
+#            else:
+#                sol.dbugOptRest.setAll(opt=origDbugOptRest)
          
         
         sol.showHistP()

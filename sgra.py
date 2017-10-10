@@ -367,12 +367,17 @@ class LMPBVPhelp():
             # eq (34b) - only applicable for grad
             sumIntFpi = numpy.zeros(p)
             for arc in range(s):
-                thisInt = numpy.zeros(p)
                 for ind in range(p):
-                    thisInt[ind] += self.fp[:,ind,arc].sum()
-                    thisInt -= .5*(self.fp[0,:,arc] + self.fp[N-1,:,arc])
-                    thisInt *= self.dt
-                    sumIntFpi += thisInt
+                    sumIntFpi[ind] += self.fp[:,ind,arc].sum()
+                    sumIntFpi[ind] -= .5 * ( self.fp[0,ind,arc] + \
+                             self.fp[-1,ind,arc])
+            sumIntFpi *= self.dt
+#                thisInt = numpy.zeros(p)
+#                for ind in range(p):
+#                    thisInt[ind] += self.fp[:,ind,arc].sum()
+#                    thisInt -= .5*(self.fp[0,:,arc] + self.fp[N-1,:,arc])
+#                    thisInt *= self.dt
+#                    sumIntFpi += thisInt
             col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
         else:
             # eq (34a) - only applicable for rest
@@ -730,11 +735,11 @@ class sgra():
     def calcP(self,*args,**kwargs):
         return rest_sgra.calcP(self,*args,**kwargs)   
     
-    def updtHistP(self,alfa):
+    def updtHistP(self,alfa,mustPlotPint=False):
         
         NIterRest = self.NIterRest+1
 
-        P,Pint,Ppsi = self.calcP()
+        P,Pint,Ppsi = self.calcP(mustPlotPint=mustPlotPint)
         self.P = P
         self.histP[NIterRest] = P
         self.histPint[NIterRest] = Pint
@@ -776,12 +781,12 @@ class sgra():
         #return 1.0,1.0,1.0,1.0,1.0
         return grad_sgra.calcQ(self,*args,**kwargs)
     
-    def updtHistQ(self,alfa):
+    def updtHistQ(self,alfa,mustPlotQs=False):
     
         
         NIterGrad = self.NIterGrad+1
         
-        Q,Qx,Qu,Qp,Qt = self.calcQ()
+        Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
         self.Q = Q
         self.histQ[NIterGrad] = Q
         self.histQx[NIterGrad] = Qx
@@ -795,6 +800,7 @@ class sgra():
         self.I = I
         
         self.NIterGrad = NIterGrad
+
         
     def showHistQ(self):
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -859,6 +865,10 @@ class sgra():
             pool.close()
             pool.join()
         else:
+            if rho>0.5:
+                print("\nRunning GRAD in sequential (non-parallel) mode...\n")
+            else:
+                print("\nRunning REST in sequential (non-parallel) mode...\n")
             res = list()
             for j in range(self.Ns+1):
                 res.append(helper.propagate(j))

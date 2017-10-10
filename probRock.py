@@ -609,7 +609,7 @@ class prob(sgra):
         V = x[:,1,:]
         V2 = V * V
         gama = x[:,2,:]
-        # GAMMA FACTOR
+        # GAMMA FACTOR (fdg)
         fdg = numpy.empty_like(r)
         t0 = 0.0
         for arc in range(s):
@@ -717,7 +717,7 @@ class prob(sgra):
         phix[:,1,1,:] = - CDsref * dens * V/m
         # d Vdot d gama:
         phix[:,1,2,:] = - g * cosGama
-        # d Vdot d m: 0.0
+        # d Vdot d m:
         phix[:,1,3,:] = - fVel / m2
 
         # d gamadot d h:
@@ -728,7 +728,7 @@ class prob(sgra):
         cosGama * ( 1.0/r + g/V2 ) +  0.5 * CLsref * dens/m
         # d gamadot d gama:
         phix[:,2,2,:] = - sinGama * ( V/r - g/V )
-        # d gamadot d m: 0.0
+        # d gamadot d m:
         phix[:,2,3,:] = -fNor / ( m2 * V )
 
         # d mdot d h: 0.0

@@ -9,7 +9,7 @@ import numpy
 from utils import ddt
 import matplotlib.pyplot as plt
 
-def calcP(self):
+def calcP(self,mustPlotPint=False):
     N,s,dt = self.N,self.s,self.dt
     x = self.x
 
@@ -161,6 +161,16 @@ def calcP(self):
     print("P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\
           ", Ppsi = {:.6E}.".format(Ppsi))
     self.P = P
+    
+    if mustPlotPint:
+        self.plotCat(vetP)
+        plt.grid(True)
+        plt.title("Integrand of P_int\n"+\
+                   "P = {:.4E}, ".format(P)+\
+                   "P_int = {:.4E}, ".format(Pint)+\
+                   "P_psi = {:.4E}".format(Ppsi))
+        self.savefig(keyName='Pint',fullName='integrand of P')
+    
     return P,Pint,Ppsi    
 
 def calcStepRest(self,corr):
@@ -249,8 +259,9 @@ def rest(self,parallelOpt={}):
     
     alfa = self.calcStepRest(corr)
     self.aplyCorr(alfa,corr)
-    self.updtHistP(alfa)
+    self.updtHistP(alfa,mustPlotPint=True)
     print("Leaving rest with alfa =",alfa)
+
     
     if self.dbugOptRest['pausRest']:
         self.plotSol()
