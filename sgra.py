@@ -146,10 +146,15 @@ class LMPBVPhelp():
         err = self.err
         phiuFu = self.phiuFu
         fx = self.fx
-        fu = self.fu
+        if rho > .5:
+            rhoFu = self.fu
+        else:
+            rhoFu = numpy.zeros((N,m,s))
+
         phiuTr = self.phiuTr
         phipTr = self.phipTr
         DynMat = self.DynMat
+        I = numpy.eye(2*n)
         
         #if rho > 0.5:
         #    print("\nIntegrating solution "+str(j+1)+" of "+str(Ns+1)+"...\n")
@@ -185,23 +190,63 @@ class LMPBVPhelp():
                 
         # Integrate the LSODE (by Heun's method):
         for arc in range(s):
-            B[0,:,arc] = -rho*fu[0,:,arc] + \
+#            B[0,:,arc] = -rhoFu[0,:,arc] + \
+#                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#            phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+#            
+#            # First point: simple propagation
+#            derXik = DynMat[0,:,:,arc].dot(Xi[0,:,arc]) + \
+#                        nonHom[0,:,arc]
+#            Xi[1,:,arc] = Xi[0,:,arc] + dt * derXik
+#            #A[1,:,arc] = Xi[1,:n,arc]
+#            lam[1,:,arc] = Xi[1,n:,arc]
+#            B[1,:,arc] = -rhoFu[1,:,arc] + \
+#                            phiuTr[1,:,:,arc].dot(lam[1,:,arc])
+#            phiLamIntCol += phipTr[1,:,:,arc].dot(lam[1,:,arc])
+#            
+#            # "Middle" points: original Heun propagation
+#            for k in range(1,N-2):
+#                derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+#                        nonHom[k,:,arc]
+#                aux = Xi[k,:,arc] + dt * derXik
+#                Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
+#                                DynMat[k+1,:,:,arc].dot(aux) + \
+#                                nonHom[k+1,:,arc])
+#                #A[k+1,:,arc] = Xi[k+1,:n,arc]
+#                lam[k+1,:,arc] = Xi[k+1,n:,arc]
+#                B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
+#                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#                phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#            #
+#            
+#            # Last point: simple propagation, but based on the last point
+#            derXik = DynMat[N-1,:,:,arc].dot(Xi[N-2,:,arc]) + \
+#                        nonHom[N-1,:,arc]
+#            Xi[N-1,:,arc] = Xi[N-2,:,arc] + dt * derXik
+#            #A[N-1,:,arc] = Xi[N-1,:n,arc]
+#            lam[N-1,:,arc] = Xi[N-1,n:,arc]
+#            B[N-1,:,arc] = -rhoFu[N-1,:,arc] + \
+#                            phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
+#            phiLamIntCol += .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
+            
+            # Integrate the SODE by Euler Backwards implicit
+            B[0,:,arc] = -rhoFu[0,:,arc] + \
                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
             phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+            
             for k in range(N-1):
-                derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                        nonHom[k,:,arc]
-                aux = Xi[k,:,arc] + dt * derXik
-                Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
-                                DynMat[k+1,:,:,arc].dot(aux) + \
-                                nonHom[k+1,:,arc])
-                A[k+1,:,arc] = Xi[k+1,:n,arc]
+                Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
+                  Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
                 lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                B[k+1,:,arc] = -rho*fu[k+1,:,arc] + \
+                B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
                                 phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
                 phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-            #
-            phiLamIntCol -= .5*(phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc]))
+                
+            phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])            
+            
+
+            # Get the A values from Xi
+            A[:,:,arc] = Xi[:,:n,arc]
 
             # Put initial and final conditions of A and Lambda into matrices 
             # DtCol and EtCol, which represent the columns of Dtilde(Dt) and 
@@ -372,12 +417,6 @@ class LMPBVPhelp():
                     sumIntFpi[ind] -= .5 * ( self.fp[0,ind,arc] + \
                              self.fp[-1,ind,arc])
             sumIntFpi *= self.dt
-#                thisInt = numpy.zeros(p)
-#                for ind in range(p):
-#                    thisInt[ind] += self.fp[:,ind,arc].sum()
-#                    thisInt -= .5*(self.fp[0,:,arc] + self.fp[N-1,:,arc])
-#                    thisInt *= self.dt
-#                    sumIntFpi += thisInt
             col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
         else:
             # eq (34a) - only applicable for rest
@@ -524,8 +563,13 @@ class sgra():
         self.histQt = numpy.zeros(MaxIterGrad)
 
         self.histI = numpy.zeros(MaxIterGrad)
+        self.histGRrate = numpy.zeros(MaxIterGrad)
         
         self.tol = {'P':1e-7,'Q':1e-7}
+        
+        # Gradient-Restoration EVent List (1-grad, 0-rest)
+        self.GREvList = numpy.ones(MaxIterRest+MaxIterGrad,dtype='bool')
+        self.GREvIndx = -1
         
         # Debugging options
         tf = False
@@ -560,7 +604,7 @@ class sgra():
                             'plotF':tf,
                             'plotFint':tf},\
                                         inpName='Debug options for Grad')
-        
+
         # Solution plot saving status:
         self.save = binFlagDict(inpDict={'currSol':True,
                      'histP':True,
@@ -570,10 +614,38 @@ class sgra():
                      'traj':True,
                      'comp':True},\
                                 inpName='Plot saving options')
-        
+
+        # Paralellism options        
         self.isParallel = dict()
         self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False) 
         self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
+
+#    def getAvrgGRrate(self,nGrads=self.NIterGrad):
+#        
+#        # find last gradient step index in event list
+#        LastGradIndx = self.GREvIndx
+#        while self.GREvList[LastGradIndx] == False:
+#            LastGradIndx -= 1
+    def updtGRrate(self):
+#        print("\nIn updtGRrate.")
+ 
+        # find last gradient step index in event list
+        LastGradIndx = self.GREvIndx - 1
+#        print(LastGradIndx)
+        while self.GREvList[LastGradIndx] == False and LastGradIndx > 0:
+            LastGradIndx -= 1
+#            print(LastGradIndx)
+
+        # number of restorations after last gradient step            
+        if LastGradIndx == 0:
+            nRest = self.GREvIndx-1
+        else:
+            nRest = self.GREvIndx - 1 - LastGradIndx
+        
+        self.histGRrate[self.NIterGrad] = nRest
+#        print("\nUpdating GR rate...")
+#        print("Writing nRest =",nRest,'at position #',self.NIterGrad)
+        
     
     def copy(self):
         return copy.deepcopy(self)
@@ -780,6 +852,9 @@ class sgra():
         #print("calcQ: not implemented yet!")
         #return 1.0,1.0,1.0,1.0,1.0
         return grad_sgra.calcQ(self,*args,**kwargs)
+
+    def plotQRes(self,args):
+        return grad_sgra.plotQRes(self,args)
     
     def updtHistQ(self,alfa,mustPlotQs=False):
     

@@ -68,6 +68,63 @@ class stepMngr():
         
         return self.getLast()
 
+def plotQRes(self,args):
+    "Generic plots of the Q residuals"
+
+    plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+    nm1 = self.n+1
+    plt.subplot2grid((nm1,1),(0,0))
+    self.plotCat(args['normErrQx'],color='b')#,piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand of Qx")
+    plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
+              "= {:.4E}".format(args['Qx']))
+    errQx = args['errQx']
+    for i in range(self.n):
+        plt.subplot2grid((nm1,1),(i+1,0))
+        self.plotCat(errQx[:,i,:])#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("ErrQx_"+str(i))
+    plt.xlabel("t [s]")
+    self.savefig(keyName='Qx',fullName='Qx')
+    
+    plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+    mm1 = self.m+1
+    plt.subplot2grid((mm1,1),(0,0))
+    self.plotCat(args['normErrQu'],color='b')#,piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand of Qu")
+    plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
+    
+    errQu = args['errQu']
+    for i in range(self.m):
+        plt.subplot2grid((mm1,1),(i+1,0))
+        self.plotCat(errQu[:,i,:],color='k')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Qu_"+str(i))
+    plt.xlabel("t")        
+    self.savefig(keyName='Qu',fullName='Qu')
+
+    errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
+    p = self.p
+    plt.subplot2grid((p,1),(0,0))
+    self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
+    plt.grid(True)
+    plt.ylabel("ErrQp, j = 0")
+    titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
+    for j in range(p):
+        titlStr += "{:.4E}, ".format(resVecIntQp[j])
+    plt.title(titlStr)
+    
+    for j in range(1,p):
+        plt.subplot2grid((p,1),(j,0))
+        self.plotCat(errQp[:,j,:],color='k')
+        plt.grid(True)
+        plt.ylabel("ErrQp, j ="+str(j))
+    plt.xlabel("t [s]")
+    
+    self.savefig(keyName='Qp',fullName='Qp')
+
 def calcQ(self,mustPlotQs=False):
     # Q expression from (15). 
     # FYI: Miele (2003) is wrong in oh so many ways...
@@ -154,69 +211,16 @@ def calcQ(self,mustPlotQs=False):
 
 ###############################################################################    
     if mustPlotQs:
-        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.subplot2grid((5,1),(0,0))
-        self.plotCat(normErrQx,color='b')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("Integrand of Qx")
-        #plt.xlabel("t")
-        plt.title("Qx = int || dlam - f_x + phi_x^T*lam || = {:.4E}".format(Qx))
+        args = {'errQx':errQx,
+                'errQu':errQu,
+                'errQp':errQp,
+                'Qx':Qx,
+                'Qu':Qu,
+                'normErrQx':normErrQx,
+                'normErrQu':normErrQu,
+                'resVecIntQp':resVecIntQp}
+        self.plotQRes(args)
         
-        plt.subplot2grid((5,1),(1,0))
-        self.plotCat(errQx[:,0,:])#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("ErrQx_h")
-        plt.subplot2grid((5,1),(2,0))
-        self.plotCat(errQx[:,1,:],color='g')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("ErrQx_v")
-        plt.subplot2grid((5,1),(3,0))
-        self.plotCat(errQx[:,2,:],color='r')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("ErrQx_gama")
-        plt.subplot2grid((5,1),(4,0))
-        self.plotCat(errQx[:,3,:],color='m')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("ErrQx_m")
-
-        plt.xlabel("t [s]")
-        self.savefig(keyName='Qx',fullName='Qx')
-        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.subplot2grid((5,1),(0,0))
-        self.plotCat(normErrQu,color='b')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("Integrand of Qu")
-        plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(Qu))
-        
-        plt.subplot2grid((5,1),(1,0))
-        self.plotCat(errQu[:,0,:]**2,color='k')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("Qu_alpha")
-        plt.subplot2grid((5,1),(2,0))
-        self.plotCat(errQu[:,1,:]**2,color='r')#,piIsTime=False)
-        plt.grid(True)
-        plt.ylabel("Qu_beta")
-
-        plt.xlabel("t")        
-        self.savefig(keyName='Qu',fullName='Qu')
-
-    
-        plt.subplot2grid((p,1),(0,0))
-        self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
-        plt.grid(True)
-        plt.ylabel("ErrQp, j = 0")
-        titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
-        for j in range(p):
-            titlStr += "{:.4E}, ".format(resVecIntQp[j])
-        plt.title(titlStr)
-        
-        for j in range(1,p):
-            plt.subplot2grid((p,1),(j,0))
-            self.plotCat(errQp[:,j,:],color='k')
-            plt.grid(True)
-            plt.ylabel("ErrQp, j ="+str(j))
-        plt.xlabel("t [s]")
-        self.savefig(keyName='Qp',fullName='Qp')
 ###############################################################################
 
     somePlot = False
@@ -518,7 +522,7 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)#stepMngr(k = 1e-6*I0/P0)#
+    stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-9*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
@@ -721,6 +725,20 @@ def grad(self,parallelOpt={}):
     
     print("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
+    # update Gradient-Restoration event list
+    self.GREvIndx += 1
+    self.GREvList[self.GREvIndx] = True
+#    print("\nUpdating GREvList.")
+#    print("Writing True in position",self.GREvIndx)
+#    print("GREvList =",self.GREvList[:(self.GREvIndx+1)])
+    
+    self.updtGRrate()
+#    plt.plot(self.GREvList[0:(self.GREvIndx+1)])
+#    plt.show()
+#    plt.plot(self.histGRrate[0:(self.NIterGrad+1)])
+#    plt.show()
+#    input("Checa lá!")
+
     # Calculate corrections
     isParallel = parallelOpt.get('gradLMPBVP',False)
     A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
@@ -746,6 +764,8 @@ def grad(self,parallelOpt={}):
     # update P just to ensure proper restoration afterwards
     P,_,_ = self.calcP(mustPlotPint=True)
     self.P = P
+
+    
     print("Leaving grad with alfa =",alfa)
     print("Delta pi = ",alfa*C)
     

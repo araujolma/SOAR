@@ -20,7 +20,7 @@ class prob(sgra):
         n = 4
         m = 2
         
-        N = 50000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        N = 15000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -32,7 +32,7 @@ class prob(sgra):
         self.t = t
         
         #prepare tolerances
-        tolP = 1.0e-7#8
+        tolP = 1.0e-5
         tolQ = 1.0e-7#5
         tol = dict()
         tol['P'] = tolP
@@ -147,6 +147,8 @@ class prob(sgra):
             restrictions['beta_min'] = beta_min
             restrictions['beta_max'] = beta_max
             self.restrictions = restrictions
+            
+
             
             solInit = None
             
@@ -1128,6 +1130,75 @@ class prob(sgra):
         #
         
     #
+    
+    def plotQRes(self,args):
+        
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        plt.subplot2grid((5,1),(0,0))
+        self.plotCat(args['normErrQx'],color='b')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Integrand of Qx")
+        plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
+                  "= {:.4E}".format(args['Qx']))
+        errQx = args['errQx']
+        plt.subplot2grid((5,1),(1,0))
+        self.plotCat(errQx[:,0,:])#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("ErrQx_h")
+        plt.subplot2grid((5,1),(2,0))
+        self.plotCat(errQx[:,1,:],color='g')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("ErrQx_v")
+        plt.subplot2grid((5,1),(3,0))
+        self.plotCat(errQx[:,2,:],color='r')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("ErrQx_gama")
+        plt.subplot2grid((5,1),(4,0))
+        self.plotCat(errQx[:,3,:],color='m')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("ErrQx_m")
+    
+        plt.xlabel("t [s]")
+        self.savefig(keyName='Qx',fullName='Qx')
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        plt.subplot2grid((3,1),(0,0))
+        self.plotCat(args['normErrQu'],color='b')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Integrand of Qu")
+        plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
+        
+        errQu = args['errQu']
+        plt.subplot2grid((3,1),(1,0))
+        self.plotCat(errQu[:,0,:],color='k')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Qu_alpha")
+        plt.subplot2grid((3,1),(2,0))
+        self.plotCat(errQu[:,1,:],color='r')#,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Qu_beta")
+    
+        plt.xlabel("t")        
+        self.savefig(keyName='Qu',fullName='Qu')
+    
+        errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
+        p = self.p
+        plt.subplot2grid((p,1),(0,0))
+        self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
+        plt.grid(True)
+        plt.ylabel("ErrQp, j = 0")
+        titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
+        for j in range(p):
+            titlStr += "{:.4E}, ".format(resVecIntQp[j])
+        plt.title(titlStr)
+        
+        for j in range(1,p):
+            plt.subplot2grid((p,1),(j,0))
+            self.plotCat(errQp[:,j,:],color='k')
+            plt.grid(True)
+            plt.ylabel("ErrQp, j ="+str(j))
+        plt.xlabel("t [s]")
+        self.savefig(keyName='Qp',fullName='Qp')
+    
     
     def compWith(self,altSol,altSolLabl='altSol'):
         print("\nComparing solutions...\n")

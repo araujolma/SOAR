@@ -45,7 +45,7 @@ class prob(sgra):
         
         #prepare tolerances
         tolP = 1.0e-4#7#8
-        tolQ = 1.0e-2#8#5
+        tolQ = 1.0e-6#8#5
         tol = dict()
         tol['P'] = tolP
         tol['Q'] = tolQ
@@ -56,7 +56,7 @@ class prob(sgra):
         # Get initialization mode
         
         x = numpy.zeros((N,n,s))
-        u = 5.0*numpy.ones((N,m,s))
+        u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
         
         #x[:,0,0] = t.copy()
         #x[:,0,0] = .5*t
@@ -212,55 +212,94 @@ class prob(sgra):
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
             
-            plt.subplot2grid((8,4),(0,0),colspan=5)
+            plt.subplot2grid((4,1),(0,0),colspan=5)
             self.plotCat(x[:,0,:])
             plt.grid(True)
             plt.ylabel("Position")
             plt.title(titlStr)
-            plt.subplot2grid((8,4),(1,0),colspan=5)
+            plt.subplot2grid((4,1),(1,0),colspan=5)
             self.plotCat(x[:,1,:],color='g')
             plt.grid(True)
             plt.ylabel("Speed")
-            plt.subplot2grid((8,4),(2,0),colspan=5)
+            plt.subplot2grid((4,1),(2,0),colspan=5)
             self.plotCat(u[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.subplot2grid((8,4),(3,0),colspan=5)
+            plt.subplot2grid((4,1),(3,0),colspan=5)
             self.plotCat(numpy.tanh(u[:,0,:]),color='k')
             plt.grid(True)
-            plt.ylabel('Control')    
+            plt.ylabel('Acceleration')    
             plt.xlabel("Concat. adim. time [-]")
         
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-            plt.show()    
+
+            self.savefig(keyName='currSol',fullName='solution')
             
             print("pi =",pi,"\n")
         elif opt['mode'] == 'var':
-            titlStr = "Proposed variations"
+            dx = opt['x']
+            du = opt['u']
+            dp = opt['pi']
+
+            titlStr = "Proposed variations\n"+"Delta pi: "
+            for i in range(self.p):
+                titlStr += "{:.4E}, ".format(dp[i])
+                #titlStr += str(dp[i])+", "
+                        
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        
+            plt.subplot2grid((4,1),(0,0))
+            self.plotCat(dx[:,0,:])
+            plt.grid(True)
+            plt.ylabel("Position")
+            plt.title(titlStr)
+            
+            plt.subplot2grid((4,1),(1,0))
+            self.plotCat(dx[:,1,:],color='g')
+            plt.grid(True)
+            plt.ylabel("Speed")
+                        
+            plt.subplot2grid((4,1),(2,0))
+            self.plotCat(du[:,0,:],color='k')
+            plt.grid(True)
+            plt.ylabel("u1 [-]")
+            
+            new_u = self.u + du
+            acc = numpy.tanh(self.u)
+            new_acc = numpy.tanh(new_u)
+            dacc = new_acc-acc
+            plt.subplot2grid((4,1),(3,0))
+            self.plotCat(dacc[:,0,:],color='r')
+            plt.grid(True)
+            plt.xlabel("t")
+            plt.ylabel("Acceleration")    
+            
+            self.savefig(keyName='corr',fullName='corrections')
+            
         elif opt['mode'] == 'lambda':
             titlStr = "Lambda for current solution"
             
-            plt.subplot2grid((8,4),(0,0),colspan=5)
+            plt.subplot2grid((4,1),(0,0),colspan=5)
             self.plotCat(self.lam[:,0,:])
             plt.grid(True)
             plt.ylabel("lambda: Position")
             plt.title(titlStr)
-            plt.subplot2grid((8,4),(1,0),colspan=5)
+            plt.subplot2grid((4,1),(1,0),colspan=5)
             self.plotCat(self.lam[:,1,:],color='g')
             plt.grid(True)
             plt.ylabel("lambda: Speed")
-            plt.subplot2grid((8,4),(2,0),colspan=5)
+            plt.subplot2grid((4,1),(2,0),colspan=5)
             self.plotCat(u[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.subplot2grid((8,4),(3,0),colspan=5)
+            plt.subplot2grid((4,1),(3,0),colspan=5)
             self.plotCat(numpy.tanh(u[:,0,:]),color='k')
             plt.grid(True)
-            plt.ylabel('Control')    
+            plt.ylabel('Acceleration')    
             plt.xlabel("Time [s]")
         
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-            plt.show()    
+            self.savefig(keyName='currLamb',fullName='lambdas')
             
             print("mu =",self.mu)
             

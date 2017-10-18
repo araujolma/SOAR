@@ -35,7 +35,7 @@ def calcP(self,mustPlotPint=False):
         P += vetP[N-1,arc]
         vetIP[N-1,arc] = P
     
-        P *= dt
+    #P *= dt
 
     vetIP *= dt
 
@@ -260,6 +260,14 @@ def rest(self,parallelOpt={}):
     alfa = self.calcStepRest(corr)
     self.aplyCorr(alfa,corr)
     self.updtHistP(alfa,mustPlotPint=True)
+    
+    # update Gradient-Restoration event list
+    self.GREvIndx += 1
+    self.GREvList[self.GREvIndx] = False
+#    print("\nUpdating GREvList.")
+#    print("Writing False in position",self.GREvIndx)
+#    print("GREvList =",self.GREvList[:(self.GREvIndx+1)])
+    
     print("Leaving rest with alfa =",alfa)
 
     
