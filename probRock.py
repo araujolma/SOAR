@@ -177,9 +177,15 @@ class prob(sgra):
             #its1 = itsme.its()
             #t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
 
-            # Number of stages:
-            s = inputDict['NStag']
+            # Number of arcs:
+            s = inputDict['NStag']+1
             self.s = s
+            
+            # TODO: increase flexibility in these conditions
+            
+            #isStagSep = numpy.ones(s,dtype='bool')
+            #isStagSep[0] = False
+            
             
             p = s
             self.p = p
@@ -261,48 +267,83 @@ class prob(sgra):
             self.restrictions = restrictions
 
              
-            # Find indices for beginning of arc        
-            #print("\nSearching indices for beginning of arcs:")
+#            # Find indices for beginning of arc 
+#            arcBginIndx = numpy.empty(s+1,dtype='int')
+#            arc = 0; arcBginIndx[arc] = 0
+#            j = 0; nt = len(t_its)
+#            for i in range(len(massJet)):
+#
+#                if massJet[i] > 0.0:
+#                    # Jettisoned mass found
+#
+#                    arc += 1
+#                    tTarg = tphases[i]
+#                    #print("Beginning search for tTarg =",tTarg)
+#                    keepLook = True
+#                    while (keepLook and (j < nt)):
+#                        if abs(t_its[j]-tTarg) < 1e-10:
+#                            keepLook = False
+#
+#                            # get the next time for proper initial conditions
+#                            j += 1
+#                            arcBginIndx[arc] = j
+#                        j += 1
+#            #
+            
+            # Find indices for beginning of arc 
             arcBginIndx = numpy.empty(s+1,dtype='int')
             arc = 0; arcBginIndx[arc] = 0
-            j = 0; nt = len(t_its)
-            for i in range(len(massJet)):
-                #print("i =",i)
-                if massJet[i] > 0.0:
-                    #print("Jettissoned mass found!")
+            nt = len(t_its)
+            
+            hTarg = 1.0#100e-3 # target height: 1km
+            
+            # search for target height
+            j = 0; keepLook = True
+            while (keepLook and (j < nt)):
+                if x_its[j,0] > hTarg:
+                    # Found the index!
                     arc += 1
-                    #print("arc =",arc)
+                    arcBginIndx[arc] = j
+                    keepLook = False
+                j+=1
+                
+            # now, search for jettisoned masses
+            nmj = len(massJet)
+            for i in range(nmj):
+
+                if massJet[i] > 0.0:
+                    # Jettisoned mass found!
+                    arc += 1
                     tTarg = tphases[i]
-                    #print("Beginning search for tTarg =",tTarg)
+
                     keepLook = True
                     while (keepLook and (j < nt)):
-                        if abs(t_its[j]-tTarg) < 1e-10:
+                        if abs(t_its[j]-tTarg) < 1e-10: 
+                            #TODO: this hardcoded 1e-10 may cause problems...
+                            
+                            # Found the proper time!
                             keepLook = False
-                            #print("Found it! in j =",j,"t_its[j] =",t_its[j],"M[j] =",x_its[j,3])
+
                             # get the next time for proper initial conditions
                             j += 1
                             arcBginIndx[arc] = j
-                        #print("j =",j,"t_its[j] =",t_its[j],"M[j] =",x_its[j,3])
                         j += 1
             #
-            #print("Done. Indices:")
-            #print(arcBginIndx)
-            #print("Times:")
-            #print(t_its[arcBginIndx])
-            #print("\n\n")
-            #print("New initial masses:",x_its[arcBginIndx,3])
-
+            print(arcBginIndx)
+            
+            
+            # Set the array of interval lengths
             pi = numpy.empty(s)
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
             
             self.boundary['m_initial'] = x_its[0,3]
 
-
             
             # Re-integration of proposed solution (RK4) 
             # Only the controls are used, not the integrated state itself       
             for arc in range(s):
+
                 dtd = pi[arc]/(N-1); dtd6 = dtd/6.0
                 x[0,:,arc] = x_its[arcBginIndx[arc],:]
                 t0arc = t_its[arcBginIndx[arc]]
@@ -313,6 +354,7 @@ class prob(sgra):
                     td = t0arc + i * dtd
                     ui = uip1
                     u[i,:,arc] = ui
+
                     uipm = numpy.array([tabAlpha.value(td+.5*dtd),\
                                         tabBeta.value(td+.5*dtd)])
                     uip1 = numpy.array([tabAlpha.value(td+dtd),\
@@ -329,14 +371,18 @@ class prob(sgra):
                     x4 = x[i,:,arc] + dtd*f3 # x at next step, with f3
                     f4 = calcXdot(td+dtd,x4,uip1,constants,arc)
                     x[i+1,:,arc] = x[i,:,arc] + dtd6 * (f1+f2+f2+f3+f3+f4) 
+                #
+                u[N-1,:,arc] = u[N-2,:,arc]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
+            #
 
-            u[N-1,:,s-1] = u[N-2,:,s-1]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
 
 
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
 
+        
         print("Bypass BIZARRO...")
+        # TODO: Re-implement this change in a less hardcoded way...
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
         self.constants['Thrust'] *= 100.0/40.0
@@ -581,27 +627,52 @@ class prob(sgra):
         psiy = numpy.zeros((q,2*n*s))
         s_f = self.constants['s_f']
 
-        # First n rows:
-        for i in range(n):
-            psiy[i,i] = 1.0
+        # First n rows: all states have assigned values
+        for ind in range(n):
+            psiy[ind,ind] = 1.0
 
         # Last n-1 rows (no mass eq for end condition of final arc):
         for ind in range(n-1):
             psiy[q-1-ind,2*n*s-2-ind] = 1.0
             
         # Intermediate conditions
-        i0 = n
-        for arc in range(s-1): 
+        i0 = n; j0 = 0
+        for arc in range(s-1):
+            # This loop sets the interfacing conditions between all states
+            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
+            
             # For height, speed and angle:
             for stt in range(n-1):
-                psiy[i0+stt,i0+stt] = -1.0  # this state, this arc  (end cond)
-                psiy[i0+stt,i0+stt+n] = 1.0 # this state, next arc (init cond)
-            # For mass (discontinuities allowed)
-            psiy[i0+n-1,i0+n-1+n] = 1.0
-            psiy[i0+n-1,i0+n-1] = -1.0/(1.0-s_f[arc])
-            psiy[i0+n-1,i0-1] = s_f[arc]/(1.0-s_f[arc])
-            i0 += n
+                ind = i0 + stt
+                psiy[ind,j0+ind] = -1.0  # this state, this arc  (end cond)
+                psiy[ind,j0+ind+n] = 1.0 # this state, next arc (init cond)
+
+            # For mass:
+            stt = n-1; ind = i0 + stt
+            if arc == 0:
+                psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
+                psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
+            else:
+                # mass, next arc (init cond)
+                psiy[ind,j0+ind+n] = 1.0 
+                # mass, this arc (end cond):
+                psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc]) 
+                # mass, this arc (init cond):
+                psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
+            
+            i0 = ind + 1
+            j0 += n
+        #
          
+#        print("\npsiy =")
+#        for i in range(q):
+#            prStr = "i = "+str(i)+":   "
+#            for j in range(2*n*s):
+#                prStr += str(psiy[i,j])+"   "
+#            prStr += "\n"
+#            print(prStr)
+#        input("Eigirardi...")
+            
         psip = numpy.zeros((q,p))
     
         # calculate r, V, etc
@@ -805,27 +876,28 @@ class prob(sgra):
         psi[3] = x[0,3,0] - boundary['m_initial']
 
         # interstage conditions
-#        strPrnt = "0,1,2,3,"
+        #strPrnt = "0,1,2,3,"
         for arc in range(s-1):
-            i0 = 4 * (arc+1)
-#            strPrnt = strPrnt + str(i0) + "," + str(i0+1) + "," + \
-#                        str(i0+2) + "," + str(i0+3) + ","
+            i0 = 4 * (arc+1) 
+
             # four states in order: position, speed, flight angle and mass
             psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc] 
             psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
             psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
-            psi[i0+3] = x[0,3,arc+1] - \
-            (1.0/(1.0 - s_f[arc])) * (x[N-1,3,arc] - s_f[arc] * x[0,3,arc])
-
+            if arc == 0:
+                psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            else:  
+                psi[i0+3] = x[0,3,arc+1] - \
+                (1.0/(1.0 - s_f[arc-1])) * (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
+            #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
         psi[q-2] = x[N-1,1,s-1] - boundary['V_final']
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
-#        strPrnt = strPrnt+str(q-3)+","+str(q-2)+","+str(q-1)+","
-
+        #strPrnt += str(q-3)+","+str(q-2)+","+str(q-1)
+        #print(strPrnt)
         print("Psi =",psi)
-#        print("q =",q)
-#        print(strPrnt)
+
         return psi
         
     def calcF(self):
@@ -929,33 +1001,33 @@ class prob(sgra):
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
             plt.subplot2grid((8,1),(0,0))
-            self.plotCat(x[:,0,:])
+            self.plotCat(x[:,0,:])#,piIsTime=False)
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
             
             plt.subplot2grid((8,1),(1,0))
-            self.plotCat(x[:,1,:],color='g')
+            self.plotCat(x[:,1,:],color='g')#,piIsTime=False)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             
             plt.subplot2grid((8,1),(2,0))
-            self.plotCat(x[:,2,:]*180/numpy.pi,color='r')
+            self.plotCat(x[:,2,:]*180/numpy.pi,color='r')#,piIsTime=False)
             plt.grid(True)
             plt.ylabel("gamma [deg]")
             
             plt.subplot2grid((8,1),(3,0))
-            self.plotCat(x[:,3,:],color='m')
+            self.plotCat(x[:,3,:],color='m')#,piIsTime=False)
             plt.grid(True)
             plt.ylabel("m [kg]")
             
             plt.subplot2grid((8,1),(4,0))
-            self.plotCat(u[:,0,:],color='k')
+            self.plotCat(u[:,0,:],color='k')#,piIsTime=False)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             
             plt.subplot2grid((8,1),(5,0))
-            self.plotCat(u[:,1,:],color='c')
+            self.plotCat(u[:,1,:],color='c')#,piIsTime=False)
             plt.grid(True)
             #plt.xlabel("t")
             plt.ylabel("u2 [-]")
@@ -964,7 +1036,7 @@ class prob(sgra):
             alpha,beta = self.calcDimCtrl()
             alpha *= 180.0/numpy.pi
             plt.subplot2grid((8,1),(6,0))
-            self.plotCat(alpha)
+            self.plotCat(alpha)#piIsTime=False)
             #plt.hold(True)
             #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
             #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
@@ -973,7 +1045,7 @@ class prob(sgra):
             plt.ylabel("alpha [deg]")
             
             plt.subplot2grid((8,1),(7,0))
-            self.plotCat(beta)
+            self.plotCat(beta)#,piIsTime=False)
             #plt.hold(True)
             #plt.plot(t,beta*0+beta_max,'-.k')
             #plt.plot(t,beta*0+beta_min,'-.k')
@@ -1344,13 +1416,13 @@ class prob(sgra):
         Z[0] = 0.0
 
         # Propulsive phases' starting and ending times
+        # This is implemented with two lists, one for each arc.
+        # Each list stores the indices of the points in which the burning 
+        # begins or ends, respectively. 
         isBurn = True
         indBurn = list(); indShut = list()
-        for arc in range(s):
-            indBurn.append(list())
-            indShut.append(list())
 
-        indBurn[0].append(0)
+        indBurn.append(0) # The rocket definitely begins burning at liftoff!
         iCont = 0 # continuous counter (all arcs concatenated)
         strtInd = 1
         for arc in range(s):
@@ -1369,11 +1441,11 @@ class prob(sgra):
                 if isBurn:
                     if self.u[i,1,arc] < -2.4:#.999:
                         isBurn = False
-                        indShut[arc].append(i)
+                        indShut.append(iCont)
                 else: #not burning
                     if self.u[i,1,arc] > -2.4:#-.999:
                         isBurn = True
-                        indBurn[arc].append(i)
+                        indBurn.append(iCont)
 
                 # Propagate the trajectory by Euler method.
                 v = self.x[i,1,arc]
@@ -1385,13 +1457,16 @@ class prob(sgra):
                 Z[iCont] = Z[iCont-1] + dtd * v * sin(gama-sigma)
             
             #
+            # TODO: this must be readequated to new formulation, where arcs
+            # might not be the stage separation poins necessarily
             StgSepPnts[arc,:] = X[iCont],Z[iCont]
 #            dvF = self.x[N-1,1,arc]-self.x[N-2,1,arc]
 #            StgFinlAcc[arc] = dvF/dtd/self.constants['grav_e']
 
             #strtInd = 0
         #
-        indShut[s-1].append(N-1)    
+        # The rocket most definitely ends the trajectory with engine shutdown.
+        indShut.append(iCont)    
                 
         # Remaining points are unused; it is best to repeat the final point
         X[iCont+1 :] = X[iCont]
@@ -1491,18 +1566,17 @@ class prob(sgra):
         # Plot launching point (black)
         plt.plot(X[0],Z[0],'ok')
         
-        # Plot burning segments in red
+        # Plot burning segments in red, 
+        # label only the first to avoid multiple labels
         mustLabl = True
-        for arc in range(s):
-            iOS = arc * N # offset index
-            for i in range(len(indBurn[arc])):
-                ib = indBurn[arc][i]+iOS
-                ish = indShut[arc][i]+iOS
-                if mustLabl:
-                    plt.plot(X[ib:ish],Z[ib:ish],'r',label='Propulsed flight')
-                    mustLabl = False
-                else:
-                    plt.plot(X[ib:ish],Z[ib:ish],'r')
+        for i in range(len(indBurn)):
+            ib = indBurn[i]
+            ish = indShut[i]
+            if mustLabl:
+                plt.plot(X[ib:ish],Z[ib:ish],'r',label='Propulsed flight')
+                mustLabl = False
+            else:
+                plt.plot(X[ib:ish],Z[ib:ish],'r')
         
         # Plot Max Pdyn point in orange
         plt.plot(X[indPdynMax],Z[indPdynMax],marker='o',color='orange',\
@@ -1510,7 +1584,7 @@ class prob(sgra):
         
         # Plot stage separation points in blue
         mustLabl = True
-        for arc in range(s-1):
+        for arc in range(1,s-1):
             # this trick only labels the first segment, to avoid multiple 
             # labels afterwards
             if mustLabl:

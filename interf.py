@@ -300,6 +300,9 @@ class ITman():
         else:
             return False
         
+    def showHistGRrateCond(self,sol):
+        return True
+        
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
@@ -337,6 +340,9 @@ class ITman():
             
             if self.showHistGradStepCond(sol):
                 sol.showHistGradStep()
+                
+            if self.showHistGRrateCond(sol):
+                sol.showHistGRrate()
             
             if self.saveSolCond(sol):
                 self.prntDashStr()
