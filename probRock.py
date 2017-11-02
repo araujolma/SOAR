@@ -416,7 +416,7 @@ class prob(sgra):
         self.u = u
         
         
-        self.compWith(solInit,'solZA')
+        self.compWith(solInit,'Initial Guess')
         #input("Da la uma olhada no compWith")
         
         print("\nInitialization complete.\n")        
@@ -1305,7 +1305,7 @@ class prob(sgra):
         self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("h [km]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         plt.title("Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
                   "\nPayload mass gain: {:.4G}%".format(paylPercMassGain))
@@ -1315,7 +1315,7 @@ class prob(sgra):
         self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("V [km/s]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((8,1),(2,0))
         altSol.plotCat(altSol.x[:,2,:]*180/numpy.pi,labl=altSolLabl)
@@ -1323,21 +1323,21 @@ class prob(sgra):
                      labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("gamma [deg]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((8,1),(3,0))
         altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
         self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("m [kg]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((8,1),(4,0))
         altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
         self.plotCat(self.u[:,0,:],mark='--',color='k',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("u1 [-]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((8,1),(5,0))
         altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
@@ -1345,7 +1345,7 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("u2 [-]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         ######################################
         alpha,beta = self.calcDimCtrl()
@@ -1360,7 +1360,7 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("alpha [deg]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((8,1),(7,0))
         altSol.plotCat(beta_alt,labl=altSolLabl)
@@ -1372,7 +1372,7 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("beta [-]")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         ######################################
         
         self.savefig(keyName='comp',fullName='comparisons')
@@ -1602,7 +1602,7 @@ class prob(sgra):
         plt.axis('equal')
         plt.title("Rocket trajectory over Earth\n"+\
                   "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6))
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         self.savefig(keyName='traj',fullName='trajectory')
 #        print("\nInitStgAcc[g] =",StgInitAcc)

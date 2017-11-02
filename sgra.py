@@ -836,7 +836,7 @@ class sgra():
         plt.grid(True)
         plt.xlabel("Rest iterations")
         plt.ylabel("P values")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         self.savefig(keyName='histP',fullName='P')
 
@@ -926,16 +926,16 @@ class sgra():
         
         self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
     
-    def showHistGRrate(self):
-        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-        
-        plt.title("Gradient-restoration rate history")
-        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
-        plt.grid(True)
-        plt.xlabel("Grad iterations")
-        plt.ylabel("Step values")
-        
-        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
+#    def showHistGRrate(self):
+#        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+#        
+#        plt.title("Gradient-restoration rate history")
+#        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
+#        plt.grid(True)
+#        plt.xlabel("Grad iterations")
+#        plt.ylabel("Step values")
+#        
+#        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
         
 #%% LMPBVP
 
