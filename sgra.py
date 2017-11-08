@@ -900,7 +900,7 @@ class sgra():
         plt.grid(True)
         plt.xlabel("Grad iterations")
         plt.ylabel("Q values")
-        plt.legend()
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         self.savefig(keyName='histQ',fullName='Q convergence history')
         
