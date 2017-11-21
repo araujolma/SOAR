@@ -20,7 +20,7 @@ class prob(sgra):
         n = 4
         m = 2
         
-        N = 15000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        N = 20000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -178,14 +178,15 @@ class prob(sgra):
             #t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
 
             # Number of arcs:
-            s = inputDict['NStag']+1
+            s = inputDict['NStag']+2
             self.s = s
             
             # TODO: increase flexibility in these conditions
             
-            #isStagSep = numpy.ones(s,dtype='bool')
-            #isStagSep[0] = False
-            
+            isStagSep = numpy.ones(s,dtype='bool')
+            isStagSep[0] = False
+            isStagSep[1] = False
+            self.isStagSep = isStagSep
             
             p = s
             self.p = p
@@ -266,47 +267,28 @@ class prob(sgra):
             restrictions['beta_max'] = beta_max
             self.restrictions = restrictions
 
-             
-#            # Find indices for beginning of arc 
-#            arcBginIndx = numpy.empty(s+1,dtype='int')
-#            arc = 0; arcBginIndx[arc] = 0
-#            j = 0; nt = len(t_its)
-#            for i in range(len(massJet)):
-#
-#                if massJet[i] > 0.0:
-#                    # Jettisoned mass found
-#
-#                    arc += 1
-#                    tTarg = tphases[i]
-#                    #print("Beginning search for tTarg =",tTarg)
-#                    keepLook = True
-#                    while (keepLook and (j < nt)):
-#                        if abs(t_its[j]-tTarg) < 1e-10:
-#                            keepLook = False
-#
-#                            # get the next time for proper initial conditions
-#                            j += 1
-#                            arcBginIndx[arc] = j
-#                        j += 1
-#            #
             
             # Find indices for beginning of arc 
             arcBginIndx = numpy.empty(s+1,dtype='int')
             arc = 0; arcBginIndx[arc] = 0
             nt = len(t_its)
-            
-            hTarg = 1.0#100e-3 # target height: 1km
-            
-            # search for target height
-            j = 0; keepLook = True
-            while (keepLook and (j < nt)):
-                if x_its[j,0] > hTarg:
-                    # Found the index!
-                    arc += 1
-                    arcBginIndx[arc] = j
-                    keepLook = False
-                j+=1
-                
+
+            # target heights for separation            
+            hTargVec = numpy.array([50.0e-3,2.0]) 
+
+            j = 0
+            for hTarg in hTargVec:
+                # search for target height
+                keepLook = True
+                while (keepLook and (j < nt)):
+                    if x_its[j,0] > hTarg:
+                        # Found the index!
+                        arc += 1
+                        arcBginIndx[arc] = j
+                        keepLook = False
+                    j+=1
+
+
             # now, search for jettisoned masses
             nmj = len(massJet)
             for i in range(nmj):
@@ -329,7 +311,7 @@ class prob(sgra):
                             arcBginIndx[arc] = j
                         j += 1
             #
-            print(arcBginIndx)
+            #print(arcBginIndx)
             
             
             # Set the array of interval lengths
@@ -415,9 +397,12 @@ class prob(sgra):
 # =============================================================================
         self.u = u
         
-        
         self.compWith(solInit,'Initial Guess')
         #input("Da la uma olhada no compWith")
+        
+        self.plotSol()
+        #self.plotSol(intv=[0.0,5.0],mustSaveFig=False)
+        #input("\n\nEigirardi!")
         
         print("\nInitialization complete.\n")        
         return solInit
@@ -649,16 +634,16 @@ class prob(sgra):
 
             # For mass:
             stt = n-1; ind = i0 + stt
-            if arc == 0:
-                psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
-                psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
-            else:
+            if self.isStagSep[arc]:
                 # mass, next arc (init cond)
                 psiy[ind,j0+ind+n] = 1.0 
                 # mass, this arc (end cond):
                 psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc]) 
                 # mass, this arc (init cond):
                 psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
+            else:
+                psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
+                psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
             
             i0 = ind + 1
             j0 += n
@@ -875,7 +860,8 @@ class prob(sgra):
         psi[2] = x[0,2,0] - boundary['gamma_initial']
         psi[3] = x[0,3,0] - boundary['m_initial']
 
-        # interstage conditions
+        # interstage conditions between arc and arc+1
+        # (that's why the loop only goes up to s-1)
         #strPrnt = "0,1,2,3,"
         for arc in range(s-1):
             i0 = 4 * (arc+1) 
@@ -884,11 +870,11 @@ class prob(sgra):
             psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc] 
             psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
             psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
-            if arc == 0:
+            if self.isStagSep[arc]:
+                psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
+                            (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
+            else: 
                 psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
-            else:  
-                psi[i0+3] = x[0,3,arc+1] - \
-                (1.0/(1.0 - s_f[arc-1])) * (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
             #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
@@ -961,23 +947,27 @@ class prob(sgra):
         return DvAcc 
         
 
-    def plotSol(self,opt={},intv=[]):
-
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                             'top':5.0,'wspace':0.2,'hspace':0.5}):
+        # plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
+        #                        wspace=0.2,hspace=0.5)
+        print("\nIn plotSol.")
         x = self.x
         u = self.u
         pi = self.pi
-        
+        r2d = 180.0/numpy.pi
 #        if len(intv)==0:
 #            intv = numpy.arange(0,self.N,1,dtype='int')
 #        else:
 #             intv = list(intv)   
     
-        if len(intv)>0:       
-            print("plotSol: Sorry, currently ignoring plotting range.")
+#        if len(intv)>0:       
+#            print("plotSol: Sorry, currently ignoring plotting range.")
 
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
-            print("\nIn plotSol.")
+
             print("Initial mass:",x[0,3,0])
             print("I:",I)
             print("CostScalFact:",self.constants['costScalingFactor'])
@@ -998,66 +988,75 @@ class prob(sgra):
             "\nPayload mass gain: {:.4G}%".format(paylPercMassGain) + \
             "\nLosses (w.r.t. ideal Delta v): {:.4G}%".format(dvLossPerc)
             
-            plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
-                                wspace=0.2,hspace=0.5)
+            plt.subplots_adjust(**subPlotAdjs)
         
             plt.subplot2grid((11,1),(0,0))
-            self.plotCat(x[:,0,:])#,piIsTime=False)
+            self.plotCat(x[:,0,:],piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("h [km]")
             plt.title(titlStr)
+            if piIsTime:
+                plt.xlabel("t [s]")
             
             plt.subplot2grid((11,1),(1,0))
-            self.plotCat(x[:,1,:],color='g')#,piIsTime=False)
+            self.plotCat(x[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("V [km/s]")
+            if piIsTime:
+                plt.xlabel("t [s]")
             
             plt.subplot2grid((11,1),(2,0))
-            self.plotCat(x[:,2,:]*180/numpy.pi,color='r')#,piIsTime=False)
+            self.plotCat(x[:,2,:]*r2d,color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("gamma [deg]")
-            
+            if piIsTime:
+                plt.xlabel("t [s]")
+                
             plt.subplot2grid((11,1),(3,0))
-            self.plotCat(x[:,3,:],color='m')#,piIsTime=False)
+            self.plotCat(x[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("m [kg]")
+            if piIsTime:
+                plt.xlabel("t [s]")
             
             plt.subplot2grid((11,1),(4,0))
-            self.plotCat(u[:,0,:],color='c')#,piIsTime=False)
+            self.plotCat(u[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("u1 [-]")
-            
+            if piIsTime:
+                plt.xlabel("t [s]")
+                
             plt.subplot2grid((11,1),(5,0))
-            self.plotCat(u[:,1,:],color='c')#,piIsTime=False)
+            self.plotCat(u[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("u2 [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")
             
             ######################################
             alpha,beta = self.calcDimCtrl()
-            alpha *= 180.0/numpy.pi
+            alpha *= r2d
             plt.subplot2grid((11,1),(6,0))
-            self.plotCat(alpha,color='k')#piIsTime=False)
+            self.plotCat(alpha,piIsTime=piIsTime,intv=intv,color='k')
             #plt.hold(True)
             #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
             #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
+            #plt.xlabel("t")
             plt.ylabel("alpha [deg]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((11,1),(7,0))
-            self.plotCat(beta,color='k')#,piIsTime=False)
+            self.plotCat(beta,piIsTime=piIsTime,intv=intv,color='k')
             #plt.hold(True)
             #plt.plot(t,beta*0+beta_max,'-.k')
             #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("beta [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
+            ######################################        
             
             ######################################
             plt.subplot2grid((11,1),(8,0))
@@ -1067,7 +1066,7 @@ class prob(sgra):
             MaxThrs = constants['Thrust']
             for arc in range(s):
                 thrust[:,arc] = beta[:,arc] * MaxThrs[arc]           
-            self.plotCat(thrust,color='y')#,piIsTime=False)
+            self.plotCat(thrust,color='y',piIsTime=piIsTime)
             plt.grid(True)
             plt.xlabel("t [s]")
             plt.ylabel("Thrust [kN]")
@@ -1076,7 +1075,7 @@ class prob(sgra):
             plt.subplot2grid((11,1),(9,0))
             phi = self.calcPhi()
             acc =  phi[:,1,:]            
-            self.plotCat(acc,color='y')#,piIsTime=False)
+            self.plotCat(acc,color='y',piIsTime=piIsTime)
             plt.grid(True)
             plt.xlabel("t [s]")
             plt.ylabel("Acceleration [m/s²]")
@@ -1089,84 +1088,113 @@ class prob(sgra):
             ax.bar(position,pi,width,color='b')
             ax.set_xticks(position + width/2)
             ax.set_xticklabels(stages)
-            plt.xlabel("Stages")
+            plt.xlabel("Arcs")
             plt.ylabel("Duration [s]")    
             
-            self.savefig(keyName='currSol',fullName='solution')
+#            xlabl = "t [s]\n"+"pi = ["
+#            for i in range(self.p):
+#                xlabl += "{:.4E}, ".format(pi[i])
+#            xlabl += "]"
+#            plt.xlabel(xlabl)
+    
+            # TODO: include a plot for visualization of pi!
+            if mustSaveFig:
+                self.savefig(keyName='currSol',fullName='solution')
+            else:
+                plt.show()
+                plt.clf()
                 
-            print("pi =",pi)
+            #print("pi =",pi)
             print("Final (injected into orbit) rocket mass: "+\
                   "{:.4E}\n".format(x[-1,3,self.s-1]))
-            print("Ejected mass (1st-2nd stage):",x[-1,3,0]-x[0,3,1])
+            EjctMass = list()
+            # get ejected masses:
+            for arc in range(self.s-1):
+                if self.isStagSep[arc]:
+                    EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
+            print("Ejected masses:",EjctMass)
             
         elif opt['mode'] == 'lambda':
             titlStr = "Lambdas"
             
-            plt.tust(left=0.0,right=1,bottom=0.0,top=5,\
-                                wspace=0.2,hspace=0.5)
+            plt.subplots_adjust(**subPlotAdjs)
         
             plt.subplot2grid((8,1),(0,0))
-            self.plotCat(self.lam[:,0,:])
+            self.plotCat(self.lam[:,0,:],piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("lam - h")
+            if piIsTime:
+                plt.xlabel("t [s]")
             plt.title(titlStr)
             
             plt.subplot2grid((8,1),(1,0))
-            self.plotCat(self.lam[:,1,:],color='g')
+            self.plotCat(self.lam[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("lam - V")
+            if piIsTime:
+                plt.xlabel("t [s]")
             
             plt.subplot2grid((8,1),(2,0))
-            self.plotCat(self.lam[:,2,:],color='r')
+            self.plotCat(self.lam[:,2,:],color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("lam - gamma")
-            
+            if piIsTime:
+                plt.xlabel("t [s]")            
+
             plt.subplot2grid((8,1),(3,0))
-            self.plotCat(self.lam[:,3,:],color='m')
+            self.plotCat(self.lam[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("lam - m")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(4,0))
-            self.plotCat(u[:,0,:],color='c')
+            self.plotCat(u[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("u1 [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(5,0))
-            self.plotCat(u[:,1,:],color='c')
+            self.plotCat(u[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
+            #plt.xlabel("t")
             plt.ylabel("u2 [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             ######################################
-            plt.subplot2grid((8,1),(6,0))
             alpha,beta = self.calcDimCtrl()
-            alpha *= 180.0/numpy.pi
-            self.plotCat(alpha,color='k')
+            alpha *= r2d
+            plt.subplot2grid((8,1),(6,0))
+            self.plotCat(alpha,piIsTime=piIsTime,intv=intv)
             #plt.hold(True)
             #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
             #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             plt.ylabel("alpha [deg]")
             
             plt.subplot2grid((8,1),(7,0))
-            self.plotCat(beta,color='k')
+            self.plotCat(beta,piIsTime=piIsTime,intv=intv)
             #plt.hold(True)
             #plt.plot(t,beta*0+beta_max,'-.k')
             #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             plt.ylabel("beta [-]")
             ######################################        
     
-    
-            self.savefig(keyName='currLamb',fullName='lambdas')
+            if mustSaveFig:
+                self.savefig(keyName='currLamb',fullName='lambdas')
+            else:
+                plt.show()
+                plt.clf()
+            
             print("mu =",self.mu)
+            
         elif opt['mode'] == 'var':
             dx = opt['x']
             du = opt['u']
@@ -1177,133 +1205,161 @@ class prob(sgra):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
                         
-            plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
-                                wspace=0.2,hspace=0.5)
+            plt.subplots_adjust(**subPlotAdjs)
         
             plt.subplot2grid((8,1),(0,0))
-            self.plotCat(dx[:,0,:])
+            self.plotCat(dx[:,0,:],piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("h [km]")
             plt.title(titlStr)
+            if piIsTime:
+                plt.xlabel("t [s]")                        
             
             plt.subplot2grid((8,1),(1,0))
-            self.plotCat(dx[:,1,:],color='g')
+            self.plotCat(dx[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("V [km/s]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(2,0))
-            self.plotCat(dx[:,2,:]*180/numpy.pi,color='r')
+            self.plotCat(dx[:,2,:]*r2d,color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("gamma [deg]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(3,0))
-            self.plotCat(dx[:,3,:],color='m')
+            self.plotCat(dx[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("m [kg]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(4,0))
-            self.plotCat(du[:,0,:],color='c')
+            self.plotCat(du[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("u1 [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(5,0))
-            self.plotCat(du[:,1,:],color='c')
+            self.plotCat(du[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            plt.xlabel("t [s]")
+            #plt.xlabel("t")
             plt.ylabel("u2 [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             ######################################
             new_u = self.u + du
             alpha,beta = self.calcDimCtrl()
-            alpha *= 180.0/numpy.pi
+            alpha *= r2d
             new_alpha,new_beta = self.calcDimCtrl(ext_u=new_u)
-            new_alpha *= 180.0/numpy.pi
+            new_alpha *= r2d
             plt.subplot2grid((8,1),(6,0))
-            self.plotCat(new_alpha-alpha,color='k')
+            self.plotCat(new_alpha-alpha,color='k',piIsTime=piIsTime,intv=intv)
             #plt.hold(True)
             #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
             #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
+            #plt.xlabel("t")
             plt.ylabel("alpha [deg]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
             
             plt.subplot2grid((8,1),(7,0))
-            self.plotCat(new_beta-beta,color='k')
+            self.plotCat(new_beta-beta,color='k',piIsTime=piIsTime,intv=intv)
             #plt.hold(True)
             #plt.plot(t,beta*0+beta_max,'-.k')
             #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
-            plt.xlabel("t [s]")
             plt.ylabel("beta [-]")
+            if piIsTime:
+                plt.xlabel("t [s]")            
+
             ######################################        
     
             # TODO: include a plot for visualization of pi!
-    
-            self.savefig(keyName='corr',fullName='corrections')
+            if mustSaveFig:
+                self.savefig(keyName='corr',fullName='corrections')
+            else:
+                plt.show()
+                plt.clf()
         else:
             titlStr = opt['mode']
         #
         
     #
     
-    def plotQRes(self,args):
+    def plotQRes(self,args,mustSaveFig=True):
         
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.subplot2grid((5,1),(0,0))
-        self.plotCat(args['normErrQx'],color='b')#,piIsTime=False)
+        self.plotCat(args['normErrQx'],color='b',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Integrand of Qx")
         plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
                   "= {:.4E}".format(args['Qx']))
         errQx = args['errQx']
+        
         plt.subplot2grid((5,1),(1,0))
-        self.plotCat(errQx[:,0,:])#,piIsTime=False)
+        self.plotCat(errQx[:,0,:],piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_h")
+        
         plt.subplot2grid((5,1),(2,0))
-        self.plotCat(errQx[:,1,:],color='g')#,piIsTime=False)
+        self.plotCat(errQx[:,1,:],color='g',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_v")
+        
         plt.subplot2grid((5,1),(3,0))
-        self.plotCat(errQx[:,2,:],color='r')#,piIsTime=False)
+        self.plotCat(errQx[:,2,:],color='r',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_gama")
+        
         plt.subplot2grid((5,1),(4,0))
-        self.plotCat(errQx[:,3,:],color='m')#,piIsTime=False)
+        self.plotCat(errQx[:,3,:],color='m',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_m")
     
         plt.xlabel("t [s]")
-        self.savefig(keyName='Qx',fullName='Qx')
+        if mustSaveFig:
+            self.savefig(keyName='Qx',fullName='Qx')
+        else:
+            plt.show()
+            plt.clf()
+        
+        
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.subplot2grid((3,1),(0,0))
-        self.plotCat(args['normErrQu'],color='b')#,piIsTime=False)
+        self.plotCat(args['normErrQu'],color='b',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Integrand of Qu")
         plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
         
         errQu = args['errQu']
         plt.subplot2grid((3,1),(1,0))
-        self.plotCat(errQu[:,0,:],color='k')#,piIsTime=False)
+        self.plotCat(errQu[:,0,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_alpha")
         plt.subplot2grid((3,1),(2,0))
-        self.plotCat(errQu[:,1,:],color='r')#,piIsTime=False)
+        self.plotCat(errQu[:,1,:],color='r',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_beta")
     
-        plt.xlabel("t")        
-        self.savefig(keyName='Qu',fullName='Qu')
+        plt.xlabel("t")   
+        if mustSaveFig:
+            self.savefig(keyName='Qu',fullName='Qu')
+        else:
+            plt.show()
+            plt.clf()
     
         errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
         p = self.p
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.subplot2grid((p,1),(0,0))
-        self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
+        self.plotCat(errQp[:,0,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQp, j = 0")
         titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
@@ -1313,16 +1369,22 @@ class prob(sgra):
         
         for j in range(1,p):
             plt.subplot2grid((p,1),(j,0))
-            self.plotCat(errQp[:,j,:],color='k')
+            self.plotCat(errQp[:,j,:],color='k',piIsTime=False)
             plt.grid(True)
             plt.ylabel("ErrQp, j ="+str(j))
         plt.xlabel("t [s]")
-        self.savefig(keyName='Qp',fullName='Qp')
+        if mustSaveFig:
+            self.savefig(keyName='Qp',fullName='Qp')
+        else:
+            plt.show()
+            plt.clf()
     
     
-    def compWith(self,altSol,altSolLabl='altSol'):
+    def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
+                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                             'top':5.0,'wspace':0.2,'hspace':0.5}):
         print("\nComparing solutions...\n")
-
+        r2d = 180.0/numpy.pi
         currSolLabl = 'currentSol'
 
         # Comparing final mass:
@@ -1346,78 +1408,82 @@ class prob(sgra):
         paylMassGain = mPaySol - mPayAlt
         paylPercMassGain = 100.0*paylMassGain/mPayAlt
         print(paylPercMassGain)
-        plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
-                            wspace=0.2,hspace=0.5)
+        #plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        plt.subplots_adjust(**subPlotAdjs)
         
         plt.subplot2grid((11,1),(0,0))
         altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
         self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
         plt.ylabel("h [km]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         plt.title("Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
                   "\nPayload mass gain: {:.4G}%".format(paylPercMassGain))
+        plt.xlabel("t [s]")
         
         plt.subplot2grid((11,1),(1,0))
         altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
         self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
         plt.ylabel("V [km/s]")
+        plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(2,0))
-        altSol.plotCat(altSol.x[:,2,:]*180/numpy.pi,labl=altSolLabl)
+        altSol.plotCat(altSol.x[:,2,:]*r2d,labl=altSolLabl)
         self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
                      labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
         plt.ylabel("gamma [deg]")
+        plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(3,0))
         altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
         self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
         plt.ylabel("m [kg]")
+        plt.xlabel("t [s]")        
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(4,0))
         altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
         self.plotCat(self.u[:,0,:],mark='--',color='c',labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
         plt.ylabel("u1 [-]")
+        plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(5,0))
         altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
         self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
         plt.grid(True)
-        plt.xlabel("t [s]")
+        plt.xlabel("t")
         plt.ylabel("u2 [-]")
+        plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         ######################################
-        plt.subplot2grid((11,1),(6,0))
         alpha,beta = self.calcDimCtrl()
-        alpha_alt,beta_alt = altSol.calcDimCtrl()        
-        altSol.plotCat(alpha_alt*180/numpy.pi,labl=altSolLabl)
-        self.plotCat(alpha*180/numpy.pi,mark='--',color='k',labl=currSolLabl)
+        alpha_alt,beta_alt = altSol.calcDimCtrl()
+        plt.subplot2grid((11,1),(6,0))
+        altSol.plotCat(alpha_alt*r2d,labl=altSolLabl)
+        self.plotCat(alpha*r2d,mark='--',color='k',labl=currSolLabl)
+
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
         #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
         plt.grid(True)
-        plt.xlabel("t [s]")
+        plt.xlabel("t")
         plt.ylabel("alpha [deg]")
+        plt.xlabel("t [s]")        
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(7,0))
         altSol.plotCat(beta_alt,labl=altSolLabl)
         self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
+
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
         #plt.plot(t,beta*0+beta_min,'-.k')
@@ -1425,7 +1491,8 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.ylabel("beta [-]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-                
+        ######################################
+        
         ###################################### 
         plt.subplot2grid((11,1),(8,0))
         thrust = numpy.empty_like(beta)
@@ -1444,7 +1511,6 @@ class prob(sgra):
         plt.ylabel("Thrust [kN]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
-        ######################################
         plt.subplot2grid((11,1),(9,0))
         phi = self.calcPhi()
         phi_alt = altSol.calcPhi()
@@ -1471,15 +1537,11 @@ class prob(sgra):
         plt.ylabel("Duration [s]")   
         ax.legend((current[0], initial[0]),('currentSol','Initial Guess'),loc="upper left", bbox_to_anchor=(1,1))
         
-        self.savefig(keyName='comp',fullName='comparisons')
-        #if self.save['comp']:
-        #    print("Saving comparisons plot to "+self.probName+"_comp.pdf!")
-        #    plt.savefig(self.probName+"_comp.pdf",bbox_inches='tight', pad_inches=0.1)
-        #else:
-        #    plt.show()
-        #plt.clf()
-        #plt.close('all')
-
+        if mustSaveFig:
+            self.savefig(keyName='comp',fullName='comparisons')
+        else:
+            plt.show()
+            plt.clf()
             
         print('Final rocket "payload":')  
         print(currSolLabl+": {:.4E}".format(mPaySol)+" kg.")
@@ -1487,9 +1549,9 @@ class prob(sgra):
         print("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
               "{:.4G}".format(paylPercMassGain)+\
               "% more payload!\n")
-
         
-    def plotTraj(self,compare,altSol,altSolLabl='altSol'):
+     
+    def plotTraj(self,compare=False,altSol=None,altSolLabl='altSol',mustSaveFig=True):
         print("\nIn plotTraj!")
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
@@ -1500,7 +1562,6 @@ class prob(sgra):
         acc = numpy.empty((N,s))
         
         X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
-       
         StgSepPnts = numpy.zeros((s,2))
 #        StgInitAcc = numpy.zeros(s)
 #        StgFinlAcc = numpy.zeros(s)
@@ -1510,10 +1571,15 @@ class prob(sgra):
         Z[0] = 0.0
         
         if compare:
-            X_alt = X; Z_alt = Z;
-            sigma_alt = 0.0
-            X_alt[0] = 0.0
-            Z_alt[0] = 0.0            
+            if altSol is None:
+                print("plotTraj: comparing mode is set to True, but no "+\
+                      "solution was given to which compare. Ignoring...")
+                compare=False
+            else:
+                X_alt = X; Z_alt = Z;
+                sigma_alt = 0.0
+                X_alt[0] = 0.0
+                Z_alt[0] = 0.0
 
         # Propulsive phases' starting and ending times
         # This is implemented with two lists, one for each arc.
@@ -1529,7 +1595,6 @@ class prob(sgra):
             dtd = self.dt * self.pi[arc] # Dimensional dt...
             if compare:
                 dtd_alt = altSol.dt * altSol.pi[arc]
-
 #            dv0 = self.x[1,1,arc]-self.x[0,1,arc]
 #            StgInitAcc[arc] = dv0/dtd/self.constants['grav_e']
 
@@ -1557,6 +1622,7 @@ class prob(sgra):
 
                 X[iCont] = X[iCont-1] + dtd * v * cos(gama-sigma)
                 Z[iCont] = Z[iCont-1] + dtd * v * sin(gama-sigma)
+            
                 
                 if compare:                
                     v_alt = altSol.x[i,1,arc]
@@ -1567,6 +1633,7 @@ class prob(sgra):
                                          * cos(gama_alt-sigma_alt)
                     Z_alt[iCont] = Z_alt[iCont-1] + dtd_alt * v_alt\
                                          * sin(gama_alt-sigma_alt)            
+            
             #
             # TODO: this must be readequated to new formulation, where arcs
             # might not be the stage separation poins necessarily
@@ -1616,7 +1683,8 @@ class prob(sgra):
 #        plt.xlabel('t [s]')
 #        plt.ylabel('a [g]')
 #        plt.show()
-             
+        
+        
         # Draw Earth segment corresponding to flight range
         sigVec = numpy.arange(0,1.01,.01) * sigma
         x = R * cos(.5*numpy.pi - sigVec)
@@ -1652,6 +1720,7 @@ class prob(sgra):
         # semi-latus rectum
         p = momAng**2 / GM #a * (1.0-e)**2
                 
+        
         # Plot orbit in green over the same range as the Earth shown 
         # (and a little bit futher)
         
@@ -1671,7 +1740,7 @@ class prob(sgra):
         
         # Plot trajectory in default color (blue)
         plt.plot(X,Z,label='Ballistic flight (coasting)')
-                
+        
         # Plot launching point (black)
         plt.plot(X[0],Z[0],'ok')
         
@@ -1693,20 +1762,21 @@ class prob(sgra):
         
         # Plot stage separation points in blue
         mustLabl = True
-        for arc in range(1,s-1):
-            # this trick only labels the first segment, to avoid multiple 
-            # labels afterwards
-            if mustLabl:
-                plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
-                 color='blue',label='Stage separation point')
-                mustLabl = False
-            else:
-                plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
-        
+        for arc in range(s-1):
+            if self.isStagSep[arc]:
+                # this trick only labels the first segment, to avoid multiple
+                # labels afterwards
+                if mustLabl:
+                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
+                             color='blue',label='Stage separation point')
+                    mustLabl = False
+                else:
+                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
+                
         # Plot altSol
         if compare:
             plt.plot(X_alt,Z_alt,'k--',label='Initial Guess')
-
+        
         # Final plotting commands
         plt.grid(True)
         plt.xlabel("X [km]")
@@ -1716,7 +1786,12 @@ class prob(sgra):
                   "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6))
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
-        self.savefig(keyName='traj',fullName='trajectory')
+        if mustSaveFig:
+            self.savefig(keyName='traj',fullName='trajectory')
+        else:
+            plt.show()
+            plt.clf()
+        
 #        print("\nInitStgAcc[g] =",StgInitAcc)
 #        print("FinlStgAcc[g] =",StgFinlAcc)
 #        input("\nOia la a trajetoria!")

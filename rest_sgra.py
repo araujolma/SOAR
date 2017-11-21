@@ -163,7 +163,7 @@ def calcP(self,mustPlotPint=False):
     self.P = P
     
     if mustPlotPint:
-        self.plotCat(vetP)
+        self.plotCat(vetP,piIsTime=False)
         plt.grid(True)
         plt.title("Integrand of P_int\n"+\
                    "P = {:.4E}, ".format(P)+\

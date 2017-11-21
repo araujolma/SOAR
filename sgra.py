@@ -666,72 +666,100 @@ class sgra():
         print("These are the attributes for the current solution:\n")
         pprint.pprint(dPars)
         
-    def plotCat(self,func,mark='',color='b',labl='',piIsTime=True):
+    def plotCat(self,func,mark='',color='b',labl='',piIsTime=True,intv=[]):
         """Plot a given function with several subarcs.
             Since this function should serve all the SGRA instances, the pi
             parameters (if exist!) are not necessarily the times for each 
             subarc. Hence, the optional parameter "piIsTime".
+            
+            However, this function does consider the arcs to be concatenated.
+            If this property does not hold for any future problems to be 
+            considered, then the function must be rewritten. 
         """
-        
-#        s = self.s
-#        t = self.t
-#        pi = self.pi
-#
-#        # Total dimensional time
-#        if piIsTime:
-#            tTot = pi.sum()
-#        else:
-#            tTot = t[-1]*s
-#            adimTimeDur = t[-1]
-#        
-#        accAdimTime = 0.0
-#
-#        for arc in range(s):
-#            if piIsTime:
-#                adimTimeDur = (pi[arc]/tTot)
-#        
-#            # Plot the function at each arc. Label only the first arc
-#            if arc == 0:
-#                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
-#                         mark+color,label=labl)
-#            else:
-#                plt.plot(accAdimTime + adimTimeDur * t, func[:,arc],\
-#                         mark+color)
-#            # arc beginning with circle
-#            plt.plot(accAdimTime + adimTimeDur*t[0], \
-#                     func[0,arc],'o'+color)
-#            # arc end with square
-#            plt.plot(accAdimTime + adimTimeDur*t[-1], \
-#                     func[-1,arc],'s'+color)
-#            accAdimTime += adimTimeDur    
-        
+
         s = self.s
         t = self.t
         pi = self.pi
-
-        # Total dimensional time
-        if not (piIsTime):
+        N = self.N
+        dt = 1.0/(N-1)
+        dtd = dt
+    
+        # Set upper and lower bounds
+        lowrBnd = 0.0
+        if piIsTime:
+            uperBnd = pi.sum()
+        else:
             TimeDur = t[-1]
+            uperBnd = TimeDur * s
         
+        if len(intv)==0:
+            intv = [lowrBnd,uperBnd]
+            
+        # Check consistency of requested time interval, override if necessary
+        if intv[0] < lowrBnd or intv[1] > uperBnd:
+            print("plotCat: inadequate time interval used! Ignoring...")
+            if intv[0] < lowrBnd:
+                intv[0] = lowrBnd
+            if intv[1] > uperBnd:
+                intv[1] = uperBnd
+                    
         accTime = 0.0
-
+        mustLabl = True
+        isBgin = True
+        
         for arc in range(s):
             if piIsTime:
                 TimeDur = pi[arc]
-        
-            # Plot the function at each arc. Label only the first arc
-            if arc == 0:
-                plt.plot(accTime + TimeDur * t, func[:,arc],\
-                         mark+color,label=labl)
-            else:
-                plt.plot(accTime + TimeDur * t, func[:,arc],\
-                         mark+color)
-            # arc beginning with circle
-            plt.plot(accTime + TimeDur*t[0], \
-                     func[0,arc],'o'+color)
-            # arc end with square
-            plt.plot(accTime + TimeDur*t[-1], \
-                     func[-1,arc],'s'+color)
+                dtd = dt * TimeDur
+                
+            # check if this arc gets plotted at all
+            #print("\narc =",arc)
+            #print("accTime =",accTime)
+            #print("TimeDur =",TimeDur)
+            #print("intv =",intv)
+            #print("condition1:",accTime <= intv[1])
+            #print("condition2:",accTime + TimeDur >= intv[0])
+            if (accTime <= intv[1]) and (accTime + TimeDur >= intv[0]):
+            
+                # From this point on, the arc will be plotted. 
+                # Find the index for the first point to be plotted:
+    
+                if isBgin:
+                    # accTime + ind * dtd = intv[0]
+                    indBgin = int((intv[0] - accTime)/dtd)                 
+                    isBgin = False
+                    if intv[0] <= accTime:
+                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
+                else:
+                    indBgin = 0
+                    # arc beginning with circle
+                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
+    
+                #print("indBgin =",indBgin)
+                if accTime + TimeDur > intv[1]:
+                    indEnd = int((intv[1] - accTime)/dtd)
+                    if indEnd == (N-1):
+                        plt.plot(accTime + TimeDur*t[-1], \
+                         func[-1,arc],'s'+color)
+                else:
+                    indEnd = N-1
+                    # arc end with square
+                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color)
+                
+                #print("indEnd =",indEnd)
+            
+                # Plot the function at each arc. Label only the first drawed arc
+                if mustLabl:
+                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
+                             func[indBgin:indEnd,arc],\
+                             mark+color,label=labl)
+                    mustLabl = False
+                else:
+                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
+                             func[indBgin:indEnd,arc],\
+                             mark+color)
+                #
+            #
             accTime += TimeDur
             
     def savefig(self,keyName='',fullName=''):
@@ -926,16 +954,17 @@ class sgra():
         
         self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
     
-#    def showHistGRrate(self):
-#        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-#        
-#        plt.title("Gradient-restoration rate history")
-#        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
-#        plt.grid(True)
-#        plt.xlabel("Grad iterations")
-#        plt.ylabel("Step values")
-#        
-#        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
+    def showHistGRrate(self):
+        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+
+        if self.histGRrate[IterGrad].any() > 0:        
+            plt.title("Gradient-restoration rate history")
+            plt.semilogy(IterGrad,self.histGRrate[IterGrad])
+            plt.grid(True)
+            plt.xlabel("Grad iterations")
+            plt.ylabel("Step values")
+        
+            self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
         
 #%% LMPBVP
 

@@ -74,7 +74,7 @@ def plotQRes(self,args):
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     nm1 = self.n+1
     plt.subplot2grid((nm1,1),(0,0))
-    self.plotCat(args['normErrQx'],color='b')#,piIsTime=False)
+    self.plotCat(args['normErrQx'],color='b',piIsTime=False)
     plt.grid(True)
     plt.ylabel("Integrand of Qx")
     plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
@@ -82,7 +82,7 @@ def plotQRes(self,args):
     errQx = args['errQx']
     for i in range(self.n):
         plt.subplot2grid((nm1,1),(i+1,0))
-        self.plotCat(errQx[:,i,:])#,piIsTime=False)
+        self.plotCat(errQx[:,i,:],piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_"+str(i))
     plt.xlabel("t [s]")
@@ -91,7 +91,7 @@ def plotQRes(self,args):
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     mm1 = self.m+1
     plt.subplot2grid((mm1,1),(0,0))
-    self.plotCat(args['normErrQu'],color='b')#,piIsTime=False)
+    self.plotCat(args['normErrQu'],color='b',piIsTime=False)
     plt.grid(True)
     plt.ylabel("Integrand of Qu")
     plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
@@ -99,7 +99,7 @@ def plotQRes(self,args):
     errQu = args['errQu']
     for i in range(self.m):
         plt.subplot2grid((mm1,1),(i+1,0))
-        self.plotCat(errQu[:,i,:],color='k')#,piIsTime=False)
+        self.plotCat(errQu[:,i,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_"+str(i))
     plt.xlabel("t")        
@@ -107,8 +107,9 @@ def plotQRes(self,args):
 
     errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
     p = self.p
+    plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     plt.subplot2grid((p,1),(0,0))
-    self.plotCat(errQp[:,0,:],color='k')#piIsTime=False,
+    self.plotCat(errQp[:,0,:],color='k',piIsTime=False)
     plt.grid(True)
     plt.ylabel("ErrQp, j = 0")
     titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "

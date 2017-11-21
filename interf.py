@@ -160,6 +160,12 @@ class ITman():
             print('Loading "initial" solution (for comparing purposes only)...')
             solInit = self.loadSol(self.probName+'_solInit.pkl')#sol.copy()
         
+        ####
+        #sol.plotSol(mustSaveFig=False,intv=[100.0,300.0])
+        #sol.calcP(mustPlotPint=True)
+        #input("In interf.py: Checa lá o ..._Pint.pdf!")
+        ####
+        
         # Plot obtained solution, check parameters
         self.prntDashStr()
         print("\nProposed initial guess:\n")
