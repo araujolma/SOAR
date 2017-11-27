@@ -38,14 +38,15 @@ def calcP(self,mustPlotPint=False):
     #P *= dt
 
     vetIP *= dt
-
-    somePlot = False
+    
+    # Look for some debug plot
+    someDbugPlot = False
     for key in self.dbugOptRest.keys():
         if ('plot' in key) or ('Plot' in key):
             if self.dbugOptRest[key]:
-                somePlot = True
+                someDbugPlot = True
                 break
-    if somePlot:
+    if someDbugPlot:
         print("\nDebug plots for this calcP run:")
         
         indMaxP = numpy.argmax(vetP, axis=0)
@@ -163,13 +164,26 @@ def calcP(self,mustPlotPint=False):
     self.P = P
     
     if mustPlotPint:
+#        plt.subplots_adjust(wspace=1.0,hspace=1.0)
+        plt.subplots_adjust(hspace=.5)
+        plt.subplot2grid((2,1),(0,0))
         self.plotCat(vetP,piIsTime=False)
         plt.grid(True)
-        plt.title("Integrand of P_int\n"+\
+        plt.title("Integrand and accumulated P_int\n"+\
                    "P = {:.4E}, ".format(P)+\
                    "P_int = {:.4E}, ".format(Pint)+\
                    "P_psi = {:.4E}".format(Ppsi))
+        plt.ylabel('Integrand')
+        
+        for arc in range(1,s):
+            vetIP[:,arc] += vetIP[-1,arc-1]
+        plt.subplot2grid((2,1),(1,0))
+        self.plotCat(vetIP,piIsTime=False)
+        plt.grid(True)
+        plt.ylabel('Accum.')
+        
         self.savefig(keyName='Pint',fullName='integrand of P')
+    
     
     return P,Pint,Ppsi    
 
