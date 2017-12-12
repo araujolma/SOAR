@@ -266,7 +266,6 @@ class prob(sgra):
             restrictions['beta_min'] = beta_min
             restrictions['beta_max'] = beta_max
             self.restrictions = restrictions
-
             
             # Find indices for beginning of arc 
             arcBginIndx = numpy.empty(s+1,dtype='int')
@@ -287,7 +286,6 @@ class prob(sgra):
                         arcBginIndx[arc] = j
                         keepLook = False
                     j+=1
-
 
             # now, search for jettisoned masses
             nmj = len(massJet)
@@ -319,13 +317,14 @@ class prob(sgra):
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
             
+            # get proper initial mass condition
             self.boundary['m_initial'] = x_its[0,3]
 
             
             # Re-integration of proposed solution (RK4) 
             # Only the controls are used, not the integrated state itself       
             for arc in range(s):
-
+                # dtd: dimensional time step
                 dtd = pi[arc]/(N-1); dtd6 = dtd/6.0
                 x[0,:,arc] = x_its[arcBginIndx[arc],:]
                 t0arc = t_its[arcBginIndx[arc]]
@@ -341,9 +340,10 @@ class prob(sgra):
                                         tabBeta.value(td+.5*dtd)])
                     uip1 = numpy.array([tabAlpha.value(td+dtd),\
                                         tabBeta.value(td+dtd)])
+                    # this bypass just ensures consistency for control
                     if (i == N-2 and arc == s-1):
-                        print("Bypassing here...")
                         uip1 = ui
+
                     f1 = calcXdot(td,x[i,:,arc],ui,constants,arc)  
                     tdm = td+.5*dtd # time at half the integration interval
                     x2 = x[i,:,arc] + .5*dtd*f1 # x at half step, with f1
@@ -357,14 +357,16 @@ class prob(sgra):
                 u[N-1,:,arc] = u[N-2,:,arc]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
             #
 
-
-
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
 
-        
-        print("Bypass BIZARRO...")
-        # TODO: Re-implement this change in a less hardcoded way...
+
+        # TODO: This hardcoded bypass MUST be corrected in later versions.
+        print("\nHeavy hardcoded bypass here:")
+        print("Control limits are being switched;")
+        print("Controls themselves are being 'desaturated'.")
+        print("Check code for the values, and be careful!\n")
+
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
         self.constants['Thrust'] *= 100.0/40.0
@@ -381,34 +383,24 @@ class prob(sgra):
         solInit = self.copy()
         
 # =============================================================================
-        # TODO: Eigirardi!
-        
-        # TODO: Eigirardi!
-        
-        # TODO: Eigirardi!
-        print("\a")
-        print("\n\n\n\n\n\n\n")
-        print("ALTERAÇAO ESCROTAAAAA")
-        print("\n\n\n\n\n\n\n")
+        # Desaturation of the controls
         for arc in range(s):
             for k in range(N):
                 if u[k,1,arc] < -2.5:
                     u[k,1,arc] = -2.5
 # =============================================================================
         self.u = u
-        
+
         self.compWith(solInit,'Initial Guess')
-        #input("Da la uma olhada no compWith")
-        
         self.plotSol()
-        #self.plotSol(intv=[0.0,5.0],mustSaveFig=False)
-        #input("\n\nEigirardi!")
         
         print("\nInitialization complete.\n")        
         return solInit
 #%%
-    def calcDimCtrl(self,ext_u=None):        
-        # calculate variables alpha (ang. of att.) and beta (prop. thrust)
+    def calcDimCtrl(self,ext_u = None):        
+        """Calculate variables alpha (angle of attack) and beta (thrust), from
+        either the object's own control (self.u) or external control 
+        (additional parameter needed).""" 
         
         restrictions = self.restrictions
         alpha_min = restrictions['alpha_min']
@@ -425,12 +417,13 @@ class prob(sgra):
                        (alpha_max - alpha_min)*numpy.tanh(ext_u[:,0,:]))
             beta = .5*((beta_max + beta_min) +  \
                        (beta_max - beta_min)*numpy.tanh(ext_u[:,1,:]))
-                
 
         return alfa,beta
     
     def calcAdimCtrl(self,alfa,beta):
-        #u = numpy.empty((self.N,self.m))
+        """Calculate adimensional control 'u' based on external arrays for 
+        alpha (ang. of attack) and beta (thrust). """
+
         Nu = len(alfa)
         s = self.s
         u = numpy.empty((Nu,2,s))
@@ -530,10 +523,14 @@ class prob(sgra):
             td = accDimTime + pi[arc] * self.t # Dimensional time
         
             phi[:,0,arc] = x[:,1,arc] * sinGama[:,arc]
-            phi[:,1,arc] = (beta[:,arc] * Thrust[arc] * cosAlfa[:,arc] - D[:,arc])/x[:,3,arc] - grav[:,arc] * sinGama[:,arc]
-            phi[:,2,arc] = ((beta[:,arc] * Thrust[arc] * sinAlfa[:,arc] + L[:,arc])/(x[:,3,arc] * x[:,1,arc]) + \
-                                  cosGama[:,arc] * ( x[:,1,arc]/r[:,arc]  -  grav[:,arc]/x[:,1,arc] )) * \
-                                  .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
+            phi[:,1,arc] = (beta[:,arc] * Thrust[arc] * cosAlfa[:,arc] \
+                            - D[:,arc])/x[:,3,arc] \
+                           - grav[:,arc] * sinGama[:,arc]
+            phi[:,2,arc] = ((beta[:,arc] * Thrust[arc] * sinAlfa[:,arc] \
+                            + L[:,arc])/(x[:,3,arc] * x[:,1,arc]) + \
+                            cosGama[:,arc] * ( x[:,1,arc]/r[:,arc] \
+                            -  grav[:,arc]/x[:,1,arc] )) * \
+                            .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
             phi[:,3,arc] = - (beta[:,arc] * Thrust[arc])/(grav_e * Isp[arc])
             phi[:,:,arc] *= pi[arc]
             accDimTime += pi[arc]
@@ -648,15 +645,6 @@ class prob(sgra):
             i0 = ind + 1
             j0 += n
         #
-         
-#        print("\npsiy =")
-#        for i in range(q):
-#            prStr = "i = "+str(i)+":   "
-#            for j in range(2*n*s):
-#                prStr += str(psiy[i,j])+"   "
-#            prStr += "\n"
-#            print(prStr)
-#        input("Eigirardi...")
             
         psip = numpy.zeros((q,p))
     
@@ -935,7 +923,8 @@ class prob(sgra):
 #%% Plotting commands and related functions
         
     def calcIdDv(self):
-        """Calculate ideal Delta v (Tsiolkovsky)."""
+        """Calculate ideal Delta v provided by all the stages of the rocket as 
+        it is, using Tsiolkovsky equation."""
         
         DvAcc = 0.0
         g0Isp = self.constants['Isp']*self.constants['grav_e']
@@ -957,13 +946,7 @@ class prob(sgra):
         u = self.u
         pi = self.pi
         r2d = 180.0/numpy.pi
-#        if len(intv)==0:
-#            intv = numpy.arange(0,self.N,1,dtype='int')
-#        else:
-#             intv = list(intv)   
-    
-#        if len(intv)>0:       
-#            print("plotSol: Sorry, currently ignoring plotting range.")
+
 
         if opt.get('mode','sol') == 'sol':
             I = self.calcI()
@@ -979,17 +962,17 @@ class prob(sgra):
             print("Ideal Delta v (Tsiolkovsky) with used propellants:",DvId)
             missDv = self.boundary['mission_dv']
             print("Mission Delta v (orbital height + speed):",missDv)
-            dvLossPerc = 100.0*(DvId-missDv)/DvId#100.0*(DvId-missDv)/missDv
+            dvLossPerc = 100.0*(DvId-missDv)/DvId
             print("Losses (%):",dvLossPerc)
 
-            
+
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q) + \
             "\nPayload mass gain: {:.4G}%".format(paylPercMassGain) + \
             "\nLosses (w.r.t. ideal Delta v): {:.4G}%".format(dvLossPerc)
-            
+
             plt.subplots_adjust(**subPlotAdjs)
-        
+
             plt.subplot2grid((11,1),(0,0))
             self.plotCat(x[:,0,:],piIsTime=piIsTime,intv=intv)
             plt.grid(True)
@@ -997,42 +980,42 @@ class prob(sgra):
             plt.title(titlStr)
             if piIsTime:
                 plt.xlabel("t [s]")
-            
+
             plt.subplot2grid((11,1),(1,0))
             self.plotCat(x[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             if piIsTime:
                 plt.xlabel("t [s]")
-            
+
             plt.subplot2grid((11,1),(2,0))
             self.plotCat(x[:,2,:]*r2d,color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("gamma [deg]")
             if piIsTime:
                 plt.xlabel("t [s]")
-                
+
             plt.subplot2grid((11,1),(3,0))
             self.plotCat(x[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("m [kg]")
             if piIsTime:
                 plt.xlabel("t [s]")
-            
+
             plt.subplot2grid((11,1),(4,0))
             self.plotCat(u[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             if piIsTime:
                 plt.xlabel("t [s]")
-                
+
             plt.subplot2grid((11,1),(5,0))
             self.plotCat(u[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u2 [-]")
             if piIsTime:
                 plt.xlabel("t [s]")
-            
+
             ######################################
             alpha,beta = self.calcDimCtrl()
             alpha *= r2d
@@ -1096,8 +1079,7 @@ class prob(sgra):
 #                xlabl += "{:.4E}, ".format(pi[i])
 #            xlabl += "]"
 #            plt.xlabel(xlabl)
-    
-            # TODO: include a plot for visualization of pi!
+
             if mustSaveFig:
                 self.savefig(keyName='currSol',fullName='solution')
             else:
@@ -1126,7 +1108,7 @@ class prob(sgra):
             if piIsTime:
                 plt.xlabel("t [s]")
             plt.title(titlStr)
-            
+
             plt.subplot2grid((8,1),(1,0))
             self.plotCat(self.lam[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
@@ -1387,12 +1369,7 @@ class prob(sgra):
         r2d = 180.0/numpy.pi
         currSolLabl = 'currentSol'
 
-        # Comparing final mass:
-#        mFinSol = self.x[-1,3,-1]
-#        mFinAlt = altSol.x[-1,3,-1]
-#        paylMassGain = mFinSol-mFinAlt
-#        paylPercMassGain = 100.0*paylMassGain/mFinAlt
-        
+        # Comparing final mass:        
         mFinSol = self.x[-1,3,-1]
         mP = self.x[0,3,-1] - mFinSol
         e = self.constants['s_f'][-1]
@@ -1407,8 +1384,8 @@ class prob(sgra):
         
         paylMassGain = mPaySol - mPayAlt
         paylPercMassGain = 100.0*paylMassGain/mPayAlt
-        print(paylPercMassGain)
-        #plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+
+        # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
         
         plt.subplot2grid((11,1),(0,0))
@@ -1549,8 +1526,8 @@ class prob(sgra):
         print("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
               "{:.4G}".format(paylPercMassGain)+\
               "% more payload!\n")
-        
-     
+
+
     def plotTraj(self,compare=False,altSol=None,altSolLabl='altSol',mustSaveFig=True):
         print("\nIn plotTraj!")
         cos = numpy.cos; sin = numpy.sin
@@ -1794,8 +1771,7 @@ class prob(sgra):
         
 #        print("\nInitStgAcc[g] =",StgInitAcc)
 #        print("FinlStgAcc[g] =",StgFinlAcc)
-#        input("\nOia la a trajetoria!")
-#
+
 #%%
 def calcXdot(td,x,u,constants,arc):
     grav_e = constants['grav_e']

@@ -229,7 +229,7 @@ class LMPBVPhelp():
 #                            phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 #            phiLamIntCol += .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
             
-            # Integrate the SODE by Euler Backwards implicit
+            # Integrate the LSODE by Euler Backwards implicit
             B[0,:,arc] = -rhoFu[0,:,arc] + \
                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
             phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
@@ -620,12 +620,7 @@ class sgra():
         self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False) 
         self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
 
-#    def getAvrgGRrate(self,nGrads=self.NIterGrad):
-#        
-#        # find last gradient step index in event list
-#        LastGradIndx = self.GREvIndx
-#        while self.GREvList[LastGradIndx] == False:
-#            LastGradIndx -= 1
+
     def updtGRrate(self):
 #        print("\nIn updtGRrate.")
  
@@ -644,9 +639,9 @@ class sgra():
         
         self.histGRrate[self.NIterGrad] = nRest
 #        print("\nUpdating GR rate...")
-#        print("Writing nRest =",nRest,'at position #',self.NIterGrad)
-        
-    
+#        print("Writing nRest =",nRest,'at position #',self.NIterGrad)        
+
+
     def copy(self):
         return copy.deepcopy(self)
     
@@ -778,6 +773,7 @@ class sgra():
         #
         plt.clf()
         plt.close('all')
+
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
     
@@ -877,16 +873,13 @@ class sgra():
         return grad_sgra.calcStepGrad(self,*args,**kwargs)
 
     def calcQ(self,*args,**kwargs):
-        #print("calcQ: not implemented yet!")
-        #return 1.0,1.0,1.0,1.0,1.0
         return grad_sgra.calcQ(self,*args,**kwargs)
 
     def plotQRes(self,args):
         return grad_sgra.plotQRes(self,args)
     
     def updtHistQ(self,alfa,mustPlotQs=False):
-    
-        
+
         NIterGrad = self.NIterGrad+1
         
         Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
@@ -971,7 +964,6 @@ class sgra():
     def LMPBVP(self,rho=0.0,isParallel=False):
         
         helper = LMPBVPhelp(self,rho)
-
 
         if isParallel:
             pool = Pool()
