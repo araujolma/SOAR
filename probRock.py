@@ -20,7 +20,7 @@ class prob(sgra):
         n = 4
         m = 2
         
-        N = 20000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -965,11 +965,14 @@ class prob(sgra):
             dvLossPerc = 100.0*(DvId-missDv)/DvId
             print("Losses (%):",dvLossPerc)
 
-
-            titlStr = "Current solution: I = {:.4E}".format(I) + \
-            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q) + \
-            "\nPayload mass gain: {:.4G}%".format(paylPercMassGain) + \
-            "\nLosses (w.r.t. ideal Delta v): {:.4G}%".format(dvLossPerc)
+            titlStr = "Current solution "
+            titlStr += "(grad iter #" + str(self.NIterGrad+1) + "):\n"
+            titlStr += "I = {:.4E}".format(I) + \
+                       ", P = {:.4E} ".format(self.P) + \
+                       ", Q = {:.4E}\n".format(self.Q)
+            titlStr += "Payload mass gain: {:.4G}%\n".format(paylPercMassGain)
+            titlStr += "Losses (w.r.t. ideal Delta v): "+ \
+                       "{:.4G}%".format(dvLossPerc)
 
             plt.subplots_adjust(**subPlotAdjs)
 
@@ -1097,7 +1100,7 @@ class prob(sgra):
             print("Ejected masses:",EjctMass)
             
         elif opt['mode'] == 'lambda':
-            titlStr = "Lambdas"
+            titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
             
             plt.subplots_adjust(**subPlotAdjs)
         
@@ -1182,7 +1185,8 @@ class prob(sgra):
             du = opt['u']
             dp = opt['pi']
 
-            titlStr = "Proposed variations\n"+"Delta pi: "
+            titlStr = "Proposed variations (grad iter #" + \
+                      str(self.NIterGrad+1) + ")\n"+"Delta pi: "
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
@@ -1275,14 +1279,18 @@ class prob(sgra):
     #
     
     def plotQRes(self,args,mustSaveFig=True):
-        
+        "Plots of the Q residuals, specifically for the probRock case."
+    
+        # Qx error plot        
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.subplot2grid((5,1),(0,0))
         self.plotCat(args['normErrQx'],color='b',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Integrand of Qx")
-        plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
-                  "= {:.4E}".format(args['Qx']))
+        titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
+                  "= {:.4E}".format(args['Qx'])
+        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+        plt.title(titlStr)
         errQx = args['errQx']
         
         plt.subplot2grid((5,1),(1,0))
@@ -1312,13 +1320,15 @@ class prob(sgra):
             plt.show()
             plt.clf()
         
-        
+        # Qu error plot
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         plt.subplot2grid((3,1),(0,0))
         self.plotCat(args['normErrQu'],color='b',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Integrand of Qu")
-        plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
+        titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
+        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+        plt.title(titlStr)
         
         errQu = args['errQu']
         plt.subplot2grid((3,1),(1,0))
@@ -1337,6 +1347,7 @@ class prob(sgra):
             plt.show()
             plt.clf()
     
+        # Qp error plot
         errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
         p = self.p
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
@@ -1347,6 +1358,7 @@ class prob(sgra):
         titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
         for j in range(p):
             titlStr += "{:.4E}, ".format(resVecIntQp[j])
+        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
         plt.title(titlStr)
         
         for j in range(1,p):
@@ -1394,9 +1406,11 @@ class prob(sgra):
         plt.grid(True)
         plt.ylabel("h [km]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-        plt.title("Comparing solutions: " + currSolLabl + " and " + \
+        titlStr = "Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
-                  "\nPayload mass gain: {:.4G}%".format(paylPercMassGain))
+                  "\nPayload mass gain: {:.4G}%".format(paylPercMassGain)
+        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+        plt.title(titlStr)
         plt.xlabel("t [s]")
         
         plt.subplot2grid((11,1),(1,0))
@@ -1759,8 +1773,10 @@ class prob(sgra):
         plt.xlabel("X [km]")
         plt.ylabel("Z [km]")
         plt.axis('equal')
-        plt.title("Rocket trajectory over Earth\n"+\
-                  "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6))
+        titlStr = "Rocket trajectory over Earth "
+        titlStr += "(grad iter #" + str(self.NIterGrad+1) + ")\n"
+        titlStr += "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6)
+        plt.title(titlStr)
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         if mustSaveFig:

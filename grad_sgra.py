@@ -71,14 +71,18 @@ class stepMngr():
 def plotQRes(self,args):
     "Generic plots of the Q residuals"
 
+    # Qx error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     nm1 = self.n+1
     plt.subplot2grid((nm1,1),(0,0))
     self.plotCat(args['normErrQx'],color='b',piIsTime=False)
     plt.grid(True)
     plt.ylabel("Integrand of Qx")
-    plt.title("Qx = int || dlam - f_x + phi_x^T*lam || " + \
-              "= {:.4E}".format(args['Qx']))
+    titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
+              "= {:.4E}".format(args['Qx'])
+    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+    plt.title(titlStr)
+    print(titlStr)
     errQx = args['errQx']
     for i in range(self.n):
         plt.subplot2grid((nm1,1),(i+1,0))
@@ -88,14 +92,17 @@ def plotQRes(self,args):
     plt.xlabel("t [s]")
     self.savefig(keyName='Qx',fullName='Qx')
     
+    # Qu error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     mm1 = self.m+1
     plt.subplot2grid((mm1,1),(0,0))
     self.plotCat(args['normErrQu'],color='b',piIsTime=False)
     plt.grid(True)
     plt.ylabel("Integrand of Qu")
-    plt.title("Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu']))
-    
+    titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
+    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+    plt.title(titlStr)
+    print(titlStr)
     errQu = args['errQu']
     for i in range(self.m):
         plt.subplot2grid((mm1,1),(i+1,0))
@@ -105,6 +112,7 @@ def plotQRes(self,args):
     plt.xlabel("t")        
     self.savefig(keyName='Qu',fullName='Qu')
 
+    # Qp error plot
     errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
     p = self.p
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
@@ -115,8 +123,9 @@ def plotQRes(self,args):
     titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
     for j in range(p):
         titlStr += "{:.4E}, ".format(resVecIntQp[j])
+    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    
+    print(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
         self.plotCat(errQp[:,j,:],color='k')
