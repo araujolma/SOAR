@@ -88,7 +88,7 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth amgular velocity of ratation [rad/2]
+# Earth angular velocity of rotation [rad/2]
 we = 7.27220521664304e-05
 #
 ###############################################################################
