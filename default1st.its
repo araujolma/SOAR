@@ -10,7 +10,7 @@
 Mu = 100
 #
 # Number of stages
-NStag = 0
+NStag = 1
 #
 # Specific impulse [s]
 Isp = 450
@@ -82,7 +82,7 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth angular velocity of rotation [rad/2]
+# Earth amgular velocity of ratation [rad/2]
 we = 0.0
 #
 ###############################################################################

@@ -1,0 +1,13 @@
+For upload:
+- Avoid excessive memory usage plotting everything every time, but without saving plots every time!
+- External configuration file…
+- Re-discuss transition for ‘restDbugMode’ in ITman.restRnds(), implement a better method
+
+Already up:
+- Update README.md
+- @compWith: change the layout for compatibilization with plotSol
+- @plotSol: include a plot for visualization of pi
+- Introduce the acceleration limitation
+- Enter the parallel computing!
+- plotTraj does not compare two trajectories
+- plotSol does not plot a detailed section

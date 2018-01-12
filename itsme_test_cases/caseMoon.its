@@ -82,7 +82,7 @@ GM = 4.9048695e3
 # Earth Moon radius [km]
 R = 1737.0
 #
-# Earth Moon angular velocity of ratation [rad/2]
+# Earth Moon angular velocity of rotation [rad/2]
 we = 0.0
 #
 ###############################################################################

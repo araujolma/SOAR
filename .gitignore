@@ -1,5 +1,5 @@
 
 .spyderworkspace
+.DS_Store
 *.pkl
-__pycache__/
-
+__pycache__/*
