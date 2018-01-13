@@ -33,7 +33,7 @@ class ITman():
         self.mustPlotSol = True
         self.NSlntRuns = 0
         self.mustAsk = True
-        self.GRplotSolRate = 5
+        self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
         self.GRpausRate = 1000#1000#10
         self.GradHistShowRate = 5

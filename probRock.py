@@ -966,7 +966,7 @@ class prob(sgra):
             print("Losses (%):",dvLossPerc)
 
             titlStr = "Current solution "
-            titlStr += "(grad iter #" + str(self.NIterGrad+1) + "):\n"
+            titlStr += "(grad iter #" + str(self.NIterGrad) + "):\n"
             titlStr += "I = {:.4E}".format(I) + \
                        ", P = {:.4E} ".format(self.P) + \
                        ", Q = {:.4E}\n".format(self.Q)
@@ -1409,7 +1409,7 @@ class prob(sgra):
         titlStr = "Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
                   "\nPayload mass gain: {:.4G}%".format(paylPercMassGain)
-        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
         plt.title(titlStr)
         plt.xlabel("t [s]")
         
@@ -1774,7 +1774,7 @@ class prob(sgra):
         plt.ylabel("Z [km]")
         plt.axis('equal')
         titlStr = "Rocket trajectory over Earth "
-        titlStr += "(grad iter #" + str(self.NIterGrad+1) + ")\n"
+        titlStr += "(grad iter #" + str(self.NIterGrad) + ")\n"
         titlStr += "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6)
         plt.title(titlStr)
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
