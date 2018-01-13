@@ -2,4 +2,5 @@
 .spyderworkspace
 .DS_Store
 *.pkl
+*.pdff
 __pycache__/*
