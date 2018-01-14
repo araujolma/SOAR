@@ -16,6 +16,7 @@ import configparser
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
+from testStaging import optimalStagingHeterogeneous
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
@@ -199,44 +200,34 @@ class model():
         con = self.con
         efflist = con['efflist']
         Tlist = con['Tlist']
+        Isplist = con['Isplist']
 
-        if con['homogeneous']:
+        #  optimalStagingHeterogeneous
+        #  def __init__(self, elist: list, Isplist: list, TList: list,
+        #  vTot: float, Mu: float, g0: float, tol: float):
 
-            if con['NStag'] == 0:
+        if con['NStag'] > 1:
 
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]],       Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous([efflist[0]], Dv1 + Dv2,
-                                                    [Tlist[0]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p2.ms = p2.mu + p1.me[0]
-                p2.me[0] = 0.0
-                p1.NStag0or1(p2)
+            p2 = optimalStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
+                                             [Tlist[-1]], Dv2,  con['Mu'],
+                                             con['g0'], con['tol']/10)
+            p2.bisec()
+            p2.result()
+            p2.show()
 
-            elif con['NStag'] == 1:
+            p1 = optimalStagingHeterogeneous(efflist[0:-1], Isplist[0:-1],
+                                             Tlist[0:-1], Dv1, p2.mtot[0],
+                                             con['g0'], con['tol']/10)
+            p1.bisec()
+            p1.result()
+            p1.show()
 
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]],       Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous([efflist[0]], Dv1 + Dv2,
-                                                    [Tlist[0]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p2.me[0] = p1.me[0]
-                p1.NStag0or1(p2)
-
-            else:
-
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]], Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous(efflist[0:-1], Dv1,
-                                                    Tlist[0:-1], con['Isp'],
-                                                    con['g0'], p2.mtot[0])
+            raise
+            # TODO: continue from here
 
         else:
-            raise Exception('itsme saying: heterogeneous vehicle is' +
-                            ' not supported yet!')
+            raise Exception('itsme saying: less than 2 stages is not' +
+                            'suported yet')
 
         if p1.mtot[0]*con['g0'] > Tlist[0]:
             raise Exception('itsme saying: weight greater than thrust!')
@@ -461,20 +452,7 @@ class modelConfiguration():
 
     def vehicle(self):
         # Vehicle parameters
-        section = 'vehicle'
-
-        if not self.config.has_option(section, 'homogeneous'):
-            self.con['homogeneous'] = True
-        else:
-            self.con['homogeneous'] = \
-                self.config.getboolean(section, 'homogeneous')
-
-        # This flag show indicates if the vehicle shall be considered as having
-        # the same values of structural mass and thrust for all stages
-        if self.con['homogeneous']:
-            self.__getVehicleHomogeneous(self.config)
-        else:
-            self.__getVehicleHeterogeneous(self.config)
+        self.__getVehicleHeterogeneous(self.config)
 
         # Reference values
         iniEst = modelInitialEstimate(self.con)
@@ -494,6 +472,8 @@ class modelConfiguration():
         self.con['NStag'] = config.getint(section, 'NStag')  # Number of stages
 
         auxstr = config.get(section, 'Isp')
+        print(auxstr)
+        print(self.con['NStag'])
         self.con['Isplist'] = self.__getListString(auxstr, self.con['NStag'])
 
         auxstr = config.get(section, 'efes')
@@ -510,13 +490,13 @@ class modelConfiguration():
             raise Exception('itsme saing: number of Isp entries is diferent' +
                             ' of the number of thrust entries')
 
-    def __getListString(auxstr, Nstag):
+    def __getListString(self, auxstr: str, Nstag: int) -> list:
         #  This method recognizes if just one imput was inserted in a variable.
         #  In this case, it generates a homogeneous list.
         auxstr = auxstr.split(',')
         auxnum = []
         if len(auxstr) == 1 and Nstag > 1:
-            nn = float(auxstr)
+            nn = float(auxstr[0])
             for ii in range(0, Nstag):
                 auxnum.append(nn)
 

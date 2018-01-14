@@ -16,7 +16,7 @@ class optimalStagingHeterogeneous():
 
         self.Mu = Mu
         self.tol = tol
-        self.e = numpy.array(eList)
+        self.e = numpy.array(elist)
         self.c = numpy.array(Isplist)*g0
         self.T = numpy.array(TList)
         self.vTot = vTot
@@ -31,6 +31,7 @@ class optimalStagingHeterogeneous():
         self.me = []
         self.tb = []
         self.tf = []
+        self.count = 0
 
     def functionToBe0(self, x: float) -> float:
 
@@ -69,6 +70,7 @@ class optimalStagingHeterogeneous():
                 raise Exception('staging: lagrange multplier out of interval')
 
         self.x = x2
+        self.count = count
         #  print(count)
         return None
 
@@ -101,13 +103,36 @@ class optimalStagingHeterogeneous():
 
         return None
 
+    def show(self) -> None:
+
+        print('inputs:')
+        print('e', self.e)
+        print('c', self.c)
+        print('T', self.T)
+
+        print('\nresults:')
+        print('tol', self.tol)
+        print('error', self.functionToBe0(self.x))
+        print('count', self.count)
+        print('vTot', self.vTot)
+        print('v', sum(self.v))
+        print('mflux', self.mflux)
+        print('lamb', self.lamb)
+        print('mtot', self.mtot)
+        print('mp', self.mp)
+        print('me', self.me)
+        print('tb', self.tb)
+        print('tf', self.tf)
+
+        return None
+
 if __name__ == "__main__":
 
     con = dict()
 
-    eList = [0.1, 0.09, 0.07]
-    cList = [350, 300, 280]
-    TList = [500, 500, 60]
+    eList = [0.01]#, 0.09, 0.07]
+    cList = [350]#, 300, 280]
+    TList = [500]#, 500, 60]
     vTot = 1.5*7.0
     tol = 1e-9
 
@@ -116,19 +141,4 @@ if __name__ == "__main__":
 
     stg.bisec()
     stg.result()
-
-    print('inputs:')
-    print('e', stg.e)
-    print('c', stg.c)
-    print('T', stg.T)
-
-    print('\nresults:')
-    print('error', stg.functionToBe0(stg.x))
-    print('v', numpy.sum(stg.v))
-    print('mflux', stg.mflux)
-    print('lamb', stg.lamb)
-    print('mtot', stg.mtot)
-    print('mp', stg.mp)
-    print('me', stg.me)
-    print('tb', stg.tb)
-    print('tf', stg.tf)
+    stg.show()
