@@ -15,7 +15,7 @@ import numpy
 import configparser
 import matplotlib.pyplot as plt
 from time import clock
-from itsModel import model, modelConfiguration
+from itsModelHomogeneous import model, modelConfiguration
 
 
 def its(*arg):
