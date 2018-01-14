@@ -16,6 +16,7 @@ import configparser
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
+from time import clock
 
 
 def its(*arg):
@@ -28,7 +29,7 @@ def its(*arg):
     else:
         raise Exception('itsme saying: too many arguments on its')
 
-    print("itsme: Initial Trajectory Setup Module")
+    print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
     problem1 = problem(fname)
@@ -49,11 +50,11 @@ def its(*arg):
     return solution2
 
 
-def sgra(fname):
+def sgra(fname: str):
 
     # arguments analisys
 
-    print("itsme: Initial Trajectory Setup Module")
+    print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
     solution = problem(fname).solveForFineTune()
@@ -70,36 +71,40 @@ def sgra(fname):
     return solution.sgra()
 
 
-def mdlDer(t, x, arg):
+def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
+           aed: callable, earth: callable)-> list:
 
     # initialization
-    h, v, gama, M = x[0], x[1], x[2], x[3]
-    alfaProg, betaProg, con = arg
+    h = x[0]
+    v = x[1]
+    gamma = x[2]
+    M = x[3]
 
     if numpy.isnan(h):
         raise Exception('itsme saying: h is not a number')
 
-    # controls calculation
-    betat = betaProg.value(t)
-    alfat = alfaProg.value(t)
+    # Alpha control calculation
+    alfat = alfaProg(t)
 
     # other calculations
-    btm = betat*con['T']/M
-    sinGama = numpy.sin(gama)
-    g = con['g0']*(con['R']/(con['R']+h))**2 - (con['we']**2)*(con['R'] + h)
+    # btm = betaProg(t)*con['T']/M
+    beta, Isp, T = betaProg(t)
+    btm = beta*T/M
+    sinGamma = numpy.sin(gamma)
+    g = earth.g0*(earth.R/(earth.R+h))**2 - (earth.we**2)*(earth.R + h)
 
     # aerodynamics
-    qdinSrefM = 0.5 * rho(h) * (v**2) * con['s_ref']/M
-    LM = qdinSrefM * (con['CL0'] + con['CL1']*alfat)
-    DM = qdinSrefM * (con['CD0'] + con['CD2']*(alfat**2))
+    qdinSrefM = 0.5 * rho(h) * (v**2) * aed.s_ref/M
+    LM = qdinSrefM * (aed.CL0 + aed.CL1*alfat)
+    DM = qdinSrefM * (aed.CD0 + aed.CD2*(alfat**2))
 
     # states derivatives
-    return numpy.array([v*sinGama,  # coefficient
-                        btm*numpy.cos(alfat) - g*sinGama - DM,  # coefficient
-                        btm*numpy.sin(alfat)/v +
-                        (v/(h+con['R'])-g/v)*numpy.cos(gama) +
-                        (LM/v) + 2*con['we'],  # coefficient
-                        -btm*M/(con['g0']*con['Isp'])])  # coefficient
+    return [v*sinGamma,  # coefficient
+            btm*numpy.cos(alfat) - g*sinGamma - DM,  # coefficient
+            btm*numpy.sin(alfat)/v +
+            (v/(h+earth.R)-g/v)*numpy.cos(gamma) +
+            (LM/v) + 2*earth.we,  # coefficient
+            -btm*M/(earth.g0*Isp)]  # coefficient
 
 
 def itsTester():
@@ -135,7 +140,7 @@ def itsTester():
 
 class problem():
 
-    def __init__(self, fileAdress):
+    def __init__(self, fileAdress: str):
 
         # TODO: solve the codification problem on configuration files
         configuration = problemConfiguration(fileAdress)
@@ -162,19 +167,19 @@ class problem():
 
         return solution(self.con['guess'], self.con)
 
-    def solveForFineTune(self):
+    def solveForFineTune(self)-> object:
         # Bisection altitude loop
         self.iteractionAltitude = problemIteractions('Altitude')
         self.iteractionSpeedAndAng = problemIteractions('All')
 
+        print("\n#################################" +
+              "######################################")
         errors, factors = self.__bisecAltitude()
 
         # Final test
         model1 = model(factors, self.con)
         model1.simulate("design")
 
-        print("\n#################################" +
-              "######################################")
         print("ITS the end (lol)")
 
         self.displayErrorsFactors(errors, factors)
@@ -191,13 +196,11 @@ class problem():
 
         return solution1
 
-    def __bisecAltitude(self):
+    def __bisecAltitude(self)-> tuple:
         #######################################################################
         # Bisection altitude loop
         index = 2
         tol = self.con['tol']
-        sepStr = "\n#################################" +\
-                 "######################################"
 
         # Initilization
         stop = False
@@ -214,15 +217,15 @@ class problem():
         f2 = f1 - df
 
         # Loop
+        update = self.iteractionAltitude.update
         while not stop and (self.iteractionAltitude.count <= self.con['Nmax']):
 
             # bisecSpeedAndAng: Error update from speed and gamma loop
             factors[index] = f2
             errors, factors = self.__bisecSpeedAndAng(factors)
             e2 = errors[index]
-            self.iteractionAltitude.update([e2], [f2])
+            update([e2], [f2])
 
-            print(sepStr)
             # Loop checks
             if (abs(e2) < tol):
                 stop = True
@@ -240,7 +243,7 @@ class problem():
 
         return errors, factors
 
-    def __bisecSpeedAndAng(self, factors1):
+    def __bisecSpeedAndAng(self, factors1: list)-> tuple:
         #######################################################################
         # Bissection speed and gamma loop
         # Initializing parameters
@@ -261,6 +264,8 @@ class problem():
         factors2 = factors1 - df
 
         # Loop
+        update = self.iteractionSpeedAndAng.update
+
         while ((not stop) and
                (self.iteractionSpeedAndAng.countLocal <= self.con['Nmax'])):
             # Error update
@@ -268,15 +273,13 @@ class problem():
             model1.simulate("design")
             errors2 = model1.errors
 
-            self.iteractionSpeedAndAng.update(errors2, factors2)
+            update(errors2, factors2)
 
             converged = abs(errors2) < self.con['tol']
             if converged[0] and converged[1]:
 
                 stop = True
                 # Display information
-                print("\n###################################" +
-                      "####################################")
                 if self.iteractionSpeedAndAng.countLocal == self.con['Nmax']:
                     print("bisecSpeedAndAng total iterations: ",
                           self.iteractionSpeedAndAng.countLocal,
@@ -291,8 +294,6 @@ class problem():
 
                 stop = True
                 # Display information
-                print("\n###################################" +
-                      "####################################")
                 print('stationary process')
                 if self.iteractionSpeedAndAng.countLocal == self.con['Nmax']:
                     print("bisecSpeedAndAng total iterations: ",
@@ -312,7 +313,7 @@ class problem():
 
         return errors2, factors2
 
-    def displayErrorsFactors(self, errors, factors):
+    def displayErrorsFactors(self, errors: list, factors: list)-> None:
 
         num = "8.6e"
         print(("Errors    : %"+num+",  %"+num+",  %"+num)
@@ -323,11 +324,13 @@ class problem():
               % (factors[0], factors[1], factors[2]))
         print(("Inf limits: %"+num+",  %"+num+",  %"+num)
               % (self.finf[0], self.finf[1], self.finf[2]))
+        print("\n#################################" +
+              "######################################")
 
 
 class problemConfiguration():
 
-    def __init__(self, fileAdress):
+    def __init__(self, fileAdress: str):
         # TODO: solve the codification problem on configuration files
         self.config = configparser.ConfigParser()
         self.config.optionxform = str
@@ -337,7 +340,6 @@ class problemConfiguration():
     def environment(self):
         # Enviromental constants
         section = 'enviroment'
-        print(self.con)
         items = self.config.items(section)
         for para in items:
             self.con[para[0]] = self.config.getfloat(section, para[0])
@@ -499,7 +501,7 @@ class problemConfiguration():
 
 class problemIteractions():
 
-    def __init__(self, name):
+    def __init__(self, name: str):
 
         self.name = name
         self.errorsList = []
@@ -511,14 +513,15 @@ class problemIteractions():
 
         self.countLocal = 0
 
-    def update(self, errors, factors):
+    def update(self, errors: list, factors: list)-> None:
 
         self.count += 1
         self.countLocal += 1
         self.errorsList.append(errors)
         self.factorsList.append(factors)
+        return None
 
-    def newFactor(self, index, df, con):
+    def newFactor(self, index: int, df: list, con: dict)-> float:
 
         # Checkings
         # Division and step check
@@ -545,7 +548,7 @@ class problemIteractions():
 
         return f3
 
-    def stationary(self):
+    def stationary(self)-> bool:
 
         stat = False
         if self.countLocal > 10:
@@ -560,21 +563,21 @@ class problemIteractions():
 
         return stat
 
-    def displayLogErrors(self, legendList):
+    def plotLogErrors(self, legendList: list):
 
         if self.count != 0:
             err = numpy.array(self.errorsList)
             for e in err:
                 e = numpy.array(e)
             err = numpy.array(err)
-            plt.hold(True)
+
             if numpy.ndim(err) == 2:
                 for ii in range(0, len(self.errorsList[-1])):
-                    plt.semilogy(range(0, self.count),
+                    plt.semilogy(range(0, len(err[:, ii])),
                                  abs(err[:, ii]), label=legendList[ii])
-                plt.hold(False)
+
             else:
-                plt.semilogy(range(0, self.count),
+                plt.semilogy(range(0, len(err)),
                              abs(err), label=legendList[0])
             plt.grid(True)
             plt.ylabel("erros []")
@@ -583,20 +586,21 @@ class problemIteractions():
 #            if self.name == 'All errors':
             plt.legend()
             plt.show()
+            return None
 
-    def displayFactors(self, legendList):
+    def plotFactors(self, legendList: list):
 
         if self.count != 0:
             err = numpy.array(self.factorsList)
             for e in err:
                 e = numpy.array(e)
             err = numpy.array(err)
-            plt.hold(True)
+
             if numpy.ndim(err) == 2:
                 for ii in range(0, len(self.factorsList[-1])):
                     plt.plot(range(0, self.count),
                              abs(err[:, ii]), label=legendList[ii])
-                plt.hold(False)
+
             else:
                 plt.plot(range(0, self.count),
                          abs(err), label=legendList[0])
@@ -607,11 +611,12 @@ class problemIteractions():
 #            if self.name == 'All errors':
             plt.legend()
             plt.show()
+            return None
 
 
 class problemInitialEstimate():
 
-    def __init__(self, con):
+    def __init__(self, con: dict):
 
         efflist = con['efflist']
         Tlist = con['Tlist']
@@ -651,14 +656,14 @@ class problemInitialEstimate():
             dedt = (self.__hEstimate(t1+dt) - self.__hEstimate(t1-dt))/(2*dt)
             t1 = t1 - erro/dedt
             cont += 1
-            if cont == 100:
+            if cont == N:
                 raise Exception('itsme saying: initialEstimate failed')
 
         self.cont = cont
         self.t1 = t1
         return None
 
-    def __hEstimate(self, t1):
+    def __hEstimate(self, t1: float)-> float:
 
         mflux = self.mflux
         Mu = self.Mu
@@ -675,7 +680,7 @@ class problemInitialEstimate():
 
         return h
 
-    def __dvt(self):
+    def __dvt(self)-> None:
 
         t1 = self.t1
         mflux = self.mflux
@@ -710,7 +715,7 @@ class problemInitialEstimate():
 
 class model():
 
-    def __init__(self, factors, con):
+    def __init__(self, factors: list, con: dict):
 
         self.factors = factors
         self.con = con
@@ -733,7 +738,7 @@ class model():
         #######################################################################
         # Thrust program
         tabBeta = modelPropulsion(self.p1, self.p2, tf, 1.0, 0.0,
-                                  con['softness'])
+                                  con['softness'], con['Isp'], con['T'])
         if tabBeta.fail:
             raise Exception('itsme saying: Softness too high!')
         self.tabBeta = tabBeta
@@ -744,18 +749,24 @@ class model():
         tabAlpha = modelAttitude(con['tAoA1'], self.tAoA2, 0,
                                  -con['AoAmax']*con['d2r'])
         self.tabAlpha = tabAlpha
+        
+        self.aed = modelAed(con)
+        self.earth = modelEarth(con)
 
-    def __integrate(self, ode45, t0, x0):
+    def __integrate(self, ode45: object, t0: float, x0)-> None:
 
         self.simulCounter += 1
         self.traj.tphases = self.tphases
         self.traj.massJet = self.mjetsoned
-
+        
         # Output variables
         self.traj.append(t0, x0)
         self.traj.appendP(t0, x0)
 
         N = len(self.tphases)
+        initialValue = ode45.set_initial_value
+        integrate = ode45.integrate
+        appendP = self.traj.appendP
         for ii in range(1, N):
 
             # Time interval configuration
@@ -769,12 +780,12 @@ class model():
             self.traj.mass0.append(y_initial[3].copy())
 
             # integration
-            ode45.set_initial_value(y_initial, t_initial)
+            initialValue(y_initial, t_initial)
             ode45.first_step = (t_final - t_initial)*0.001
-            ode45.integrate(t_final)
+            integrate(t_final)
 
             if ii != N-1:
-                self.traj.appendP(ode45.t+self.con['contraction'], ode45.y)
+                appendP(ode45.t+self.con['contraction'], ode45.y)
 
             # Phase itegration display
             if self.flagAppend:
@@ -794,6 +805,7 @@ class model():
         # Final point appending
         self.traj.append(self.traj.tp[-1], self.traj.xp[-1])
         self.traj.numpyArray()
+        return None
 
     def __errorCalculate(self):
 
@@ -805,7 +817,7 @@ class model():
 
         return None
 
-    def __calcAedTab(self, tt, xx, uu):
+    def __calcAedTab(self, tt, xx, uu)-> tuple:
 
         con = self.con
         LL = tt.copy()
@@ -841,7 +853,7 @@ class model():
         self.up = numpy.concatenate([tabAlpha.multValue(self.traj.tp),
                                      tabBeta.multValue(self.traj.tp)],  axis=1)
 
-    def __stagingCalculate(self, Dv1, Dv2):
+    def __stagingCalculate(self, Dv1: float, Dv2: float)-> None:
 
         con = self.con
         efflist = con['efflist']
@@ -891,7 +903,7 @@ class model():
         self.p1 = p1
         self.p2 = p2
 
-    def displayInfo(self):
+    def displayInfo(self)-> None:
 
         con = self.con
         p1 = self.p1
@@ -918,7 +930,7 @@ class model():
         print('\n\rmjetsoned: ', self.mjetsoned)
         print('\n\r')
 
-    def simulate(self, typeResult):
+    def simulate(self, typeResult: str)-> None:
         #######################################################################
         con = self.con
         self.simulCounter += 1
@@ -927,8 +939,8 @@ class model():
         # Integration
         # Initial conditions
         t0 = 0.0
-        x0 = numpy.array([con['h_initial'], con['V_initial'],
-                          con['gamma_initial'], self.p1.mtot[0]])
+        x0 = [con['h_initial'], con['V_initial'],
+              con['gamma_initial'], self.p1.mtot[0]]
 
         #######################################################################
         # Phase times and jetsonned masses
@@ -948,8 +960,9 @@ class model():
         #         rtol: relative tolerance
         ode45 = ode(mdlDer).set_integrator('dopri5', atol=con['tol']/1,
                                            rtol=con['tol']/10)
-        ode45.set_initial_value(x0,  t0).set_f_params(
-                               (self.tabAlpha, self.tabBeta, con))
+        ode45.set_initial_value(x0,  t0)
+        ode45.set_f_params(self.tabAlpha.value, self.tabBeta.mdlDer, 
+                           self.aed, self.earth)
 
         # Integration using rk45 separated by phases
         if (typeResult == "design"):
@@ -995,7 +1008,7 @@ class model():
         ii = 1
         plt.subplot2grid((6, 4), (0, 2), rowspan=2, colspan=2)
         plt.plot(tt, xx[:, ii], '.-b', tp, xp[:, ii], '.r')
-        plt.hold(False)
+
         plt.grid(True)
         plt.ylabel("V [km/s]")
 
@@ -1036,9 +1049,9 @@ class model():
         tt = self.traj.tt
         tp = self.traj.tp
         # Aed plots
-        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(self.traj.tt,
+        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(tt,
                                                      self.traj.xx, self.uu)
-        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(self.traj.tp,
+        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
                                                      self.traj.xp, self.up)
 
         plt.subplot2grid((6, 2), (0, 0), rowspan=2, colspan=2)
@@ -1067,9 +1080,6 @@ class model():
 
         h, v, gama, M = numpy.transpose(self.traj.xx[-1, :])
         r = R + h
-
-        cosGama = numpy.cos(gama)
-        sinGama = numpy.sin(gama)
 
         cosGama = numpy.cos(gama)
         sinGama = numpy.sin(gama)
@@ -1108,7 +1118,7 @@ class modelOptimalStaging():
     # specific impulse must be the same for all stages
     # Based in Cornelisse (1979)
 
-    def __init__(self, effList, dV, Tlist, con, Isp, g0, mu):
+    def __init__(self, effList: list, dV, Tlist, con, Isp, g0, mu):
         self.Tlist = Tlist
         self.e = numpy.array(effList)
         self.T = numpy.array(self.Tlist)
@@ -1138,7 +1148,7 @@ class modelOptimalStaging():
 
         self.ms = 0.0  # Empty vehicle mass (!= 0.0 only for NStag == 0)
 
-    def __calcGeoMean(self, a):
+    def __calcGeoMean(self, a)-> float:
 
         m = 1.0
         for v in a:
@@ -1203,7 +1213,8 @@ class modelOptimalStagingHomogeneous():
     # specific impulse must be the same for all stages
     # Based in Cornelisse (1979)
 
-    def __init__(self, effList, dV, Tlist, Isp, g0, mu):
+    def __init__(self, effList: list, dV: float, Tlist: list, Isp: float,
+                 g0: float, mu: float):
         self.Tlist = Tlist
         self.e = numpy.array(effList)
         self.T = numpy.array(Tlist)
@@ -1230,8 +1241,9 @@ class modelOptimalStagingHomogeneous():
         self.__tfCalculate()
         # Empty vehicle mass (!= 0.0 only for NStag == 0)
         self.ms = 0.0
+        return None
 
-    def __mtotCalculate(self):
+    def __mtotCalculate(self)-> None:
 
         mtot = self.e*0.0
         N = self.e.size-1
@@ -1241,8 +1253,9 @@ class modelOptimalStagingHomogeneous():
             else:
                 mtot[N - ii] = mtot[N - ii + 1]/self._lamb[N - ii]
         self.mtot = mtot
+        return None
 
-    def __tfCalculate(self):
+    def __tfCalculate(self)-> None:
 
         tf = self.e*0.0
         N = self.tb.size-1
@@ -1252,8 +1265,9 @@ class modelOptimalStagingHomogeneous():
             else:
                 tf[ii] = self.tb[ii] + tf[ii-1]
         self.tf = tf
+        return None
 
-    def NStag0or1(self, p):
+    def NStag0or1(self, p: object)-> None:
 
         self.dV = self.dV - p.dV
         self.mu = p.mtot[0]
@@ -1261,6 +1275,7 @@ class modelOptimalStagingHomogeneous():
         self.me[0] = self.me[0]*0.0
         self.tb[0] = self.tb[0] - p.tb[0]  # Duration of each stage burning
         self.tf[0] = self.tf[0] - p.tf[0]
+        return None
 
     def printInfo(self):
 
@@ -1276,7 +1291,13 @@ class modelOptimalStagingHomogeneous():
 
 class modelPropulsion():
 
-    def __init__(self, p1, p2, tf, v1, v2, softness):
+    def __init__(self, p1: object, p2: object, tf: float,
+                 v1: float, v2: float, softness: float, Isp: float, T: float):
+        
+        # improvements for heterogeneous rocket
+        self.Isp = Isp
+        self.T = T
+        
         self.t1 = p1.tf[-1]
         t2 = tf - p2.tb[-1]
         self.t3 = tf
@@ -1317,7 +1338,7 @@ class modelPropulsion():
         self.Isp1 = p1.Isp
         self.Isp2 = p2.Isp
 
-    def value(self, t):
+    def single(self, t: float)-> float:
         if (t <= self.fr1):
             ans = self.v1
         elif (t <= self.fs1):
@@ -1334,8 +1355,30 @@ class modelPropulsion():
             ans = 0.0
 
         return ans
+    
+    def value(self, t: float)-> float:
+        if (t <= self.fr1):
+            ans = self.v1
+        elif (t <= self.fs1):
+            cos = numpy.cos(numpy.pi*(t - self.fr1)/(2*self.c1))
+            ans = self.dv21*(1 - cos)/2 + self.v1
+        elif (t <= self.is2):
+            ans = self.v2
+        elif (t <= self.ir2):
+            cos = numpy.cos(numpy.pi*(t - self.is2)/(2*self.c2))
+            ans = -self.dv21*(1 - cos)/2 + self.v2
+        elif (t <= self.t3):
+            ans = self.v1
+        else:
+            ans = 0.0
 
-    def multValue(self, t):
+        return ans
+    
+    def mdlDer(self, t: float)-> tuple:
+        
+        return self.value(t), self.Isp, self.T
+
+    def multValue(self, t: float):
         N = len(t)
         ans = numpy.full((N, 1), 0.0)
         for jj in range(0, N):
@@ -1343,40 +1386,17 @@ class modelPropulsion():
 
         return ans
 
-    def thrust(self, t):
-
-        T = 0.0
-        tlist = self.tlist1
-        Tlist = self.Tlist1
-        for ii in range(0, len(tlist)):
-            if t <= tlist[ii]:
-                T = Tlist[ii]
-
-        if t > self.is2:
-            T = self.Tlist2[0]
-
-        return T
-
-    def Isp(self, t):
-
-        if t <= self.fs1:
-            Isp = self.Isp1
-        else:
-            Isp = self.Isp2
-
-        return Isp
-
 
 class modelAttitude():
 
-    def __init__(self, t1, t2, v1, v2):
+    def __init__(self, t1: float, t2: float, v1: float, v2: float):
         self.t1 = t1
         self.t2 = t2
 
         self.v1 = v1
         self.v2 = v2
 
-    def value(self, t):
+    def value(self, t: float)-> float:
         if (t >= self.t1) and (t < self.t2):
             ans = ((self.v2 - self.v1)*(1 -
                    numpy.cos(2*numpy.pi*(t - self.t1)/(self.t2 - self.t1)))/2)\
@@ -1385,7 +1405,7 @@ class modelAttitude():
         else:
             return self.v1
 
-    def multValue(self, t):
+    def multValue(self, t: float):
         N = len(t)
         ans = numpy.full((N, 1), 0.0)
         for jj in range(0, N):
@@ -1429,9 +1449,29 @@ class modelTrajectory():
         self.xp = numpy.array(self.xp)
 
 
+class modelAed():
+    
+    def __init__(self, con):
+    
+        self.s_ref = con['s_ref']
+        self.CL0 = con['CL0']
+        self.CL1 = con['CL1']
+        self.CD0 = con['CD0']
+        self.CD2 = con['CD2']
+ 
+
+class modelEarth():
+    
+    def __init__(self, con):
+
+        self.g0 = con['g0']
+        self.R = con['R']
+        self.we = con['we']
+
+
 class solution():
 
-    def __init__(self, factors, con):
+    def __init__(self, factors: list, con: dict):
 
         self.factors = factors
         self.con = con
@@ -1453,9 +1493,9 @@ class solution():
         self.basic.displayInfo()
         self.basic.orbitResults()
         self.basic.plotResults()
-        self.iteractionAltitude.displayLogErrors(['h'])
-        self.iteractionSpeedAndAng.displayLogErrors(['V', 'gamma', 'h'])
-        self.iteractionSpeedAndAng.displayFactors(['V', 'gamma', 'h'])
+        self.iteractionAltitude.plotLogErrors(['h'])
+        self.iteractionSpeedAndAng.plotLogErrors(['V', 'gamma', 'h'])
+        self.iteractionSpeedAndAng.plotFactors(['V', 'gamma', 'h'])
 
         # Results with orbital phase
         if abs(self.basic.e - 1) > 0.1:
@@ -1484,10 +1524,13 @@ class solution():
               self.basic.tabAlpha, self.basic.tabBeta, self.con,\
               self.basic.traj.tphases, self.basic.traj.mass0,\
               self.basic.traj.massJet
+
         return ans
 
 
 if __name__ == "__main__":
 
+    start = clock()
     its()
+    print('Execution time: ', clock() - start, ' s')
     # input("Press any key to finish...")
