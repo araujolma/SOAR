@@ -382,6 +382,7 @@ class prob(sgra):
         self.u = u
         self.pi = pi
         self.lam = lam
+        self.mu = mu
         
         solInit = self.copy()
         
@@ -958,6 +959,23 @@ class prob(sgra):
 
         return Ivec.sum()
 #%% Plotting commands and related functions
+
+    def calcPsblPayl(self):
+        """Calculate the possible ammount of payload for a given configuration.
+
+
+        This ammount equals the total rocket mass at liftoff, minus all the
+        used propellant mass and the associated structural mass. All the
+        remaining mass could be replaced by payload at liftoff!"""
+
+        MTot = self.x[0,3,0] # rocket mass at liftoff
+        s_f = self.constants['s_f']
+        for arc in range(self.s):
+            M0 = self.x[0,3,arc]
+            Mf = self.x[-1,3,arc]
+            MTot -= (M0-Mf) / (1.0 - s_f[arc])
+
+        return MTot
         
     def calcIdDv(self):
         """Calculate ideal Delta v provided by all the stages of the rocket as 
@@ -991,9 +1009,10 @@ class prob(sgra):
             print("Initial mass:",x[0,3,0])
             print("I:",I)
             print("CostScalFact:",self.constants['costScalingFactor'])
-            print("Payload Mass:",self.mPayl)
-            mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
-            print("'Final' mass:",mFinl)
+            print("Design payload mass:",self.mPayl)
+            #mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
+            mFinl = self.calcPsblPayl()
+            print("'Possible' payload mass:",mFinl)
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
             DvId = self.calcIdDv()
             print("Ideal Delta v (Tsiolkovsky) with used propellants:",DvId)
@@ -1099,9 +1118,13 @@ class prob(sgra):
             phi = self.calcPhi()
             acc =  phi[:,1,:]            
             self.plotCat(acc,color='y',piIsTime=piIsTime)
+            ######### TERTE
+            print("\nHAHAHA", self.restrictions['acc_max'][0:2])
+            plt.plot([0.0,self.pi.sum()],self.restrictions['acc_max'][0:2])
+            #########
             plt.grid(True)
             plt.xlabel("t [s]")
-            plt.ylabel("Tangential acceleration [m/s²]")
+            plt.ylabel("Tang. accel. [m/s²]")
             
             ######################################
             ax = plt.subplot2grid((11,1),(10,0))
@@ -1419,17 +1442,19 @@ class prob(sgra):
         currSolLabl = 'currentSol'
 
         # Comparing final mass:        
-        mFinSol = self.x[-1,3,-1]
-        mP = self.x[0,3,-1] - mFinSol
-        e = self.constants['s_f'][-1]
-        mStrFinStgSol = mP * e/(1.0-e)
-        mPaySol = mFinSol - mStrFinStgSol
+        #mFinSol = self.x[-1,3,-1]
+        #mP = self.x[0,3,-1] - mFinSol
+        #e = self.constants['s_f'][-1]
+        #mStrFinStgSol = mP * e/(1.0-e)
+        #mPaySol = mFinSol - mStrFinStgSol
+        mPaySol = self.calcPsblPayl()
 
-        mFinAlt = altSol.x[-1,3,-1]
-        mP = altSol.x[0,3,-1] - mFinAlt
-        e = altSol.constants['s_f'][-1]
-        mStrFinStgAlt = mP * e/(1.0-e)
-        mPayAlt = mFinAlt - mStrFinStgAlt
+        #mFinAlt = altSol.x[-1,3,-1]
+        #mP = altSol.x[0,3,-1] - mFinAlt
+        #e = altSol.constants['s_f'][-1]
+        #mStrFinStgAlt = mP * e/(1.0-e)
+        #mPayAlt = mFinAlt - mStrFinStgAlt
+        mPayAlt = altSol.calcPsblPayl()
         
         paylMassGain = mPaySol - mPayAlt
         paylPercMassGain = 100.0*paylMassGain/mPayAlt
@@ -1548,7 +1573,7 @@ class prob(sgra):
         self.plotCat(acc,mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t [s]")
-        plt.ylabel("Acceleration [m/s²]")
+        plt.ylabel("Tang. accel. [m/s²]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         ######################################
@@ -1563,7 +1588,7 @@ class prob(sgra):
         ax.set_xticklabels(stages)
         plt.xlabel("Stages")
         plt.ylabel("Duration [s]")   
-        ax.legend((current[0], initial[0]),('currentSol','Initial Guess'),loc="upper left", bbox_to_anchor=(1,1))
+        ax.legend((current[0], initial[0]),(currSolLabl,altSolLabl),loc="upper left", bbox_to_anchor=(1,1))
         
         if mustSaveFig:
             self.savefig(keyName='comp',fullName='comparisons')

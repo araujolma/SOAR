@@ -360,7 +360,7 @@ class ITman():
                 sol.plotSol()
                 sol.plotTraj()
                 if altSol is not None:
-                    sol.compWith(altSol,'solZA')
+                    sol.compWith(altSol,'Initial guess')
             
             if self.gradRestPausCond(sol):
                 print("\a")
