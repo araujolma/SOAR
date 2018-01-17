@@ -85,7 +85,7 @@ class prob(sgra):
             Thrust = numpy.array([40.0])                 # kg km/s² [= kN] 1.3*m_initial # N
             
             scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
-            Kpf = 10  # First guess........
+            Kpf = 100.0  # First guess........
             
             Isp = 450.0*numpy.ones(s)                     # s
             s_f = 0.05*numpy.ones(s)   
@@ -142,7 +142,7 @@ class prob(sgra):
             alpha_max = 2*(numpy.pi)/180   # in rads
             beta_min = 0.0
             beta_max = 1.0
-            acc_max = 3*grav_e*numpy.ones(N)
+            acc_max = 3.0 * grav_e
             restrictions = dict()
             restrictions['alpha_min'] = alpha_min
             restrictions['alpha_max'] = alpha_max
@@ -204,12 +204,11 @@ class prob(sgra):
             r_e = inputDict['R']
             GM = inputDict['GM']
             grav_e = GM/r_e/r_e
+
             # rocket constants
-            Thrust = inputDict['T']*numpy.ones(s)
-            
+            Thrust = inputDict['T']*numpy.ones(s)            
+            # TODO: Remove this! It is an ancient cost scaling factor...
             scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
-            Kpf = 10  # First guess........
-            
             Isp = inputDict['Isp']*numpy.ones(s)
             s_f = inputDict['efes']*numpy.ones(s)   
             CL0 = inputDict['CL0']*numpy.ones(s)
@@ -219,7 +218,16 @@ class prob(sgra):
             s_ref = inputDict['s_ref']*numpy.ones(s)#(numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
             DampCent = 3.0#2.0#
             DampSlop = 3.0
-    
+            acc_max = 3.0 * grav_e
+
+            # This approach to Kpf is that if, in any point during flight, the
+            # acceleration exceeds the limit by 10%, then the penalty function
+            # at that point is 10 times greater than the maximum value of the 
+            # cost functional.
+            
+            costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
+            Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
+
             # boundary conditions
             h_initial = inputDict['h_initial']
             V_initial = inputDict['V_initial']
@@ -262,7 +270,6 @@ class prob(sgra):
             alpha_max = inputDict['AoAmax']*(numpy.pi)/180   # in rads
             beta_min = 0.0
             beta_max = 1.0
-            acc_max = 3*grav_e*numpy.ones(N)
             restrictions = dict()
             restrictions['alpha_min'] = alpha_min
             restrictions['alpha_max'] = alpha_max
@@ -315,7 +322,6 @@ class prob(sgra):
             #
             #print(arcBginIndx)
             
-            
             # Set the array of interval lengths
             pi = numpy.empty(s)
             for arc in range(s):
@@ -364,7 +370,6 @@ class prob(sgra):
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
 
-
         # TODO: This hardcoded bypass MUST be corrected in later versions.
         print("\nHeavy hardcoded bypass here:")
         print("Control limits are being switched;")
@@ -374,6 +379,8 @@ class prob(sgra):
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
         self.constants['Thrust'] *= 500.0/40.0
+        # Re-calculate the Kpf, since it scales with the Thrust...
+        self.constants['Kpf'] *= 500.0/40.0
         u[:,1,:] *= 40.0/500.0
 
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
@@ -540,6 +547,16 @@ class prob(sgra):
             accDimTime += pi[arc]
         return phi
 
+    def calcAcc(self):
+        """ Calculate tangential acceleration."""
+        acc = numpy.empty((self.N,self.s))
+        phi = self.calcPhi()
+
+        for arc in range(self.s):
+            acc[:,arc] = phi[:,1,arc] / self.pi[arc]
+
+        return acc
+
 #%%
 
     def calcGrads(self,calcCostTerm=True):
@@ -553,7 +570,7 @@ class prob(sgra):
         # Load constants
         N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
         constants = self.constants
-        phi = self.calcPhi()
+
         grav_e = constants['grav_e']
         MaxThrs = constants['Thrust'] 
         Isp = constants['Isp']
@@ -579,18 +596,13 @@ class prob(sgra):
         acc_max = restrictions['acc_max']
         
         # Load states, controls
-        u = self.u
-        u1 = numpy.empty((N,s))
-        u2 = numpy.empty((N,s))
-        
-        u1 = u[:,0,:]
-        u2 = u[:,1,:]
+        u1 = self.u[:,0,:]
+        u2 = self.u[:,1,:]
         tanhU1 = tanh(u1)
         tanhU2 = tanh(u2)
-        
-        x = self.x
+
         pi = self.pi
-        acc = phi[:,1,:]
+        acc = self.calcAcc()
         
         phix = numpy.zeros((N,n,n,s))
         phiu = numpy.zeros((N,n,m,s))
@@ -602,6 +614,8 @@ class prob(sgra):
     
         fx = numpy.zeros((N,n,s))
         fu = numpy.zeros((N,m,s))
+        fOrig_u = numpy.zeros((N,m,s))
+        fPF_u = numpy.empty_like(fu)
         fp = numpy.zeros((N,p,s))
     
         ## Psi derivatives
@@ -657,12 +671,11 @@ class prob(sgra):
         psip = numpy.zeros((q,p))
     
         # calculate r, V, etc
-        r = r_e + x[:,0,:]
+        r = r_e + self.x[:,0,:]
         r2 = r * r
         r3 = r2 * r
-        V = x[:,1,:]
+        V = self.x[:,1,:]
         V2 = V * V
-        gama = x[:,2,:]
         # GAMMA FACTOR (fdg)
         fdg = numpy.empty_like(r)
         t0 = 0.0
@@ -670,60 +683,54 @@ class prob(sgra):
             t = t0 + self.t * pi[arc]
             fdg[:,arc] = .5*(1.0+tanh(DampSlop*(t-DampCent)))
             t0 += pi[arc] 
-        m = x[:,3,:]
+        m = self.x[:,3,:]
         m2 = m * m
-        sinGama = sin(gama)
-        cosGama = cos(gama)
+        sinGama, cosGama = sin(self.x[:,2,:]), cos(self.x[:,2,:])
         
         # Calculate variables (arrays) alpha and beta
-        aExp = .5*(alpha_max - alpha_min)
-        bExp = .5*(beta_max - beta_min)
+
         # TODO: change calcDimCtrl so that the derivatives 
         # DAlfaDu1 and DBetaDu2 are also calculated there... 
         # (with an optional command so that these are not calculated all the
         # time, of course!)
         alpha,beta = self.calcDimCtrl()
-        sinAlpha = sin(alpha)
-        cosAlpha = cos(alpha)
+        sinAlpha, cosAlpha = sin(alpha), cos(alpha)
         
         # Derivatives
-        DAlfaDu1 = aExp*(1.0-tanhU1**2)
-        DBetaDu2 = bExp*(1.0-tanhU2**2)
+        DAlfaDu1 = .5 * (alpha_max - alpha_min) * (1.0 - tanhU1**2)
+        DBetaDu2 = .5 * (beta_max - beta_min) * (1.0 - tanhU2**2)
     
-        # calculate variables CL and CD
+        # calculate variables CL and CD, already multiplied by ref. area
         CLsref = numpy.empty_like(alpha)
         CDsref = numpy.empty_like(alpha)
         for arc in range(s):
             CLsref[:,arc] = (CL0[arc] + CL1[arc]*alpha[:,arc])*s_ref[arc]
             CDsref[:,arc] = (CD0[arc] + CD2[arc]*(alpha[:,arc]**2))*s_ref[arc]
     
-        # calculate L and D; atmosphere: numerical gradient
+        # atmosphere: numerical gradient
         dens = numpy.empty((N,s))
         del_rho = numpy.empty((N,s))
         for arc in range(s):
             for k in range(N):
-                dens[k,arc] = rho(x[k,0,arc])
-                del_rho[k,arc] = (rho(x[k,0,arc]+.1) - dens[k,arc])/.1
-        
-        pDyn = .5 * dens * V2
+                dens[k,arc] = rho(self.x[k,0,arc])
+                del_rho[k,arc] = (rho(self.x[k,0,arc]+.1) - dens[k,arc])/.1
 
-        # Calculate Lift and Drag
-        L, D = CLsref * pDyn, CDsref * pDyn
-        
         # calculate gravity (at each time/arc!)
         g = GM/r2
     
         ## "common" expressions
 
         # TODO: also compute d thrust d u2        
-        # Actual (dimensional thrust):
+        # Actual (dimensional) thrust:
         thrust = numpy.empty_like(beta)
         for arc in range(s):
             thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
             
-        # Normal and axial forces
-        fVel = thrust * cosAlpha - D # forces on velocity direction
-        fNor = thrust * sinAlpha + L # forces normal to velocity (90 deg +)
+        ## Normal and axial forces
+        # forces on velocity direction
+        fVel = thrust * cosAlpha - .5 * dens * V2 * CDsref
+        # forces normal to velocity (90 deg +)
+        fNor = thrust * sinAlpha + .5 * dens * V2 * CLsref
         
         # acceleration solely due to thrust
         bTm = thrust/m
@@ -731,41 +738,47 @@ class prob(sgra):
 #==============================================================================
 
         if calcCostTerm:
+            PenaltyIsTrue = (acc > acc_max)
+            # Common term
+            K2dAPen = 2.0 * Kpf * (acc-acc_max) * PenaltyIsTrue
+
+            ## fx derivatives
+            # d f d h (incomplete):
+            fx[:,0,:] = K2dAPen * (2.0 * GM * sinGama / r3 - \
+              (0.5 * del_rho * V2 * CDsref)/m)
+            # d f d V (incomplete):
+            fx[:,1,:] = - K2dAPen * CDsref * dens * V / m
+            # d f d gamma (incomplete):
+            fx[:,2,:] = - K2dAPen * g * cosGama
+            # d f d m (incomplete):
+            fx[:,3,:] = - K2dAPen * fVel / m2
+            # fx still lacks pi!
+
+            ## fu derivatives
+            # d f d u1 (incomplete):
+            fPF_u[:,0,:] = K2dAPen * (-bTm * sinAlpha * DAlfaDu1)
+            # d f d u2 (incomplete):
+            fOrig_u[:,1,:] = DBetaDu2
+            fPF_u[:,1,:] = K2dAPen * cosAlpha / m
+            # fPF_u still lacks pi terms!
+
             for arc in range(s):
                 ## fp derivatives
-                # d f d pi:
-                fp[:,arc,arc] = (thrust[:,arc])/ (g0Isp[arc] * (1.0-s_f[arc]))
-                PenaltyIsTrue = numpy.zeros(self.N,dtype=bool)
-                PenaltyIsTrue[:] = acc[:,arc] > acc_max[:]
-                for i in range(self.N):
-                    if PenaltyIsTrue[i]:
-                        ## fx derivatives
-                        # d f d h:
-                        fx[i,0,arc] = (2.0 * GM * sinGama[i,arc]/r3[i,arc] - \
-                         (0.5 * del_rho[i,arc] * V2[i,arc] * CDsref[i,arc])/m[i,arc])
-                        # d f d V:
-                        fx[i,1,arc] = - CDsref[i,arc] * dens[i,arc] * V[i,arc]/m[i,arc]
-                        # d f d gamma:
-                        fx[i,2,arc] = - g[i,arc] * cosGama[i,arc]
-                        # d f d m:
-                        fx[i,3,arc] = - fVel[i,arc] / m2[i,arc]
-                        fx[i,:,arc] *= 2*Kpf*pi[arc]*(acc[i,arc]-acc_max[i])
-                        ## fu derivatives
-                        # d f d u1:
-                        fu[i,0,arc] = 2*Kpf*pi[arc]*(acc[i,arc]-acc_max[i])* \
-                          (-bTm[i,arc] * sinAlpha[i,arc] * DAlfaDu1[i,arc])/m[i,arc]
-                        # d f d u2:
-                        fu[i,1,arc] = 2*Kpf*(acc[i,arc]-acc_max[i])*cosAlpha[i,arc]/m[i,arc]
-                        ## fp derivatives
-                        # d f d pi:
-                        fp[i,arc,arc] += Kpf * (acc[i,arc] - acc_max[i])**2
-                # d f d u2:
-                fu[:,1,arc] += 1/(g0Isp[arc] * (1.0-s_f[arc]))
-                fu[:,1,arc] *= pi[arc] * MaxThrs[arc] * DBetaDu2[:,arc]
+                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)**2
 
-        #fVel = beta * MaxThrs * cosAlpha - D
-        #fNor = beta * MaxThrs * sinAlpha + L
-        
+                # fx is ready!
+                fx[:,:,arc] *= pi[arc]
+
+                # fOrig_u is ready!
+                fOrig_u[:,:,arc] *= pi[arc] * MaxThrs[arc] / g0Isp[arc] /    \
+                       (1.0-s_f[arc])
+                # fPF_u is ready!
+                fPF_u[:,:,arc] *= pi[arc] * MaxThrs[arc]
+            #
+            fu = fOrig_u + fPF_u
+        #
+
         ## phip derivatives
         for arc in range(s):
         # d hdot d pi
@@ -907,7 +920,7 @@ class prob(sgra):
     def calcF(self):
         constants = self.constants
         restrictions = self.restrictions
-        phi = self.calcPhi()
+
         grav_e = constants['grav_e']
         Thrust = constants['Thrust']
         Isp = constants['Isp']
@@ -915,20 +928,33 @@ class prob(sgra):
         scal = constants['costScalingFactor']
         Kpf = constants['Kpf']
         acc_max = restrictions['acc_max']        
-        acc = phi[:,1,:]
+        acc = self.calcAcc()
         # calculate variable beta
         _,beta = self.calcDimCtrl()
-    
+
         f = numpy.empty((self.N,self.s))
+        fOrig = numpy.empty_like(f)
+        fPF = numpy.empty_like(f)
+        
         for arc in range(self.s):
-            PenaltyIsTrue = numpy.zeros(self.N,dtype=bool)
-            f[:,arc] = scal * beta[:,arc] * \
-                ( (Thrust[arc] * self.pi[arc])/(grav_e * (1.0-s_f[arc]) * Isp[arc]) )
-            PenaltyIsTrue[:] = acc[:,arc] > acc_max[:]
-            for i in range(self.N):
-                if PenaltyIsTrue[i]:
-                    f[i,arc] += self.pi[arc]*Kpf*(acc[i,arc]-acc_max[i])**2
-        return f
+            fOrig[:,arc] = self.pi[arc] * scal * beta[:,arc] * Thrust[arc] /  \
+                            (grav_e * (1.0-s_f[arc]) * Isp[arc])
+            fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
+
+        # Apply penalty only when acc > acc_max
+        fPF *= (acc > acc_max)
+        f = fOrig + fPF
+
+        self.plotCat(f,piIsTime=False,color='b',labl='f')
+        self.plotCat(fOrig,piIsTime=False,color='k',labl='fOrig')
+        self.plotCat(fPF,piIsTime=False,color='r',labl='fPF')
+        plt.title('Integrand of cost function')
+        plt.xlabel('Adimensional time [-]')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+        return f#,fOrig,fPF
 
     def calcI(self):
         N,s = self.N,self.s
@@ -1012,7 +1038,7 @@ class prob(sgra):
             print("Design payload mass:",self.mPayl)
             #mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
             mFinl = self.calcPsblPayl()
-            print("'Possible' payload mass:",mFinl)
+            print('"Possible" payload mass:',mFinl)
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
             DvId = self.calcIdDv()
             print("Ideal Delta v (Tsiolkovsky) with used propellants:",DvId)
@@ -1115,13 +1141,10 @@ class prob(sgra):
             
             ######################################
             plt.subplot2grid((11,1),(9,0))
-            phi = self.calcPhi()
-            acc =  phi[:,1,:]            
-            self.plotCat(acc,color='y',piIsTime=piIsTime)
-            ######### TERTE
-            print("\nHAHAHA", self.restrictions['acc_max'][0:2])
-            plt.plot([0.0,self.pi.sum()],self.restrictions['acc_max'][0:2])
-            #########
+            acc =  self.calcAcc()
+            self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
+            plt.plot([0.0,self.pi.sum()],\
+                      1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]))
             plt.grid(True)
             plt.xlabel("t [s]")
             plt.ylabel("Tang. accel. [m/s²]")
@@ -1565,12 +1588,13 @@ class prob(sgra):
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         
         plt.subplot2grid((11,1),(9,0))
-        phi = self.calcPhi()
-        phi_alt = altSol.calcPhi()
-        acc =  phi[:,1,:]
-        acc_alt = phi_alt[:,1,:]
-        altSol.plotCat(acc_alt,labl=altSolLabl)      
-        self.plotCat(acc,mark='--',color='y',labl=currSolLabl)
+        solAcc =  self.calcAcc()
+        altSolAcc = altSol.calcAcc()
+        plt.plot([0.0,self.pi.sum()],\
+                  1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
+                  label='limit')
+        altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
+        self.plotCat(1e3*solAcc,mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("Tang. accel. [m/s²]")
