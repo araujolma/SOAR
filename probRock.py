@@ -228,6 +228,7 @@ class prob(sgra):
             costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
             Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
 
+
             # boundary conditions
             h_initial = inputDict['h_initial']
             V_initial = inputDict['V_initial']
@@ -404,6 +405,7 @@ class prob(sgra):
 
         self.compWith(solInit,'Initial Guess')
         self.plotSol()
+        self.plotF()
         
         print("\nInitialization complete.\n")        
         return solInit
@@ -945,45 +947,35 @@ class prob(sgra):
         fPF *= (acc > acc_max)
         f = fOrig + fPF
 
-        self.plotCat(f,piIsTime=False,color='b',labl='f')
-        self.plotCat(fOrig,piIsTime=False,color='k',labl='fOrig')
-        self.plotCat(fPF,piIsTime=False,color='r',labl='fPF')
-        plt.title('Integrand of cost function')
-        plt.xlabel('Adimensional time [-]')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+#        self.plotCat(f,piIsTime=False,color='b',labl='f')
+#        self.plotCat(fOrig,piIsTime=False,color='k',labl='fOrig')
+#        self.plotCat(fPF,piIsTime=False,color='r',labl='fPF')
+#        plt.title('Integrand of cost function')
+#        plt.xlabel('Adimensional time [-]')
+#        plt.legend()
+#        plt.grid(True)
+#        plt.show()
 
-        return f#,fOrig,fPF
+        return f,fOrig,fPF
 
     def calcI(self):
         N,s = self.N,self.s
-        f = self.calcF()
+        _,fOrig,fPF = self.calcF()
 
-        Ivec = numpy.empty(s)
-        for arc in range(s):
-            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-            Ivec[arc] += f[1:(N-1),arc].sum()
-            
-        Ivec *= 1.0/(N-1)
+        IvecOrig = numpy.empty(s)
+        IvecPF = numpy.empty(s)
         
-        if self.dbugOptGrad.get('plotF',False):
-            print("\nThis is f:")
-            for arc in range(s):
-                print("Arc =",arc)
-                plt.plot(self.t,f[:,arc])
-                plt.grid(True)
-                plt.xlabel("t")
-                plt.ylabel("f")
-                plt.show()
-                plt.clf()
-                plt.close('all')
+        for arc in range(s):
+            IvecOrig[arc] = .5 * ( fOrig[0,arc] + fOrig[N-1,arc] )
+            IvecOrig[arc] += fOrig[1:(N-1),arc].sum()
+            IvecPF[arc] = .5 * ( fPF[0,arc] + fPF[N-1,arc] )
+            IvecPF[arc] += fPF[1:(N-1),arc].sum()
 
-
-        if self.dbugOptGrad.get('plotI',False):
-            print("I =",Ivec)
-
-        return Ivec.sum()
+        IvecOrig *= 1.0/(N-1)
+        IvecPF *= 1.0/(N-1)
+        Iorig = IvecOrig.sum()
+        Ipf = IvecPF.sum()
+        return Iorig+Ipf, Iorig, Ipf
 #%% Plotting commands and related functions
 
     def calcPsblPayl(self):
@@ -1030,7 +1022,7 @@ class prob(sgra):
 
 
         if opt.get('mode','sol') == 'sol':
-            I = self.calcI()
+            I,Iorig,Ipf = self.calcI()
 
             print("Initial mass:",x[0,3,0])
             print("I:",I)

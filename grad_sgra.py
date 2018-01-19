@@ -51,7 +51,7 @@ class stepMngr():
         P,_,_ = newSol.calcP()
         #Q,_,_,_,_ = newSol.calcQ()
         Q = 1.0
-        I = newSol.calcI()
+        I,_,_ = newSol.calcI()
         
         Obj = self.calcObj(P,Q,I)
 
@@ -68,6 +68,35 @@ class stepMngr():
         
         return self.getLast()
 
+def plotF(self,piIsTime=False):
+    """Plot the cost function integrand."""
+    print("In plotF.")
+
+    argout = self.calcF()
+
+    if isinstance(argout,tuple):
+        if len(argout) == 3:
+            f, fOrig, fPF = argout
+            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+            self.plotCat(fOrig,piIsTime=piIsTime,color='k',labl='Orig cost')            
+            self.plotCat(fPF,piIsTime=piIsTime,color='r',labl='Penalty function')
+        else:
+            f = argout[0]            
+            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+    else:
+        self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+    #
+    plt.title('Integrand of cost function (grad iter #' + \
+              str(self.NIterGrad) + ')')
+    plt.ylabel('f [-]')
+    plt.grid(True)
+    if piIsTime:
+        plt.xlabel('Time [s]')
+    else:
+        plt.xlabel('Adim. time [-]')
+    plt.legend()
+    self.savefig(keyName='F',fullName='F')
+            
 def plotQRes(self,args):
     "Generic plots of the Q residuals"
 
@@ -531,7 +560,7 @@ def calcStepGrad(self, corr):
     #Q0,_,_,_,_ = self.calcQ()
     Q0 = 1.0
     P0,_,_ = self.calcP()
-    I0 = self.calcI()
+    I0,_,_ = self.calcI()
     stepMan = stepMngr(k = 1e-9*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0

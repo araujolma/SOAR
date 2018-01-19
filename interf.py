@@ -358,6 +358,7 @@ class ITman():
                 self.prntDashStr()
                 print("\nSolution so far:")
                 sol.plotSol()
+                sol.plotF()
                 sol.plotTraj()
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')

@@ -555,6 +555,7 @@ class sgra():
         MaxIterGrad = 10000
         self.MaxIterGrad = MaxIterGrad
         self.NIterGrad = 0
+
         self.histStepGrad = numpy.zeros(MaxIterGrad)
         self.histQ = numpy.zeros(MaxIterGrad)
         self.histQx = numpy.zeros(MaxIterGrad)
@@ -563,6 +564,9 @@ class sgra():
         self.histQt = numpy.zeros(MaxIterGrad)
 
         self.histI = numpy.zeros(MaxIterGrad)
+        self.histIorig = numpy.zeros(MaxIterGrad)
+        self.histIpf = numpy.zeros(MaxIterGrad)
+
         self.histGRrate = numpy.zeros(MaxIterGrad)
         
         self.tol = {'P':1e-7,'Q':1e-7}
@@ -819,6 +823,9 @@ class sgra():
     
     def calcI(self,*args,**kwargs):
         pass
+
+    def calcF(self,*args,**kwargs):
+        pass
     
 #%% RESTORATION-WISE METHODS
     
@@ -878,7 +885,11 @@ class sgra():
     def plotQRes(self,args):
         return grad_sgra.plotQRes(self,args)
     
+    def plotF(self,*args,**kwargs):
+        return grad_sgra.plotF(self,*args,**kwargs)
+
     def updtHistQ(self,alfa,mustPlotQs=False):
+        """ Updates the history of Qs, Is and gradStep. """
 
         NIterGrad = self.NIterGrad+1
         
@@ -891,8 +902,10 @@ class sgra():
         self.histQt[NIterGrad] = Qt
         self.histStepGrad[NIterGrad] = alfa
         
-        I = self.calcI()
-        self.histI[NIterGrad] = I        
+        I,Iorig,Ipf = self.calcI()
+        self.histI[NIterGrad] = I
+        self.histIorig[NIterGrad] = Iorig
+        self.histIpf[NIterGrad] = Ipf       
         self.I = I
         
         self.NIterGrad = NIterGrad
@@ -929,10 +942,13 @@ class sgra():
         IterGrad = numpy.arange(1,self.NIterGrad+1,1)
         
         plt.title("Convergence report on I")
-        plt.plot(IterGrad,self.histI[IterGrad])
+        plt.semilogy(IterGrad,self.histI[IterGrad],label='I')
+        plt.semilogy(IterGrad,self.histIorig[IterGrad],label='Iorig')
+        plt.semilogy(IterGrad,self.histIpf[IterGrad],label='Ipf')
         plt.grid(True)
         plt.xlabel("Grad iterations")
         plt.ylabel("I values")
+        plt.legend()
         
         self.savefig(keyName='histI',fullName='I convergence history')
 
