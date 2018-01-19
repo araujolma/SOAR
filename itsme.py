@@ -15,7 +15,9 @@ import numpy
 import configparser
 import matplotlib.pyplot as plt
 from time import clock
-from itsModelHomogeneous import model, modelConfiguration
+from itsModelHomogeneous import model
+from itsModelConfiguration import modelConfiguration
+from itsModelInitialEstimate import modelInitialEstimate
 
 
 def its(*arg):
@@ -120,6 +122,12 @@ class problem():
         modelConf.vehicle()
 
         self.con = modelConf.con
+
+        # Reference values
+        iniEst = modelInitialEstimate(self.con)
+        self.con['Dv1ref'] = iniEst.dv
+        self.con['tref'] = iniEst.t
+        self.con['vxref'] = iniEst.vx
 
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
