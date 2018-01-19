@@ -15,6 +15,8 @@ import numpy
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
+from itsModelStaging import stagingCalculate
+from itsModelPropulsion import modelPropulsion
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
@@ -73,7 +75,7 @@ class model():
 
         #######################################################################
         # Staging calculation
-        self.__stagingCalculate(Dv1, Dv2)
+        self.p1, self.p2 = stagingCalculate(self.con, Dv1, Dv2)
 
         #######################################################################
         # Thrust program
@@ -192,56 +194,6 @@ class model():
                                      tabBeta.multValue(self.traj.tt)],  axis=1)
         self.up = numpy.concatenate([tabAlpha.multValue(self.traj.tp),
                                      tabBeta.multValue(self.traj.tp)],  axis=1)
-
-    def __stagingCalculate(self, Dv1: float, Dv2: float)-> None:
-
-        con = self.con
-        efflist = con['efflist']
-        Tlist = con['Tlist']
-
-        if con['homogeneous']:
-
-            if con['NStag'] == 0:
-
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]],       Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous([efflist[0]], Dv1 + Dv2,
-                                                    [Tlist[0]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p2.ms = p2.mu + p1.me[0]
-                p2.me[0] = 0.0
-                p1.NStag0or1(p2)
-
-            elif con['NStag'] == 1:
-
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]],       Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous([efflist[0]], Dv1 + Dv2,
-                                                    [Tlist[0]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p2.me[0] = p1.me[0]
-                p1.NStag0or1(p2)
-
-            else:
-
-                p2 = modelOptimalStagingHomogeneous([efflist[-1]], Dv2,
-                                                    [Tlist[-1]], con['Isp'],
-                                                    con['g0'],  con['Mu'])
-                p1 = modelOptimalStagingHomogeneous(efflist[0:-1], Dv1,
-                                                    Tlist[0:-1], con['Isp'],
-                                                    con['g0'], p2.mtot[0])
-
-        else:
-            raise Exception('itsme saying: heterogeneous vehicle is' +
-                            ' not supported yet!')
-
-        if p1.mtot[0]*con['g0'] > Tlist[0]:
-            raise Exception('itsme saying: weight greater than thrust!')
-
-        self.p1 = p1
-        self.p2 = p2
 
     def displayInfo(self)-> None:
 
@@ -449,189 +401,6 @@ class model():
         self.e = e
 
 
-class modelOptimalStagingHomogeneous():
-    # optimalStaging() returns a object with information of
-    # optimal staging factor for a homogeneous vehcile
-    # The maximal staging reason is defined as reducing the total mass for
-    # a defined delta V.
-    # Structural eficience and thrust shall variate for diferent stages,  but
-    # specific impulse must be the same for all stages
-    # Based in Cornelisse (1979)
-
-    def __init__(self, effList: list, dV: float, Tlist: list, Isp: float,
-                 g0: float, mu: float):
-        self.Tlist = Tlist
-        self.e = numpy.array(effList)
-        self.T = numpy.array(Tlist)
-        self.dV = dV
-        self.mu = mu
-        self.Isp = Isp
-        self.c = Isp*g0
-        self.mflux = self.T/self.c
-
-        self._lamb = (numpy.exp(-self.dV/self.c/self.e.size) -
-                      self.e)/(1 - self.e)
-
-        phi = (1 - self.e)*(1 - self._lamb)
-
-        # Total sub-rocket mass
-        self.__mtotCalculate()
-        # Propelant mass on each stage
-        self.mp = self.mtot*phi
-        # Strutural mass of each stage
-        self.me = self.mp*(self.e/(1 - self.e))
-        # Duration of each stage burning
-        self.tb = self.mp/self.mflux
-        # Final burning time of each stage
-        self.__tfCalculate()
-        # Empty vehicle mass (!= 0.0 only for NStag == 0)
-        self.ms = 0.0
-        return None
-
-    def __mtotCalculate(self)-> None:
-
-        mtot = self.e*0.0
-        N = self.e.size-1
-        for ii in range(0,  N+1):
-            if ii == 0:
-                mtot[N - ii] = self.mu/self._lamb[N - ii]
-            else:
-                mtot[N - ii] = mtot[N - ii + 1]/self._lamb[N - ii]
-        self.mtot = mtot
-        return None
-
-    def __tfCalculate(self)-> None:
-
-        tf = self.e*0.0
-        N = self.tb.size-1
-        for ii in range(0, N+1):
-            if ii == 0:
-                tf[ii] = self.tb[ii]
-            else:
-                tf[ii] = self.tb[ii] + tf[ii-1]
-        self.tf = tf
-        return None
-
-    def NStag0or1(self, p: object)-> None:
-
-        self.dV = self.dV - p.dV
-        self.mu = p.mtot[0]
-        self.mp[0] = self.mp[0] - p.mp[0]  # Propelant mass on each stage
-        self.me[0] = self.me[0]*0.0
-        self.tb[0] = self.tb[0] - p.tb[0]  # Duration of each stage burning
-        self.tf[0] = self.tf[0] - p.tf[0]
-        return None
-
-    def printInfo(self):
-
-        print("\n\rdV =", self.dV)
-        print("mu =", self.mu)
-        print("me =", self.me)
-        print("mp =", self.mp)
-        print("mtot =", self.mtot)
-        print("mflux =", self.mflux)
-        print("tb =", self.tb)
-        print("tf =", self.tf)
-
-
-class modelPropulsion():
-
-    def __init__(self, p1: object, p2: object, tf: float,
-                 v1: float, v2: float, softness: float, Isp: float, T: float):
-
-        # improvements for heterogeneous rocket
-        self.Isp = Isp
-        self.T = T
-
-        self.t1 = p1.tf[-1]
-        t2 = tf - p2.tb[-1]
-        self.t3 = tf
-
-        self.v1 = v1
-        self.v2 = v2
-
-        f = softness/2
-
-        d1 = self.t1  # width of retangular and 0.5 soft part
-        self.c1 = d1*f  # width of the 0.5 soft part
-        self.fr1 = d1 - self.c1  # final of the retangular part
-        self.fs1 = d1 + self.c1  # final of the retangular part
-
-        d2 = self.t3 - t2  # width of retangular and 0.5 soft part
-        self.c2 = d2*f  # width of the 0.5 soft part
-        self.r2 = d2 - self.c2  # width of the retangular part
-        self.ir2 = t2 + self.c2  # start of the retangular part
-        self.is2 = t2 - self.c2  # start of the soft part
-
-        self.dv21 = v2 - v1
-
-        # List of time events and jetsoned masses
-        self.tflist = p1.tf[0:-1].tolist() + [self.fr1, self.fs1] + \
-            [self.is2, self.ir2, tf]
-        self.melist = p1.me[0:-1].tolist() + [0.0, p1.me[-1]] + \
-            [0.0, 0.0, p2.me[-1]]
-
-        self.fail = False
-        if len(p1.tf) > 2:
-            if p1.tf[-2] >= self.fr1:
-                self.fail = True
-
-        self.tlist1 = p1.tf[0:-1].tolist()+[self.fs1]
-        self.Tlist1 = p1.Tlist
-        self.Tlist2 = p2.Tlist
-
-        self.Isp1 = p1.Isp
-        self.Isp2 = p2.Isp
-
-    def single(self, t: float)-> float:
-        if (t <= self.fr1):
-            ans = self.v1
-        elif (t <= self.fs1):
-            cos = numpy.cos(numpy.pi*(t - self.fr1)/(2*self.c1))
-            ans = self.dv21*(1 - cos)/2 + self.v1
-        elif (t <= self.is2):
-            ans = self.v2
-        elif (t <= self.ir2):
-            cos = numpy.cos(numpy.pi*(t - self.is2)/(2*self.c2))
-            ans = -self.dv21*(1 - cos)/2 + self.v2
-        elif (t <= self.t3):
-            ans = self.v1
-        else:
-            ans = 0.0
-
-        return ans
-
-    def value(self, t: float)-> float:
-        if (t <= self.fr1):
-            ans = self.v1
-        elif (t <= self.fs1):
-            cos = numpy.cos(numpy.pi*(t - self.fr1)/(2*self.c1))
-            ans = self.dv21*(1 - cos)/2 + self.v1
-        elif (t <= self.is2):
-            ans = self.v2
-        elif (t <= self.ir2):
-            cos = numpy.cos(numpy.pi*(t - self.is2)/(2*self.c2))
-            ans = -self.dv21*(1 - cos)/2 + self.v2
-        elif (t <= self.t3):
-            ans = self.v1
-        else:
-            ans = 0.0
-
-        return ans
-
-    def mdlDer(self, t: float)-> tuple:
-
-        return self.value(t), self.Isp, self.T
-
-    def multValue(self, t: float):
-        N = len(t)
-        ans = numpy.full((N, 1), 0.0)
-        for jj in range(0, N):
-            ans[jj] = self.value(t[jj])
-
-        return ans
-
-
 class modelAttitude():
 
     def __init__(self, t1: float, t2: float, v1: float, v2: float):
@@ -712,4 +481,3 @@ class modelEarth():
         self.g0 = con['g0']
         self.R = con['R']
         self.we = con['we']
-
