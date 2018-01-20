@@ -7,7 +7,7 @@ Created on Fri Apr 14 14:14:40 2017
 
 Initial Trajectory Setup ModulE
 
-Version: Objetification
+Version: Heterogeneous
 
 """
 
@@ -112,7 +112,6 @@ class problem():
         configuration.environment()
         configuration.initialState()
         configuration.finalState()
-        configuration.vehicle()
         configuration.trajectory()
         configuration.solver()
 
@@ -346,23 +345,6 @@ class problemConfiguration():
         self.con['gamma_final'] = \
             self.config.getfloat('final', 'gamma')*self.con['d2r']
 
-    def vehicle(self):
-        # Vehicle parameters
-        section = 'vehicle'
-
-        if not self.config.has_option(section, 'homogeneous'):
-            self.con['homogeneous'] = True
-        else:
-            self.con['homogeneous'] = \
-                self.config.getboolean(section, 'homogeneous')
-
-        # This flag show indicates if the vehicle shall be considered as having
-        # the same values of structural mass and thrust for all stages
-        if self.con['homogeneous']:
-            self.__getVehicleHomogeneous(self.config)
-        else:
-            self.__getVehicleHeterogeneous(self.config)
-
     def trajectory(self):
         # Trajectory parameters
         section = 'trajectory'
@@ -408,67 +390,6 @@ class problemConfiguration():
             self.con['Ndiv'] = self.config.getint(section, 'Ndiv')
         else:
             self.con['Ndiv'] = 10
-
-    def __getVehicleHomogeneous(self, config):
-
-        section = 'vehicle'
-        items = config.items(section)
-
-        for para in items:
-            self.con[para[0]] = config.getfloat(section, para[0])
-
-        # Number of stages
-        self.con['NStag'] = config.getint('vehicle', 'NStag')
-        self.con['Isp1'] = self.con['Isp']
-        self.con['Isp2'] = self.con['Isp']
-
-        # This flag show indicates if the vehicle shall be considered as having
-        # the same
-        # values of structural mass and thrust for all stages
-        efflist = []
-        Tlist = []
-        if self.con['NStag'] > 1:
-            for jj in range(0, self.con['NStag']):
-                efflist = efflist+[self.con['efes']]
-                Tlist = Tlist+[self.con['T']]
-        else:
-            # This cases are similar to NStag == 2,  the differences are:
-            # for NStag == 0 no mass is jetsoned
-            # for NStag == 1 all structural mass is jetsoned at the end of all
-            # burning
-            for jj in range(0, 2):
-                efflist = efflist+[self.con['efes']]
-                Tlist = Tlist+[self.con['T']]
-
-        self.con['efflist'] = efflist
-        self.con['Tlist'] = Tlist
-
-    def __getVehicleHeterogeneous(self, config):
-
-        section = 'vehicle'
-        items = config.items(section)
-
-        for para in items:
-            if (para[0] != 'efes') and (para[0] != 'T'):
-                self.con[para[0]] = config.getfloat(section, para[0])
-
-        self.con['NStag'] = config.getint(section, 'NStag')  # Number of stages
-
-        print(self.con['Isp1'])
-
-        auxstr = config.get(section, 'efes')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        self.con['efflist'] = auxnum
-
-        auxstr = config.get(section, 'T')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        self.con['Tlist'] = auxnum
 
 
 class problemIteractions():
