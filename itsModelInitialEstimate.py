@@ -16,7 +16,7 @@ class modelInitialEstimate():
         if con['homogeneous']:
             iniEst = modelInitialEstimateHomogeneous(con)
         else:
-            iniEst = modelInitialEstimateSimple(con)
+            iniEst = modelInitialEstimateSimple2(con)
 
         self.dv = iniEst.dv
         self.t = iniEst.t
@@ -171,7 +171,7 @@ class modelInitialEstimateSimple():
                self.GM/(self.R + self.h1))
         if aux < 0:
             aux = 0
-        perda_gravitacional = dv - 2*numpy.sqrt(aux) - dv*0.05
+        perda_gravitacional = dv - numpy.sqrt(2*aux) - dv*0.05
         perda_arrasto = dv*0.1
 
         erro = self.vc - (self.vx + dv - perda_gravitacional - perda_arrasto)
@@ -182,3 +182,89 @@ class modelInitialEstimateSimple():
         vx0 = self.vx*(self.R + self.hf)/(self.R + self.h1)
         vy = numpy.sqrt(self.dv**2 - vx0**2)
         self.t = vy/self.g0
+
+
+class modelInitialEstimateSimple2():
+
+    # Its is recomendable use all initial guess values equal one
+    # TODO: Understand why the conventional itsme dv estimate is so small
+    def __init__(self, con: dict):
+
+        self.fail = False
+        self.GM = con['GM']
+        self.R = con['R']
+        self.g0 = con['g0']
+        self.hf = con['h_final']
+        self.vc = numpy.sqrt(self.GM/(self.R + self.hf))
+
+        # Losses:
+        # Gravitational
+        self.lg = 0.1
+        # Drag
+        self.ld = 0.1
+
+        # Fraction of final dv
+        self.dv2 = self.vc*0.7
+
+        # Calculations
+        self.__newtonRaphson()
+        self.__tCalculate()
+        self.vx = self.v2
+
+        guess = numpy.array([1, 1, 1])
+        limit = numpy.array([0.999, 0.999, 0.999])
+
+        self.con['guess'] = guess
+        self.con['fsup'] = guess + limit
+        self.con['finf'] = guess - limit
+
+    def __newtonRaphson(self)-> None:
+
+        N = 100
+        ddv = self.vc/N
+        dv = self.vc
+
+        cont = 0
+        erro = 1.0
+
+        while (abs(erro) > 1e-6) and not self.fail:
+
+            erro = self.__dvEstimate(dv)
+            dedt = (self.__dvEstimate(dv + ddv) -
+                    self.__dvEstimate(dv - ddv))/(2*ddv)
+            dv = dv - erro/dedt
+            cont += 1
+            if cont == N:
+                raise Exception('itsme saying: initialEstimate failed')
+                self.fail = True
+
+        self.cont = cont
+        self.dv = dv
+        return None
+
+    def __dvEstimate(self, dv: float)-> float:
+
+        # First propulsive phases
+        self.v1 = (1 - self.lg - self.ld)*dv
+        at1 = self.g0/self.lg
+        a_res1 = at1*(1 - self.lg - self.ld)
+        self.h1 = (self.v1**2)/(2*a_res1)
+
+        # Coast phase
+        aux = ((self.v1**2) + 2*self.GM/(self.R + self.hf) -
+               2*self.GM/(self.R + self.h1))
+        if aux < 0:
+            aux = 0
+
+        self.v2 = numpy.sqrt(aux)
+
+        erro = self.vc - self.v2 - self.dv2
+        return erro
+
+    def __tCalculate(self)-> None:
+
+        # Coast phase duration estimate
+        vx1 = self.v2*(self.R + self.hf)/(self.R + self.h1)
+        vy1 = numpy.sqrt(self.v1**2 - vx1**2)
+        self.t = 2*vy1/(self.GM/(self.R + self.hf)**2 +
+                        self.GM/(self.R + self.h1)**2)
