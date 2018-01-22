@@ -227,7 +227,8 @@ class prob(sgra):
             
             costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
             Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
-
+#            Kpf = 10.0*max(costFuncVals)/((.1*acc_max))#**2)
+#            Kpf = 10.0*max(costFuncVals)#/((.1*acc_max))#**2)
 
             # boundary conditions
             h_initial = inputDict['h_initial']
@@ -743,6 +744,8 @@ class prob(sgra):
             PenaltyIsTrue = (acc > acc_max)
             # Common term
             K2dAPen = 2.0 * Kpf * (acc-acc_max) * PenaltyIsTrue
+#            K2dAPen = Kpf * PenaltyIsTrue
+#            K2dAPen = Kpf * PenaltyIsTrue * (1.0 - tanh(acc/acc_max-1.0)**2)
 
             ## fx derivatives
             # d f d h (incomplete):
@@ -768,6 +771,11 @@ class prob(sgra):
                 ## fp derivatives
                 fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
                                 Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)**2
+#                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+#                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)#**2
+#                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+#                                Kpf * PenaltyIsTrue[:,arc] * tanh(acc[:,arc]/acc_max-1.0)
+
 
                 # fx is ready!
                 fx[:,:,arc] *= pi[arc]
@@ -942,6 +950,8 @@ class prob(sgra):
             fOrig[:,arc] = self.pi[arc] * scal * beta[:,arc] * Thrust[arc] /  \
                             (grav_e * (1.0-s_f[arc]) * Isp[arc])
             fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
+#            fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)
+#            fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)#**2
 
         # Apply penalty only when acc > acc_max
         fPF *= (acc > acc_max)
