@@ -164,24 +164,34 @@ def calcP(self,mustPlotPint=False):
     self.P = P
     
     if mustPlotPint:
-#        plt.subplots_adjust(wspace=1.0,hspace=1.0)
-        plt.subplots_adjust(hspace=.5)
-        plt.subplot2grid((2,1),(0,0))
-        self.plotCat(vetP,piIsTime=False)
-        plt.grid(True)
-        plt.title("P_int: Integrand and accumulated value "+\
-                  "(rest. iter. #"+str(self.NIterRest+1)+")\n"+\
-                   "P = {:.4E}, ".format(P)+\
-                   "P_int = {:.4E}, ".format(Pint)+\
-                   "P_psi = {:.4E}".format(Ppsi))
-        plt.ylabel('Integrand')
-        
+        #plt.subplots_adjust(wspace=1.0,hspace=1.0)
+        #plt.subplots_adjust(hspace=.5)
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        Np = self.n + 2
+
         for arc in range(1,s):
             vetIP[:,arc] += vetIP[-1,arc-1]
-        plt.subplot2grid((2,1),(1,0))
+        plt.subplot2grid((Np,1),(0,0))
         self.plotCat(vetIP,piIsTime=False)
         plt.grid(True)
+        plt.title("P_int: Accumulated value, integrand and error components\n"+\
+                  "P = {:.4E}, ".format(P)+\
+                  "P_int = {:.4E}, ".format(Pint)+\
+                  "P_psi = {:.4E}".format(Ppsi)+\
+                  "\n(rest. iter. #"+str(self.NIterRest+1)+")\n")
         plt.ylabel('Accum.')
+
+        plt.subplot2grid((Np,1),(1,0))
+        self.plotCat(vetP,piIsTime=False,color='k')
+        plt.grid(True)
+        plt.ylabel('Integrand')
+
+        colorList = ['b','g','r','m']
+        for i in range(self.n):
+            plt.subplot2grid((Np,1),(i+2,0))
+            self.plotCat(func[:,i,:],piIsTime=False,color=colorList[i])
+            plt.grid(True)
+            plt.ylabel('State '+str(i))
         
         self.savefig(keyName='Pint',fullName='integrand of P')
     
@@ -289,3 +299,4 @@ def rest(self,parallelOpt={}):
     if self.dbugOptRest['pausRest']:
         self.plotSol()
         input('Rest in debug mode. Press any key to continue...')
+

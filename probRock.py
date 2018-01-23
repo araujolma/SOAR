@@ -20,7 +20,7 @@ class prob(sgra):
         n = 4
         m = 2
         
-        N = 20000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
 
         self.N = N
         self.n = n
@@ -226,9 +226,10 @@ class prob(sgra):
             # cost functional.
             
             costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
-            Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
-#            Kpf = 10.0*max(costFuncVals)/((.1*acc_max))#**2)
-#            Kpf = 10.0*max(costFuncVals)#/((.1*acc_max))#**2)
+#            Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
+            Kpf = 1e-4*max(costFuncVals)/((.1*acc_max)**2)
+#            Kpf = 10.0*max(costFuncVals)/(.1*acc_max)
+#            Kpf = 10.0*max(costFuncVals)
 
             # boundary conditions
             h_initial = inputDict['h_initial']
@@ -380,10 +381,11 @@ class prob(sgra):
 
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
-        self.constants['Thrust'] *= 500.0/40.0
+        ThrustFactor = 2.0#500.0/40.0
+        self.constants['Thrust'] *= ThrustFactor
         # Re-calculate the Kpf, since it scales with the Thrust...
-        self.constants['Kpf'] *= 500.0/40.0
-        u[:,1,:] *= 40.0/500.0
+        self.constants['Kpf'] *= ThrustFactor
+        u[:,1,:] *= 1.0/ThrustFactor
 
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
         
@@ -745,7 +747,8 @@ class prob(sgra):
             # Common term
             K2dAPen = 2.0 * Kpf * (acc-acc_max) * PenaltyIsTrue
 #            K2dAPen = Kpf * PenaltyIsTrue
-#            K2dAPen = Kpf * PenaltyIsTrue * (1.0 - tanh(acc/acc_max-1.0)**2)
+#            K2dAPen = Kpf * PenaltyIsTrue * (1.0 - tanh(acc/acc_max-1.0)**2) *\
+#                        (1.0/acc_max)
 
             ## fx derivatives
             # d f d h (incomplete):
@@ -951,20 +954,14 @@ class prob(sgra):
                             (grav_e * (1.0-s_f[arc]) * Isp[arc])
             fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
 #            fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)
-#            fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)#**2
+#            fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)
+#            fPF[:,arc] = self.pi[arc] * Kpf * \
+#                .5 * (1.0 + numpy.tanh(500.0*(acc[:,arc]/acc_max-1.001)) )
+#0.5*(1.0+numpy.tanh((a-1- 0.001)*500.0 ))
 
         # Apply penalty only when acc > acc_max
         fPF *= (acc > acc_max)
         f = fOrig + fPF
-
-#        self.plotCat(f,piIsTime=False,color='b',labl='f')
-#        self.plotCat(fOrig,piIsTime=False,color='k',labl='fOrig')
-#        self.plotCat(fPF,piIsTime=False,color='r',labl='fPF')
-#        plt.title('Integrand of cost function')
-#        plt.xlabel('Adimensional time [-]')
-#        plt.legend()
-#        plt.grid(True)
-#        plt.show()
 
         return f,fOrig,fPF
 
@@ -1931,3 +1928,4 @@ def calcXdot(td,x,u,constants,arc):
     dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
     dx[3] = -(beta * Thrust[arc])/(grav_e * Isp[arc])
     return dx
+    
