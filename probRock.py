@@ -218,7 +218,7 @@ class prob(sgra):
             s_ref = inputDict['s_ref']*numpy.ones(s)#(numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
             DampCent = 3.0#2.0#
             DampSlop = 3.0
-            acc_max = 3.0 * grav_e
+            acc_max = 35.0 * grav_e
 
             # This approach to Kpf is that if, in any point during flight, the
             # acceleration exceeds the limit by 10%, then the penalty function
@@ -227,9 +227,9 @@ class prob(sgra):
             
             costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
 #            Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
-            Kpf = 1e-4*max(costFuncVals)/((.1*acc_max)**2)
+            Kpf = 1e-2*max(costFuncVals)/((.1*acc_max)**2)
 #            Kpf = 10.0*max(costFuncVals)/(.1*acc_max)
-#            Kpf = 10.0*max(costFuncVals)
+#            Kpf = 10.0 * max(costFuncVals) / tanh(0.1)
 
             # boundary conditions
             h_initial = inputDict['h_initial']
@@ -384,7 +384,7 @@ class prob(sgra):
         ThrustFactor = 2.0#500.0/40.0
         self.constants['Thrust'] *= ThrustFactor
         # Re-calculate the Kpf, since it scales with the Thrust...
-        self.constants['Kpf'] *= ThrustFactor
+        #self.constants['Kpf'] *= ThrustFactor
         u[:,1,:] *= 1.0/ThrustFactor
 
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
@@ -687,7 +687,8 @@ class prob(sgra):
         for arc in range(s):
             t = t0 + self.t * pi[arc]
             fdg[:,arc] = .5*(1.0+tanh(DampSlop*(t-DampCent)))
-            t0 += pi[arc] 
+            t0 += pi[arc]
+
         m = self.x[:,3,:]
         m2 = m * m
         sinGama, cosGama = sin(self.x[:,2,:]), cos(self.x[:,2,:])
@@ -710,7 +711,9 @@ class prob(sgra):
         CDsref = numpy.empty_like(alpha)
         for arc in range(s):
             CLsref[:,arc] = (CL0[arc] + CL1[arc]*alpha[:,arc])*s_ref[arc]
+            #CL[:,arc] = CL0[arc] + CL1[arc] * alpha[:,arc]
             CDsref[:,arc] = (CD0[arc] + CD2[arc]*(alpha[:,arc]**2))*s_ref[arc]
+            #CD[:,arc] = CD0[arc] + CD2[arc] * (alpha[:,arc]**2)
     
         # atmosphere: numerical gradient
         dens = numpy.empty((N,s))
@@ -718,7 +721,15 @@ class prob(sgra):
         for arc in range(s):
             for k in range(N):
                 dens[k,arc] = rho(self.x[k,0,arc])
-                del_rho[k,arc] = (rho(self.x[k,0,arc]+.1) - dens[k,arc])/.1
+                del_rho[k,arc] = (rho(self.x[k,0,arc]+.05) - dens[k,arc])/.05
+
+#        rhoS = numpy.empty((N,s)) # density times ref. area!
+#        del_rhoS = numpy.empty((N,s))
+#        for arc in range(s):
+#            for k in range(N):
+#                rhoS[k,arc] = rho(self.x[k,0,arc])
+#                del_rhoS[k,arc] = (rho(self.x[k,0,arc]+.1) - dens[k,arc])/.1
+
 
         # calculate gravity (at each time/arc!)
         g = GM/r2
@@ -767,7 +778,7 @@ class prob(sgra):
             fPF_u[:,0,:] = K2dAPen * (-bTm * sinAlpha * DAlfaDu1)
             # d f d u2 (incomplete):
             fOrig_u[:,1,:] = DBetaDu2
-            fPF_u[:,1,:] = K2dAPen * cosAlpha / m
+            fPF_u[:,1,:] = K2dAPen * cosAlpha * DBetaDu2 / m
             # fPF_u still lacks pi terms!
 
             for arc in range(s):
@@ -844,17 +855,17 @@ class prob(sgra):
         # d hdot d u2: 0.0
 
         # d vdot d u1:
-            phiu[:,1,0,arc] = - bTm[:,arc] * sinAlpha[:,arc] * DAlfaDu1[:,arc]\
-            - CD2[arc] * alpha[:,arc] * DAlfaDu1[:,arc] * dens[:,arc] * \
-            s_ref[arc] * V2[:,arc] / m[:,arc]
+            phiu[:,1,0,arc] = -(bTm[:,arc] * sinAlpha[:,arc] + \
+            dens[:,arc] * V2[:,arc] * s_ref[arc] * CD2[arc] * alpha[:,arc]) * \
+            DAlfaDu1[:,arc] / m[:,arc]
         # d vdot d u2:
             phiu[:,1,1,arc] = MaxThrs[arc] * cosAlpha[:,arc] * \
             DBetaDu2[:,arc] / m[:,arc]
 
         # d gamadot d u1:
             phiu[:,2,0,arc] = ( thrust[:,arc] * cosAlpha[:,arc] / V[:,arc] + \
-            0.5 * dens[:,arc] * V[:,arc] * s_ref[arc] * CL1[arc] * \
-            DAlfaDu1[:,arc] ) * DAlfaDu1[:,arc]/m[:,arc]
+            0.5 * dens[:,arc] * V[:,arc] * s_ref[arc] * CL1[arc] ) * \
+            DAlfaDu1[:,arc] / m[:,arc]
         # d gamadot d u2:
             phiu[:,2,1,arc] = MaxThrs[arc] * DBetaDu2[:,arc] * \
             sinAlpha[:,arc] / (m[:,arc] * V[:,arc])
@@ -876,7 +887,7 @@ class prob(sgra):
             phix[:,:,:,arc] *= pi[arc]
             phiu[:,:,:,arc] *= pi[arc]
 #==============================================================================
-    
+
         Grads['phix'] = phix
         Grads['phiu'] = phiu
         Grads['phip'] = phip
@@ -1135,17 +1146,24 @@ class prob(sgra):
                 thrust[:,arc] = beta[:,arc] * MaxThrs[arc]           
             self.plotCat(thrust,color='y',piIsTime=piIsTime)
             plt.grid(True)
-            plt.xlabel("t [s]")
+            if piIsTime:
+                plt.xlabel("t [s]")
             plt.ylabel("Thrust [kN]")
             
             ######################################
             plt.subplot2grid((11,1),(9,0))
             acc =  self.calcAcc()
             self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
-            plt.plot([0.0,self.pi.sum()],\
-                      1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]))
+            if piIsTime:
+                plt.plot([0.0,self.pi.sum()],\
+                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]))
+            else:
+                plt.plot([0.0,self.s+1],\
+                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]))
+
             plt.grid(True)
-            plt.xlabel("t [s]")
+            if piIsTime:
+                plt.xlabel("t [s]")
             plt.ylabel("Tang. accel. [m/s²]")
             
             ######################################
@@ -1156,6 +1174,7 @@ class prob(sgra):
             ax.bar(position,pi,width,color='b')
             ax.set_xticks(position + width/2)
             ax.set_xticklabels(stages)
+            plt.grid(True)
             plt.xlabel("Arcs")
             plt.ylabel("Duration [s]")    
             
@@ -1464,18 +1483,7 @@ class prob(sgra):
         currSolLabl = 'currentSol'
 
         # Comparing final mass:        
-        #mFinSol = self.x[-1,3,-1]
-        #mP = self.x[0,3,-1] - mFinSol
-        #e = self.constants['s_f'][-1]
-        #mStrFinStgSol = mP * e/(1.0-e)
-        #mPaySol = mFinSol - mStrFinStgSol
         mPaySol = self.calcPsblPayl()
-
-        #mFinAlt = altSol.x[-1,3,-1]
-        #mP = altSol.x[0,3,-1] - mFinAlt
-        #e = altSol.constants['s_f'][-1]
-        #mStrFinStgAlt = mP * e/(1.0-e)
-        #mPayAlt = mFinAlt - mStrFinStgAlt
         mPayAlt = altSol.calcPsblPayl()
         
         paylMassGain = mPaySol - mPayAlt
@@ -1633,10 +1641,8 @@ class prob(sgra):
         R = self.constants['r_e']
         N, s = self.N, self.s
 
-        # Density and acceleration, for all times/arcs
+        # Density for all times/arcs
         dens = numpy.empty((N,s))
-        acc = numpy.empty((N,s))
-        
         X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
         StgSepPnts = numpy.zeros((s,2))
 #        StgInitAcc = numpy.zeros(s)
@@ -1671,14 +1677,10 @@ class prob(sgra):
             dtd = self.dt * self.pi[arc] # Dimensional dt...
             if compare:
                 dtd_alt = altSol.dt * altSol.pi[arc]
-#            dv0 = self.x[1,1,arc]-self.x[0,1,arc]
-#            StgInitAcc[arc] = dv0/dtd/self.constants['grav_e']
 
             for i in range(strtInd,N):
                 dens[i,arc] = rho(self.x[i,0,arc])
-                dv = self.x[i,1,arc]-self.x[i-1,1,arc]
-                acc[i,arc] = dv/dtd/self.constants['grav_e']
-                
+
                 iCont += 1
 
                 if isBurn:
@@ -1714,9 +1716,6 @@ class prob(sgra):
             # TODO: this must be readequated to new formulation, where arcs
             # might not be the stage separation poins necessarily
             StgSepPnts[arc,:] = X[iCont],Z[iCont]
-#            dvF = self.x[N-1,1,arc]-self.x[N-2,1,arc]
-#            StgFinlAcc[arc] = dvF/dtd/self.constants['grav_e']
-
             #strtInd = 0
         #
         # The rocket most definitely ends the trajectory with engine shutdown.
@@ -1869,9 +1868,6 @@ class prob(sgra):
         else:
             plt.show()
             plt.clf()
-        
-#        print("\nInitStgAcc[g] =",StgInitAcc)
-#        print("FinlStgAcc[g] =",StgFinlAcc)
 
 #%%
 def calcXdot(td,x,u,constants,arc):
