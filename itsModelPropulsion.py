@@ -105,3 +105,55 @@ class modelPropulsion():
             ans[jj] = self.value(t[jj])
 
         return ans
+
+
+class modelPropulsionHetSimple():
+
+    def __init__(self, p1: object, p2: object, tf: float,
+                 v1: float, v2: float):
+
+        # Improvements for heterogeneous rocket
+        self.fail = False
+        # Total list of specific impulse
+        self.Isplist = p1.Isplist + [1.0] + p2.Isplist
+        # Total list of Thrust
+        self.Tlist = p1.Tlist + [0.0] + p2.Tlist
+        # Total list of final t
+        t2 = tf - p2.tb[-1]
+        self.tflist = p1.tf + [t2, tf]
+        # Total list of jettsoned masses
+        self.melist = p1.me + [0.0, p2.me[-1]]
+        # Total list of Thrust control
+        self.vlist = []
+        for T in self.Tlist:
+            if T > 0.0:
+                self.vlist.append(v1)
+            else:
+                self.vlist.append(v2)
+
+    def getIndex(self, t: float)-> int:
+        ii = 0
+
+        while t < self.tf[ii]:
+            ii += 1
+
+        return ii
+
+    def single(self, t: float)-> float:
+        ii = self.getIndex(t)
+        return self.vlist[ii]
+
+    def value(self, t: float)-> float:
+        ii = self.getIndex(t)
+        return self.vlist[ii]
+
+    def mdlDer(self, t: float)-> tuple:
+        ii = self.getIndex(t)
+        return self.vlist[ii], self.Isplist[ii], self.Tlist[ii]
+
+    def multValue(self, t: float):
+        N = len(t)
+        ans = numpy.full((N, 1), 0.0)
+        for jj in range(0, N):
+            ans[jj] = self.value(t[jj])
+        return ans
