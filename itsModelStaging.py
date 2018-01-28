@@ -12,7 +12,6 @@ import numpy
 def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
 
     efflist = con['efflist']
-    Isplist = con['Isplist']
     Tlist = con['Tlist']
 
     if con['homogeneous']:
@@ -52,6 +51,7 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
     else:
 
         if con['NStag'] > 1:
+            Isplist = con['Isplist']
             p2 = modelOptimalStagingHomogeneous([efflist[-1]], Isplist[-1],
                                                 [Tlist[-1]], Dv2, con['Mu'],
                                                 con['g0'], con['tol'])
@@ -61,7 +61,7 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
                                                 con['g0'], con['tol'])
 
         else:
-            raise Exception('itsme saying: heterogeneous vehicle for' +
+            raise Exception('itsme saying: heterogeneous vehicle for'
                             'NStag < 2 is not supported yet!')
 
     if p1.mtot[0]*con['g0'] > Tlist[0]:
