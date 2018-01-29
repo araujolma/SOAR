@@ -111,7 +111,7 @@ def plotQRes(self,args):
               "= {:.4E}".format(args['Qx'])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     errQx = args['errQx']
     for i in range(self.n):
         plt.subplot2grid((nm1,1),(i+1,0))
@@ -131,7 +131,7 @@ def plotQRes(self,args):
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     errQu = args['errQu']
     for i in range(self.m):
         plt.subplot2grid((mm1,1),(i+1,0))
@@ -154,7 +154,7 @@ def plotQRes(self,args):
         titlStr += "{:.4E}, ".format(resVecIntQp[j])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
         self.plotCat(errQp[:,j,:],color='k')
@@ -561,7 +561,7 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0,_,_ = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
+    stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P

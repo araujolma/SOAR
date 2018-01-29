@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 11 10:40:31 2017
+Created on Thu Jan 25 08:23:37 2018
 
 @author: araujolma
 
-A module for the cart problem: 
-get the cart from position 0 to position 1 in minimal time, 
-subject to restrictions on maximum acceleration and deceleration.
-
-There are two subarcs, connected through the "middle", equaling position and
-velocity.
-
+A module for the brachistochrone problem.
 """
 
 import numpy
@@ -19,15 +13,15 @@ from sgra import sgra
 import matplotlib.pyplot as plt
 
 class prob(sgra):
-    probName = 'probCart'
+    probName = 'probBrac'
     
     def initGues(self,opt={}):
         # matrix sizes
-        n = 2
+        n = 3
         m = 1
-        p = 2
-        q = 6#8
-        s = 2
+        p = 1
+        q = 5
+        s = 1
         N = 2000+1#20000+1#2000+1
 
         self.N = N
@@ -59,12 +53,22 @@ class prob(sgra):
         u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
         
         #x[:,0,0] = t.copy()
+        #for i in range(N):
+        #    x[i,1,0] = x[N-i-1,0,0]
+        #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
+        pi = numpy.array([2.0/numpy.sqrt(10.0)])
+        td = t * pi[0]
+        x[:,0,0] = 2.5 * (td**2)
+        x[:,1,0] = 1.0 - x[:,0,0]
+        x[:,2,0] = numpy.sqrt(10.0 * x[:,0,0])
+
         #x[:,0,0] = .5*t
         #x[:,0,1] = .5+.5*t
         
         lam = 0.0*x
         mu = numpy.zeros(q)
-        pi = 10.0*numpy.ones(p)
+        #pi = 10.0*numpy.ones(p)
+        
         
         self.x = x
         self.u = u
@@ -87,9 +91,12 @@ class prob(sgra):
         u = self.u
         pi = self.pi
         
+        gama = .25 * numpy.pi * (1.0 + numpy.tanh(u))
+        
         for arc in range(s):
-            phi[:,0,arc] = pi[arc] * x[:,1,arc]
-            phi[:,1,arc] = pi[arc] * numpy.tanh(u[:,0,arc])
+            phi[:,0,arc] = pi[arc] * x[:,2,arc] * numpy.cos(gama[:,0,arc])
+            phi[:,1,arc] = -pi[arc] * x[:,2,arc] * numpy.sin(gama[:,0,arc])
+            phi[:,2,arc] = pi[arc] * 10.0 * numpy.sin(gama[:,0,arc])
     
         return phi
 
@@ -97,20 +104,16 @@ class prob(sgra):
 
     def calcGrads(self,calcCostTerm=False):
         Grads = dict()
-    
+
         N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
-        x,u,pi = self.x,self.u,self.pi
-            
+        pi = self.pi
+
         # Pre-assign functions
-        
-        tanh = numpy.tanh
-        array = numpy.array
-        
         Grads['dt'] = 1.0/(N-1)
 
         phix = numpy.zeros((N,n,n,s))
         phiu = numpy.zeros((N,n,m,s))
-                    
+
         if p>0:
             phip = numpy.zeros((N,n,p,s))
         else:
@@ -119,36 +122,37 @@ class prob(sgra):
         fx = numpy.zeros((N,n,s))
         fu = numpy.zeros((N,m,s))
         fp = numpy.empty((N,p,s))        
-                
+
         #psiy = numpy.eye(q,2*n*s)
         psiy = numpy.zeros((q,2*n*s))
-        psiy[0,0] = 1.0
-        psiy[1,1] = 1.0
-        psiy[2,2] = 1.0; psiy[2,4] = -1.0
-        psiy[3,3] = 1.0; psiy[3,5] = -1.0
-        psiy[4,6] = 1.0
-        psiy[5,7] = 1.0
-        
-#        psiy[0,0] = 1.0
-#        psiy[1,1] = 1.0
-#        psiy[1,2] = -1.0
-#        psiy[2,3] = 1.0
-        
+        psiy[0,0] = 1.0 # x(0) = 0
+        psiy[1,1] = 1.0 # y(0) = 1
+        psiy[2,2] = 1.0 # v(0) = 0
+        psiy[3,3] = 1.0 # x(1) = 1
+        psiy[4,4] = 1.0 # y(1) = 0
+
         psip = numpy.zeros((q,p))
-        
-        Idp = numpy.eye(p)
-        
-        tanh_u = tanh(u)
-        DynMat = array([[0.0,1.0],[0.0,0.0]]) 
-        for k in range(N):
-            for arc in range(s):    
-                
-                phix[k,:,:,arc] = pi[arc] * DynMat
-                phiu[k,:,:,arc] = pi[arc] * array([[0.0],\
-                                                   [1.0-tanh_u[k,0,arc]**2]])
-                phip[k,:,arc,arc] = array([x[k,1,arc],\
-                                           tanh_u[k,0,arc]])
-            fp[k,:] = Idp
+
+        tanh_u = numpy.tanh(self.u)
+        gama = .25 * numpy.pi * (1.0 + tanh_u)
+        dgdu = .25 * numpy.pi * (1.0 - tanh_u**2)
+        sinGama, cosGama = numpy.sin(gama), numpy.cos(gama)
+
+        for arc in range(s):    
+            phix[:,0,2,arc] = pi[arc] * cosGama[:,0,arc]
+            phix[:,1,2,arc] = -pi[arc] * sinGama[:,0,arc]
+
+            phiu[:,0,0,arc] = -pi[arc] * self.x[:,2,arc] * sinGama[:,0,arc] * dgdu[:,0,arc]
+            phiu[:,1,0,arc] = -pi[arc] * self.x[:,2,arc] * cosGama[:,0,arc] * dgdu[:,0,arc]
+            phiu[:,2,0,arc] = pi[arc] * 10.0 * cosGama[:,0,arc] * dgdu[:,0,arc]
+
+            phip[:,0,arc,arc] = self.x[:,2,arc] * cosGama[:,0,arc]
+            phip[:,1,arc,arc] = -self.x[:,2,arc] * sinGama[:,0,arc]
+            phip[:,2,arc,arc] = 10.0 * sinGama[:,0,arc]
+
+            fp[:,arc,arc] = 1.0
+        #
+
         Grads['phix'] = phix
         Grads['phiu'] = phiu
         Grads['phip'] = phip
@@ -163,13 +167,14 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        x = self.x
         N = self.N
 #        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
 #                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
-        return numpy.array([x[0,0,0],x[0,1,0],\
-                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],\
-                            x[N-1,0,1]-1.0,x[N-1,1,1]])
+        return numpy.array([self.x[0,0,0],\
+                            self.x[0,1,0]-1.0,\
+                            self.x[0,2,0],\
+                            self.x[N-1,0,0]-1.0,\
+                            self.x[N-1,1,0]])
         
     def calcF(self):
         N,s = self.N,self.s
@@ -195,9 +200,8 @@ class prob(sgra):
             
     def plotSol(self,opt={},intv=[]):
 
-        x = self.x
-        u = self.u
         pi = self.pi
+        r2d = 180.0/numpy.pi
         
 #        if len(intv)==0:
 #            intv = numpy.arange(0,self.N,1,dtype='int')
@@ -212,25 +216,30 @@ class prob(sgra):
             I, _, _ = self.calcI()
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
-            
-            plt.subplot2grid((4,1),(0,0),colspan=5)
-            self.plotCat(x[:,0,:])
+            titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+            plt.subplot2grid((5,1),(0,0),colspan=5)
+            self.plotCat(self.x[:,0,:])
             plt.grid(True)
-            plt.ylabel("Position")
+            plt.ylabel("x [m]")
             plt.title(titlStr)
-            plt.subplot2grid((4,1),(1,0),colspan=5)
-            self.plotCat(x[:,1,:],color='g')
+            plt.subplot2grid((5,1),(1,0),colspan=5)
+            self.plotCat(self.x[:,1,:],color='g')
             plt.grid(True)
-            plt.ylabel("Speed")
-            plt.subplot2grid((4,1),(2,0),colspan=5)
-            self.plotCat(u[:,0,:],color='k')
+            plt.ylabel("y [m]")
+            plt.subplot2grid((5,1),(2,0),colspan=5)
+            self.plotCat(self.x[:,2,:],color='r')
+            plt.grid(True)
+            plt.ylabel("V [m/s]")
+            plt.subplot2grid((5,1),(3,0),colspan=5)
+            self.plotCat(self.u[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.subplot2grid((4,1),(3,0),colspan=5)
-            self.plotCat(numpy.tanh(u[:,0,:]),color='k')
+            plt.subplot2grid((5,1),(4,0),colspan=5)
+            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
+            self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
-            plt.ylabel('Acceleration')    
-            plt.xlabel("Concat. adim. time [-]")
+            plt.ylabel('Inclination angle [deg]')    
+            plt.xlabel("Time [s]")
         
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
@@ -249,54 +258,64 @@ class prob(sgra):
                         
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
         
-            plt.subplot2grid((4,1),(0,0))
+            plt.subplot2grid((5,1),(0,0))
             self.plotCat(dx[:,0,:])
             plt.grid(True)
             plt.ylabel("Position")
             plt.title(titlStr)
             
-            plt.subplot2grid((4,1),(1,0))
+            plt.subplot2grid((5,1),(1,0))
             self.plotCat(dx[:,1,:],color='g')
             plt.grid(True)
             plt.ylabel("Speed")
+            
+            plt.subplot2grid((5,1),(2,0))
+            self.plotCat(dx[:,2,:],color='r')
+            plt.grid(True)
+            plt.ylabel("Speed")
                         
-            plt.subplot2grid((4,1),(2,0))
+            plt.subplot2grid((5,1),(3,0))
             self.plotCat(du[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
             
             new_u = self.u + du
-            acc = numpy.tanh(self.u)
-            new_acc = numpy.tanh(new_u)
-            dacc = new_acc-acc
-            plt.subplot2grid((4,1),(3,0))
-            self.plotCat(dacc[:,0,:],color='r')
+            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
+            new_gama = 0.25*numpy.pi*(1.0+numpy.tanh(new_u))
+            dgama = new_gama - gama
+            plt.subplot2grid((5,1),(4,0))
+            self.plotCat(r2d*dgama[:,0,:],color='r')
             plt.grid(True)
             plt.xlabel("t")
-            plt.ylabel("Acceleration")    
+            plt.ylabel("Inclination angle [deg]")    
             
             self.savefig(keyName='corr',fullName='corrections')
             
         elif opt['mode'] == 'lambda':
             titlStr = "Lambda for current solution"
             
-            plt.subplot2grid((4,1),(0,0),colspan=5)
+            plt.subplot2grid((5,1),(0,0),colspan=5)
             self.plotCat(self.lam[:,0,:])
             plt.grid(True)
-            plt.ylabel("lambda: Position")
+            plt.ylabel("lambda: x")
             plt.title(titlStr)
-            plt.subplot2grid((4,1),(1,0),colspan=5)
+            plt.subplot2grid((5,1),(1,0),colspan=5)
             self.plotCat(self.lam[:,1,:],color='g')
             plt.grid(True)
+            plt.ylabel("lambda: y")
+            plt.subplot2grid((5,1),(2,0),colspan=5)
+            self.plotCat(self.lam[:,2,:],color='g')
+            plt.grid(True)
             plt.ylabel("lambda: Speed")
-            plt.subplot2grid((4,1),(2,0),colspan=5)
-            self.plotCat(u[:,0,:],color='k')
+            plt.subplot2grid((5,1),(3,0),colspan=5)
+            self.plotCat(self.u[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.subplot2grid((4,1),(3,0),colspan=5)
-            self.plotCat(numpy.tanh(u[:,0,:]),color='k')
+            plt.subplot2grid((5,1),(4,0),colspan=5)
+            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
+            self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
-            plt.ylabel('Acceleration')    
+            plt.ylabel('Inclination angle [deg]')    
             plt.xlabel("Time [s]")
         
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
@@ -307,11 +326,34 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
 
-  
+    def plotTraj(self,mustSaveFig=True):
+        """Plot the trajectory of the sliding mass."""
+        
+        X = self.x[:,0,0]
+        Y = self.x[:,1,0]
+        
+        plt.plot(X,Y)
+        plt.plot(X[0],Y[0],'o')
+        plt.plot(X[-1],Y[-1],'s')
+        plt.axis('equal')
+        plt.grid(True)
+        plt.xlabel("X [m]")
+        plt.ylabel("Z [m]")
+        
+        titlStr = "Trajectory "
+        titlStr += "(grad iter #" + str(self.NIterGrad) + ")\n"
+        plt.title(titlStr)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        
+        if mustSaveFig:
+            self.savefig(keyName='traj',fullName='trajectory')
+        else:
+            plt.show()
+            plt.clf()
         
     #
 if __name__ == "__main__":
-    print("\n\nRunning probCart.py!\n")
+    print("\n\nRunning probBrac.py!\n")
     exmpProb = prob()
     
     print("Initializing problem:")
@@ -323,10 +365,10 @@ if __name__ == "__main__":
     exmpProb.plotSol()
     
     print("Calculating f:")
-    f = exmpProb.calcF()
+    f,_,_ = exmpProb.calcF()
     exmpProb.plotCat(f)
     plt.grid(True)
-    plt.xlabel('Concat. adim. time')
+    plt.xlabel('Time')
     plt.ylabel('f')
     plt.show()
     
