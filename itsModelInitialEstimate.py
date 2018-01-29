@@ -204,19 +204,12 @@ class modelInitialEstimateSimple2():
         self.ld = 0.1
 
         # Fraction of final dv
-        self.dv2 = self.vc*0.7
+        self.dv2 = self.vc*con['fracVel']
 
         # Calculations
         self.__newtonRaphson()
         self.__tCalculate()
         self.vx = self.v2
-
-        guess = numpy.array([1, 1, 1])
-        limit = numpy.array([0.999, 0.999, 0.999])
-
-        self.con['guess'] = guess
-        self.con['fsup'] = guess + limit
-        self.con['finf'] = guess - limit
 
     def __newtonRaphson(self)-> None:
 

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
 from itsModelStaging import stagingCalculate
-from itsModelPropulsion import modelPropulsion
+from itsModelPropulsion import modelPropulsion, modelPropulsionHetSimple
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
@@ -79,11 +79,15 @@ class model():
 
         #######################################################################
         # Thrust program
-        tabBeta = modelPropulsion(self.p1, self.p2, tf, 1.0, 0.0,
-                                  con['softness'], con['Isp'], con['T'])
+        if con['homogeneous']:
+            tabBeta = modelPropulsion(self.p1, self.p2, tf, 1.0, 0.0,
+                                      con['softness'], con['Isp'], con['T'])
+        else:
+            tabBeta = modelPropulsionHetSimple(self.p1, self.p2, tf, 1.0, 0.0)
         if tabBeta.fail:
             raise Exception('itsme saying: Softness too high!')
         self.tabBeta = tabBeta
+        # self.tabBeta.show()
 
         #######################################################################
         # Attitude program definition
@@ -265,6 +269,7 @@ class model():
             # Check phases time monotonic increse
             for ii in range(1, len(tphases)):
                 if tphases[ii - 1] >= tphases[ii]:
+                    print('tphases = ', tphases)
                     raise Exception('itsme saying: tphases does ' +
                                     'not increase monotonically!')
 

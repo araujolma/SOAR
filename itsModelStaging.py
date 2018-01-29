@@ -52,19 +52,24 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
 
         if con['NStag'] > 1:
             Isplist = con['Isplist']
-            p2 = modelOptimalStagingHomogeneous([efflist[-1]], Isplist[-1],
-                                                [Tlist[-1]], Dv2, con['Mu'],
-                                                con['g0'], con['tol'])
 
-            p1 = modelOptimalStagingHomogeneous(efflist[0:-1], Isplist[0:-1],
-                                                Tlist[0:-1], Dv1, p2.mtot[0],
-                                                con['g0'], con['tol'])
-
+            p2 = modelOptimalStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
+                                                  [Tlist[-1]], Dv2, con['Mu'],
+                                                  con['g0'], con['tol'])
+            p2.bisec()
+            p2.result()
+            p1 = modelOptimalStagingHeterogeneous(efflist[0:-1], Isplist[0:-1],
+                                                  Tlist[0:-1], Dv1, p2.mtot[0],
+                                                  con['g0'], con['tol'])
+            p1.bisec()
+            p1.result()
         else:
             raise Exception('itsme saying: heterogeneous vehicle for'
                             'NStag < 2 is not supported yet!')
 
     if p1.mtot[0]*con['g0'] > Tlist[0]:
+        print('T = ', Tlist[0])
+        print('P = ', p1.mtot[0]*con['g0'])
         raise Exception('itsme saying: weight greater than thrust!')
 
     return p1, p2
@@ -155,7 +160,7 @@ class modelOptimalStagingHomogeneous():
         print("tf =", self.tf)
 
 
-class optimalStagingHeterogeneous():
+class modelOptimalStagingHeterogeneous():
 
     def __init__(self, elist: list, Isplist: list, Tlist: list, vTot: float,
                  Mu: float, g0: float, tol: float):
@@ -163,6 +168,7 @@ class optimalStagingHeterogeneous():
         self.Mu = Mu
         self.tol = tol
         self.e = numpy.array(elist)
+        self.Isplist = Isplist
         self.c = numpy.array(Isplist)*g0
         self.T = numpy.array(Tlist)
         self.vTot = vTot
@@ -213,7 +219,7 @@ class optimalStagingHeterogeneous():
                 stop = True
 
             if (x2 < 0) or (x2 > self.cMin):
-                raise Exception('staging: lagrange multplier out of interval')
+                raise Exception('itsme saying: lagrange multiplier out of interval')
 
         self.x = x2
         self.count = count
@@ -247,6 +253,11 @@ class optimalStagingHeterogeneous():
         for ii in range(1, N):
             self.tf[ii] = self.tf[ii - 1] + self.tb[ii]
 
+        self.Tlist = self.T.tolist()
+        self.tf = self.tf.tolist()
+        self.tb = self.tb.tolist()
+        self.me = self.me.tolist()
+
         return None
 
     def show(self) -> None:
@@ -269,5 +280,16 @@ class optimalStagingHeterogeneous():
         print('me', self.me)
         print('tb', self.tb)
         print('tf', self.tf)
+
+    def printInfo(self)-> None:
+
+        print("\n\rdV =", self.vTot)
+        print("mu =", self.Mu)
+        print("me =", self.me)
+        print("mp =", self.mp)
+        print("mtot =", self.mtot)
+        print("mflux =", self.mflux)
+        print("tb =", self.tb)
+        print("tf =", self.tf)
 
         return None

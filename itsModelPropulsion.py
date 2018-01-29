@@ -130,12 +130,20 @@ class modelPropulsionHetSimple():
                 self.vlist.append(v1)
             else:
                 self.vlist.append(v2)
+        # number of archs
+        self.N = len(self.tflist)
 
     def getIndex(self, t: float)-> int:
         ii = 0
-
-        while t < self.tf[ii]:
-            ii += 1
+        stop = False
+        while not stop:
+            if ii == self.N:
+                stop = True
+            elif t < self.tflist[ii]:
+                stop = True
+                # ii = ii - 1
+            else:
+                ii += 1
 
         return ii
 
@@ -145,11 +153,21 @@ class modelPropulsionHetSimple():
 
     def value(self, t: float)-> float:
         ii = self.getIndex(t)
-        return self.vlist[ii]
+        if ii == self.N:
+            ans = 0.0
+        else:
+            ans = self.vlist[ii]
+
+        return ans
 
     def mdlDer(self, t: float)-> tuple:
         ii = self.getIndex(t)
-        return self.vlist[ii], self.Isplist[ii], self.Tlist[ii]
+        if ii == self.N:
+            ans = 0.0, 1.0, 0.0
+        else:
+            ans = self.vlist[ii], self.Isplist[ii], self.Tlist[ii]
+
+        return ans
 
     def multValue(self, t: float):
         N = len(t)
@@ -157,3 +175,12 @@ class modelPropulsionHetSimple():
         for jj in range(0, N):
             ans[jj] = self.value(t[jj])
         return ans
+
+    def show(self):
+
+        print('Isplist', self.Isplist)
+        print('Tlist', self.Tlist)
+        print('melist', self.melist)
+        print('vlist', self.vlist)
+        print('tflist', self.tflist)
+        raise

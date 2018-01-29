@@ -15,7 +15,7 @@ import numpy
 import configparser
 import matplotlib.pyplot as plt
 from time import clock
-from itsModelHomogeneous import model
+from itsModel import model
 from itsModelConfiguration import modelConfiguration
 from itsModelInitialEstimate import modelInitialEstimate
 
@@ -390,6 +390,11 @@ class problemConfiguration():
             self.con['Ndiv'] = self.config.getint(section, 'Ndiv')
         else:
             self.con['Ndiv'] = 10
+
+        if self.config.has_option(section, 'fracVel'):
+            self.con['fracVel'] = self.config.getint(section, 'fracVel')
+        else:
+            self.con['fracVel'] = 0.7
 
 
 class problemIteractions():
