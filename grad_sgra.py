@@ -19,7 +19,7 @@ class stepMngr():
     and P. The I value is most relevant, and the P value is secondary. The
     k parameter defines the importance of P with respect to I."""
     
-    def __init__(self,k=1e3):
+    def __init__(self,k=1e3,tolP=1e-4):
         self.cont = -1
         self.histStep = list()
         self.histI = list()
@@ -27,9 +27,15 @@ class stepMngr():
         self.histQ = list()
         self.histObj = list()
         self.k = k
+        self.tolP = tolP
 
     def calcObj(self,P,Q,I):
         return (I + (self.k)*P)
+#        if P > self.tolP:
+#            return (I + (self.k)*(P-self.tolP))
+#        else:
+#            return I
+            
     
     def getLast(self):
         P = self.histP[self.cont]
@@ -561,7 +567,7 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0,_,_ = self.calcI()
-    stepMan = stepMngr(k = 1e-4*I0/self.tol['P'])
+    stepMan = stepMngr(k = 1e-2 * I0/self.tol['P'], tolP = self.tol['P'])
     #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
@@ -794,7 +800,8 @@ def grad(self,parallelOpt={}):
      
     # Calculation of alfa
     alfa = self.calcStepGrad(corr)
-
+    #alfa = 0.1
+    #print('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 
     self.plotSol(opt={'mode':'lambda'})
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
