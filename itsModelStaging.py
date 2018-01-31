@@ -67,6 +67,13 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
             raise Exception('itsme saying: heterogeneous vehicle for'
                             'NStag < 2 is not supported yet!')
 
+    if numpy.isnan(p1.mtot[0]):
+        print('p1: ')
+        p1.show()
+        print('\np2: ')
+        p2.show()
+        raise Exception('itsme saying: negative masses!')
+
     if p1.mtot[0]*con['g0'] > Tlist[0]:
         print('T = ', Tlist[0])
         print('P = ', p1.mtot[0]*con['g0'])
@@ -207,7 +214,7 @@ class modelOptimalStagingHeterogeneous():
 
             step = error2*(x2 - x1)/(error2 - error1)
 
-            x1 = x2.copy()
+            x1 = x2 + 0.0
             error1 = error2.copy()
 
             x2 = x2 - step
@@ -218,8 +225,13 @@ class modelOptimalStagingHeterogeneous():
             if (abs(error2) < self.tol) or (count == 100):
                 stop = True
 
-            if (x2 < 0) or (x2 > self.cMin):
-                raise Exception('itsme saying: lagrange multiplier out of interval')
+            warnning = 'itsme saying: lagrange multiplier out of interval'
+            if (x2 < 0):
+                x2 = 0.0
+                print(warnning)
+            elif (x2 > self.cMin):
+                x2 = self.cMin + 0.0
+                print(warnning)
 
         self.x = x2
         self.count = count

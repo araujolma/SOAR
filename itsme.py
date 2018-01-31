@@ -392,7 +392,7 @@ class problemConfiguration():
             self.con['Ndiv'] = 10
 
         if self.config.has_option(section, 'fracVel'):
-            self.con['fracVel'] = self.config.getint(section, 'fracVel')
+            self.con['fracVel'] = self.config.getfloat(section, 'fracVel')
         else:
             self.con['fracVel'] = 0.7
 

@@ -104,8 +104,8 @@ class modelConfiguration():
         self.con['NStag'] = config.getint(section, 'NStag')  # Number of stages
 
         auxstr = config.get(section, 'Isp')
-        print(auxstr)
-        print(self.con['NStag'])
+        # print(auxstr)
+        # print(self.con['NStag'])
         self.con['Isplist'] = self.__getListString(auxstr, self.con['NStag'])
 
         auxstr = config.get(section, 'efes')

@@ -29,6 +29,8 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     M = x[3]
 
     if numpy.isnan(h):
+        print('t: ', t)
+        #  print('x: ', x)
         raise Exception('itsme saying: h is not a number')
 
     # Alpha control calculation
@@ -45,6 +47,11 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     qdinSrefM = 0.5 * rho(h) * (v**2) * aed.s_ref/M
     LM = qdinSrefM * (aed.CL0 + aed.CL1*alfat)
     DM = qdinSrefM * (aed.CD0 + aed.CD2*(alfat**2))
+
+    if v < 1e-6 and v >= 0.0:
+        v = 1e-6
+    elif v > -1e-6 and v < 0.0:
+        v = -1e-6
 
     # states derivatives
     return [v*sinGamma,  # coefficient

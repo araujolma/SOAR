@@ -13,13 +13,13 @@ Mu = 100
 NStag = 3
 #
 # Specific impulse [s]
-Isp = 450, 440, 430
+Isp = 307, 310, 305
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = 0.06, 0.05, 0.07
+efes = 0.12, 0.10, 0.07
 #
 # Thrust [kN]
-T = 45.0, 40.0, 35.0
+T = 420.0, 370.0, 60.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -31,8 +31,8 @@ CL0 = 0.0
 # (B1 Miele 1998)
 CL1 = 0.8
 #
-# (A0 Miele 1998)
-CD0 = 0.05
+#
+CD0 = 0.5
 #
 # (A2 Miele 1998)
 CD2 = 0.5
@@ -88,8 +88,9 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1.0, 1.5, 1.0
+guess = 0.5, 2.0, 1.0
 #
-limit = 0.9, 1.4, 0.9
+limit = 0.5, 1.9, 0.9
 #
 tol = 1e-8
+
