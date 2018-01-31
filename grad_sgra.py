@@ -561,7 +561,8 @@ def calcStepGrad(self, corr):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0,_,_ = self.calcI()
-    stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
+    stepMan = stepMngr(k = 1e-4*I0/self.tol['P'])
+    #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
@@ -691,7 +692,7 @@ def calcStepGrad(self, corr):
             break
             
     # Get final values of Q and P
-    Q = histQ[k]; P = histP[k]      
+    Q = histQ[k]; P = histP[k]
        
     # after all this analysis, plot the history of the tried alfas, and 
     # corresponding Q's  
@@ -699,12 +700,13 @@ def calcStepGrad(self, corr):
     if self.dbugOptGrad['plotCalcStepGrad']:
         
         histI = stepMan.histI
+        I = histI[k]
         histObj = stepMan.histObj
         
         # Ax1: convergence history of Q
         fig, ax1 = plt.subplots()
         ax1.loglog(histAlfa, histQ, 'ob')
-        linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
+        linhAlfa = numpy.array([0.9*min(histAlfa),max(histAlfa)])
         linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
         ax1.loglog(linhAlfa,linQ0,'--b')
         ax1.set_xlabel('alpha')
@@ -715,7 +717,7 @@ def calcStepGrad(self, corr):
         # Ax2: convergence history of P
         ax2 = ax1.twinx()
         ax2.loglog(histAlfa,histP,'or')
-        linP0 = P0 + 0.0*numpy.empty_like(linhAlfa)
+        linP0 = P0 + numpy.zeros(len(linhAlfa))
         ax2.loglog(linhAlfa,linP0,'--r')    
         ax2.set_ylabel('P', color='r')
         ax2.tick_params('y', colors='r')
@@ -729,7 +731,7 @@ def calcStepGrad(self, corr):
      
         # Plot history of I
         plt.loglog(histAlfa,histI,'o')
-        linI = I0 + 0.0*numpy.empty_like(linhAlfa)
+        linI = I0 + numpy.zeros(len(linhAlfa))
         plt.loglog(linhAlfa,linI,'--')
         plt.plot(alfa,histI[k],'s')
         plt.ylabel("I")
@@ -740,7 +742,7 @@ def calcStepGrad(self, corr):
         
         # Plot history of Obj
         plt.loglog(histAlfa,histObj,'o')
-        linObj = Obj0 + 0.0*numpy.empty_like(linhAlfa)
+        linObj = Obj0 + numpy.zeros(len(linhAlfa))
         plt.loglog(linhAlfa,linObj,'--')
         plt.plot(alfa,histObj[k],'s')
         plt.ylabel("Obj")
@@ -750,8 +752,11 @@ def calcStepGrad(self, corr):
         plt.show()
 
         
-    if prntCond:           
+    if prntCond:
+        dIp = 100.0 * (I/I0 - 1.0)
         print("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
+        print("> I0 = {:.4E}".format(I0)+", I = {:.4E}".format(I)+\
+              ", dI = {:.4E}".format(I-I0)+" ({:.4E})%".format(dIp))
         print("> Number of objective evaluations:",stepMan.cont)
         
     if self.dbugOptGrad['pausCalcStepGrad']:

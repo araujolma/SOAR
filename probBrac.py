@@ -50,8 +50,8 @@ class prob(sgra):
         # Get initialization mode
         
         x = numpy.zeros((N,n,s))
-        u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
-        
+        #u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
+        u = numpy.arctanh(0.5*numpy.ones((N,m,s)))
         #x[:,0,0] = t.copy()
         #for i in range(N):
         #    x[i,1,0] = x[N-i-1,0,0]
@@ -91,7 +91,7 @@ class prob(sgra):
         u = self.u
         pi = self.pi
         
-        gama = .25 * numpy.pi * (1.0 + numpy.tanh(u))
+        gama = .5 * numpy.pi * numpy.tanh(u)
         
         for arc in range(s):
             phi[:,0,arc] = pi[arc] * x[:,2,arc] * numpy.cos(gama[:,0,arc])
@@ -134,8 +134,8 @@ class prob(sgra):
         psip = numpy.zeros((q,p))
 
         tanh_u = numpy.tanh(self.u)
-        gama = .25 * numpy.pi * (1.0 + tanh_u)
-        dgdu = .25 * numpy.pi * (1.0 - tanh_u**2)
+        gama = .5 * numpy.pi * tanh_u
+        dgdu = .5 * numpy.pi * (1.0 - tanh_u**2)
         sinGama, cosGama = numpy.sin(gama), numpy.cos(gama)
 
         for arc in range(s):    
@@ -173,7 +173,7 @@ class prob(sgra):
         return numpy.array([self.x[0,0,0],\
                             self.x[0,1,0]-1.0,\
                             self.x[0,2,0],\
-                            self.x[N-1,0,0]-1.0,\
+                            self.x[N-1,0,0]-3.0,\
                             self.x[N-1,1,0]])
         
     def calcF(self):
@@ -235,7 +235,7 @@ class prob(sgra):
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.subplot2grid((5,1),(4,0),colspan=5)
-            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
+            gama = 0.5*numpy.pi*numpy.tanh(self.u)
             self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')    
@@ -251,7 +251,8 @@ class prob(sgra):
             du = opt['u']
             dp = opt['pi']
 
-            titlStr = "Proposed variations\n"+"Delta pi: "
+            titlStr = "Proposed variations (grad iter #" + \
+                      str(self.NIterGrad+1) + ")\n"+"Delta pi: "
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
@@ -261,18 +262,18 @@ class prob(sgra):
             plt.subplot2grid((5,1),(0,0))
             self.plotCat(dx[:,0,:])
             plt.grid(True)
-            plt.ylabel("Position")
+            plt.ylabel("x [m]")
             plt.title(titlStr)
             
             plt.subplot2grid((5,1),(1,0))
             self.plotCat(dx[:,1,:],color='g')
             plt.grid(True)
-            plt.ylabel("Speed")
+            plt.ylabel("y [m]")
             
             plt.subplot2grid((5,1),(2,0))
             self.plotCat(dx[:,2,:],color='r')
             plt.grid(True)
-            plt.ylabel("Speed")
+            plt.ylabel("v [m/s]")
                         
             plt.subplot2grid((5,1),(3,0))
             self.plotCat(du[:,0,:],color='k')
@@ -280,8 +281,8 @@ class prob(sgra):
             plt.ylabel("u1 [-]")
             
             new_u = self.u + du
-            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
-            new_gama = 0.25*numpy.pi*(1.0+numpy.tanh(new_u))
+            gama = 0.5*numpy.pi*numpy.tanh(self.u)
+            new_gama = 0.5*numpy.pi*numpy.tanh(new_u)
             dgama = new_gama - gama
             plt.subplot2grid((5,1),(4,0))
             self.plotCat(r2d*dgama[:,0,:],color='r')
@@ -312,7 +313,7 @@ class prob(sgra):
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.subplot2grid((5,1),(4,0),colspan=5)
-            gama = 0.25*numpy.pi*(1.0+numpy.tanh(self.u))
+            gama = 0.5*numpy.pi*numpy.tanh(self.u)
             self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')    
@@ -338,7 +339,7 @@ class prob(sgra):
         plt.axis('equal')
         plt.grid(True)
         plt.xlabel("X [m]")
-        plt.ylabel("Z [m]")
+        plt.ylabel("Y [m]")
         
         titlStr = "Trajectory "
         titlStr += "(grad iter #" + str(self.NIterGrad) + ")\n"
