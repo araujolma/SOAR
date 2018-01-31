@@ -19,7 +19,7 @@ class stepMngr():
     and P. The I value is most relevant, and the P value is secondary. The
     k parameter defines the importance of P with respect to I."""
     
-    def __init__(self,k=1e3):
+    def __init__(self,k=1e3,tolP=1e-4):
         self.cont = -1
         self.histStep = list()
         self.histI = list()
@@ -27,9 +27,15 @@ class stepMngr():
         self.histQ = list()
         self.histObj = list()
         self.k = k
+        self.tolP = tolP
 
     def calcObj(self,P,Q,I):
         return (I + (self.k)*P)
+#        if P > self.tolP:
+#            return (I + (self.k)*(P-self.tolP))
+#        else:
+#            return I
+            
     
     def getLast(self):
         P = self.histP[self.cont]
@@ -51,7 +57,7 @@ class stepMngr():
         P,_,_ = newSol.calcP()
         #Q,_,_,_,_ = newSol.calcQ()
         Q = 1.0
-        I = newSol.calcI()
+        I,_,_ = newSol.calcI()
         
         Obj = self.calcObj(P,Q,I)
 
@@ -68,6 +74,35 @@ class stepMngr():
         
         return self.getLast()
 
+def plotF(self,piIsTime=False):
+    """Plot the cost function integrand."""
+    print("In plotF.")
+
+    argout = self.calcF()
+
+    if isinstance(argout,tuple):
+        if len(argout) == 3:
+            f, fOrig, fPF = argout
+            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+            self.plotCat(fOrig,piIsTime=piIsTime,color='k',labl='Orig cost')            
+            self.plotCat(fPF,piIsTime=piIsTime,color='r',labl='Penalty function')
+        else:
+            f = argout[0]            
+            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+    else:
+        self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+    #
+    plt.title('Integrand of cost function (grad iter #' + \
+              str(self.NIterGrad) + ')')
+    plt.ylabel('f [-]')
+    plt.grid(True)
+    if piIsTime:
+        plt.xlabel('Time [s]')
+    else:
+        plt.xlabel('Adim. time [-]')
+    plt.legend()
+    self.savefig(keyName='F',fullName='F')
+            
 def plotQRes(self,args):
     "Generic plots of the Q residuals"
 
@@ -82,7 +117,7 @@ def plotQRes(self,args):
               "= {:.4E}".format(args['Qx'])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     errQx = args['errQx']
     for i in range(self.n):
         plt.subplot2grid((nm1,1),(i+1,0))
@@ -102,7 +137,7 @@ def plotQRes(self,args):
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     errQu = args['errQu']
     for i in range(self.m):
         plt.subplot2grid((mm1,1),(i+1,0))
@@ -125,7 +160,7 @@ def plotQRes(self,args):
         titlStr += "{:.4E}, ".format(resVecIntQp[j])
     titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
     plt.title(titlStr)
-    print(titlStr)
+    #print(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
         self.plotCat(errQp[:,j,:],color='k')
@@ -531,8 +566,9 @@ def calcStepGrad(self, corr):
     #Q0,_,_,_,_ = self.calcQ()
     Q0 = 1.0
     P0,_,_ = self.calcP()
-    I0 = self.calcI()
-    stepMan = stepMngr(k = 1e-9*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
+    I0,_,_ = self.calcI()
+    stepMan = stepMngr(k = 1e-2 * I0/self.tol['P'], tolP = self.tol['P'])
+    #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
@@ -662,7 +698,7 @@ def calcStepGrad(self, corr):
             break
             
     # Get final values of Q and P
-    Q = histQ[k]; P = histP[k]      
+    Q = histQ[k]; P = histP[k]
        
     # after all this analysis, plot the history of the tried alfas, and 
     # corresponding Q's  
@@ -670,12 +706,13 @@ def calcStepGrad(self, corr):
     if self.dbugOptGrad['plotCalcStepGrad']:
         
         histI = stepMan.histI
+        I = histI[k]
         histObj = stepMan.histObj
         
         # Ax1: convergence history of Q
         fig, ax1 = plt.subplots()
         ax1.loglog(histAlfa, histQ, 'ob')
-        linhAlfa = numpy.array([min(histAlfa),max(histAlfa)])
+        linhAlfa = numpy.array([0.9*min(histAlfa),max(histAlfa)])
         linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
         ax1.loglog(linhAlfa,linQ0,'--b')
         ax1.set_xlabel('alpha')
@@ -686,7 +723,7 @@ def calcStepGrad(self, corr):
         # Ax2: convergence history of P
         ax2 = ax1.twinx()
         ax2.loglog(histAlfa,histP,'or')
-        linP0 = P0 + 0.0*numpy.empty_like(linhAlfa)
+        linP0 = P0 + numpy.zeros(len(linhAlfa))
         ax2.loglog(linhAlfa,linP0,'--r')    
         ax2.set_ylabel('P', color='r')
         ax2.tick_params('y', colors='r')
@@ -700,7 +737,7 @@ def calcStepGrad(self, corr):
      
         # Plot history of I
         plt.loglog(histAlfa,histI,'o')
-        linI = I0 + 0.0*numpy.empty_like(linhAlfa)
+        linI = I0 + numpy.zeros(len(linhAlfa))
         plt.loglog(linhAlfa,linI,'--')
         plt.plot(alfa,histI[k],'s')
         plt.ylabel("I")
@@ -711,7 +748,7 @@ def calcStepGrad(self, corr):
         
         # Plot history of Obj
         plt.loglog(histAlfa,histObj,'o')
-        linObj = Obj0 + 0.0*numpy.empty_like(linhAlfa)
+        linObj = Obj0 + numpy.zeros(len(linhAlfa))
         plt.loglog(linhAlfa,linObj,'--')
         plt.plot(alfa,histObj[k],'s')
         plt.ylabel("Obj")
@@ -721,8 +758,11 @@ def calcStepGrad(self, corr):
         plt.show()
 
         
-    if prntCond:           
+    if prntCond:
+        dIp = 100.0 * (I/I0 - 1.0)
         print("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
+        print("> I0 = {:.4E}".format(I0)+", I = {:.4E}".format(I)+\
+              ", dI = {:.4E}".format(I-I0)+" ({:.4E})%".format(dIp))
         print("> Number of objective evaluations:",stepMan.cont)
         
     if self.dbugOptGrad['pausCalcStepGrad']:
@@ -760,7 +800,8 @@ def grad(self,parallelOpt={}):
      
     # Calculation of alfa
     alfa = self.calcStepGrad(corr)
-
+    #alfa = 0.1
+    #print('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 
     self.plotSol(opt={'mode':'lambda'})
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
