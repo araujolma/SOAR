@@ -31,8 +31,6 @@ class ITman():
         self.mustPlotGrad = True
         self.mustPlotRest = False
         self.mustPlotSol = True
-        self.NSlntRuns = 0
-        self.mustAsk = True
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
         self.GRpausRate = 1000#1000#10
@@ -234,44 +232,10 @@ class ITman():
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
 
-#        fullDbugOptRest = {'pausRest':False,
-#                           'pausCalcP':False,
-#                           'plotP_int':True,
-#                           'plotP_intZoom':True,
-#                           'plotIntP_int':True,
-#                           'plotSolMaxP':True,
-#                           'plotRsidMaxP':True,
-#                           'plotErr':True,
-#                           'plotCorr':True,
-#                           'plotCorrFin':True}
-        
         while sol.P > sol.tol['P']:
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
-            
-            # turn off debug mode            
-            # TODO: remove this hardcoded number (20) and use a variable...
-#            if contRest%20 == 0:
-#                print("\nLots of restorations! "+\
-#                      "Here is the current solution:")
-#                sol.plotSol()
-#                      
-#                print("And here is a partial convergence report:")
-#                sol.showHistP()
-#                print("Changing to debug mode:")
-#                sol.dbugOptRest.setAll(opt=fullDbugOptRest)#allOpt=True)
-#                print("\nDon't worry, changing in next rest run, back to:\n")
-#                pprint.pprint(origDbugOptRest)
-#
-#                nowStr = str(datetime.datetime.now()).replace(' ','_')
-#                nowStr.replace('/','-')
-#                nowStr.replace('.','-')
-#                self.saveSol(sol,self.probName+'_dbugSol_'+nowStr+'.pkl')
-#                #input(" > ")
-#            else:
-#                sol.dbugOptRest.setAll(opt=origDbugOptRest)
-         
-        
+
         sol.showHistP()
         print("End of restoration rounds. Solution so far:")
         sol.plotSol()
@@ -374,72 +338,4 @@ class ITman():
                 self.prom()
         #
         
-        return sol
-    
-    #%%
-#class GradStat:
-#    def __init__(self):
-#        self.mustPlotGrad = True
-#        self.mustPlotRest = False
-#        self.mustPlotSol = True
-#        self.NSilent = 0
-#        self.mustAsk = True
-#    
-#    def printMsg(self):
-#        self.printStatus()
-#        print("\nEnter commands for changing debug mode, or just hit 'enter'.")
-#
-#    def parseStr(self,thisStr):
-#        print("input =",thisStr)
-#        if thisStr[0]=='g':
-#            if thisStr[1:].isnumeric():
-#                n = int(thisStr[1:])
-#                if n>0:
-#                    self.NSilent=n
-#                    print("Waiting",n,"runs before new prompt.")
-#            elif thisStr[1:]=='p':
-#                self.mustPlotGrad = True
-#            elif thisStr[1:]=='n':
-#                self.mustPlotGrad = False
-#        elif thisStr[0]=='r':
-#            if thisStr[1:]=='p':
-#                self.mustPlotRest = True
-#            elif thisStr[1:]=='n':
-#                self.mustPlotRest = False
-#        elif thisStr[0]=='s':
-#            if thisStr[1:]=='p':
-#                self.mustPlotSol = True
-#            elif thisStr[1:]=='n':
-#                self.mustPlotSol = False
-#        else:
-#            print("Ignoring unrecognized command '"+thisStr+"'...")
-#        
-#    def endOfLoop(self):
-#        print("\a")
-#        if self.NSilent>0:
-#            print("\n",self.NSilent,"more runs remaining before new prompt.")
-#            self.NSilent -= 1
-#        else:
-#            if self.mustAsk:
-#                self.printMsg()
-#                inp = input(">> ")
-#                inp.lower()
-#                if not(inp=='\n'):
-#                    inpList = inp.split()    
-#                    for k in range(len(inpList)):
-#                        self.parseStr(inpList[k])
-#                    self.printStatus()
-#
-#                print("\nOk. Back to main loop.")
-#    def printStatus(self):
-#        print("\nStatus:")
-#        print("mustPlotGrad:",self.mustPlotGrad)
-#        print("mustPlotRest:",self.mustPlotRest)
-#        print("mustPlotSol:",self.mustPlotSol)
-#        print("NSilent:",self.NSilent)
-#        print("mustAsk:",self.mustAsk)
-#        
-#    def test(self):
-#        while True:
-#            print("In test mode. This will run forever.\n")
-#            self.endOfLoop()
+        return sol   
