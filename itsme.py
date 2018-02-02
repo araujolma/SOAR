@@ -83,9 +83,10 @@ def itsTester():
                 'itsme_test_cases/caseMu100h463NStag0.its',
                 'itsme_test_cases/caseMu100h463NStag1.its',
                 'itsme_test_cases/caseMu100h463NStag2.its',
-                'itsme_test_cases/caseMu100h463NStag3.its',
-                'itsme_test_cases/caseMu100h463NStag4.its',
-                'itsme_test_cases/caseMu100h463NStag5.its',
+                'itsme_test_cases/genericHet.its',
+                'itsme_test_cases/falcon9.its',
+                'itsme_test_cases/electron.its',
+                'itsme_test_cases/longMarch4B.its',
                 'itsme_test_cases/caseMu100h1500NStag3.its',
                 'itsme_test_cases/caseMu150h500NStag4.its']
 

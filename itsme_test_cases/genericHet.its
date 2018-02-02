@@ -1,25 +1,25 @@
 ###############################################################################
 # itsme configuration file (.its)
 #
-# author: Carlos Souza
+# Generic heterogenous vehicle configuration
 ###############################################################################
 
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 100
+Mu = 140
 #
 # Number of stages
 NStag = 3
 #
 # Specific impulse [s]
-Isp = 280, 290, 300
+Isp = 280, 290, 280
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = 0.12, 0.10, 0.07
+efes = 0.12, 0.12, 0.10
 #
 # Thrust [kN]
-T = 720.0, 370.0, 60.0
+T = 500.0, 450.0, 60.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 600.0
+h = 300.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -65,13 +65,13 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
 tAoA1 = 3.7
 #
 # Duration of attitude maneuver [°]
-tAoA = 5.0
+tAoA = 4.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
@@ -88,11 +88,13 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 0.5, 2.0, 1.0
+guess = 0.85, 2.04, 0.97
 #
-limit = 0.5, 1.9, 0.9
+limit = 0.85, 2.04, 0.97
 #
 tol = 1e-7
 #
 fraVel = 0.5
+#
+Ndiv = 50
 

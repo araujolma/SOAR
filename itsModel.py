@@ -249,10 +249,20 @@ class model():
         # Phase times and jetsonned masses
         tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflist
         mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melist
+
         if (typeResult == "orbital"):
             tphases = tphases + [con['torb']]
             mjetsoned = mjetsoned + [0.0]
 
+# =============================================================================
+#         arg = numpy.argsort(tphases0)
+#         tphases = []
+#         mjetsoned = []
+#         for ii in arg:
+#             tphases.append(tphases0[ii])
+#             mjetsoned.append(mjetsoned0[ii])
+#
+# =============================================================================
         self.tphases = tphases
         self.mjetsoned = mjetsoned
 
