@@ -7,6 +7,7 @@ Created on Fri Jan 19 16:20:20 2018
 """
 
 import numpy
+import matplotlib.pyplot as plt
 
 
 class modelPropulsion():
@@ -121,6 +122,7 @@ class modelPropulsionHetSimple():
         # Total list of final t
         t2 = tf - p2.tb[-1]
         self.tflist = p1.tf + [t2, tf]
+        self.tf = tf
         # Total list of jettsoned masses
         self.melist = p1.me + [0.0, p2.me[-1]]
         # Total list of Thrust control
@@ -176,6 +178,20 @@ class modelPropulsionHetSimple():
             ans[jj] = self.value(t[jj])
         return ans
 
+    def mdlDerXtime(self, N: int):
+        tt = range(0, N)*(self.tf/(N-1))
+        v_t = []
+        Isp_t = []
+        T_t = []
+
+        for t in tt:
+            v, Isp, T = self.mdlDer(t)
+            v_t.append(v)
+            Isp_t.append(Isp)
+            T_t.append(T)
+
+        return tt, v_t, Isp_t, T_t
+
     def show(self):
 
         print('Isplist', self.Isplist)
@@ -184,3 +200,24 @@ class modelPropulsionHetSimple():
         print('vlist', self.vlist)
         print('tflist', self.tflist)
         raise
+
+    def plot(self)-> None:
+
+        tt, v_t, Isp_t, T_t = self.mdlDerXtime(1000)
+
+        plt.subplot2grid((6, 2), (0, 0), rowspan=2, colspan=2)
+        plt.plot(tt, v_t, '-b')
+        plt.grid(True)
+        plt.ylabel("beta [-]")
+
+        plt.subplot2grid((6, 2), (2, 0), rowspan=2, colspan=2)
+        plt.plot(tt, Isp_t, '-b')
+        plt.grid(True)
+        plt.ylabel("Isp [s]")
+
+        plt.subplot2grid((6, 2), (4, 0), rowspan=2, colspan=2)
+        plt.plot(tt, T_t, '-b')
+        plt.grid(True)
+        plt.ylabel("T [kN]")
+
+        plt.show()
