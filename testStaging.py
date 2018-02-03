@@ -9,14 +9,15 @@ Created on Thu Jul 20 15:35:04 2017
 import numpy
 
 
-class test():
+class optimalStagingHeterogeneous():
 
-    def __init__(self, elist, clist, TList, vTot, Mu, tol):
+    def __init__(self, elist: list, Isplist: list, TList: list, vTot: float,
+                 Mu: float, g0: float, tol: float):
 
         self.Mu = Mu
         self.tol = tol
-        self.e = numpy.array(eList)
-        self.c = numpy.array(cList)
+        self.e = numpy.array(elist)
+        self.c = numpy.array(Isplist)*g0
         self.T = numpy.array(TList)
         self.vTot = vTot
         self.cMin = numpy.min(self.c)
@@ -30,8 +31,9 @@ class test():
         self.me = []
         self.tb = []
         self.tf = []
+        self.count = 0
 
-    def function(self, x):
+    def functionToBe0(self, x: float) -> float:
 
         d0 = (1.0 - x/self.c)/self.e
         d1 = d0 ** (self.c/self.vTot)
@@ -39,16 +41,16 @@ class test():
 
         return error
 
-    def bisec(self):
+    def bisec(self) -> None:
 
         count = 0
         x1 = self.cMin/2
-        print(x1)
+        #  print(x1)
         stop = False
-        error1 = self.function(x1)
+        error1 = self.functionToBe0(x1)
         x2 = x1*(1 - self.tol)
-        print(x2)
-        error2 = self.function(x2)
+        #  print(x2)
+        error2 = self.functionToBe0(x2)
         while not stop:
 
             step = error2*(x2 - x1)/(error2 - error1)
@@ -57,7 +59,7 @@ class test():
             error1 = error2.copy()
 
             x2 = x2 - step
-            error2 = self.function(x2)
+            error2 = self.functionToBe0(x2)
 
             count += 1
 
@@ -68,9 +70,11 @@ class test():
                 raise Exception('staging: lagrange multplier out of interval')
 
         self.x = x2
-        print(count)
+        self.count = count
+        #  print(count)
+        return None
 
-    def result(self):
+    def result(self) -> None:
 
         self.v = self.c*numpy.log((1 - self.x/self.c)/self.e)
         self.lamb = (numpy.exp(-self.v/self.c) - self.e)/(1 - self.e)
@@ -85,7 +89,7 @@ class test():
                 self.me[N - ii] = self.e[N - ii]*(self.mtot[N - ii] - self.Mu)
 
             else:
-                print(N-ii)
+                #  print(N-ii)
                 self.mtot[N - ii] = self.mtot[N - ii + 1]/self.lamb[N - ii]
                 self.me[N - ii] = self.e[N - ii]*(self.mtot[N - ii] -
                                                   self.mtot[N - ii + 1])
@@ -97,30 +101,44 @@ class test():
         for ii in range(1, N):
             self.tf[ii] = self.tf[ii - 1] + self.tb[ii]
 
+        return None
+
+    def show(self) -> None:
+
+        print('inputs:')
+        print('e', self.e)
+        print('c', self.c)
+        print('T', self.T)
+
+        print('\nresults:')
+        print('tol', self.tol)
+        print('error', self.functionToBe0(self.x))
+        print('count', self.count)
+        print('vTot', self.vTot)
+        print('v', sum(self.v))
+        print('mflux', self.mflux)
+        print('lamb', self.lamb)
+        print('mtot', self.mtot)
+        print('mp', self.mp)
+        print('me', self.me)
+        print('tb', self.tb)
+        print('tf', self.tf)
+
+        return None
 
 if __name__ == "__main__":
 
     con = dict()
 
-    eList = [0.1, 0.09, 0.07]
-    cList = [3.5, 3.0, 2.8]
-    TList = [500, 500, 60]
+    eList = [0.01]#, 0.09, 0.07]
+    cList = [350]#, 300, 280]
+    TList = [500]#, 500, 60]
     vTot = 1.5*7.0
     tol = 1e-9
 
-    stg = test(eList, cList, TList, vTot, 100, tol)
+    stg = optimalStagingHeterogeneous(eList, cList, TList, vTot, 100, 10e-3,
+                                      tol)
 
     stg.bisec()
     stg.result()
-
-    print('\nresults:')
-    print('error', stg.function(stg.x))
-    print('v', numpy.sum(stg.v))
-    print('T', stg.T)
-    print('mflux', stg.mflux)
-    print('lamb', stg.lamb)
-    print('mtot', stg.mtot)
-    print('mp', stg.mp)
-    print('me', stg.me)
-    print('tb', stg.tb)
-    print('tf', stg.tf)
+    stg.show()
