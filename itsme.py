@@ -89,6 +89,7 @@ def itsTester():
                 'itsme_test_cases/longMarch4B.its',
                 'itsme_test_cases/ariane2.its',
                 'itsme_test_cases/saturn1B.its',
+                'itsme_test_cases/zenit3M.its',
                 'itsme_test_cases/caseMu100h1500NStag3.its',
                 'itsme_test_cases/caseMu150h500NStag4.its']
 
