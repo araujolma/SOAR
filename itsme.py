@@ -145,7 +145,7 @@ class problem():
             self.con['vxref'] = iniEst[2]
 
             guess = numpy.array([1, 1, 1])
-            limit = guess
+            limit = guess*0.5
 
             self.con['guess'] = guess
             self.con['fsup'] = guess + limit

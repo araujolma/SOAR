@@ -458,10 +458,16 @@ class model():
         self.traj.av = av
         self.traj.ah = ah
 
-        g1 = GM/((R + h)**2)
-        g2 = GM/((R + ah)**2)
+        # Reference time calculated with excentric anomaly equations
+        E1 = numpy.arccos((1 - (R + h)/a)/e)
+        E2 = numpy.pi
 
-        self.traj.at = 2*vr/(g1 + g2)
+        M1 = E1 - e*numpy.sin(E1)
+        M2 = E2 - e*numpy.sin(E2)
+
+        n = numpy.sqrt(GM/(a**3))
+
+        self.traj.at = (M2 - M1)/n
 
         return None
 
