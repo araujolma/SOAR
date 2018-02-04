@@ -15,10 +15,9 @@ import numpy
 import configparser
 import matplotlib.pyplot as plt
 from time import clock
-from itsModel import model
+from itsModelM import model
 from itsModelConfiguration import modelConfiguration
 from itsModelInitialEstimate import modelInitialEstimate
-from itsmeM import itsInitial
 
 
 def its(*arg):
@@ -50,6 +49,28 @@ def its(*arg):
             print('itsme saying: solution has not converged :(')
 
     return solution2
+
+
+def itsInitial(*arg):
+
+    # arguments analisys
+    if len(arg) == 0:
+        fname = 'default.its'
+    elif len(arg) == 1:
+        fname = arg[0]
+    else:
+        raise Exception('itsme saying: too many arguments on its')
+
+    print("itsme: Inital Trajectory Setup Module")
+    print("Opening case: ", fname)
+
+    problem1 = problem(fname)
+
+    solution2 = problem1.solveForFineTune()
+
+    solution2.displayResults()
+
+    return solution2.Dv1_final, solution2.tf_final, solution2.vx_final
 
 
 def sgra(fname: str):
@@ -127,29 +148,11 @@ class problem():
 
         self.con = modelConf.con
 
-        if self.con['homogeneous']:
-
-            # Reference values
-            iniEst = modelInitialEstimate(self.con)
-            self.con['Dv1ref'] = iniEst.dv
-            self.con['tref'] = iniEst.t
-            self.con['vxref'] = iniEst.vx
-
-        else:
-
-            iniEst = itsInitial(self.con['itsFile'])
-            # input("Press Enter to continue...")
-
-            self.con['Dv1ref'] = iniEst[0]
-            self.con['tref'] = iniEst[1]
-            self.con['vxref'] = iniEst[2]
-
-            guess = numpy.array([1, 1, 1])
-            limit = guess
-
-            self.con['guess'] = guess
-            self.con['fsup'] = guess + limit
-            self.con['finf'] = guess - limit
+        # Reference values
+        iniEst = modelInitialEstimate(self.con)
+        self.con['Dv1ref'] = iniEst.dv
+        self.con['tref'] = iniEst.t
+        self.con['vxref'] = iniEst.vx
 
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
@@ -542,6 +545,11 @@ class solution():
         self.factors = factors
         self.con = con
 
+        fdv2, ftf, fdv1 = factors
+        self.Dv1_final = fdv1*con['Dv1ref']
+        self.tf_final = ftf*con['tref']
+        self.vx_final = fdv2*con['vxref']
+
         model1 = model(factors, con)
         model1.simulate("plot")
         self.basic = model1
@@ -572,6 +580,10 @@ class solution():
             # of the singularity
             self.orbital.orbitResults()
             self.orbital.plotResults()
+
+        print('Dv1', self.Dv1_final)
+        print('tf', self.tf_final)
+        print('vx', self.vx_final)
 
         print('Initial states:', self.basic.traj.xx[0])
         print('Final   states:', self.basic.traj.xx[-1])

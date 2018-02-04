@@ -21,6 +21,7 @@ class modelPropulsion():
 
         self.t1 = p1.tf[-1]
         t2 = tf - p2.tb[-1]
+        self.t2 = t2
         self.t3 = tf
 
         self.v1 = v1
@@ -121,6 +122,7 @@ class modelPropulsionHetSimple():
         self.Tlist = p1.Tlist + [0.0] + p2.Tlist
         # Total list of final t
         t2 = tf - p2.tb[-1]
+        self.t2 = t2
         self.tflist = p1.tf + [t2, tf]
         self.tf = tf
         # Total list of jettsoned masses

@@ -9,7 +9,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 8000
+Mu = 8500
 #
 # Number of stages
 NStag = 2
@@ -96,7 +96,7 @@ limit = 1.0, 1.7, 1.0
 #
 tol = 1e-7
 #
-fraVel = 0.3
+fracVel = 0.7
 #
 Ndiv = 100
 
