@@ -87,6 +87,9 @@ def itsTester():
                 'itsme_test_cases/falcon9.its',
                 'itsme_test_cases/electron.its',
                 'itsme_test_cases/longMarch4B.its',
+                'itsme_test_cases/ariane2.its',
+                'itsme_test_cases/saturn1B.its',
+                'itsme_test_cases/zenit3M.its',
                 'itsme_test_cases/caseMu100h1500NStag3.its',
                 'itsme_test_cases/caseMu150h500NStag4.its']
 
@@ -523,6 +526,9 @@ class solution():
         model1 = model(factors, con)
         model1.simulate("plot")
         self.basic = model1
+
+        if not con['homogeneous']:
+            model1.tabBeta.plot()
 
         model2 = model(factors, con)
         model2.simulate("orbital")
