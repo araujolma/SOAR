@@ -1,0 +1,103 @@
+###############################################################################
+# itsme configuration file (.its)
+#
+# Long March 4B and CBERS1
+#
+# Font: wikipedia: https://en.wikipedia.org/wiki/Long_March_4B
+###############################################################################
+
+###############################################################################
+[vehicle] # Vehicle parameters
+# Payload mass [kg]
+Mu = 2000
+#
+# Number of stages
+NStag = 3
+#
+# Specific impulse [s]
+Isp = 260, 290, 303
+#
+# Structural inefficiency (defined by Cornelisse as efficiency)
+efes = 0.05, 0.09, 0.12
+#
+# Thrust [kN]
+T = 2961.6, 790.0, 100.85
+#
+# softness of the transions of propulsive curve
+softness = 0.5
+#
+# Aerodynamic coefficients
+#
+CL0 = 0.0
+#
+# (B1 Miele 1998)
+CL1 = 0.8
+#
+#
+CD0 = 0.5
+#
+# (A2 Miele 1998)
+CD2 = 0.5
+#
+# Reference area in [km2]
+s_ref = 8.8e-06
+#
+###############################################################################
+[initial] # Initial state constants
+#
+# Initial altitude[km]
+h = 0.0
+#
+# Initial velocity [km/s]
+V = 1.0e-6
+#
+# Initial flight path angle [°]
+gamma = 90.0
+#
+###############################################################################
+[final] # Final state constants
+#
+# Final orbital altitude [km]
+h = 780.0
+#
+# Final flight path angle [°]
+gamma = 0.0
+#
+###############################################################################
+[trajectory] # Trajectory parameters
+#
+# Maximal angle of attack for attitude maneuver [°]
+AoAmax = 1.0
+#
+# Initial time for attitude maneuver [s]
+tAoA1 = 2
+#
+# Duration of attitude maneuver [°]
+tAoA = 2.0
+#
+###############################################################################
+[enviroment] # Enviroment constants
+#
+# Gravitational parameter [km3/s2]
+GM = 398600.4415
+#
+# Earth radius [km]
+R = 6371.0
+#
+# Earth angular velocity of rotation [rad/s]
+we = 0.0
+#
+###############################################################################
+[solver] # Solver parameters
+#
+guess = 1, 1.5, 1.0
+#
+limit = 1, 1.5, 1.0
+#
+tol = 1e-8
+#
+fracVel = 0.5
+#
+Ndiv = 100
+
+
