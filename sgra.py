@@ -755,11 +755,12 @@ class sgra():
             
     def savefig(self,keyName='',fullName=''):
         if self.save.get(keyName,'False'):
-            self.log.printL('Saving ' + fullName + ' plot to ' + \
-                  self.probName + '_'+keyName+'.pdf!')
+            fileName = self.log.folderName + '/' + self.probName + '_' + \
+                        keyName + '.pdf'
+            self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
+                            '!')
             try:
-                plt.savefig(self.probName+'_'+keyName+'.pdf',\
-                            bbox_inches='tight', pad_inches=0.1)
+                plt.savefig(fileName, bbox_inches='tight', pad_inches=0.1)
             except:
                 self.log.printL("Sorry, pdf saving failed... Are you using Windows?")
                 self.log.printL("Anyway, you can always load the object and use some "+ \

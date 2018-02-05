@@ -23,7 +23,7 @@ import probBrac as prob
 # MAIN SEGMENT:
 # ##################
 if __name__ == "__main__":
-    print('------------------------------------------------------------------')
+    print("-"*66)
     print('\nRunning main.py!')
     print(datetime.datetime.now())
     print('\n')
@@ -44,10 +44,11 @@ if __name__ == "__main__":
 
         sol = ITman.restRnds(sol)
 
+        line = "#"*66
         ITman.log.printL("\n\n")
-        ITman.log.printL("##################################################################")
+        ITman.log.printL(line)
         ITman.log.printL("                      OPTIMIZATION FINISHED!                      ")
-        ITman.log.printL("##################################################################")
+        ITman.log.printL(line)
         ITman.saveSol(sol,ITman.probName+'_currSol.pkl')
         sol.showHistP()
     
@@ -56,13 +57,13 @@ if __name__ == "__main__":
         sol.showHistGradStep()
 
         ITman.log.printL("\n\n")
-        ITman.log.printL("##################################################################")
+        ITman.log.printL(line)
         ITman.log.printL("                   THIS IS THE FINAL SOLUTION:                    ")
-        ITman.log.printL("##################################################################")
+        ITman.log.printL(line)
 
         sol.plotSol()
     
-        ITman.log.printL("\n################################################################")
+        ITman.log.printL("\n"+line)
         ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
               (time.time() - start_time))
 
