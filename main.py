@@ -27,43 +27,55 @@ if __name__ == "__main__":
     print('\nRunning main.py!')
     print(datetime.datetime.now())
     print('\n')
-    
+
     sol = prob.prob()
-    #GradStat = GradStat()
     ITman = ITman(probName=sol.probName)
-    ITman.greet()
-    
-    start_time = time.time()
-    sol,solInit = ITman.setInitSol(sol)
-    
-    sol = ITman.frstRestRnds(sol)
+    sol.log = ITman.log
 
-    sol = ITman.gradRestCycl(sol,solInit)
-    
-    sol = ITman.restRnds(sol)
-    
-    print("\n\n")
-    print("##################################################################")
-    print("                   OPTIMIZATION FINISHED!                         ")
-    print("##################################################################")
-    ITman.saveSol(sol,ITman.probName+'_currSol.pkl')
-    sol.showHistP()
+    try:
+        ITman.greet()
+        
+        start_time = time.time()
+        sol,solInit = ITman.setInitSol(sol)
 
-    sol.showHistQ()
-    sol.showHistI()
-    sol.showHistGradStep()
-    
-    print("\n\n")
-    print("##################################################################")
-    print("                   THIS IS THE FINAL SOLUTION:                    ")
-    print("##################################################################")
-    
-    sol.plotSol()
+        sol = ITman.frstRestRnds(sol)
 
-    print("\n################################################################")
-    print("=== First Guess + MSGRA execution: %s seconds ===\n" % \
-          (time.time() - start_time))
+        sol = ITman.gradRestCycl(sol,solInit)
+
+        sol = ITman.restRnds(sol)
+
+        ITman.log.printL("\n\n")
+        ITman.log.printL("##################################################################")
+        ITman.log.printL("                      OPTIMIZATION FINISHED!                      ")
+        ITman.log.printL("##################################################################")
+        ITman.saveSol(sol,ITman.probName+'_currSol.pkl')
+        sol.showHistP()
     
-    for k in range(3):
-        print("\a")
-        time.sleep(.1)
+        sol.showHistQ()
+        sol.showHistI()
+        sol.showHistGradStep()
+
+        ITman.log.printL("\n\n")
+        ITman.log.printL("##################################################################")
+        ITman.log.printL("                   THIS IS THE FINAL SOLUTION:                    ")
+        ITman.log.printL("##################################################################")
+
+        sol.plotSol()
+    
+        ITman.log.printL("\n################################################################")
+        ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
+              (time.time() - start_time))
+
+        for k in range(3):
+            print("\a")
+            time.sleep(.1)
+
+    except KeyboardInterrupt:
+        ITman.log.printL("\n\n\nUser has stopped the program.")
+        raise
+    except:
+        ITman.log.printL("\n\n\nI'm sorry, something bad happened.")
+        raise
+    finally:
+        ITman.log.printL("Terminating now.")
+        ITman.log.close()

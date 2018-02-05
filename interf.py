@@ -6,7 +6,49 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint
+import dill, datetime, pprint, os
+from utils import getNowStr#, logPrint
+
+class logger():
+    """ Class for the handler of log messages."""
+
+    def __init__(self,probName,mode='both'):
+#        print("\nHi, I'm a new logger object!")
+        self.mode = mode
+        self.folderName = probName + '_' + getNowStr()
+#        print("Creating a new folder:",self.folderName)
+        os.makedirs(self.folderName)
+
+        try:
+            self.fhand = open(self.folderName + '/log.txt','w+')
+        except:
+            print("Sorry, could not open/create the file!")
+            exit()
+
+    def printL(self,msg,mode=''):
+        if mode in '':
+            mode = self.mode
+
+        if mode in 'both':
+            print(msg)
+            self.fhand.write('\n'+msg)
+        elif mode in 'file':
+            self.fhand.write('\n'+msg)
+        elif mode in 'screen':
+            print(msg)
+
+    def pprint(self,obj):
+        if self.mode in 'both':
+            pprint.pprint(obj)
+            pprint.pprint(obj,self.fhand)
+        elif self.mode in 'file':
+            pprint.pprint(obj,self.fhand)
+        elif self.mode in 'screen':
+            pprint.pprint(obj)
+
+    def close(self):
+        self.fhand.close()
+
 
 class ITman():
     """Class for the ITerations MANager.
@@ -20,17 +62,12 @@ class ITman():
     bscImpStr = "\n >> "
     dashStr = '\n-------------------------------------------------------------'
     
-    def __init__(self,probName='currSol'):
+    def __init__(self,probName='prob'):
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
-        self.caseName = 'default2st'
-#        self.isNewSol = False
         self.loadSolDir = probName+'_solInitRest.pkl'
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.mustPlotGrad = True
-        self.mustPlotRest = False
-        self.mustPlotSol = True
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
         self.GRpausRate = 1000#1000#10
@@ -39,17 +76,22 @@ class ITman():
         self.RestHistShowRate = 5
         self.parallelOpt = {'gradLMPBVP':True,
                          'restLMPBVP':True}
-    
+
+        self.log = logger(probName)
+        # Create directory for logs and stuff
+
+
     def prntDashStr(self):
-        print(self.dashStr)
+        self.log.printL(self.dashStr)
         
     def prom(self):
         inp = input(self.bscImpStr)
+        self.log.printL(self.bscImpStr+inp,mode='file')
         return inp
     
     def printPars(self):
-        print("\nThese are the attributes for the Iterations manager:\n")
-        pprint.pprint(self.__dict__)
+        self.log.printL("\nThese are the attributes for the Iterations manager:\n")
+        self.log.pprint(self.__dict__)
     
     def greet(self):
         """This is the first command to be run at the beggining of the 
@@ -57,105 +99,107 @@ class ITman():
         
         The idea is to let the user choose whether he/she wants to load a 
         previously prepared solution, or generate a new one."""
-        
+
+
         self.prntDashStr()      
-        print("\nWelcome to SGRA!")
-        print("Loading settings for problem: "+self.probName)
+        self.log.printL("\nWelcome to SGRA!\n")
+        self.log.printL("Loading settings for problem: "+self.probName)
+        self.log.printL('Saving results and log in '+self.log.folderName+'.')
         self.prntDashStr()      
         self.printPars()     
-        print("(You can always change these here in '"+__name__+".py').")
+        self.log.printL("\n(You can always change these here in '"+__name__+".py').")
         
         if self.defOpt == 'newSol':
-            print("\nDefault starting option (defOpt) is to generate new initial guess.")
-            print("Hit 'enter' to do it, or any other key to load a "+\
+            self.log.printL("\nDefault starting option (defOpt) is to generate new initial guess.")
+            self.log.printL("Hit 'enter' to do it, or any other key to load a "+\
                   "previous solution.")
             inp = self.prom()
             if inp == '':
                 self.isNewSol = True
-                print("\nOk, default mode (initOpt) is '"+self.initOpt+"'.")
-                print("Hit 'enter' to proceed with it, or 'd' for 'default',")
-                print("or 'n' for 'naive'. See '" + self.probName + \
+                self.log.printL("\nOk, default mode (initOpt) is '"+self.initOpt+"'.")
+                self.log.printL("Hit 'enter' to proceed with it, or 'd' for 'default',")
+                self.log.printL("or 'n' for 'naive'. See '" + self.probName + \
                       ".py' for details. ")
                 inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
-                    print("\nProceeding with 'default' mode.\n")
+                    self.log.printL("\nProceeding with 'default' mode.\n")
                 elif inp=='n':
                     self.initOpt='naive'
-                    print("\nProceeding with 'naive' mode.\n")                    
+                    self.log.printL("\nProceeding with 'naive' mode.\n")
                 else:
                     self.initOpt='extSol'
-                    print("\nProceeding with 'extSol' mode.\n")
+                    self.log.printL("\nProceeding with 'extSol' mode.\n")
                     
                 return
             else:
                 self.isNewSol = False
                 # execution only gets here if the default init is to generate 
                 # new init guess, but user wants to load solution
-                print("\nOk, default path to loading solution (loadSolDir) is: '"+\
+                self.log.printL("\nOk, default path to loading solution (loadSolDir) is: '"+\
                       self.loadSolDir+"'.")
-                print("Hit 'enter' to load it, or type the path to "+\
+                self.log.printL("Hit 'enter' to load it, or type the path to "+\
                       "alternative solution to be loaded.")
-                inp = input(self.bscImpStr)
+                inp = self.prom()
                 if inp != '':
                     self.loadSolDir = inp
                 
         elif self.defOpt == 'loadSol':
-            print("\nDefault starting option (defOpt) is to load solution.")
-            print("The default path to loading solution (loadSolDir) is: "+self.loadSolDir)
-            print("Hit 'enter' to do it, 'I' to generate new initial guess,")
-            print("or type the path to alternative solution to be loaded.")
-            inp = input(self.bscImpStr)
+            self.log.printL("\nDefault starting option (defOpt) is to load solution.")
+            self.log.printL("The default path to loading solution (loadSolDir) is: "+self.loadSolDir)
+            self.log.printL("Hit 'enter' to do it, 'I' to generate new initial guess,")
+            self.log.printL("or type the path to alternative solution to be loaded.")
+
+            inp = self.prom()
             if inp == '':
                 self.isNewSol = False
             elif inp == 'i' or inp == 'I':
                 self.isNewSol = True
-                print("\nOk, generating new initial guess...\n")
+                self.log.printL("\nOk, generating new initial guess...\n")
             else:
                 self.isNewSol = False
                 self.loadSolDir = inp  
             return
         
     def checkPars(self,sol):
-        print(self.dashStr)
+        self.log.printL(self.dashStr)
         sol.printPars()
         sol.plotSol()
         self.prntDashStr()
         print("\a")
-        print("\nAre these parameters OK?")
-        print("Press any key to continue, or ctrl+C to stop.")
-        input(self.bscImpStr)
+        self.log.printL("\nAre these parameters OK?")
+        self.log.printL("Press any key to continue, or ctrl+C to stop.")
+        self.prom()
         
     def loadSol(self,path=''):
         if path == '':
             path = self.loadSolDir
 
-        print("\nLoading solution from '"+path+"'.")        
+        self.log.printL("\nLoading solution from '"+path+"'.")
         with open(path,'rb') as inpt:
             sol = dill.load(inpt)
         return sol
 
     def saveSol(self,sol,path=''):
         if path == '':
-           path = self.probName + '_sol_' + \
-           str(datetime.datetime.now()).replace(' ','_') + '.pkl'
+           path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
-        print("\nWriting solution to '"+path+"'.")        
+        self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
    
     def setInitSol(self,sol):
-        print("Setting initial solution.")
-        print("Please wait, you will be asked to confirm it later.\n\n")
+        self.log.printL("Setting initial solution.")
+        self.log.printL("Please wait, you will be asked to confirm it later.\n\n")
         if self.isNewSol:
             # declare problem:
             solInit = sol.initGues({'initMode':self.initOpt})
             self.saveSol(sol,self.probName+'_solInit.pkl')
         else:
             # load previously prepared solution
-            print('Loading "current" solution...')
+            self.log.printL('Loading "current" solution...')
             sol = self.loadSol()
-            print('Loading "initial" solution (for comparing purposes only)...')
+            self.log.printL('Loading "initial" solution (for comparing purposes only)...')
             solInit = self.loadSol(self.probName+'_solInit.pkl')#sol.copy()
         
         ####
@@ -166,7 +210,7 @@ class ITman():
         
         # Plot obtained solution, check parameters
         self.prntDashStr()
-        print("\nProposed initial guess:\n")
+        self.log.printL("\nProposed initial guess:\n")
         sol.plotSol()
         self.checkPars(sol)
 
@@ -213,6 +257,8 @@ class ITman():
                            'plotF':flag,#True,
                            'plotFint':flag,
                            'plotI':flag})
+#        sol.log = self.log
+#        solInit.log = self.log
         
         return sol,solInit
     
@@ -237,14 +283,14 @@ class ITman():
             contRest += 1
 
         sol.showHistP()
-        print("End of restoration rounds. Solution so far:")
+        self.log.printL("End of restoration rounds. Solution so far:")
         sol.plotSol()
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol
     
     def frstRestRnds(self,sol):
         self.prntDashStr()
-        print("\nBeginning first restoration rounds...\n")
+        self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP()
         sol = self.restRnds(sol)
         
@@ -295,7 +341,7 @@ class ITman():
         
     def gradRestCycl(self,sol,altSol=None):
         self.prntDashStr()
-        print("\nBeginning gradient rounds...")
+        self.log.printL("\nBeginning gradient rounds...")
         sol.Q,_,_,_,_ = sol.calcQ()
         while sol.Q > sol.tol['Q']:
             sol = self.restRnds(sol)
@@ -320,7 +366,7 @@ class ITman():
             
             if self.plotSolGradCond(sol):
                 self.prntDashStr()
-                print("\nSolution so far:")
+                self.log.printL("\nSolution so far:")
                 sol.plotSol()
                 sol.plotF()
                 sol.plotTraj()
@@ -330,11 +376,11 @@ class ITman():
             if self.gradRestPausCond(sol):
                 print("\a")
                 self.prntDashStr()
-                print(datetime.datetime.now())
-                print("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
-                print("Grad-Rest cycle pause condition has been reached.")
-                print("Press any key to continue, or ctrl+C to stop.")                
-                print("Load last saved solution to go back to GR cycle.")
+                self.log.printL(datetime.datetime.now())
+                self.log.printL("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
+                self.log.printL("Grad-Rest cycle pause condition has been reached.")
+                self.log.printL("Press any key to continue, or ctrl+C to stop.")
+                self.log.printL("Load last saved solution to go back to GR cycle.")
                 self.prom()
         #
         

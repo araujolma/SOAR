@@ -47,12 +47,12 @@ def calcP(self,mustPlotPint=False):
                 someDbugPlot = True
                 break
     if someDbugPlot:
-        print("\nDebug plots for this calcP run:")
+        self.log.printL("\nDebug plots for this calcP run:")
         
         indMaxP = numpy.argmax(vetP, axis=0)
-        print(indMaxP)
+        self.log.printL(indMaxP)
         for arc in range(s):
-            print("\nArc =",arc,"\n")
+            self.log.printL("\nArc =",arc,"\n")
             ind1 = numpy.array([indMaxP[arc]-20,0]).max()
             ind2 = numpy.array([indMaxP[arc]+20,N]).min()
     
@@ -76,8 +76,8 @@ def calcP(self,mustPlotPint=False):
                 plt.show()
             
             if self.dbugOptRest['plotSolMaxP']:
-                print("rest_sgra: plotSol @ MaxP region: not implemented yet!")
-                #print("\nSolution on the region of MaxP:")
+                self.log.printL("rest_sgra: plotSol @ MaxP region: not implemented yet!")
+                #self.log.printL("\nSolution on the region of MaxP:")
                 #self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
         
 #        # TODO: extend these debug plots
@@ -159,8 +159,9 @@ def calcP(self,mustPlotPint=False):
     Pint = vetIP[N-1,:].sum()#P
     Ppsi = psi.transpose().dot(psi)
     P = Ppsi + Pint
-    print("P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\
-          ", Ppsi = {:.6E}.".format(Ppsi))
+    strPs = "P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\
+          ", Ppsi = {:.6E}.".format(Ppsi)
+    self.log.printL(strPs)
     self.P = P
     
     if mustPlotPint:
@@ -199,7 +200,7 @@ def calcP(self,mustPlotPint=False):
     return P,Pint,Ppsi    
 
 def calcStepRest(self,corr):
-    print("\nIn calcStepRest.\n")
+    self.log.printL("\nIn calcStepRest.\n")
     
     newSol = self.copy()
     newSol.aplyCorr(1.0,corr)
@@ -219,7 +220,7 @@ def calcStepRest(self,corr):
 
             
     if P1 >= P1m or P1 >= P0:
-        print("\nalfa = 1.0 is too much.")
+        self.log.printL("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
         nP = P1m; alfa=.8#1.0
         cont = 0; keepSearch = (nP>P0)
@@ -261,7 +262,7 @@ def calcStepRest(self,corr):
                 newSol = self.copy()
                 newSol.aplyCorr(alfa,corr)
                 nP,_,_ = newSol.calcP()
-                print("\n alfa =",alfa,", P = {:.4E}".format(nP),\
+                self.log.printL("\n alfa =",alfa,", P = {:.4E}".format(nP),\
                       " (P0 = {:.4E})".format(P0))
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
                 #if nPint < Pint0:
@@ -271,7 +272,7 @@ def calcStepRest(self,corr):
 
 def rest(self,parallelOpt={}):
      
-    print("\nIn rest, P0 = {:.4E}.".format(self.P))
+    self.log.printL("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     isParallel = parallelOpt.get('restLMPBVP',False)
     A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
@@ -280,7 +281,6 @@ def rest(self,parallelOpt={}):
     corr = {'x':A,
             'u':B,
             'pi':C}
-    #print("Calculating step...")
     
     alfa = self.calcStepRest(corr)
     self.aplyCorr(alfa,corr)
@@ -293,7 +293,7 @@ def rest(self,parallelOpt={}):
 #    print("Writing False in position",self.GREvIndx)
 #    print("GREvList =",self.GREvList[:(self.GREvIndx+1)])
     
-    print("Leaving rest with alfa =",alfa)
+    self.log.printL("Leaving rest with alfa = "+str(alfa))
 
     
     if self.dbugOptRest['pausRest']:

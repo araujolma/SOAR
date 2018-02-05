@@ -78,7 +78,7 @@ class prob(sgra):
         
         solInit = self.copy()
         
-        print("\nInitialization complete.\n")        
+        self.log.printL("\nInitialization complete.\n")
         return solInit
 #%%
 
@@ -209,7 +209,7 @@ class prob(sgra):
 #             intv = list(intv)   
     
         if len(intv)>0:       
-            print("plotSol: Sorry, currently ignoring plotting range.")
+            self.log.printL("plotSol: Sorry, currently ignoring plotting range.")
     
 
         if opt.get('mode','sol') == 'sol':
@@ -245,7 +245,7 @@ class prob(sgra):
 
             self.savefig(keyName='currSol',fullName='solution')
             
-            print("pi =",pi,"\n")
+            self.log.printL("pi = "+str(pi)+"\n")
         elif opt['mode'] == 'var':
             dx = opt['x']
             du = opt['u']
@@ -322,7 +322,7 @@ class prob(sgra):
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='currLamb',fullName='lambdas')
             
-            print("mu =",self.mu)
+            self.log.printL("mu = "+str(self.mu))
             
         else:
             titlStr = opt['mode']
