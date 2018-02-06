@@ -194,7 +194,7 @@ class ITman():
         if self.isNewSol:
             # declare problem:
             solInit = sol.initGues({'initMode':self.initOpt})
-            self.saveSol(sol,self.probName+'_solInit.pkl')
+            self.saveSol(sol,self.log.folderName+'/solInit.pkl')
         else:
             # load previously prepared solution
             self.log.printL('Loading "current" solution...')
@@ -294,7 +294,7 @@ class ITman():
         sol.P,_,_ = sol.calcP()
         sol = self.restRnds(sol)
         
-        self.saveSol(sol,self.probName+'_solInitRest.pkl')
+        self.saveSol(sol,self.log.folderName + '/solInitRest.pkl')
     
         return sol
     
@@ -362,7 +362,7 @@ class ITman():
             
             if self.saveSolCond(sol):
                 self.prntDashStr()
-                self.saveSol(sol,self.probName+'_currSol.pkl')
+                self.saveSol(sol,self.log.folderName + '/currSol.pkl')
             
             if self.plotSolGradCond(sol):
                 self.prntDashStr()

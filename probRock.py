@@ -166,10 +166,13 @@ class prob(sgra):
 #                x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
             solInit = None
         elif initMode == 'extSol':
-    
-            t_its, x_its, u_its, tabAlpha, tabBeta, inputDict, tphases, \
-            mass0, massJet = itsme.sgra('default2st.its')
+            inpFile = 'default2st.its'
+            self.log.printL("Starting ITSME with input = " + inpFile)
 
+            t_its, x_its, u_its, tabAlpha, tabBeta, inputDict, tphases, \
+            mass0, massJet = itsme.sgra(inpFile)
+
+            self.log.printL("ITSME was run sucessfully, proceding adaptations...")
             # The inputDict corresponds to the con dictionary from itsme.
             # The con dictionary storages all input information and other
             # informations.
@@ -323,7 +326,7 @@ class prob(sgra):
                             arcBginIndx[arc] = j
                         j += 1
             #
-            #print(arcBginIndx)
+            #self.log.printL(arcBginIndx)
             
             # Set the array of interval lengths
             pi = numpy.empty(s)
@@ -333,7 +336,7 @@ class prob(sgra):
             # get proper initial mass condition
             self.boundary['m_initial'] = x_its[0,3]
 
-            
+            self.log.printL("Re-integrating ITSME solution with fixed step scheme...")
             # Re-integration of proposed solution (RK4) 
             # Only the controls are used, not the integrated state itself       
             for arc in range(s):
@@ -374,10 +377,10 @@ class prob(sgra):
         mu = numpy.zeros(q)
 
         # TODO: This hardcoded bypass MUST be corrected in later versions.
-        print("\nHeavy hardcoded bypass here:")
-        print("Control limits are being switched;")
-        print("Controls themselves are being 'desaturated'.")
-        print("Check code for the values, and be careful!\n")
+        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
+        self.log.printL("Control limits are being switched;")
+        self.log.printL("Controls themselves are being 'desaturated'.")
+        self.log.printL("Check code for the values, and be careful!\n")
 
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
@@ -410,7 +413,7 @@ class prob(sgra):
         self.plotSol()
         self.plotF()
         
-        print("\nInitialization complete.\n")        
+        self.log.printL("\nInitialization complete.\n")        
         return solInit
 #%%
     def calcDimCtrl(self,ext_u = None):        
@@ -902,7 +905,7 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        print("In calcPsi.")
+        self.log.printL("In calcPsi.")
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
@@ -936,8 +939,8 @@ class prob(sgra):
         psi[q-2] = x[N-1,1,s-1] - boundary['V_final']
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
         #strPrnt += str(q-3)+","+str(q-2)+","+str(q-1)
-        #print(strPrnt)
-        print("Psi =",psi)
+
+        self.log.printL("Psi = "+str(psi))
 
         return psi
         
@@ -1032,7 +1035,7 @@ class prob(sgra):
                              'top':5.0,'wspace':0.2,'hspace':0.5}):
         # plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
         #                        wspace=0.2,hspace=0.5)
-        print("\nIn plotSol.")
+        self.log.printL("\nIn plotSol.")
         x = self.x
         u = self.u
         pi = self.pi
@@ -1042,20 +1045,20 @@ class prob(sgra):
         if opt.get('mode','sol') == 'sol':
             I,Iorig,Ipf = self.calcI()
 
-            print("Initial mass:",x[0,3,0])
-            print("I:",I)
-            print("CostScalFact:",self.constants['costScalingFactor'])
-            print("Design payload mass:",self.mPayl)
+            self.log.printL("Initial mass: " + str(x[0,3,0]))
+            self.log.printL("I: "+ str(I))
+            self.log.printL("CostScalFact: " + str(self.constants['costScalingFactor']))
+            self.log.printL("Design payload mass: " + str(self.mPayl))
             #mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
             mFinl = self.calcPsblPayl()
-            print('"Possible" payload mass:',mFinl)
+            self.log.printL('"Possible" payload mass: ' + str(mFinl))
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
             DvId = self.calcIdDv()
-            print("Ideal Delta v (Tsiolkovsky) with used propellants:",DvId)
+            self.log.printL("Ideal Delta v (Tsiolkovsky) with used propellants: "+str(DvId))
             missDv = self.boundary['mission_dv']
-            print("Mission Delta v (orbital height + speed):",missDv)
+            self.log.printL("Mission Delta v (orbital height + speed): " + str(missDv))
             dvLossPerc = 100.0*(DvId-missDv)/DvId
-            print("Losses (%):",dvLossPerc)
+            self.log.printL("Losses (%): " + str(dvLossPerc))
 
             titlStr = "Current solution "
             titlStr += "(grad iter #" + str(self.NIterGrad) + "):\n"
@@ -1189,16 +1192,15 @@ class prob(sgra):
             else:
                 plt.show()
                 plt.clf()
-                
-            #print("pi =",pi)
-            print("Final (injected into orbit) rocket mass: "+\
+
+            self.log.printL("Final (injected into orbit) rocket mass: "+\
                   "{:.4E}\n".format(x[-1,3,self.s-1]))
             EjctMass = list()
             # get ejected masses:
             for arc in range(self.s-1):
                 if self.isStagSep[arc]:
                     EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
-            print("Ejected masses:",EjctMass)
+            self.log.printL("Ejected masses: " + str(EjctMass))
             
         elif opt['mode'] == 'lambda':
             titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
@@ -1279,7 +1281,7 @@ class prob(sgra):
                 plt.show()
                 plt.clf()
             
-            print("mu =",self.mu)
+            self.log.printL("mu = " + str(self.mu))
             
         elif opt['mode'] == 'var':
             dx = opt['x']
@@ -1478,7 +1480,7 @@ class prob(sgra):
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
                  subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                              'top':5.0,'wspace':0.2,'hspace':0.5}):
-        print("\nComparing solutions...\n")
+        self.log.printL("\nComparing solutions...\n")
         r2d = 180.0/numpy.pi
         currSolLabl = 'currentSol'
 
@@ -1627,16 +1629,16 @@ class prob(sgra):
             plt.show()
             plt.clf()
             
-        print('Final rocket "payload":')  
-        print(currSolLabl+": {:.4E}".format(mPaySol)+" kg.")
-        print(altSolLabl+": {:.4E}".format(mPayAlt)+" kg.")
-        print("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
+        self.log.printL('Final rocket "payload":')  
+        self.log.printL(currSolLabl+": {:.4E}".format(mPaySol)+" kg.")
+        self.log.printL(altSolLabl+": {:.4E}".format(mPayAlt)+" kg.")
+        self.log.printL("Difference: {:.4E}".format(paylMassGain)+" kg, "+\
               "{:.4G}".format(paylPercMassGain)+\
               "% more payload!\n")
 
 
     def plotTraj(self,compare=False,altSol=None,altSolLabl='altSol',mustSaveFig=True):
-        print("\nIn plotTraj!")
+        self.log.printL("\nIn plotTraj!")
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
         N, s = self.N, self.s
@@ -1654,7 +1656,7 @@ class prob(sgra):
         
         if compare:
             if altSol is None:
-                print("plotTraj: comparing mode is set to True, but no "+\
+                self.log.printL("plotTraj: comparing mode is set to True, but no "+\
                       "solution was given to which compare. Ignoring...")
                 compare=False
             else:
@@ -1732,10 +1734,10 @@ class prob(sgra):
         pDynMax = pDyn[pairIndPdynMax]
         
         #pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
-        #print(indPdynMax)
-        #print("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
-        #print("State @ max q:")
-        #print(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
+        #self.log.printL(indPdynMax)
+        #self.log.printL("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
+        #self.log.printL("State @ max q:")
+        #self.log.printL(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
         
 #        self.plotCat(dens*1e-9)
 #        plt.grid(True)
@@ -1769,8 +1771,8 @@ class prob(sgra):
         # Get final orbit parameters
         h,v,gama,M = self.x[N-1,:,s-1]
         
-        print("State @burnout time:")
-        print("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
+        self.log.printL("State @burnout time:")
+        self.log.printL("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
         ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
         
         GM = self.constants['GM']       
@@ -1788,9 +1790,9 @@ class prob(sgra):
         eccExpr = v * momAng * cosGama / GM - 1.0
         f = numpy.arccos(eccExpr/e)
         ph = a * (1.0 - e) - R
-        print("Perigee altitude:",ph)    
+        self.log.printL("Perigee altitude: " + str(ph))    
         ah = 2*(a - R) - ph        
-        print("Apogee altitude:",ah)
+        self.log.printL("Apogee altitude: " + str(ah))
 
         # semi-latus rectum
         p = momAng**2 / GM #a * (1.0-e)**2
