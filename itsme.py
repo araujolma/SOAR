@@ -114,6 +114,9 @@ class problem():
         configuration.initialState()
         configuration.finalState()
         configuration.trajectory()
+        configuration.trajmods()
+        configuration.accel()
+        configuration.sgra()
         configuration.solver()
 
         self.con = configuration.con
@@ -356,6 +359,42 @@ class problemConfiguration():
         self.con['torb'] = 2*self.con['pi']*(self.con['R'] +
                                              self.con['h_final']
                                              )/self.con['V_final']
+
+    def trajmods(self):
+        """Trajectory modification parameters.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'trajmods'
+        self.con['DampCent'] = self.config.getfloat(section, 'DampCent')
+        self.con['DampSlop'] = self.config.getfloat(section, 'DampSlop')
+        targHeigStr = self.config.get(section, 'TargHeig')
+        targHeigStr = targHeigStr.split(', ')
+        targHeig = list()
+        for nStr in targHeigStr:
+            targHeig.append(float(nStr))
+        self.con['TargHeig'] = numpy.array(targHeig)
+
+    def accel(self):
+        """Acceleration limitation parameters.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'accel'
+        self.con['acc_max'] = self.config.getfloat(section, 'acc_max')
+        self.con['PFmode'] = self.config.get(section, 'PFmode')
+        self.con['acc_max_relTol'] = self.config.getfloat(section, \
+                                        'acc_max_relTol')
+        self.con['PFtol'] = self.config.getfloat(section, 'PFtol')
+
+    def sgra(self):
+        """ "Internal" settings for SGRA.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'sgra'
+        self.con['tolP'] = self.config.getfloat(section,'tolP')
+        self.con['tolQ'] = self.config.getfloat(section,'tolQ')
+        self.con['N'] = self.config.getint(section, 'N')
+        self.con['gradStepSrchCte'] = self.config.getfloat(section,\
+                                                           'gradStepSrchCte')
 
     def solver(self):
         # Solver parameters

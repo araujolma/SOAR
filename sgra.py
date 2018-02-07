@@ -755,8 +755,9 @@ class sgra():
             
     def savefig(self,keyName='',fullName=''):
         if self.save.get(keyName,'False'):
-            fileName = self.log.folderName + '/' + self.probName + '_' + \
-                        keyName + '.pdf'
+#            fileName = self.log.folderName + '/' + self.probName + '_' + \
+#                        keyName + '.pdf'
+            fileName = self.log.folderName + '/' + keyName + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
             try:

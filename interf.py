@@ -6,7 +6,7 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os
+import dill, datetime, pprint, os, shutil
 from utils import getNowStr#, logPrint
 
 class logger():
@@ -62,10 +62,11 @@ class ITman():
     bscImpStr = "\n >> "
     dashStr = '\n-------------------------------------------------------------'
     
-    def __init__(self,probName='prob'):
+    def __init__(self,confFile='',probName='prob'):
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
+        self.confFile = confFile
         self.loadSolDir = probName+'_solInitRest.pkl'
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 1
@@ -129,7 +130,9 @@ class ITman():
                     self.log.printL("\nProceeding with 'naive' mode.\n")
                 else:
                     self.initOpt='extSol'
-                    self.log.printL("\nProceeding with 'extSol' mode.\n")
+                    self.log.printL("\nProceeding with 'extSol' mode.\n" + \
+                                    "External file for configurations: " + \
+                                    self.confFile + "\n")
                     
                 return
             else:
@@ -193,7 +196,10 @@ class ITman():
         self.log.printL("Please wait, you will be asked to confirm it later.\n\n")
         if self.isNewSol:
             # declare problem:
-            solInit = sol.initGues({'initMode':self.initOpt})
+            solInit = sol.initGues({'initMode':self.initOpt,\
+                                    'confFile':self.confFile})
+            self.log.printL("Saving a copy of the configuration file in this run's folder.")
+            shutil.copy2(self.confFile,self.log.folderName+"/")
             self.saveSol(sol,self.log.folderName+'/solInit.pkl')
         else:
             # load previously prepared solution

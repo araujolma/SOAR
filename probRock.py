@@ -19,27 +19,10 @@ class prob(sgra):
         # matrix sizes
         n = 4
         m = 2
-        
-        N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
-
-        self.N = N
         self.n = n
         self.m = m
-                
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
-        
-        #prepare tolerances
-        tolP = 1.0e-5
-        tolQ = 1.0e-7#5
-        tol = dict()
-        tol['P'] = tolP
-        tol['Q'] = tolQ
-        
-        self.tol = tol
 
+        d2r = numpy.pi / 180.0
         # Get initialization mode
         initMode = opt.get('initMode','default')
     
@@ -61,6 +44,13 @@ class prob(sgra):
 #                        u[k,1] = (numpy.pi/2)*0.27
 #            pi = 1100*numpy.ones((p,1))
     
+            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+            self.N = N
+    
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
 
             s = 1
             p = 1
@@ -76,6 +66,14 @@ class prob(sgra):
             x = numpy.zeros((N,n,s))
             u = numpy.zeros((N,m,s))
             
+            #prepare tolerances
+            tolP = 1.0e-5
+            tolQ = 1.0e-7#5
+            tol = dict()
+            tol['P'] = tolP
+            tol['Q'] = tolQ
+            self.tol = tol
+
             # Earth constants
             r_e = 6371.0           # km
             GM = 398600.4415       # km^3 s^-2
@@ -83,8 +81,7 @@ class prob(sgra):
         
             # rocket constants
             Thrust = numpy.array([40.0])                 # kg km/s² [= kN] 1.3*m_initial # N
-            
-            scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+
             Kpf = 100.0  # First guess........
             
             Isp = 450.0*numpy.ones(s)                     # s
@@ -122,7 +119,6 @@ class prob(sgra):
             constants = dict()
             constants['grav_e'] = grav_e
             constants['Thrust'] = Thrust
-            constants['costScalingFactor'] = scal
             constants['Isp'] = Isp
             constants['r_e'] = r_e
             constants['GM'] = GM
@@ -138,8 +134,8 @@ class prob(sgra):
             self.constants = constants
             
             # restrictions
-            alpha_min = -2*(numpy.pi)/180  # in rads
-            alpha_max = 2*(numpy.pi)/180   # in rads
+            alpha_min = -2 * d2r  # in rads
+            alpha_max = 2 * d2r   # in rads
             beta_min = 0.0
             beta_max = 1.0
             acc_max = 3.0 * grav_e
@@ -153,6 +149,22 @@ class prob(sgra):
             solInit = None
             
         elif initMode == 'naive':
+            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+            self.N = N
+
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
+
+            #prepare tolerances
+            tolP = 1.0e-5
+            tolQ = 1.0e-7#5
+            tol = dict()
+            tol['P'] = tolP
+            tol['Q'] = tolQ
+            self.tol = tol
+
 #            pis2 = numpy.pi*0.5
 #            pi = numpy.array([300.0])
 #            dt = pi[0]/(N-1); dt6 = dt/6
@@ -165,30 +177,44 @@ class prob(sgra):
 #                k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
 #                x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4) 
             solInit = None
+
         elif initMode == 'extSol':
-            inpFile = 'default2st.its'
+            inpFile = opt.get('confFile','')
             self.log.printL("Starting ITSME with input = " + inpFile)
 
             t_its, x_its, u_its, tabAlpha, tabBeta, inputDict, tphases, \
             mass0, massJet = itsme.sgra(inpFile)
-
-            self.log.printL("ITSME was run sucessfully, proceding adaptations...")
             # The inputDict corresponds to the con dictionary from itsme.
-            # The con dictionary storages all input information and other
-            # informations.
-            # massJet: list of jetssoned masses at the beggining of each phase.
-            #its1 = itsme.its()
-            #t_its,x_its,u_its,tabAlpha,tabBeta = its1.sgra()
 
+            self.log.printL("\nITSME was run sucessfully, " + \
+                            "proceding adaptations...")
+
+            #prepare tolerances
+            tol = {'P': inputDict['tolP'],
+                   'Q': inputDict['tolP']}
+            self.tol = tol
+
+            # Time array
+            N = inputDict['N']
+            self.N = N
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
+
+            TargHeig = numpy.array(inputDict['TargHeig'])
+            # Additional arcs:
+            addArcs = len(TargHeig)
             # Number of arcs:
-            s = inputDict['NStag'] + 2
+            s = inputDict['NStag'] + addArcs
             self.s = s
             
             # TODO: increase flexibility in these conditions
             
             isStagSep = numpy.ones(s,dtype='bool')
-            isStagSep[0] = False
-            isStagSep[1] = False
+            for i in range(addArcs):
+                isStagSep[i] = False
+
             self.isStagSep = isStagSep
             
             p = s
@@ -209,30 +235,42 @@ class prob(sgra):
             grav_e = GM/r_e/r_e
 
             # rocket constants
-            Thrust = inputDict['T']*numpy.ones(s)            
-            # TODO: Remove this! It is an ancient cost scaling factor...
-            scal = 1.0#e-3#e-6#1.0#1e-2#5.0e-3#7.5e-4# 1.0/2.5e3
+            Thrust = inputDict['T']*numpy.ones(s)
             Isp = inputDict['Isp']*numpy.ones(s)
             s_f = inputDict['efes']*numpy.ones(s)   
             CL0 = inputDict['CL0']*numpy.ones(s)
             CL1 = inputDict['CL1']*numpy.ones(s)
             CD0 = inputDict['CD0']*numpy.ones(s)
             CD2 = inputDict['CD2']*numpy.ones(s)
-            s_ref = inputDict['s_ref']*numpy.ones(s)#(numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
-            DampCent = 3.0#2.0#
-            DampSlop = 3.0
-            acc_max = 35.0 * grav_e
+            s_ref = inputDict['s_ref']*numpy.ones(s)
+            DampCent = inputDict['DampCent']
+            DampSlop = inputDict['DampSlop']
+            acc_max = inputDict['acc_max'] * grav_e
+
+            # Penalty function settings
 
             # This approach to Kpf is that if, in any point during flight, the
-            # acceleration exceeds the limit by 10%, then the penalty function
-            # at that point is 10 times greater than the maximum value of the 
-            # cost functional.
+            # acceleration exceeds the limit by acc_max_tol, then the penalty
+            # function at that point is PFtol times greater than the maximum
+            # value of the original cost functional.
             
+            PFmode = inputDict['PFmode']
             costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
-#            Kpf = 10.0*max(costFuncVals)/((.1*acc_max)**2)
-            Kpf = 1e-2*max(costFuncVals)/((.1*acc_max)**2)
-#            Kpf = 10.0*max(costFuncVals)/(.1*acc_max)
-#            Kpf = 10.0 * max(costFuncVals) / tanh(0.1)
+            PFtol = inputDict['PFtol']
+            acc_max_relTol = inputDict['acc_max_relTol']
+            acc_max_tol = acc_max_relTol * acc_max
+            if PFmode == 'lin':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol)
+            elif PFmode == 'quad':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol**2)
+            elif PFmode == 'tanh':
+                Kpf = PFtol * max(costFuncVals) / numpy.tanh(acc_max_relTol)
+            else:
+                self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
+                raise KeyError
+
+            # Gradient step search options
+            gradStepSrchCte = inputDict['gradStepSrchCte']
 
             # boundary conditions
             h_initial = inputDict['h_initial']
@@ -256,7 +294,6 @@ class prob(sgra):
             constants = dict()
             constants['grav_e'] = grav_e
             constants['Thrust'] = Thrust
-            constants['costScalingFactor'] = scal
             constants['Isp'] = Isp
             constants['r_e'] = r_e
             constants['GM'] = GM
@@ -268,12 +305,14 @@ class prob(sgra):
             constants['s_ref'] = s_ref
             constants['DampCent'] = DampCent
             constants['DampSlop'] = DampSlop
+            constants['PFmode'] = PFmode
             constants['Kpf'] = Kpf
+            constants['gradStepSrchCte'] = gradStepSrchCte
             self.constants = constants
             
             # restrictions
-            alpha_min = -inputDict['AoAmax']*(numpy.pi)/180  # in rads
-            alpha_max = inputDict['AoAmax']*(numpy.pi)/180   # in rads
+            alpha_min = -inputDict['AoAmax'] * d2r  # in rads
+            alpha_max = -alpha_min                  # in rads
             beta_min = 0.0
             beta_max = 1.0
             restrictions = dict()
@@ -290,10 +329,10 @@ class prob(sgra):
             nt = len(t_its)
 
             # target heights for separation            
-            hTargVec = numpy.array([50.0e-3,2.0]) 
+
 
             j = 0
-            for hTarg in hTargVec:
+            for hTarg in TargHeig:
                 # search for target height
                 keepLook = True
                 while (keepLook and (j < nt)):
@@ -376,19 +415,19 @@ class prob(sgra):
         lam = numpy.zeros((N,n,s))
         mu = numpy.zeros(q)
 
-        # TODO: This hardcoded bypass MUST be corrected in later versions.
-        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
-        self.log.printL("Control limits are being switched;")
-        self.log.printL("Controls themselves are being 'desaturated'.")
-        self.log.printL("Check code for the values, and be careful!\n")
-
-        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
-        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
-        ThrustFactor = 2.0#500.0/40.0
-        self.constants['Thrust'] *= ThrustFactor
-        # Re-calculate the Kpf, since it scales with the Thrust...
-        #self.constants['Kpf'] *= ThrustFactor
-        u[:,1,:] *= 1.0/ThrustFactor
+#        # TODO: This hardcoded bypass MUST be corrected in later versions.
+#        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
+#        self.log.printL("Control limits are being switched;")
+#        self.log.printL("Controls themselves are being 'desaturated'.")
+#        self.log.printL("Check code for the values, and be careful!\n")
+#
+#        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
+#        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
+#        ThrustFactor = 2.0#500.0/40.0
+#        self.constants['Thrust'] *= ThrustFactor
+#        # Re-calculate the Kpf, since it scales with the Thrust...
+#        #self.constants['Kpf'] *= ThrustFactor
+#        u[:,1,:] *= 1.0/ThrustFactor
 
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
         
@@ -413,7 +452,7 @@ class prob(sgra):
         self.plotSol()
         self.plotF()
         
-        self.log.printL("\nInitialization complete.\n")        
+        self.log.printL("\nInitialization complete.\n")
         return solInit
 #%%
     def calcDimCtrl(self,ext_u = None):        
@@ -583,7 +622,6 @@ class prob(sgra):
         MaxThrs = constants['Thrust'] 
         Isp = constants['Isp']
         g0Isp = Isp * grav_e
-        scal = constants['costScalingFactor']
         r_e = constants['r_e']
         GM = constants['GM']
         s_f = constants['s_f']
@@ -595,6 +633,7 @@ class prob(sgra):
         DampCent = constants['DampCent']
         DampSlop = constants['DampSlop']
         Kpf = constants['Kpf']
+        PFmode = constants['PFmode']
 
         restrictions = self.restrictions
         alpha_min = restrictions['alpha_min']
@@ -759,10 +798,13 @@ class prob(sgra):
         if calcCostTerm:
             PenaltyIsTrue = (acc > acc_max)
             # Common term
-            K2dAPen = 2.0 * Kpf * (acc-acc_max) * PenaltyIsTrue
-#            K2dAPen = Kpf * PenaltyIsTrue
-#            K2dAPen = Kpf * PenaltyIsTrue * (1.0 - tanh(acc/acc_max-1.0)**2) *\
-#                        (1.0/acc_max)
+            if PFmode == 'lin':
+                K2dAPen = Kpf * PenaltyIsTrue
+            elif PFmode == 'quad':
+                K2dAPen = 2.0 * Kpf * (acc-acc_max) * PenaltyIsTrue
+            elif PFmode == 'tanh':
+                K2dAPen = Kpf * PenaltyIsTrue * \
+                          (1.0 - tanh(acc/acc_max-1.0)**2) * (1.0/acc_max)
 
             ## fx derivatives
             # d f d h (incomplete):
@@ -786,13 +828,15 @@ class prob(sgra):
 
             for arc in range(s):
                 ## fp derivatives
-                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+                if PFmode == 'lin':
+                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)
+                elif PFmode == 'quad':
+                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
                                 Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)**2
-#                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
-#                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)#**2
-#                fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
-#                                Kpf * PenaltyIsTrue[:,arc] * tanh(acc[:,arc]/acc_max-1.0)
-
+                elif PFmode == 'tanh':
+                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
+                                Kpf * PenaltyIsTrue[:,arc] * tanh(acc[:,arc]/acc_max-1.0)
 
                 # fx is ready!
                 fx[:,:,arc] *= pi[arc]
@@ -894,9 +938,9 @@ class prob(sgra):
         Grads['phix'] = phix
         Grads['phiu'] = phiu
         Grads['phip'] = phip
-        Grads['fx'] = fx * scal
-        Grads['fu'] = fu * scal
-        Grads['fp'] = fp * scal
+        Grads['fx'] = fx
+        Grads['fu'] = fu
+        Grads['fp'] = fp
     #    Grads['gx'] = gx
     #    Grads['gp'] = gp
         Grads['psiy'] = psiy
@@ -952,8 +996,8 @@ class prob(sgra):
         Thrust = constants['Thrust']
         Isp = constants['Isp']
         s_f = constants['s_f']
-        scal = constants['costScalingFactor']
         Kpf = constants['Kpf']
+        PFmode = constants['PFmode']
         acc_max = restrictions['acc_max']        
         acc = self.calcAcc()
         # calculate variable beta
@@ -964,11 +1008,14 @@ class prob(sgra):
         fPF = numpy.empty_like(f)
         
         for arc in range(self.s):
-            fOrig[:,arc] = self.pi[arc] * scal * beta[:,arc] * Thrust[arc] /  \
+            fOrig[:,arc] = self.pi[arc] * beta[:,arc] * Thrust[arc] /  \
                             (grav_e * (1.0-s_f[arc]) * Isp[arc])
-            fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
-#            fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)
-#            fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)
+            if PFmode == 'lin':
+                fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)
+            elif PFmode == 'quad':
+                fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
+            elif PFmode == 'tanh':
+                fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)
 #            fPF[:,arc] = self.pi[arc] * Kpf * \
 #                .5 * (1.0 + numpy.tanh(500.0*(acc[:,arc]/acc_max-1.001)) )
 #0.5*(1.0+numpy.tanh((a-1- 0.001)*500.0 ))
@@ -1047,7 +1094,6 @@ class prob(sgra):
 
             self.log.printL("Initial mass: " + str(x[0,3,0]))
             self.log.printL("I: "+ str(I))
-            self.log.printL("CostScalFact: " + str(self.constants['costScalingFactor']))
             self.log.printL("Design payload mass: " + str(self.mPayl))
             #mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
             mFinl = self.calcPsblPayl()

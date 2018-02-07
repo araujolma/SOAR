@@ -29,7 +29,7 @@ if __name__ == "__main__":
     print('\n')
 
     sol = prob.prob()
-    ITman = ITman(probName=sol.probName)
+    ITman = ITman(probName=sol.probName,confFile='teste.its')
     sol.log = ITman.log
 
     try:
