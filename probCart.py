@@ -16,6 +16,7 @@ velocity.
 
 import numpy
 from sgra import sgra
+from itsme import problemConfiguration
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -28,9 +29,8 @@ class prob(sgra):
         p = 2
         q = 6#8
         s = 2
-        N = 3000+1#20000+1#2000+1
 
-        self.N = N
+
         self.n = n
         self.m = m
         self.p = p
@@ -38,44 +38,88 @@ class prob(sgra):
         self.s = s
         self.Ns = 2*n*s + p
 
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
+        initMode = opt.get('initMode','default')
+        if initMode == 'default':
 
-        #prepare tolerances
-        tolP = 1.0e-4#7#8
-        tolQ = 1.0e-6#8#5
-        tol = dict()
-        tol['P'] = tolP
-        tol['Q'] = tolQ
+            N = 3000+1#20000+1#2000+1
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.N = N
+            self.dt = dt
+            self.t = t
 
-        self.tol = tol
-        self.constants['gradStepSrchCte'] = 1.0e-3
+            #prepare tolerances
+            tolP = 1.0e-4#7#8
+            tolQ = 1.0e-6#8#5
+            tol = dict()
+            tol['P'] = tolP
+            tol['Q'] = tolQ
 
-        # Get initialization mode
+            self.tol = tol
+            self.constants['gradStepSrchCte'] = 1.0e-3
 
-        x = numpy.zeros((N,n,s))
-        u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
+            # Get initialization mode
 
-        #x[:,0,0] = t.copy()
-        #x[:,0,0] = .5*t
-        #x[:,0,1] = .5+.5*t
+            x = numpy.zeros((N,n,s))
+            u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
 
-        lam = 0.0*x
-        mu = numpy.zeros(q)
-        pi = 10.0*numpy.ones(p)
+            #x[:,0,0] = t.copy()
+            #x[:,0,0] = .5*t
+            #x[:,0,1] = .5+.5*t
 
-        self.x = x
-        self.u = u
-        self.pi = pi
-        self.lam = lam
-        self.mu= mu
+            lam = 0.0*x
+            mu = numpy.zeros(q)
+            pi = 10.0*numpy.ones(p)
 
-        solInit = self.copy()
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
 
-        self.log.printL("\nInitialization complete.\n")
-        return solInit
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
+
+        elif initMode == 'extSol':
+            inpFile = opt.get('confFile','')
+            pConf = problemConfiguration(fileAdress=inpFile)
+            pConf.sgra()
+
+            N = pConf.con['N']
+            tolP = pConf.con['tolP']
+            tolQ = pConf.con['tolQ']
+            k = pConf.con['gradStepSrchCte']
+
+            self.N = N
+
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
+
+            self.tol = {'P': tolP,
+                        'Q': tolQ}
+            self.constants['gradStepSrchCte'] = k
+
+            x = numpy.zeros((N,n,s))
+            u = numpy.zeros((N,m,s))
+
+            lam = 0.0*x.copy()
+            mu = numpy.zeros(q)
+            pi = numpy.array([1.0,1.0])
+
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
+
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
 #%%
 
     def calcPhi(self):
@@ -243,10 +287,10 @@ class prob(sgra):
             du = opt['u']
             dp = opt['pi']
 
-            titlStr = "Proposed variations\n"+"Delta pi: "
+            titlStr = "Proposed variations (grad iter #" + \
+                      str(self.NIterGrad+1) + ")\n"+"Delta pi: "
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
-                #titlStr += str(dp[i])+", "
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 

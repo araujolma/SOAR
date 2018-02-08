@@ -190,7 +190,7 @@ def calcP(self,mustPlotPint=False):
         colorList = ['b','g','r','m']
         for i in range(self.n):
             plt.subplot2grid((Np,1),(i+2,0))
-            self.plotCat(func[:,i,:],piIsTime=False,color=colorList[i])
+            self.plotCat(func[:,i,:],piIsTime=False,color=colorList[i%4])
             plt.grid(True)
             plt.ylabel('State '+str(i))
 

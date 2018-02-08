@@ -10,10 +10,15 @@ import datetime, time
 #import matplotlib.pyplot as plt
 
 from interf import ITman
+
 #import probRock as prob
+#confFile = 'teste.its'
 #import prob101 as prob
-import probBrac as prob
-#import probCart as prob
+#confFile = 'prob101_default.its'
+#import probBrac as prob
+#confFile = 'probBrac_default.its'
+import probCart as prob
+confFile = 'probCart_default.its'
 #import probCartMod as prob
 #import probSmpl as prob
 #import os
@@ -29,7 +34,8 @@ if __name__ == "__main__":
     print('\n')
 
     sol = prob.prob()
-    ITman = ITman(probName=sol.probName,confFile='teste.its')
+
+    ITman = ITman(probName=sol.probName,confFile=confFile)
     sol.log = ITman.log
 
     try:

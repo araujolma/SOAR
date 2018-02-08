@@ -10,6 +10,7 @@ A module for the problem 10-2 from Miele (1970)
 
 import numpy
 from sgra import sgra
+from itsme import problemConfiguration
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -23,9 +24,7 @@ class prob(sgra):
         q = 4
         s = 1
 
-        N = 5000+1
 
-        self.N = N
         self.n = n
         self.m = m
         self.p = p
@@ -33,45 +32,91 @@ class prob(sgra):
         self.s = s
         self.Ns = 2*n*s + p
 
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
+        initMode = opt.get('initMode','default')
+        if initMode == 'default':
 
-        # Payload mass
-        #self.mPayl = 100.0
+            N = 5000+1
+            self.N = N
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
 
-        #prepare tolerances
-        tolP = 1.0e-7#8
-        tolQ = 1.0e-7#5
-        tol = dict()
-        tol['P'] = tolP
-        tol['Q'] = tolQ
+            # Payload mass
+            #self.mPayl = 100.0
 
-        self.tol = tol
+            #prepare tolerances
+            tolP = 1.0e-7#8
+            tolQ = 1.0e-7#5
+            tol = dict()
+            tol['P'] = tolP
+            tol['Q'] = tolQ
 
-        self.constants['gradStepSrchCte'] = 1.0e-4
+            self.tol = tol
 
-        # Get initialization mode
+            self.constants['gradStepSrchCte'] = 1.0e-4
 
-        x = numpy.zeros((N,n,s))
-        u = numpy.ones((N,m,s))
+            # Get initialization mode
 
-        x[:,0,0] = t.copy()
-        lam = 0.0*x.copy()
-        mu = numpy.zeros(q)
-        pi = numpy.array([1.0])
+            x = numpy.zeros((N,n,s))
+            u = numpy.ones((N,m,s))
 
-        self.x = x
-        self.u = u
-        self.pi = pi
-        self.lam = lam
-        self.mu= mu
+            x[:,0,0] = t.copy()
+            lam = 0.0*x.copy()
+            mu = numpy.zeros(q)
+            pi = numpy.array([1.0])
 
-        solInit = self.copy()
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
 
-        self.log.printL("\nInitialization complete.\n")
-        return solInit
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
+
+        elif initMode == 'extSol':
+            inpFile = opt.get('confFile','')
+            pConf = problemConfiguration(fileAdress=inpFile)
+            pConf.sgra()
+
+            N = pConf.con['N']
+            tolP = pConf.con['tolP']
+            tolQ = pConf.con['tolQ']
+            k = pConf.con['gradStepSrchCte']
+
+            self.N = N
+
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
+
+            self.tol = {'P': tolP,
+                        'Q': tolQ}
+            self.constants['gradStepSrchCte'] = k
+
+            x = numpy.zeros((N,n,s))
+            u = numpy.ones((N,m,s))
+
+            x[:,0,0] = t.copy()
+            lam = 0.0*x.copy()
+            mu = numpy.zeros(q)
+            pi = numpy.array([1.0])
+
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
+
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
+
 #%%
 
     def calcPhi(self):

@@ -10,21 +10,18 @@ A module for the brachistochrone problem.
 
 import numpy
 from sgra import sgra
+from itsme import problemConfiguration
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'probBrac'
 
     def initGues(self,opt={}):
-        # matrix sizes
         n = 3
         m = 1
         p = 1
         q = 5
         s = 1
-        N = 2000+1#20000+1#2000+1
-
-        self.N = N
         self.n = n
         self.m = m
         self.p = p
@@ -32,56 +29,117 @@ class prob(sgra):
         self.s = s
         self.Ns = 2*n*s + p
 
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
+        initMode = opt.get('initMode','default')
+        if initMode == 'default':
+            # matrix sizes
 
-        #prepare tolerances
-        tolP = 1.0e-4#7#8
-        tolQ = 1.0e-6#8#5
-        tol = dict()
-        tol['P'] = tolP
-        tol['Q'] = tolQ
+            N = 2000+1#20000+1#2000+1
 
-        self.tol = tol
+            self.N = N
 
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
 
-        # Get initialization mode
+            #prepare tolerances
+            tolP = 1.0e-4#7#8
+            tolQ = 1.0e-6#8#5
+            tol = dict()
+            tol['P'] = tolP
+            tol['Q'] = tolQ
 
-        x = numpy.zeros((N,n,s))
-        #u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
-        u = numpy.arctanh(0.5*numpy.ones((N,m,s)))
-        #x[:,0,0] = t.copy()
-        #for i in range(N):
-        #    x[i,1,0] = x[N-i-1,0,0]
-        #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-        pi = numpy.array([2.0/numpy.sqrt(10.0)])
-        td = t * pi[0]
-        x[:,0,0] = 2.5 * (td**2)
-        x[:,1,0] = 1.0 - x[:,0,0]
-        x[:,2,0] = numpy.sqrt(10.0 * x[:,0,0])
-
-        #x[:,0,0] = .5*t
-        #x[:,0,1] = .5+.5*t
-
-        lam = 0.0*x
-        mu = numpy.zeros(q)
-        #pi = 10.0*numpy.ones(p)
+            self.tol = tol
 
 
-        self.x = x
-        self.u = u
-        self.pi = pi
-        self.lam = lam
-        self.mu= mu
+            # Get initialization mode
 
-        self.constants['gradStepSrchCte'] = 1e-3
+            x = numpy.zeros((N,n,s))
+            #u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
+            u = numpy.arctanh(0.5*numpy.ones((N,m,s)))
+            #x[:,0,0] = t.copy()
+            #for i in range(N):
+            #    x[i,1,0] = x[N-i-1,0,0]
+            #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
+            pi = numpy.array([2.0/numpy.sqrt(10.0)])
+            td = t * pi[0]
+            x[:,0,0] = 2.5 * (td**2)
+            x[:,1,0] = 1.0 - x[:,0,0]
+            x[:,2,0] = numpy.sqrt(10.0 * x[:,0,0])
 
-        solInit = self.copy()
+            #x[:,0,0] = .5*t
+            #x[:,0,1] = .5+.5*t
 
-        self.log.printL("\nInitialization complete.\n")
-        return solInit
+            lam = 0.0*x
+            mu = numpy.zeros(q)
+            #pi = 10.0*numpy.ones(p)
+
+
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
+
+            self.constants['gradStepSrchCte'] = 1e-3
+
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
+
+        elif initMode == 'extSol':
+            inpFile = opt.get('confFile','')
+            pConf = problemConfiguration(fileAdress=inpFile)
+            pConf.sgra()
+
+            N = pConf.con['N']
+            tolP = pConf.con['tolP']
+            tolQ = pConf.con['tolQ']
+            k = pConf.con['gradStepSrchCte']
+
+            self.N = N
+
+            dt = 1.0/(N-1)
+            t = numpy.arange(0,1.0+dt,dt)
+            self.dt = dt
+            self.t = t
+
+            self.tol = {'P': tolP,
+                        'Q': tolQ}
+            self.constants['gradStepSrchCte'] = k
+
+            x = numpy.zeros((N,n,s))
+            #u = numpy.zeros((N,m,s))#5.0*numpy.ones((N,m,s))
+            u = numpy.arctanh(0.5*numpy.ones((N,m,s)))
+            #x[:,0,0] = t.copy()
+            #for i in range(N):
+            #    x[i,1,0] = x[N-i-1,0,0]
+            #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
+            pi = numpy.array([2.0/numpy.sqrt(10.0)])
+            td = t * pi[0]
+            x[:,0,0] = 2.5 * (td**2)
+            x[:,1,0] = 1.0 - x[:,0,0]
+            x[:,2,0] = numpy.sqrt(10.0 * x[:,0,0])
+
+            #x[:,0,0] = .5*t
+            #x[:,0,1] = .5+.5*t
+
+            lam = 0.0*x
+            mu = numpy.zeros(q)
+            #pi = 10.0*numpy.ones(p)
+
+            self.x = x
+            self.u = u
+            self.pi = pi
+            self.lam = lam
+            self.mu= mu
+
+            solInit = self.copy()
+
+            self.log.printL("\nInitialization complete.\n")
+            return solInit
+
 #%%
 
     def calcPhi(self):
