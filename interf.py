@@ -54,14 +54,14 @@ class ITman():
     """Class for the ITerations MANager.
 
     Only one object from this class is intended to be active during a program
-    run. It manages the iterations in the solution, commands solution saving, 
+    run. It manages the iterations in the solution, commands solution saving,
     plotting, debug modes, etc.
-    
+
     """
 
     bscImpStr = "\n >> "
     dashStr = '\n-------------------------------------------------------------'
-    
+
     def __init__(self,confFile='',probName='prob'):
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
@@ -84,32 +84,32 @@ class ITman():
 
     def prntDashStr(self):
         self.log.printL(self.dashStr)
-        
+
     def prom(self):
         inp = input(self.bscImpStr)
         self.log.printL(self.bscImpStr+inp,mode='file')
         return inp
-    
+
     def printPars(self):
         self.log.printL("\nThese are the attributes for the Iterations manager:\n")
         self.log.pprint(self.__dict__)
-    
+
     def greet(self):
-        """This is the first command to be run at the beggining of the 
-        MSGRA. 
-        
-        The idea is to let the user choose whether he/she wants to load a 
+        """This is the first command to be run at the beggining of the
+        MSGRA.
+
+        The idea is to let the user choose whether he/she wants to load a
         previously prepared solution, or generate a new one."""
 
 
-        self.prntDashStr()      
+        self.prntDashStr()
         self.log.printL("\nWelcome to SGRA!\n")
         self.log.printL("Loading settings for problem: "+self.probName)
         self.log.printL('Saving results and log in '+self.log.folderName+'.')
-        self.prntDashStr()      
-        self.printPars()     
+        self.prntDashStr()
+        self.printPars()
         self.log.printL("\n(You can always change these here in '"+__name__+".py').")
-        
+
         if self.defOpt == 'newSol':
             self.log.printL("\nDefault starting option (defOpt) is to generate new initial guess.")
             self.log.printL("Hit 'enter' to do it, or any other key to load a "+\
@@ -133,11 +133,11 @@ class ITman():
                     self.log.printL("\nProceeding with 'extSol' mode.\n" + \
                                     "External file for configurations: " + \
                                     self.confFile + "\n")
-                    
+
                 return
             else:
                 self.isNewSol = False
-                # execution only gets here if the default init is to generate 
+                # execution only gets here if the default init is to generate
                 # new init guess, but user wants to load solution
                 self.log.printL("\nOk, default path to loading solution (loadSolDir) is: '"+\
                       self.loadSolDir+"'.")
@@ -146,7 +146,7 @@ class ITman():
                 inp = self.prom()
                 if inp != '':
                     self.loadSolDir = inp
-                
+
         elif self.defOpt == 'loadSol':
             self.log.printL("\nDefault starting option (defOpt) is to load solution.")
             self.log.printL("The default path to loading solution (loadSolDir) is: "+self.loadSolDir)
@@ -161,9 +161,9 @@ class ITman():
                 self.log.printL("\nOk, generating new initial guess...\n")
             else:
                 self.isNewSol = False
-                self.loadSolDir = inp  
+                self.loadSolDir = inp
             return
-        
+
     def checkPars(self,sol):
         self.log.printL(self.dashStr)
         sol.printPars()
@@ -173,7 +173,7 @@ class ITman():
         self.log.printL("\nAre these parameters OK?")
         self.log.printL("Press any key to continue, or ctrl+C to stop.")
         self.prom()
-        
+
     def loadSol(self,path=''):
         if path == '':
             path = self.loadSolDir
@@ -190,7 +190,7 @@ class ITman():
         self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
-   
+
     def setInitSol(self,sol):
         self.log.printL("Setting initial solution.")
         self.log.printL("Please wait, you will be asked to confirm it later.\n\n")
@@ -207,31 +207,25 @@ class ITman():
             sol = self.loadSol()
             self.log.printL('Loading "initial" solution (for comparing purposes only)...')
             solInit = self.loadSol(self.probName+'_solInit.pkl')#sol.copy()
-        
-        ####
-        #sol.plotSol(mustSaveFig=False,intv=[100.0,300.0])
-        #sol.calcP(mustPlotPint=True)
-        #input("In interf.py: Checa lá o ..._Pint.pdf!")
-        ####
-        
+
         # Plot obtained solution, check parameters
         self.prntDashStr()
         self.log.printL("\nProposed initial guess:\n")
         sol.plotSol()
         self.checkPars(sol)
 
-        # Calculate P values, store them        
+        # Calculate P values, store them
         P,Pint,Ppsi = sol.calcP()
         sol.histP[sol.NIterRest] = P
         sol.histPint[sol.NIterRest] = Pint
         sol.histPpsi[sol.NIterRest] = Ppsi
-    
+
         # Calculate Q values, just for show. They don't even mean anything.
         Q,Qx,Qu,Qp,Qt = sol.calcQ()
-        
+
         # Plot trajectory
-        sol.plotTraj() 
-        
+        sol.plotTraj()
+
         # Setting debugging options (rest and grad)
         sol.dbugOptRest.setAll(opt={'pausRest':False,
                            'pausCalcP':False,
@@ -265,21 +259,21 @@ class ITman():
                            'plotI':flag})
 #        sol.log = self.log
 #        solInit.log = self.log
-        
+
         return sol,solInit
-    
+
     def showHistPCond(self,sol):
         if sol.NIterRest % self.RestHistShowRate == 0:
             return True
         else:
             return False
-        
+
     def plotSolRestCond(self,sol):
         if sol.NIterRest % self.RestPlotSolRate == 0:
             return True
         else:
             return False
-    
+
     def restRnds(self,sol):
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
@@ -293,17 +287,17 @@ class ITman():
         sol.plotSol()
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol
-    
+
     def frstRestRnds(self,sol):
         self.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP()
         sol = self.restRnds(sol)
-        
+
         self.saveSol(sol,self.log.folderName + '/solInitRest.pkl')
-    
+
         return sol
-    
+
     def showHistQCond(self,sol):
         if sol.NIterGrad % self.GradHistShowRate == 0:
             return True
@@ -321,30 +315,30 @@ class ITman():
             return True
         else:
             return False
-        
+
     def showHistGRrateCond(self,sol):
         return True
-        
+
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
         else:
             return False
-        
+
     def saveSolCond(self,sol):
         #return False
-        
+
         if sol.NIterGrad % self.GRsaveSolRate==0:
             return True
         else:
             return False
-        
+
     def gradRestPausCond(self,sol):
         if sol.NIterGrad % self.GRpausRate==0:
             return True
         else:
             return False
-        
+
     def gradRestCycl(self,sol,altSol=None):
         self.prntDashStr()
         self.log.printL("\nBeginning gradient rounds...")
@@ -353,23 +347,23 @@ class ITman():
             sol = self.restRnds(sol)
 
             sol.grad(parallelOpt=self.parallelOpt)
-            
+
             if self.showHistQCond(sol):
                 sol.showHistQ()
-                
+
             if self.showHistICond(sol):
                 sol.showHistI()
-            
+
             if self.showHistGradStepCond(sol):
                 sol.showHistGradStep()
-                
+
             if self.showHistGRrateCond(sol):
                 sol.showHistGRrate()
-            
+
             if self.saveSolCond(sol):
                 self.prntDashStr()
                 self.saveSol(sol,self.log.folderName + '/currSol.pkl')
-            
+
             if self.plotSolGradCond(sol):
                 self.prntDashStr()
                 self.log.printL("\nSolution so far:")
@@ -378,7 +372,7 @@ class ITman():
                 sol.plotTraj()
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')
-            
+
             if self.gradRestPausCond(sol):
                 print("\a")
                 self.prntDashStr()
@@ -389,5 +383,5 @@ class ITman():
                 self.log.printL("Load last saved solution to go back to GR cycle.")
                 self.prom()
         #
-        
-        return sol   
+
+        return sol

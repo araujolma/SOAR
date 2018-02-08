@@ -10,15 +10,15 @@ import datetime, time
 #import matplotlib.pyplot as plt
 
 from interf import ITman
-import probRock as prob
+#import probRock as prob
 #import prob101 as prob
-#import probBrac as prob
+import probBrac as prob
 #import probCart as prob
 #import probCartMod as prob
 #import probSmpl as prob
-#import os            
+#import os
 #%%
-            
+
 # ##################
 # MAIN SEGMENT:
 # ##################
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     try:
         ITman.greet()
-        
+
         start_time = time.time()
         sol,solInit = ITman.setInitSol(sol)
 
@@ -49,9 +49,9 @@ if __name__ == "__main__":
         ITman.log.printL(line)
         ITman.log.printL("                      OPTIMIZATION FINISHED!                      ")
         ITman.log.printL(line)
-        ITman.saveSol(sol,ITman.probName+'_currSol.pkl')
+        ITman.saveSol(sol,ITman.log.folderName+'/currSol.pkl')
         sol.showHistP()
-    
+
         sol.showHistQ()
         sol.showHistI()
         sol.showHistGradStep()
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         ITman.log.printL(line)
 
         sol.plotSol()
-    
+
         ITman.log.printL("\n"+line)
         ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
               (time.time() - start_time))
