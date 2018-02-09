@@ -33,7 +33,9 @@ def its(*arg):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    problem1 = problem(fname)
+    con = initialize(fname)
+
+    problem1 = problem(con)
 
     solution1 = problem1.solveForInitialGuess()
 
@@ -58,7 +60,8 @@ def sgra(fname: str):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    solution = problem(fname).solveForFineTune()
+    con = initialize(fname)
+    solution = problem(con).solveForFineTune()
 
     solution.basic.displayInfo()
     solution.basic.orbitResults()
@@ -97,59 +100,67 @@ def itsTester():
         if not its(case).converged():
             raise Exception('itsme saying: solution did not converge')
 
-    problem('itsme_test_cases/' +
-            'caseEarthRotating.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMoon.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMu150h500NStag4.its').solveForFineTune()
+    con = initialize('itsme_test_cases/caseEarthRotating.its')
+    problem(con).solveForFineTune()
+    con = initialize('itsme_test_cases/caseMoon.its')
+    problem(con).solveForFineTune()
+    con = initialize('itsme_test_cases/caseMu150h500NStag4.its')
+    problem(con).solveForFineTune()
 
     sgra('default.its')
 
 
+def initialize(fileAdress):
+
+    # TODO: solve the codification problem on configuration files
+    configuration = problemConfiguration(fileAdress)
+    configuration.environment()
+    configuration.initialState()
+    configuration.finalState()
+    configuration.trajectory()
+    configuration.solver()
+
+    con = configuration.con
+
+    modelConf = modelConfiguration(con)
+    modelConf.vehicle()
+
+    con = modelConf.con
+
+    iniEst = modelInitialEstimate(con)
+    con['Dv1ref'] = iniEst.dv
+    con['tref'] = iniEst.t
+    con['vxref'] = iniEst.vx
+
+    if not con['homogeneous']:
+
+        iniEst = modelInitialEstimate(con)
+        con['Dv1ref'] = iniEst.dv
+        con['tref'] = iniEst.t
+        con['vxref'] = iniEst.vx
+
+        iniEst = itsInitial(con)
+        # input("Press Enter to continue...")
+
+        con['Dv1ref'] = iniEst[0]
+        con['tref'] = iniEst[1]
+        con['vxref'] = iniEst[2]
+
+        guess = numpy.array([1, 1, 1])
+        limit = guess*0.5
+
+        con['guess'] = guess
+        con['fsup'] = guess + limit
+        con['finf'] = guess - limit
+
+    return con
+
+
 class problem():
 
-    def __init__(self, fileAdress: str):
+    def __init__(self, con: dict):
 
-        # TODO: solve the codification problem on configuration files
-        configuration = problemConfiguration(fileAdress)
-        configuration.environment()
-        configuration.initialState()
-        configuration.finalState()
-        configuration.trajectory()
-        configuration.solver()
-
-        self.con = configuration.con
-
-        modelConf = modelConfiguration(self.con)
-        modelConf.vehicle()
-
-        self.con = modelConf.con
-
-        if self.con['homogeneous']:
-
-            # Reference values
-            iniEst = modelInitialEstimate(self.con)
-            self.con['Dv1ref'] = iniEst.dv
-            self.con['tref'] = iniEst.t
-            self.con['vxref'] = iniEst.vx
-
-        else:
-
-            iniEst = itsInitial(self.con['itsFile'])
-            # input("Press Enter to continue...")
-
-            self.con['Dv1ref'] = iniEst[0]
-            self.con['tref'] = iniEst[1]
-            self.con['vxref'] = iniEst[2]
-
-            guess = numpy.array([1, 1, 1])
-            limit = guess*0.5
-
-            self.con['guess'] = guess
-            self.con['fsup'] = guess + limit
-            self.con['finf'] = guess - limit
-
+        self.con = con
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
 

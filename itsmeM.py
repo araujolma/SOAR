@@ -14,57 +14,15 @@ Version: Heterogeneous
 import numpy
 import configparser
 import matplotlib.pyplot as plt
-from time import clock
 from itsModelM import model
-from itsModelConfiguration import modelConfiguration
-from itsModelInitialEstimate import modelInitialEstimate
 
 
-def its(*arg):
+def itsInitial(con):
 
-    # arguments analisys
-    if len(arg) == 0:
-        fname = 'default.its'
-    elif len(arg) == 1:
-        fname = arg[0]
-    else:
-        raise Exception('itsme saying: too many arguments on its')
+    print("itsmeM: Modified Inital Trajectory Setup Module")
+    print("Opening case: ", con['itsFile'])
 
-    print("itsme: Inital Trajectory Setup Module")
-    print("Opening case: ", fname)
-
-    problem1 = problem(fname)
-
-    solution1 = problem1.solveForInitialGuess()
-
-    solution1.displayResults()
-
-    solution2 = problem1.solveForFineTune()
-
-    solution2.basic.plotResultsAed()
-
-    solution2.displayResults()
-
-    if not solution2.converged():
-            print('itsme saying: solution has not converged :(')
-
-    return solution2
-
-
-def itsInitial(*arg):
-
-    # arguments analisys
-    if len(arg) == 0:
-        fname = 'default.its'
-    elif len(arg) == 1:
-        fname = arg[0]
-    else:
-        raise Exception('itsme saying: too many arguments on its')
-
-    print("itsme: Inital Trajectory Setup Module")
-    print("Opening case: ", fname)
-
-    problem1 = problem(fname)
+    problem1 = problem(con)
 
     solution2 = problem1.solveForFineTune()
 
@@ -73,87 +31,11 @@ def itsInitial(*arg):
     return solution2.Dv1_final, solution2.tf_final, solution2.vx_final
 
 
-def sgra(fname: str):
-
-    # arguments analisys
-
-    print("itsme: Inital Trajectory Setup Module")
-    print("Opening case: ", fname)
-
-    solution = problem(fname).solveForFineTune()
-
-    solution.basic.displayInfo()
-    solution.basic.orbitResults()
-
-    print('Initial states:', solution.basic.traj.xx[0])
-    print('Final   states:', solution.basic.traj.xx[-1])
-
-    if not solution.converged():
-            print('itsme saying: solution has not converged :(')
-
-    return solution.sgra()
-
-
-def itsTester():
-    # Some aplications of itsme functions and objects
-    its()
-    # test list
-    testList = ['itsme_test_cases/caseEarthRotating.its',
-                'itsme_test_cases/caseMoon.its',
-                'itsme_test_cases/caseMu050h200NStag2.its',
-                'itsme_test_cases/caseMu050h600NStag2.its',
-                'itsme_test_cases/caseMu100h463NStag0.its',
-                'itsme_test_cases/caseMu100h463NStag1.its',
-                'itsme_test_cases/caseMu100h463NStag2.its',
-                'itsme_test_cases/genericHet.its',
-                'itsme_test_cases/falcon9.its',
-                'itsme_test_cases/electron.its',
-                'itsme_test_cases/longMarch4B.its',
-                'itsme_test_cases/ariane2.its',
-                'itsme_test_cases/saturn1B.its',
-                'itsme_test_cases/zenit3M.its',
-                'itsme_test_cases/caseMu100h1500NStag3.its',
-                'itsme_test_cases/caseMu150h500NStag4.its']
-
-    for case in testList:
-        if not its(case).converged():
-            raise Exception('itsme saying: solution did not converge')
-
-    problem('itsme_test_cases/' +
-            'caseEarthRotating.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMoon.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMu150h500NStag4.its').solveForFineTune()
-
-    sgra('default.its')
-
-
 class problem():
 
-    def __init__(self, fileAdress: str):
+    def __init__(self, con: dict):
 
-        # TODO: solve the codification problem on configuration files
-        configuration = problemConfiguration(fileAdress)
-        configuration.environment()
-        configuration.initialState()
-        configuration.finalState()
-        configuration.trajectory()
-        configuration.solver()
-
-        self.con = configuration.con
-
-        modelConf = modelConfiguration(self.con)
-        modelConf.vehicle()
-
-        self.con = modelConf.con
-
-        # Reference values
-        iniEst = modelInitialEstimate(self.con)
-        self.con['Dv1ref'] = iniEst.dv
-        self.con['tref'] = iniEst.t
-        self.con['vxref'] = iniEst.vx
-
+        self.con = con
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
 
@@ -608,11 +490,3 @@ class solution():
               self.basic.traj.massJet
 
         return ans
-
-
-if __name__ == "__main__":
-
-    start = clock()
-    its()
-    print('Execution time: ', clock() - start, ' s')
-    # input("Press any key to finish...")

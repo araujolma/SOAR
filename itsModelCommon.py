@@ -53,6 +53,32 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
             -btm*M/(earth.g0*Isp)]  # coefficient
 
 
+class modelAttitude2():
+
+    def __init__(self, t1: float, t2: float, v1: float, v2: float):
+        self.t1 = t1
+        self.t2 = t2
+
+        self.v1 = v1
+        self.v2 = v2
+
+    def value(self, t: float)-> float:
+        if (t >= self.t1) and (t <= self.t2):
+            ans = self.v2
+        else:
+            ans = self.v1
+
+        return ans
+
+    def multValue(self, t: float):
+        N = len(t)
+        ans = numpy.full((N, 1), 0.0)
+        for jj in range(0, N):
+            ans[jj] = self.value(t[jj])
+
+        return ans
+
+
 class modelAttitude():
 
     def __init__(self, t1: float, t2: float, v1: float, v2: float):

@@ -7,7 +7,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 500
+Mu = 400
 #
 # Number of stages
 NStag = 3
@@ -68,10 +68,10 @@ gamma = 0.0
 AoAmax = 3.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 3.0
 #
 # Duration of attitude maneuver [°]
-tAoA = 5.0
+tAoA = 3.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
