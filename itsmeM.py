@@ -318,6 +318,7 @@ class problem():
     def displayErrorsFactors(self, errors: list, factors: list)-> None:
 
         num = "8.6e"
+        print("itsme simplified")
         print(("Errors    : %"+num+",  %"+num+",  %"+num)
               % (errors[0], errors[1], errors[2]))
         print(("Sup limits: %"+num+",  %"+num+",  %"+num)
