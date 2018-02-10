@@ -12,6 +12,7 @@ Version: Heterogeneous
 """
 
 import numpy
+import os
 from time import clock
 from itsModel import model
 from itsModelConfiguration import modelConfiguration
@@ -79,34 +80,21 @@ def itsTester():
     # Some aplications of itsme functions and objects
     its()
     # test list
-    folder = 'itsme_test_cases/'
-    testList = [folder + 'caseEarthRotating.its',
-                folder + 'caseMoon.its',
-                folder + 'caseMu050h200NStag2.its',
-                folder + 'caseMu050h600NStag2.its',
-                folder + 'caseMu100h463NStag0.its',
-                folder + 'caseMu100h463NStag1.its',
-                folder + 'caseMu100h463NStag2.its',
-                folder + 'genericHet.its',
-                folder + 'falcon9.its',
-                folder + 'electron.its',
-                folder + 'longMarch4B.its',
-                folder + 'ariane2.its',
-                folder + 'saturn1B.its',
-                folder + 'zenit3M.its',
-                folder + 'caseMu100h1500NStag3.its',
-                folder + 'caseMu150h500NStag4.its']
+    folder = 'itsme_test_cases'
+    testList = os.listdir('./' + folder)
+
+    print(testList)
 
     for case in testList:
-        if not its(case).converged():
+        if not its(folder + '/' + case).converged():
             print(case)
             raise Exception('itsme saying: solution did not converge')
 
-    con = initialize(folder + 'caseEarthRotating.its')
+    con = initialize(folder + '/caseEarthRotating.its')
     problem(con).solveForFineTune()
-    con = initialize(folder + 'caseMoon.its')
+    con = initialize(folder + '/caseMoon.its')
     problem(con).solveForFineTune()
-    con = initialize(folder + 'caseMu150h500NStag4.its')
+    con = initialize(folder + '/caseMu150h500NStag4.its')
     problem(con).solveForFineTune()
 
     sgra('default.its')
