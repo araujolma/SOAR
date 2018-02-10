@@ -10,7 +10,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 50
+Mu = 165
 #
 # Number of stages
 NStag = 3
@@ -22,7 +22,7 @@ Isp = 303, 333, 300
 efes = 0.06, 0.07, 0.08
 #
 # Thrust [kN]
-T = 162.0, 22.0, 12.0
+T = 162.0, 22.0, 1.2
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -59,7 +59,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 500.0
+h = 1000.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -68,13 +68,13 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 2.0
+AoAmax = 4.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 3.0
 #
 # Duration of attitude maneuver [°]
-tAoA = 3.0
+tAoA = 10.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
@@ -91,11 +91,12 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 0.59, 2.16, 1.13
+guess = 1.0, 3.0, 1.0
 #
-limit = 0.59, 2.15, 1.12
+limit = 1.0, 1.1, 1.0
 #
 tol = 1e-7
 #
-fraVel = 0.5
-
+fracVel = 0.5
+#
+Ndiv = 100

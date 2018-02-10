@@ -9,7 +9,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 8000
+Mu = 8500
 #
 # Number of stages
 NStag = 2
@@ -90,13 +90,13 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1.0, 1.7, 0.9
+guess = 1.0, 1.5, 1.0
 #
-limit = 1.0, 1.7, 1.0
+limit = 1.0, 1.5, 1.0
 #
 tol = 1e-7
 #
-fraVel = 0.3
+fracVel = 0.7
 #
 Ndiv = 100
 

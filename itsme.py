@@ -12,12 +12,13 @@ Version: Heterogeneous
 """
 
 import numpy
-import configparser
-import matplotlib.pyplot as plt
+import os
 from time import clock
 from itsModel import model
 from itsModelConfiguration import modelConfiguration
 from itsModelInitialEstimate import modelInitialEstimate
+from itsmeSimple import itsInitial
+from itsmeCommon import problemConfiguration, problemIteractions, solution
 
 
 def its(*arg):
@@ -33,7 +34,9 @@ def its(*arg):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    problem1 = problem(fname)
+    con = initialize(fname)
+
+    problem1 = problem(con)
 
     solution1 = problem1.solveForInitialGuess()
 
@@ -58,7 +61,8 @@ def sgra(fname: str):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    solution = problem(fname).solveForFineTune()
+    con = initialize(fname)
+    solution = problem(con).solveForFineTune()
 
     solution.basic.displayInfo()
     solution.basic.orbitResults()
@@ -76,62 +80,77 @@ def itsTester():
     # Some aplications of itsme functions and objects
     its()
     # test list
-    testList = ['itsme_test_cases/caseEarthRotating.its',
-                'itsme_test_cases/caseMoon.its',
-                'itsme_test_cases/caseMu050h200NStag2.its',
-                'itsme_test_cases/caseMu050h600NStag2.its',
-                'itsme_test_cases/caseMu100h463NStag0.its',
-                'itsme_test_cases/caseMu100h463NStag1.its',
-                'itsme_test_cases/caseMu100h463NStag2.its',
-                'itsme_test_cases/genericHet.its',
-                'itsme_test_cases/falcon9.its',
-                'itsme_test_cases/electron.its',
-                'itsme_test_cases/longMarch4B.its',
-                'itsme_test_cases/ariane2.its',
-                'itsme_test_cases/saturn1B.its',
-                'itsme_test_cases/zenit3M.its',
-                'itsme_test_cases/caseMu100h1500NStag3.its',
-                'itsme_test_cases/caseMu150h500NStag4.its']
+    folder = 'itsme_test_cases'
+    testList = os.listdir('./' + folder)
+
+    print(testList)
 
     for case in testList:
-        if not its(case).converged():
+        if not its(folder + '/' + case).converged():
+            print(case)
             raise Exception('itsme saying: solution did not converge')
 
-    problem('itsme_test_cases/' +
-            'caseEarthRotating.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMoon.its').solveForFineTune()
-    problem('itsme_test_cases/' +
-            'caseMu150h500NStag4.its').solveForFineTune()
+    con = initialize(folder + '/caseEarthRotating.its')
+    problem(con).solveForFineTune()
+    con = initialize(folder + '/caseMoon.its')
+    problem(con).solveForFineTune()
+    con = initialize(folder + '/caseMu150h500NStag4.its')
+    problem(con).solveForFineTune()
 
     sgra('default.its')
 
 
+def initialize(fileAdress):
+
+    # TODO: solve the codification problem on configuration files
+    configuration = problemConfiguration(fileAdress)
+    configuration.environment()
+    configuration.initialState()
+    configuration.finalState()
+    configuration.trajectory()
+    configuration.solver()
+
+    con = configuration.con
+
+    modelConf = modelConfiguration(con)
+    modelConf.vehicle()
+
+    con = modelConf.con
+
+    iniEst = modelInitialEstimate(con)
+    con['Dv1ref'] = iniEst.dv
+    con['tref'] = iniEst.t
+    con['vxref'] = iniEst.vx
+
+    if con['NStag'] > 1:  # not con['homogeneous']:
+
+        iniEst = modelInitialEstimate(con)
+        con['Dv1ref'] = iniEst.dv
+        con['tref'] = iniEst.t
+        con['vxref'] = iniEst.vx
+
+        iniEst = itsInitial(con)
+        # input("Press Enter to continue...")
+
+        con['Dv1ref'] = iniEst[0]
+        con['tref'] = iniEst[1]
+        con['vxref'] = iniEst[2]
+
+        guess = numpy.array([1, 1, 1])
+        limit = guess*0.5
+
+        con['guess'] = guess
+        con['fsup'] = guess + limit
+        con['finf'] = guess - limit
+
+    return con
+
+
 class problem():
 
-    def __init__(self, fileAdress: str):
+    def __init__(self, con: dict):
 
-        # TODO: solve the codification problem on configuration files
-        configuration = problemConfiguration(fileAdress)
-        configuration.environment()
-        configuration.initialState()
-        configuration.finalState()
-        configuration.trajectory()
-        configuration.solver()
-
-        self.con = configuration.con
-
-        modelConf = modelConfiguration(self.con)
-        modelConf.vehicle()
-
-        self.con = modelConf.con
-
-        # Reference values
-        iniEst = modelInitialEstimate(self.con)
-        self.con['Dv1ref'] = iniEst.dv
-        self.con['tref'] = iniEst.t
-        self.con['vxref'] = iniEst.vx
-
+        self.con = con
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
 
@@ -296,6 +315,7 @@ class problem():
     def displayErrorsFactors(self, errors: list, factors: list)-> None:
 
         num = "8.6e"
+        print("itsme fine turn")
         print(("Errors    : %"+num+",  %"+num+",  %"+num)
               % (errors[0], errors[1], errors[2]))
         print(("Sup limits: %"+num+",  %"+num+",  %"+num)
@@ -306,276 +326,6 @@ class problem():
               % (self.finf[0], self.finf[1], self.finf[2]))
         print("\n#################################" +
               "######################################")
-
-
-class problemConfiguration():
-
-    def __init__(self, fileAdress: str):
-        # TODO: solve the codification problem on configuration files
-        self.config = configparser.ConfigParser()
-        self.config.optionxform = str
-        self.config.read(fileAdress)
-        self.con = dict()
-        self.con['itsFile'] = fileAdress
-
-    def environment(self):
-        # Enviromental constants
-        section = 'enviroment'
-        items = self.config.items(section)
-        for para in items:
-            self.con[para[0]] = self.config.getfloat(section, para[0])
-        # [km/s2] gravity acceleration on earth surface
-        self.con['g0'] = self.con['GM']/(self.con['R']**2)
-
-        # General constants
-        self.con['pi'] = numpy.pi
-        self.con['d2r'] = numpy.pi/180.0
-
-    def initialState(self):
-        # Initial state constants
-        self.con['h_initial'] = self.config.getfloat('initial', 'h')
-        self.con['V_initial'] = self.config.getfloat('initial', 'V')
-        self.con['gamma_initial'] = \
-            self.config.getfloat('initial', 'gamma')*self.con['d2r']
-
-    def finalState(self):
-        # Final state constants
-        self.con['h_final'] = self.config.getfloat('final', 'h')
-        # Circular velocity
-        vc = numpy.sqrt(self.con['GM']/(self.con['R']+self.con['h_final']))
-        # Rotating referencial velocity effect
-        ve = self.con['we']*(self.con['R']+self.con['h_final'])
-        self.con['V_final'] = vc - ve  # km/s Final velocity
-        self.con['gamma_final'] = \
-            self.config.getfloat('final', 'gamma')*self.con['d2r']
-
-    def trajectory(self):
-        # Trajectory parameters
-        section = 'trajectory'
-        items = self.config.items(section)
-        for para in items:
-            self.con[para[0]] = self.config.getfloat(section, para[0])
-        # Time of one orbit using the final velocity
-        self.con['torb'] = 2*self.con['pi']*(self.con['R'] +
-                                             self.con['h_final']
-                                             )/self.con['V_final']
-
-    def solver(self):
-        # Solver parameters
-        section = 'solver'
-        self.con['tol'] = self.config.getfloat(section, 'tol')
-        self.con['contraction'] = (1.0e4)*numpy.finfo(float).eps
-
-        # Superior and inferior limits
-        auxstr = self.config.get(section, 'guess')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        guess = numpy.array(auxnum)
-
-        auxstr = self.config.get(section, 'limit')
-        auxstr = auxstr.split(', ')
-        auxnum = []
-        for n in auxstr:
-            auxnum = auxnum+[float(n)]
-        limit = numpy.array(auxnum)
-
-        self.con['guess'] = guess
-        self.con['fsup'] = guess + limit
-        self.con['finf'] = guess - limit
-
-        if self.config.has_option(section, 'Nmax'):
-            self.con['Nmax'] = self.config.getint(section, 'Nmax')
-        else:
-            self.con['Nmax'] = 100
-
-        if self.config.has_option(section, 'Ndiv'):
-            self.con['Ndiv'] = self.config.getint(section, 'Ndiv')
-        else:
-            self.con['Ndiv'] = 10
-
-        if self.config.has_option(section, 'fracVel'):
-            self.con['fracVel'] = self.config.getfloat(section, 'fracVel')
-        else:
-            self.con['fracVel'] = 0.7
-
-
-class problemIteractions():
-
-    def __init__(self, name: str):
-
-        self.name = name
-        self.errorsList = []
-        self.factorsList = []
-        self.count = 0
-        self.countLocal = 0
-
-    def reset(self):
-
-        self.countLocal = 0
-
-    def update(self, errors: list, factors: list)-> None:
-
-        self.count += 1
-        self.countLocal += 1
-        self.errorsList.append(errors)
-        self.factorsList.append(factors)
-        return None
-
-    def newFactor(self, index: int, df: list, con: dict)-> float:
-
-        # Checkings
-        # Division and step check
-        de = self.errorsList[-1][index] - self.errorsList[-2][index]
-        if abs(de) == 0:  # <= con['tol']*1e-2:
-            step = 0.0
-
-        else:
-            der = (self.factorsList[-1][index] -
-                   self.factorsList[-2][index])/de
-            step = self.errorsList[-1][index]*der
-            if step > df:
-                step = 0.0 + df
-            elif step < -df:
-                step = 0.0 - df
-
-        # Factor definition and check
-        f3 = self.factorsList[-1][index] - step
-
-        if f3 > con['fsup'][index]:
-            f3 = 0.0 + con['fsup'][index]
-        elif f3 < con['finf'][index]:
-            f3 = 0.0 + con['finf'][index]
-
-        return f3
-
-    def stationary(self)-> bool:
-
-        stat = False
-        if self.countLocal > 10:
-            e = numpy.array([numpy.array(self.errorsList[-3][0:2]),
-                             numpy.array(self.errorsList[-2][0:2]),
-                             numpy.array(self.errorsList[-1][0:2])])
-
-            ff = numpy.std(e, 0)/abs(numpy.mean(e, 0))
-
-            for f in ff:
-                stat = stat or (f < 1e-12)
-
-        return stat
-
-    def plotLogErrors(self, legendList: list):
-
-        if self.count != 0:
-            err = numpy.array(self.errorsList)
-            for e in err:
-                e = numpy.array(e)
-            err = numpy.array(err)
-
-            if numpy.ndim(err) == 2:
-                for ii in range(0, len(self.errorsList[-1])):
-                    plt.semilogy(range(0, len(err[:, ii])),
-                                 abs(err[:, ii]), label=legendList[ii])
-
-            else:
-                plt.semilogy(range(0, len(err)),
-                             abs(err), label=legendList[0])
-            plt.grid(True)
-            plt.ylabel("erros []")
-            plt.xlabel("iteration number []")
-            plt.title(self.name)
-#            if self.name == 'All errors':
-            plt.legend()
-            plt.show()
-            return None
-
-    def plotFactors(self, legendList: list):
-
-        if self.count != 0:
-            err = numpy.array(self.factorsList)
-            for e in err:
-                e = numpy.array(e)
-            err = numpy.array(err)
-
-            if numpy.ndim(err) == 2:
-                for ii in range(0, len(self.factorsList[-1])):
-                    plt.plot(range(0, self.count),
-                             abs(err[:, ii]), label=legendList[ii])
-
-            else:
-                plt.plot(range(0, self.count),
-                         abs(err), label=legendList[0])
-            plt.grid(True)
-            plt.ylabel("factors []")
-            plt.xlabel("iteration number []")
-            plt.title(self.name)
-#            if self.name == 'All errors':
-            plt.legend()
-            plt.show()
-            return None
-
-
-class solution():
-
-    def __init__(self, factors: list, con: dict):
-
-        self.factors = factors
-        self.con = con
-
-        model1 = model(factors, con)
-        model1.simulate("plot")
-        self.basic = model1
-
-        if not con['homogeneous']:
-            model1.tabBeta.plot()
-
-        model2 = model(factors, con)
-        model2.simulate("orbital")
-        self.orbital = model2
-
-        self.iteractionAltitude = problemIteractions('')
-        self.iteractionSpeedAndAng = problemIteractions('')
-
-    def displayResults(self):
-
-        # Results without orbital phase
-        self.basic.displayInfo()
-        self.basic.orbitResults()
-        self.basic.plotResults()
-        self.iteractionAltitude.plotLogErrors(['h'])
-        self.iteractionSpeedAndAng.plotLogErrors(['V', 'gamma', 'h'])
-        self.iteractionSpeedAndAng.plotFactors(['V', 'gamma', 'h'])
-
-        # Results with orbital phase
-        if abs(self.basic.e - 1) > 0.1:
-            # The eccentricity test avoids simulations too close
-            # of the singularity
-            self.orbital.orbitResults()
-            self.orbital.plotResults()
-
-        print('Initial states:', self.basic.traj.xx[0])
-        print('Final   states:', self.basic.traj.xx[-1])
-
-        return None
-
-    def converged(self):
-
-        convergence = True
-        for error in self.basic.errors:
-            if abs(error) >= self.basic.con['tol']:
-                convergence = False
-
-        return convergence
-
-    def sgra(self):
-
-        ans = self.basic.traj.tt, self.basic.traj.xx, self.basic.uu,\
-              self.basic.tabAlpha, self.basic.tabBeta, self.con,\
-              self.basic.traj.tphases, self.basic.traj.mass0,\
-              self.basic.traj.massJet
-
-        return ans
 
 
 if __name__ == "__main__":

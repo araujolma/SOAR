@@ -13,7 +13,7 @@ class modelInitialEstimate():
 
     def __init__(self, con: dict):
 
-        if con['homogeneous']:
+        if con['NStag'] < 2:
             iniEst = modelInitialEstimateHomogeneous(con)
         else:
             iniEst = modelInitialEstimateSimple2(con)

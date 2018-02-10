@@ -4,13 +4,13 @@
 # Zenit 3M
 #
 # Font: https://en.wikipedia.org/wiki/Zenit-3SLB
-# 
+#
 ###############################################################################
 
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 2200
+Mu = 6000
 #
 # Number of stages
 NStag = 3
@@ -91,13 +91,13 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 0.8, 1.8, 1.1
+guess = 1, 1.5, 1
 #
-limit = 0.8, 1.8, 1.1
+limit = 1, 1.5, 1
 #
 tol = 1e-8
 #
-fraVel = 0.5
+fracVel = 0.5
 #
 Ndiv = 100
 #
