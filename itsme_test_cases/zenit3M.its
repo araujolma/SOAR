@@ -4,13 +4,13 @@
 # Zenit 3M
 #
 # Font: https://en.wikipedia.org/wiki/Zenit-3SLB
-# 
+#
 ###############################################################################
 
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 4500
+Mu = 6000
 #
 # Number of stages
 NStag = 3

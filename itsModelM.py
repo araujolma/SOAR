@@ -117,7 +117,7 @@ class model():
         self.traj.append(t0, x0)
         self.traj.appendP(t0, x0)
 
-        N = len(self.tphases)-2
+        N = len(self.tphases)
         initialValue = ode45.set_initial_value
         integrate = ode45.integrate
         appendP = self.traj.appendP
@@ -249,12 +249,8 @@ class model():
 
         #######################################################################
         # Phase times and jetsonned masses
-        tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflist
-        mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melist
-
-        if (typeResult == "orbital"):
-            tphases = tphases + [con['torb']]
-            mjetsoned = mjetsoned + [0.0]
+        tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflistP1
+        mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melistP1
 
 # =============================================================================
 #         arg = numpy.argsort(tphases0)
@@ -442,18 +438,18 @@ class model():
 
         momAng = r * v * cosGama
 
-        en = .5 * v * v - GM/r
+        en = 0.5 * v * v - GM/r
 
-        a = - .5*GM/en
+        a = - 0.5*GM/en
 
         aux = v * momAng / GM
         e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
 
-        ph = a * (1.0 - e) - R
+        ah = a * (1.0 + e) - R
 
-        ah = 2*(a - R) - ph
+        ve = self.con['we']*(R + ah)
 
-        av = momAng/(R+ah)
+        av = momAng/(R + ah) - ve
 
         self.traj.av = av
         self.traj.ah = ah

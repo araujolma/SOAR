@@ -48,6 +48,10 @@ class modelPropulsion():
         self.melist = p1.me[0:-1].tolist() + [0.0, p1.me[-1]] + \
             [0.0, 0.0, p2.me[-1]]
 
+        # List of time events and jetsoned masses for first propulsive part
+        self.tflistP1 = p1.tf[0:-1].tolist() + [self.fr1, self.fs1]
+        self.melistP1 = p1.me[0:-1].tolist() + [0.0, p1.me[-1]]
+
         self.fail = False
         if len(p1.tf) > 2:
             if p1.tf[-2] >= self.fr1:
@@ -136,6 +140,9 @@ class modelPropulsionHetSimple():
                 self.vlist.append(v2)
         # number of archs
         self.N = len(self.tflist)
+        # List of events for the first propulsive part
+        self.tflistP1 = p1.tf
+        self.melistP1 = p1.me
 
     def getIndex(self, t: float)-> int:
         ii = 0

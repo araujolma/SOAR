@@ -79,32 +79,34 @@ def itsTester():
     # Some aplications of itsme functions and objects
     its()
     # test list
-    testList = ['itsme_test_cases/caseEarthRotating.its',
-                'itsme_test_cases/caseMoon.its',
-                'itsme_test_cases/caseMu050h200NStag2.its',
-                'itsme_test_cases/caseMu050h600NStag2.its',
-                'itsme_test_cases/caseMu100h463NStag0.its',
-                'itsme_test_cases/caseMu100h463NStag1.its',
-                'itsme_test_cases/caseMu100h463NStag2.its',
-                'itsme_test_cases/genericHet.its',
-                'itsme_test_cases/falcon9.its',
-                'itsme_test_cases/electron.its',
-                'itsme_test_cases/longMarch4B.its',
-                'itsme_test_cases/ariane2.its',
-                'itsme_test_cases/saturn1B.its',
-                'itsme_test_cases/zenit3M.its',
-                'itsme_test_cases/caseMu100h1500NStag3.its',
-                'itsme_test_cases/caseMu150h500NStag4.its']
+    folder = 'itsme_test_cases/'
+    testList = [folder + 'caseEarthRotating.its',
+                folder + 'caseMoon.its',
+                folder + 'caseMu050h200NStag2.its',
+                folder + 'caseMu050h600NStag2.its',
+                folder + 'caseMu100h463NStag0.its',
+                folder + 'caseMu100h463NStag1.its',
+                folder + 'caseMu100h463NStag2.its',
+                folder + 'genericHet.its',
+                folder + 'falcon9.its',
+                folder + 'electron.its',
+                folder + 'longMarch4B.its',
+                folder + 'ariane2.its',
+                folder + 'saturn1B.its',
+                folder + 'zenit3M.its',
+                folder + 'caseMu100h1500NStag3.its',
+                folder + 'caseMu150h500NStag4.its']
 
     for case in testList:
         if not its(case).converged():
+            print(case)
             raise Exception('itsme saying: solution did not converge')
 
-    con = initialize('itsme_test_cases/caseEarthRotating.its')
+    con = initialize(folder + 'caseEarthRotating.its')
     problem(con).solveForFineTune()
-    con = initialize('itsme_test_cases/caseMoon.its')
+    con = initialize(folder + 'caseMoon.its')
     problem(con).solveForFineTune()
-    con = initialize('itsme_test_cases/caseMu150h500NStag4.its')
+    con = initialize(folder + 'caseMu150h500NStag4.its')
     problem(con).solveForFineTune()
 
     sgra('default.its')
@@ -132,7 +134,7 @@ def initialize(fileAdress):
     con['tref'] = iniEst.t
     con['vxref'] = iniEst.vx
 
-    if not con['homogeneous']:
+    if con['NStag'] > 1:  # not con['homogeneous']:
 
         iniEst = modelInitialEstimate(con)
         con['Dv1ref'] = iniEst.dv
