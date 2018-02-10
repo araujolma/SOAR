@@ -9,12 +9,16 @@ Initial Trajectory Setup ModulE
 
 Version: Heterogeneous
 
+Submodule itsmeSimple: a version of itsme which a simpler and easier to
+converge model. This submodule generates initial values for itsme, improving
+its convergence.
+
 """
 
 import numpy
 import configparser
 import matplotlib.pyplot as plt
-from itsModelM import model
+from itsModelSimple import model
 
 
 def itsInitial(con):

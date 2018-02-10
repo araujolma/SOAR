@@ -17,7 +17,7 @@ from time import clock
 from itsModel import model
 from itsModelConfiguration import modelConfiguration
 from itsModelInitialEstimate import modelInitialEstimate
-from itsmeM import itsInitial
+from itsmeSimple import itsInitial
 from itsmeCommon import problemConfiguration, problemIteractions, solution
 
 
