@@ -459,7 +459,7 @@ class model():
 
         # Reference time calculated with excentric anomaly equations
         E1 = numpy.arccos((1 - (R + h)/a)/e)
-        E2 = numpy.pi
+        E2 = numpy.py - 2*self.con['gamma_final']
 
         M1 = E1 - e*numpy.sin(E1)
         M2 = E2 - e*numpy.sin(E2)

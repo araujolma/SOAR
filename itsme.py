@@ -122,8 +122,11 @@ def initialize(fileAdress):
     con['tref'] = iniEst.t
     con['vxref'] = iniEst.vx
 
+    tol = con['tol']
+
     if con['NStag'] > 1:  # not con['homogeneous']:
 
+        con['tol'] = tol*10
         iniEst = modelInitialEstimate(con)
         con['Dv1ref'] = iniEst.dv
         con['tref'] = iniEst.t
@@ -137,11 +140,13 @@ def initialize(fileAdress):
         con['vxref'] = iniEst[2]
 
         guess = numpy.array([1, 1, 1])
-        limit = guess*0.5
+        limit = numpy.array([1, 1, 1])/2
 
         con['guess'] = guess
         con['fsup'] = guess + limit
         con['finf'] = guess - limit
+
+        con['tol'] = tol
 
     return con
 

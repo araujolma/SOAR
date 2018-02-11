@@ -10,7 +10,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 6000
+Mu = 9000
 #
 # Number of stages
 NStag = 3
@@ -58,8 +58,8 @@ gamma = 90.0
 ###############################################################################
 [final] # Final state constants
 #
-# Final orbital altitude [km]
-h = 2000.0
+# Final orbital altitude [km] (SSO)
+h = 1269.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -91,13 +91,13 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1, 1.5, 1
+guess = 1, 2, 1
 #
-limit = 1, 1.5, 1
+limit = 1, 2, 1
 #
-tol = 1e-8
+tol = 1e-7
 #
-fracVel = 0.5
+fracVel = 0.2
 #
 Ndiv = 100
 #

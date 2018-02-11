@@ -7,7 +7,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 300
+Mu = 250
 #
 # Number of stages
 NStag = 3
@@ -65,13 +65,13 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 2.0
+AoAmax = 3.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 3
 #
 # Duration of attitude maneuver [°]
-tAoA = 4.0
+tAoA = 9.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
@@ -88,13 +88,13 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1, 1.5, 1.0
+guess = 1, 2, 1
 #
-limit = 1, 1.5, 1.0
+limit = 1, 2, 1
 #
 tol = 1e-7
 #
-fracVel = 0.5
+fracVel = 0.3
 #
 Ndiv = 100
 

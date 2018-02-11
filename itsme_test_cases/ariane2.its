@@ -10,7 +10,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 1500
+Mu = 2175
 #
 # Number of stages
 NStag = 3
@@ -59,7 +59,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 1600.0
+h = 1300.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -68,13 +68,13 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 2.0
+AoAmax = 3.0
 #
 # Initial time for attitude maneuver [s]
 tAoA1 = 2.0
 #
 # Duration of attitude maneuver [°]
-tAoA = 4.0
+tAoA = 8.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
@@ -95,21 +95,11 @@ guess = 1.0, 1.5, 1.0
 #
 limit = 1.0, 1.5, 1.0
 #
-tol = 1e-5
+tol = 1e-7
 #
 fracVel = 0.5
 #
 Ndiv = 50
 #
-#
-#guess = 1.0, 1.5, 0.8
-#
-#limit = 2.0, 1.5, 1.0
-#
-#tol = 1e-6
-#
-#fraVel = 0.5
-#
-#Ndiv = 150
 
 
