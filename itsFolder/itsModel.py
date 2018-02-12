@@ -7,62 +7,21 @@ Created on Fri Apr 14 14:14:40 2017
 
 Initial Trajectory Setup ModulE
 
-Version: Heterogeneous
-
-Submodule itsModelSimple: a simplied version of itsModule. This submodule is
-used in itsmeSimple.
+Version: Objetification
 
 """
 
 import numpy
+import sys
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
-from itsModelStaging import stagingCalculate
-from itsModelPropulsion import modelPropulsion, modelPropulsionHetSimple
-
-
-def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
-           aed: callable, earth: callable)-> list:
-
-    # initialization
-    h = x[0]
-    v = x[1]
-    gamma = x[2]
-    M = x[3]
-
-    if numpy.isnan(h):
-        print('t: ', t)
-        #  print('x: ', x)
-        raise Exception('itsme saying: h is not a number')
-
-    # Alpha control calculation
-    alfat = alfaProg(t)
-
-    # other calculations
-    # btm = betaProg(t)*con['T']/M
-    beta, Isp, T = betaProg(t)
-    btm = beta*T/M
-    sinGamma = numpy.sin(gamma)
-    g = earth.g0*(earth.R/(earth.R+h))**2 - (earth.we**2)*(earth.R + h)
-
-    # aerodynamics
-    qdinSrefM = 0.5 * rho(h) * (v**2) * aed.s_ref/M
-    LM = qdinSrefM * (aed.CL0 + aed.CL1*alfat)
-    DM = qdinSrefM * (aed.CD0 + aed.CD2*(alfat**2))
-
-    if v < 1e-6 and v >= 0.0:
-        v = 1e-6
-    elif v > -1e-6 and v < 0.0:
-        v = -1e-6
-
-    # states derivatives
-    return [v*sinGamma,  # coefficient
-            btm*numpy.cos(alfat) - g*sinGamma - DM,  # coefficient
-            btm*numpy.sin(alfat)/v +
-            (v/(h+earth.R)-g/v)*numpy.cos(gamma) +
-            (LM/v) + 2*earth.we,  # coefficient
-            -btm*M/(earth.g0*Isp)]  # coefficient
+from itsFolder.itsModelStaging import stagingCalculate
+from itsFolder.itsModelPropulsion import (modelPropulsion,
+                                          modelPropulsionHetSimple)
+from itsFolder.itsModelCommon import (modelTrajectory, modelAttitude, modelAed,
+                                      modelEarth, mdlDer)
+sys.path.append('/..')
 
 
 class model():
@@ -82,7 +41,6 @@ class model():
         tf = ftf*con['tref']
         Dv2 = con['V_final'] - fdv2*con['vxref']
         # print('V_final: ', con['V_final'])
-        self.Dv2 = Dv2
 
         #######################################################################
         # Staging calculation
@@ -162,15 +120,14 @@ class model():
         # Final point appending
         self.traj.append(self.traj.tp[-1], self.traj.xp[-1])
         self.traj.numpyArray()
-        self.orbitData()
-
         return None
 
     def __errorCalculate(self):
 
-        errors = ((self.traj.av + self.Dv2 - self.con['V_final'])/0.01,
-                  (self.tabBeta.t2/self.traj.at - 1),
-                  (self.traj.ah - self.con['h_final'])/10)
+        h, v, gamma, M = self.traj.xp[-1]
+        errors = ((v - self.con['V_final'])/0.01,
+                  (gamma - self.con['gamma_final'])/0.1,
+                  (h - self.con['h_final'])/10)
         self.errors = numpy.array(errors)
 
         return None
@@ -252,8 +209,12 @@ class model():
 
         #######################################################################
         # Phase times and jetsonned masses
-        tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflistP1
-        mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melistP1
+        tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflist
+        mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melist
+
+        if (typeResult == "orbital"):
+            tphases = tphases + [con['torb']]
+            mjetsoned = mjetsoned + [0.0]
 
 # =============================================================================
 #         arg = numpy.argsort(tphases0)
@@ -422,135 +383,3 @@ class model():
         print('\n\r')
 
         self.e = e
-
-    def orbitData(self)-> None:
-
-        GM = self.con['GM']
-        R = self.con['R']
-
-        h, v, gama, M = numpy.transpose(self.traj.xx[-1, :])
-        r = R + h
-
-        cosGama = numpy.cos(gama)
-        sinGama = numpy.sin(gama)
-        vt = v*cosGama + self.con['we']*r
-        vr = v*sinGama
-        v = numpy.sqrt(vt**2 + vr**2)
-        cosGama = vt/v
-        sinGama = vr/v
-
-        momAng = r * v * cosGama
-
-        en = 0.5 * v * v - GM/r
-
-        a = - 0.5*GM/en
-
-        aux = v * momAng / GM
-        e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
-
-        ah = a * (1.0 + e) - R
-
-        ve = self.con['we']*(R + ah)
-
-        av = momAng/(R + ah) - ve
-
-        self.traj.av = av
-        self.traj.ah = ah
-
-        # Reference time calculated with excentric anomaly equations
-        E1 = numpy.arccos((1 - (R + h)/a)/e)
-        E2 = numpy.pi
-
-        M1 = E1 - e*numpy.sin(E1)
-        M2 = E2 - e*numpy.sin(E2)
-
-        n = numpy.sqrt(GM/(a**3))
-
-        self.traj.at = (M2 - M1)/n
-
-        return None
-
-
-class modelAttitude():
-
-    def __init__(self, t1: float, t2: float, v1: float, v2: float):
-        self.t1 = t1
-        self.t2 = t2
-
-        self.v1 = v1
-        self.v2 = v2
-
-    def value(self, t: float)-> float:
-        if (t >= self.t1) and (t < self.t2):
-            ans = ((self.v2 - self.v1)*(1 -
-                   numpy.cos(2*numpy.pi*(t - self.t1)/(self.t2 - self.t1)))/2)\
-                   + self.v1
-            return ans
-        else:
-            return self.v1
-
-    def multValue(self, t: float):
-        N = len(t)
-        ans = numpy.full((N, 1), 0.0)
-        for jj in range(0, N):
-            ans[jj] = self.value(t[jj])
-
-        return ans
-
-
-class modelTrajectory():
-
-    def __init__(self):
-
-        self.tt = []
-        self.xx = []
-        self.tp = []
-        self.xp = []
-        self.tphases = []
-        self.mass0 = []
-        self.massJet = []
-        self.av = 0
-        self.ah = 0
-        self.at = 0
-
-    def append(self, tt, xx):
-
-        self.tt.append(tt)
-        self.xx.append(xx)
-
-    def appendStar(self, tt, xx):
-
-        self.tt.append(tt)
-        self.xx.append([*xx])
-
-    def appendP(self, tp, xp):
-
-        self.tp.append(tp)
-        self.xp.append(xp)
-
-    def numpyArray(self):
-
-        self.tt = numpy.array(self.tt)
-        self.xx = numpy.array(self.xx)
-        self.tp = numpy.array(self.tp)
-        self.xp = numpy.array(self.xp)
-
-
-class modelAed():
-
-    def __init__(self, con):
-
-        self.s_ref = con['s_ref']
-        self.CL0 = con['CL0']
-        self.CL1 = con['CL1']
-        self.CD0 = con['CD0']
-        self.CD2 = con['CD2']
-
-
-class modelEarth():
-
-    def __init__(self, con):
-
-        self.g0 = con['g0']
-        self.R = con['R']
-        self.we = con['we']
