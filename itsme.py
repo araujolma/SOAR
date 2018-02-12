@@ -15,10 +15,11 @@ import numpy
 import os
 import sys
 from time import clock
+from itsFolder.itsModelComplex import model
 from itsFolder.itsModelConfiguration import modelConfiguration
-from itsFolder.itsModelInitialEstimate import modelInitialEstimate
-from itsFolder.itsmeSimple import itsInitial
-from itsFolder.itsmeCommon import problem, problemConfiguration
+from itsFolder.itsModelInitialEstimate import initialEstimate
+from itsFolder.itsmeSimple import secondaryEstimate
+from itsFolder.itsProblem import problem, problemConfiguration
 
 sys.path.append('/itsFolder')
 
@@ -38,7 +39,7 @@ def its(*arg):
 
     con = initialize(fname)
 
-    problem1 = problem(con)
+    problem1 = problem(con, model)
 
     solution1 = problem1.solveForInitialGuess()
 
@@ -64,7 +65,7 @@ def sgra(fname: str):
     print("Opening case: ", fname)
 
     con = initialize(fname)
-    solution = problem(con).solveForFineTune()
+    solution = problem(con, model).solveForFineTune()
 
     solution.basic.displayInfo()
     solution.basic.orbitResults()
@@ -93,11 +94,11 @@ def itsTester():
             raise Exception('itsme saying: solution did not converge')
 
     con = initialize(folder + '/caseEarthRotating.its')
-    problem(con).solveForFineTune()
+    problem(con, model).solveForFineTune()
     con = initialize(folder + '/caseMoon.its')
-    problem(con).solveForFineTune()
+    problem(con, model).solveForFineTune()
     con = initialize(folder + '/caseMu150h500NStag4.its')
-    problem(con).solveForFineTune()
+    problem(con, model).solveForFineTune()
 
     sgra('default.its')
 
@@ -119,7 +120,7 @@ def initialize(fileAdress):
 
     con = modelConf.con
 
-    iniEst = modelInitialEstimate(con)
+    iniEst = initialEstimate(con)
     con['Dv1ref'] = iniEst.dv
     con['tref'] = iniEst.t
     con['vxref'] = iniEst.vx
@@ -129,12 +130,12 @@ def initialize(fileAdress):
     if con['NStag'] > 1:  # not con['homogeneous']:
 
         con['tol'] = tol*10
-        iniEst = modelInitialEstimate(con)
+        iniEst = initialEstimate(con)
         con['Dv1ref'] = iniEst.dv
         con['tref'] = iniEst.t
         con['vxref'] = iniEst.vx
 
-        iniEst = itsInitial(con)
+        iniEst = secondaryEstimate(con)
         # input("Press Enter to continue...")
 
         con['Dv1ref'] = iniEst[0]

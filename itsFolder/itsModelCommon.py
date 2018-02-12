@@ -44,10 +44,8 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     LM = qdinSrefM * (aed.CL0 + aed.CL1*alfat)
     DM = qdinSrefM * (aed.CD0 + aed.CD2*(alfat**2))
 
-    if v < 1e-6 and v >= 0.0:
-        v = 1e-6
-    elif v > -1e-6 and v < 0.0:
-        v = -1e-6
+    if v < 1e-8:
+        v = 1e-8
 
     # states derivatives
     return [v*sinGamma,  # coefficient
