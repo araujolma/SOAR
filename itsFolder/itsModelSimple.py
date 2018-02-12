@@ -15,11 +15,14 @@ used in itsmeSimple.
 """
 
 import numpy
+import sys
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
-from itsModelStaging import stagingCalculate
-from itsModelPropulsion import modelPropulsion, modelPropulsionHetSimple
+from itsFolder.itsModelStaging import stagingCalculate
+from itsFolder.itsModelPropulsion import (modelPropulsion,
+                                          modelPropulsionHetSimple)
+sys.path.append('/..')
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
@@ -459,7 +462,7 @@ class model():
 
         # Reference time calculated with excentric anomaly equations
         E1 = numpy.arccos((1 - (R + h)/a)/e)
-        E2 = numpy.py - 2*self.con['gamma_final']
+        E2 = numpy.pi - 2*self.con['gamma_final']
 
         M1 = E1 - e*numpy.sin(E1)
         M2 = E2 - e*numpy.sin(E2)

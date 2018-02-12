@@ -13,12 +13,15 @@ Version: Heterogeneous
 
 import numpy
 import os
+import sys
 from time import clock
-from itsModel import model
-from itsModelConfiguration import modelConfiguration
-from itsModelInitialEstimate import modelInitialEstimate
-from itsmeSimple import itsInitial
-from itsmeCommon import problemConfiguration, problemIteractions, solution
+from itsFolder.itsModel import model
+from itsFolder.itsModelConfiguration import modelConfiguration
+from itsFolder.itsModelInitialEstimate import modelInitialEstimate
+from itsFolder.itsmeSimple import itsInitial
+from itsFolder.itsmeCommon import (problemConfiguration, problemIteractions,
+                                   solution)
+sys.path.append('/itsFolder')
 
 
 def its(*arg):

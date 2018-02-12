@@ -14,7 +14,7 @@ Version: Heterogeneous
 import numpy
 import configparser
 import matplotlib.pyplot as plt
-from itsModel import model
+from itsFolder.itsModel import model
 
 
 class problemConfiguration():
@@ -245,6 +245,11 @@ class solution():
 
         self.iteractionAltitude = problemIteractions('')
         self.iteractionSpeedAndAng = problemIteractions('')
+
+        fdv2, ftf, fdv1 = self.factors
+        self.Dv1_final = fdv1*con['Dv1ref']
+        self.tf_final = ftf*con['tref']
+        self.vx_final = fdv2*con['vxref']
 
     def displayResults(self):
 

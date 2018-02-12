@@ -15,8 +15,8 @@ its convergence.
 
 """
 
-from itsModelSimple import model
-from itsmeCommon import problemIteractions, solution
+from itsFolder.itsModelSimple import model
+from itsFolder.itsmeCommon import problemIteractions, solution
 
 
 def itsInitial(con):

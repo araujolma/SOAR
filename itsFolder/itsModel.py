@@ -12,13 +12,16 @@ Version: Objetification
 """
 
 import numpy
+import sys
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from atmosphere import rho
-from itsModelStaging import stagingCalculate
-from itsModelPropulsion import modelPropulsion, modelPropulsionHetSimple
-from itsModelCommon import (modelTrajectory, modelAttitude, modelAed,
-                            modelEarth, mdlDer)
+from itsFolder.itsModelStaging import stagingCalculate
+from itsFolder.itsModelPropulsion import (modelPropulsion,
+                                          modelPropulsionHetSimple)
+from itsFolder.itsModelCommon import (modelTrajectory, modelAttitude, modelAed,
+                                      modelEarth, mdlDer)
+sys.path.append('/..')
 
 
 class model():
