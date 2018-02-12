@@ -1,0 +1,21 @@
+###############################################################################
+# itsme configuration file (.its)
+#
+###############################################################################
+
+###############################################################################
+[sgra] # Internal SGRA parameters
+#
+# Tolerance for P functional
+tolP = 1e-5
+#
+# Tolerance for Q functional
+tolQ = 1e-7
+#
+# Number of divisions in time array [-]
+N = 10000
+#
+# Gradient step search objective modulation constant (see grad_sgra.py) [-]
+gradStepSrchCte = 1.0e-3
+#
+###############################################################################

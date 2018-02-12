@@ -6,19 +6,17 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime, time
-#import matplotlib.pyplot as plt
-
+import datetime, time, sys
 from interf import ITman
 
 #import probRock as prob
 #confFile = 'teste.its'
 #import prob101 as prob
-#confFile = 'prob101_default.its'
+#confFile = 'default_prob101.its'
 #import probBrac as prob
-#confFile = 'probBrac_default.its'
-import probCart as prob
-confFile = 'probCart_default.its'
+#confFile = 'default_probBrac.its'
+#import probCart as prob
+#confFile = 'default_probCart.its'
 #import probCartMod as prob
 #import probSmpl as prob
 #import os
@@ -29,9 +27,37 @@ confFile = 'probCart_default.its'
 # ##################
 if __name__ == "__main__":
     print("-"*66)
-    print('\nRunning main.py!')
+    print('\nRunning main.py with arguments:')
+    print(sys.argv)
     print(datetime.datetime.now())
-    print('\n')
+
+    overrideWithProb = None#'cart'
+
+    if overrideWithProb is None and (len(sys.argv) == 1):
+        import probRock as prob
+        confFile = 'teste.its'
+    else:
+        if overrideWithProb is None:
+            probName = sys.argv[1].lower()
+        else:
+            probName = overrideWithProb
+
+        if 'cart' in probName:
+            import probCart as prob
+            confFile = 'defaults/probCart.its'
+        elif 'brac' in probName:
+            import probBrac as prob
+            confFile = 'defaults/probBrac.its'
+        elif '101' in probName:
+            import prob101 as prob
+            confFile = 'defaults/prob101.its'
+        else:
+            import probRock as prob
+            confFile = 'defaults/probRock.its'
+
+        if len(sys.argv) > 2:
+            confFile = sys.argv[2]
+
 
     sol = prob.prob()
 

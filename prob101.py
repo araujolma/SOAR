@@ -16,7 +16,32 @@ import matplotlib.pyplot as plt
 class prob(sgra):
     probName = 'prob101'
 
+    def loadParsFromFile(self,file):
+        pConf = problemConfiguration(fileAdress=file)
+        pConf.sgra()
+
+        N = pConf.con['N']
+        tolP = pConf.con['tolP']
+        tolQ = pConf.con['tolQ']
+        k = pConf.con['gradStepSrchCte']
+
+        self.tol = {'P': tolP,
+                    'Q': tolQ}
+        self.constants['gradStepSrchCte'] = k
+
+        self.N = N
+
+        dt = 1.0/(N-1)
+        t = numpy.arange(0,1.0+dt,dt)
+        self.dt = dt
+        self.t = t
+
     def initGues(self,opt={}):
+
+        # The parameters that go here are the ones that cannot be simply
+        # altered from an external configuration file... at least not
+        # without a big increase in the complexity of the code...
+
         # matrix sizes
         n = 3
         m = 1
@@ -79,29 +104,18 @@ class prob(sgra):
 
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
-            pConf = problemConfiguration(fileAdress=inpFile)
-            pConf.sgra()
 
-            N = pConf.con['N']
-            tolP = pConf.con['tolP']
-            tolQ = pConf.con['tolQ']
-            k = pConf.con['gradStepSrchCte']
+            # Get parameters from file
 
-            self.N = N
+            self.loadParsFromFile(file=inpFile)
 
-            dt = 1.0/(N-1)
-            t = numpy.arange(0,1.0+dt,dt)
-            self.dt = dt
-            self.t = t
+            # The actual "initial guess"
 
-            self.tol = {'P': tolP,
-                        'Q': tolQ}
-            self.constants['gradStepSrchCte'] = k
-
+            N,m,n,p,q,s = self.N,self.m,self.n,self.p,self.q,self.s
             x = numpy.zeros((N,n,s))
             u = numpy.ones((N,m,s))
 
-            x[:,0,0] = t.copy()
+            x[:,0,0] = self.t.copy()
             lam = 0.0*x.copy()
             mu = numpy.zeros(q)
             pi = numpy.array([1.0])

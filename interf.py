@@ -13,10 +13,11 @@ class logger():
     """ Class for the handler of log messages."""
 
     def __init__(self,probName,mode='both'):
-#        print("\nHi, I'm a new logger object!")
+        # Mode ('both', 'file' or 'screen') sets the target output
         self.mode = mode
+        # Results folder for this run
         self.folderName = probName + '_' + getNowStr()
-#        print("Creating a new folder:",self.folderName)
+        # Create the folder
         os.makedirs(self.folderName)
 
         try:
@@ -67,7 +68,8 @@ class ITman():
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
-        self.loadSolDir = probName+'_solInitRest.pkl'
+        self.loadSolDir = 'defaults/' + probName+'_solInitRest.pkl'
+        self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
@@ -102,25 +104,36 @@ class ITman():
         previously prepared solution, or generate a new one."""
 
 
+        # First greetings to user
         self.prntDashStr()
         self.log.printL("\nWelcome to SGRA!\n")
+        # Inform problem
         self.log.printL("Loading settings for problem: "+self.probName)
+        # Inform results folder for this run
         self.log.printL('Saving results and log in '+self.log.folderName+'.')
         self.prntDashStr()
+        # Show parameters for ITman
         self.printPars()
         self.log.printL("\n(You can always change these here in '"+__name__+".py').")
 
+        # Default option: generate new solution from scratch
         if self.defOpt == 'newSol':
-            self.log.printL("\nDefault starting option (defOpt) is to generate new initial guess.")
-            self.log.printL("Hit 'enter' to do it, or any other key to load a "+\
-                  "previous solution.")
+            self.log.printL("\nDefault starting option (defOpt) is to " + \
+                            " generate new initial guess.")
+            self.log.printL("Hit 'enter' to do it, or any other key to " + \
+                  "load a previously started solution.")
             inp = self.prom()
             if inp == '':
+                # Proceed with solution generating.
+                # Find out solution generating mode (default, external, naive)
+                # TODO: not all these options apply to every problem. Fix this
                 self.isNewSol = True
-                self.log.printL("\nOk, default mode (initOpt) is '"+self.initOpt+"'.")
-                self.log.printL("Hit 'enter' to proceed with it, or 'd' for 'default',")
-                self.log.printL("or 'n' for 'naive'. See '" + self.probName + \
-                      ".py' for details. ")
+                self.log.printL("\nOk, default mode (initOpt) is '" + \
+                                self.initOpt + "'.")
+                self.log.printL("Hit 'enter' to proceed with it, " + \
+                                " or 'd' for 'default',\n" + \
+                                "or 'n' for 'naive'. See '" + self.probName + \
+                                ".py' for details. ")
                 inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
@@ -136,16 +149,66 @@ class ITman():
 
                 return
             else:
-                self.isNewSol = False
                 # execution only gets here if the default init is to generate
                 # new init guess, but user wants to load solution
-                self.log.printL("\nOk, default path to loading solution (loadSolDir) is: '"+\
-                      self.loadSolDir+"'.")
-                self.log.printL("Hit 'enter' to load it, or type the path to "+\
-                      "alternative solution to be loaded.")
-                inp = self.prom()
-                if inp != '':
-                    self.loadSolDir = inp
+
+                self.isNewSol = False
+                self.log.printL("\nGreat, let's load a solution then!")
+                # This loop makes sure the user types something that looks like
+                # a valid solution.
+
+                # TODO: it should not be so hard to actually check the
+                # existence of the file...
+                keepAsk = True
+                while keepAsk:
+                    self.log.printL("\nThe default path to loading " + \
+                                    "a solution (loadSolDir) is: " + \
+                                    self.loadSolDir)
+                    self.log.printL("Hit 'enter' to load it, or type the " + \
+                                    "path to the alternative solution to " + \
+                                    "be loaded.")
+
+                    inp = self.prom()
+                    if inp == '':
+                        keepAsk = False
+                    else:
+                        # at least an extension check...
+                        if inp.lower().endswith('.pkl'):
+                            self.loadSolDir = inp
+                            keepAsk = False
+                        else:
+                            self.log.printL('\nSorry, this is not a valid ' + \
+                                            "solution path. Let's try again.")
+
+                #
+                self.log.printL("\nOk, proceeding with " + self.loadSolDir + \
+                                "...")
+                # Now, ask for a comparing solution.
+                self.log.printL("\nOne more question: do you have an " + \
+                                "alternative path to load \na solution " + \
+                                "that serves as a comparing baseline?")
+                keepAsk = True
+                while keepAsk:
+                    self.log.printL("\nHit 'enter' to use the same path " + \
+                                    "(" + self.loadSolDir + "),\n" + \
+                                    "or type the path to the alternative " + \
+                                    "solution to be loaded.")
+
+                    inp = self.prom()
+                    if inp == '':
+                        keepAsk = False
+                        self.loadAltSolDir = self.loadSolDir
+                    else:
+                        if inp.lower().endswith('.pkl'):
+                            self.loadSolDir = inp
+                            keepAsk = False
+                        else:
+                            self.log.printL('\nSorry, this is not a valid ' + \
+                                            "solution path. Let's try again.")
+                #
+                self.log.printL("\nOk, proceeding with\n" +
+                                self.loadAltSolDir + "\nas a comparing base!")
+                #
 
         elif self.defOpt == 'loadSol':
             self.log.printL("\nDefault starting option (defOpt) is to load solution.")
@@ -165,31 +228,52 @@ class ITman():
             return
 
     def checkPars(self,sol):
-        self.log.printL(self.dashStr)
-        sol.printPars()
-        sol.plotSol()
-        self.prntDashStr()
-        print("\a")
-        self.log.printL("\nAre these parameters OK?")
-        self.log.printL("Press any key to continue, or ctrl+C to stop.")
-        self.prom()
+        keepLoop = True
+        while keepLoop:
+            self.prntDashStr()
+            sol.printPars()
+            sol.plotSol()
+            self.prntDashStr()
+            print("\a")
+            self.log.printL("\nAre these parameters OK?")
+
+            self.log.printL("Press 'enter' to continue, or update the " + \
+                                "configuration file")
+            self.log.printL("    (" + self.confFile + ")")
+            self.log.printL("and then press any other key to reload the " + \
+                            "parameters from that file.")
+            self.log.printL("Please notice that this only reloads " + \
+                            "parameters, not necessarily\nregenerating " + \
+                            "the initial guess.")
+            inp = self.prom()
+            if inp != '':
+                self.log.printL("\nFine, reloading parameters...")
+                sol.loadParsFromFile(file=self.confFile)
+            else:
+                self.log.printL("\nGreat! Moving on then...\n")
+                keepLoop = False
+
 
     def loadSol(self,path=''):
         if path == '':
             path = self.loadSolDir
 
-        self.log.printL("\nLoading solution from '"+path+"'.")
+        self.log.printL("\nReading solution from '"+path+"'.")
         with open(path,'rb') as inpt:
             sol = dill.load(inpt)
+        sol.log = self.log
         return sol
 
     def saveSol(self,sol,path=''):
         if path == '':
-           path = self.probName + '_sol_' + getNowStr() + '.pkl'
+            path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
+        sol.log = None
         self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
+
+        sol.log = self.log
 
     def setInitSol(self,sol):
         self.log.printL("Setting initial solution.")
@@ -199,14 +283,19 @@ class ITman():
             solInit = sol.initGues({'initMode':self.initOpt,\
                                     'confFile':self.confFile})
             self.log.printL("Saving a copy of the configuration file in this run's folder.")
-            shutil.copy2(self.confFile,self.log.folderName+"/")
-            self.saveSol(sol,self.log.folderName+'/solInit.pkl')
+            self.confFile = shutil.copy2(self.confFile, self.log.folderName +
+                                         os.sep)
+            self.saveSol(sol,self.log.folderName + os.sep + 'solInit.pkl')
         else:
             # load previously prepared solution
             self.log.printL('Loading "current" solution...')
             sol = self.loadSol()
+            self.log.printL("Saving a copy of the default configuration " + \
+                            "file in this run's folder.\n(Just for " + \
+                            "alterring later, if necessary).")
+            self.confFile = shutil.copy2(self.confFile, self.log.folderName + "/")
             self.log.printL('Loading "initial" solution (for comparing purposes only)...')
-            solInit = self.loadSol(self.probName+'_solInit.pkl')#sol.copy()
+            solInit = self.loadSol(path=self.loadAltSolDir)
 
         # Plot obtained solution, check parameters
         self.prntDashStr()
