@@ -290,6 +290,9 @@ class model():
 
     def plotResults(self):
 
+        if not self.con['homogeneous']:
+            self.tabBeta.plot()
+
         (tt, xx, uu, tp, xp, up) = (self.traj.tt, self.traj.xx, self.uu,
                                     self.traj.tp, self.traj.xp, self.up)
 

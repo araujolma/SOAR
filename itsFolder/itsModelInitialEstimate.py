@@ -13,6 +13,8 @@ class initialEstimate():
 
     def __init__(self, con: dict):
 
+        self.con = con
+
         if con['NStag'] < 2:
             iniEst = modelInitialEstimateHomogeneous(con)
         else:
@@ -22,6 +24,14 @@ class initialEstimate():
         self.t = iniEst.t
         self.vx = iniEst.vx
         print([self.dv, self.t, self.vx])
+
+    def result(self):
+
+        self.con['Dv1ref'] = self.dv
+        self.con['tref'] = self.t
+        self.con['vxref'] = self.vx
+
+        return self.con
 
 
 class modelInitialEstimateHomogeneous():

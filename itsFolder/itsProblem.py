@@ -7,8 +7,6 @@ Created on Fri Apr 14 14:14:40 2017
 
 Initial Trajectory Setup ModulE
 
-Version: Heterogeneous
-
 """
 
 import numpy
@@ -186,7 +184,6 @@ class problem():
     def displayErrorsFactors(self, errors: list, factors: list)-> None:
 
         num = "8.6e"
-        print("itsme fine turn")
         print(("Errors    : %"+num+",  %"+num+",  %"+num)
               % (errors[0], errors[1], errors[2]))
         print(("Sup limits: %"+num+",  %"+num+",  %"+num)
@@ -197,6 +194,7 @@ class problem():
               % (self.finf[0], self.finf[1], self.finf[2]))
         print("\n#################################" +
               "######################################")
+        print("itsme")
 
 
 class problemConfiguration():
@@ -419,8 +417,8 @@ class solution():
         model1.simulate("plot")
         self.basic = model1
 
-        if not con['homogeneous']:
-            model1.tabBeta.plot()
+        # if not con['homogeneous']:
+        #     model1.tabBeta.plot()
 
         model2 = self.model(factors, con)
         model2.simulate("orbital")
