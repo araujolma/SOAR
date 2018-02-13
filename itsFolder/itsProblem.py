@@ -7,35 +7,33 @@ Created on Fri Apr 14 14:14:40 2017
 
 Initial Trajectory Setup ModulE
 
-Version: Heterogeneous
-
 """
 
 import numpy
 import configparser
 import matplotlib.pyplot as plt
-from itsFolder.itsModel import model as modelClass
 
 
 class problem():
 
-    def __init__(self, con: dict):
+    def __init__(self, con: dict, modelClass):
 
         self.con = con
         self.fsup = self.con['fsup']
         self.finf = self.con['finf']
+        self.model = modelClass
 
     def solveForInitialGuess(self):
         #######################################################################
         # First guess trajectory
-        model1 = self.model(self.con['guess'])
+        model1 = self.model(self.con['guess'], self.con)
         model1.simulate("design")
         self.tabAlpha = model1.tabAlpha
         self.tabBeta = model1.tabBeta
         self.errors = model1.errors
         self.factors = self.con['guess']
 
-        return self.solution(self.con['guess'])
+        return solution(self.factors, self.con, self.model)
 
     def solveForFineTune(self)-> object:
         # Bisection altitude loop
@@ -47,7 +45,7 @@ class problem():
         errors, factors = self.__bisecAltitude()
 
         # Final test
-        model1 = self.model(factors)
+        model1 = self.model(factors, self.con)
         model1.simulate("design")
 
         print("ITS the end (lol)")
@@ -57,7 +55,7 @@ class problem():
               (self.iteractionAltitude.count +
                self.iteractionSpeedAndAng.count))
 
-        solution1 = self.solution(factors)
+        solution1 = solution(factors, self.con, self.model)
         solution1.iteractionAltitude = self.iteractionAltitude
         solution1.iteractionSpeedAndAng = self.iteractionSpeedAndAng
 
@@ -126,7 +124,7 @@ class problem():
         # Making the 3 factor variarions null
         df[2] = 0.0
 
-        model1 = self.model(factors1)
+        model1 = self.model(factors1, self.con)
         model1.simulate("design")
         errors1 = model1.errors
         self.iteractionSpeedAndAng.update(errors1, factors1)
@@ -139,7 +137,7 @@ class problem():
         while ((not stop) and
                (self.iteractionSpeedAndAng.countLocal <= self.con['Nmax'])):
             # Error update
-            model1 = self.model(factors2)
+            model1 = self.model(factors2, self.con)
             model1.simulate("design")
             errors2 = model1.errors
 
@@ -186,7 +184,6 @@ class problem():
     def displayErrorsFactors(self, errors: list, factors: list)-> None:
 
         num = "8.6e"
-        print("itsme fine turn")
         print(("Errors    : %"+num+",  %"+num+",  %"+num)
               % (errors[0], errors[1], errors[2]))
         print(("Sup limits: %"+num+",  %"+num+",  %"+num)
@@ -197,16 +194,7 @@ class problem():
               % (self.finf[0], self.finf[1], self.finf[2]))
         print("\n#################################" +
               "######################################")
-
-    def model(self, factors):
-
-        model1 = modelClass(factors, self.con)
-        return model1
-
-    def solution(self, factors):
-
-        solution1 = solutionClass(factors, self.con)
-        return solution1
+        print("itsme")
 
 
 class problemConfiguration():
@@ -417,21 +405,22 @@ class problemIteractions():
             return None
 
 
-class solutionClass():
+class solution():
 
-    def __init__(self, factors: list, con: dict):
+    def __init__(self, factors: list, con: dict, modelClass):
 
         self.factors = factors
         self.con = con
+        self.model = modelClass
 
-        model1 = self.model(factors)
+        model1 = self.model(factors, con)
         model1.simulate("plot")
         self.basic = model1
 
-        if not con['homogeneous']:
-            model1.tabBeta.plot()
+        # if not con['homogeneous']:
+        #     model1.tabBeta.plot()
 
-        model2 = self.model(factors)
+        model2 = self.model(factors, con)
         model2.simulate("orbital")
         self.orbital = model2
 
@@ -482,8 +471,3 @@ class solutionClass():
               self.basic.traj.massJet
 
         return ans
-
-    def model(self, factors):
-
-        model1 = modelClass(factors, self.con)
-        return model1

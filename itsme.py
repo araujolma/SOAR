@@ -15,10 +15,11 @@ import numpy
 import os
 import sys
 from time import clock
+from itsFolder.itsModelComplex import model
 from itsFolder.itsModelConfiguration import modelConfiguration
-from itsFolder.itsModelInitialEstimate import modelInitialEstimate
-from itsFolder.itsmeSimple import itsInitial
-from itsFolder.itsmeCommon import problem, problemConfiguration
+from itsFolder.itsProblem import problem, problemConfiguration
+from itsFolder.itsModelInitialEstimate import initialEstimate
+from itsFolder.itsmeSimple import secondaryEstimate
 
 sys.path.append('/itsFolder')
 
@@ -36,9 +37,9 @@ def its(*arg):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    con = initialize(fname)
+    con = initialize(fname).resultShow()
 
-    problem1 = problem(con)
+    problem1 = problem(con, model)
 
     solution1 = problem1.solveForInitialGuess()
 
@@ -63,8 +64,8 @@ def sgra(fname: str):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    con = initialize(fname)
-    solution = problem(con).solveForFineTune()
+    con = initialize(fname).result()
+    solution = problem(con, model).solveForFineTune()
 
     solution.basic.displayInfo()
     solution.basic.orbitResults()
@@ -92,65 +93,98 @@ def itsTester():
             print(case)
             raise Exception('itsme saying: solution did not converge')
 
-    con = initialize(folder + '/caseEarthRotating.its')
-    problem(con).solveForFineTune()
-    con = initialize(folder + '/caseMoon.its')
-    problem(con).solveForFineTune()
-    con = initialize(folder + '/caseMu150h500NStag4.its')
-    problem(con).solveForFineTune()
+    con = initialize(folder + '/caseEarthRotating.its').result()
+    problem(con, model).solveForFineTune()
+    con = initialize(folder + '/caseMoon.its').result()
+    problem(con, model).solveForFineTune()
+    con = initialize(folder + '/caseMu150h500NStag4.its').result()
+    problem(con, model).solveForFineTune()
 
     sgra('default.its')
 
 
-def initialize(fileAdress):
+class initialize():
 
-    # TODO: solve the codification problem on configuration files
-    configuration = problemConfiguration(fileAdress)
-    configuration.environment()
-    configuration.initialState()
-    configuration.finalState()
-    configuration.trajectory()
-    configuration.solver()
+    def __init__(self, fileAdress):
 
-    con = configuration.con
+        # TODO: solve the codification problem on configuration files
+        configuration = problemConfiguration(fileAdress)
+        configuration.environment()
+        configuration.initialState()
+        configuration.finalState()
+        configuration.trajectory()
+        configuration.solver()
 
-    modelConf = modelConfiguration(con)
-    modelConf.vehicle()
+        con = configuration.con
 
-    con = modelConf.con
+        modelConf = modelConfiguration(con)
+        modelConf.vehicle()
 
-    iniEst = modelInitialEstimate(con)
-    con['Dv1ref'] = iniEst.dv
-    con['tref'] = iniEst.t
-    con['vxref'] = iniEst.vx
+        con = modelConf.con
 
-    tol = con['tol']
+        self.con = con
 
-    if con['NStag'] > 1:  # not con['homogeneous']:
+    def result(self):
 
-        con['tol'] = tol*10
-        iniEst = modelInitialEstimate(con)
-        con['Dv1ref'] = iniEst.dv
-        con['tref'] = iniEst.t
-        con['vxref'] = iniEst.vx
+        con = self.con
+        # using a quite simple estimate to start
+        iniEst = initialEstimate(con)
+        con = iniEst.result()
 
-        iniEst = itsInitial(con)
-        # input("Press Enter to continue...")
+        tol = con['tol']
 
-        con['Dv1ref'] = iniEst[0]
-        con['tref'] = iniEst[1]
-        con['vxref'] = iniEst[2]
+        if con['NStag'] > 1:  # not con['homogeneous']:
 
-        guess = numpy.array([1, 1, 1])
-        limit = numpy.array([1, 1, 1])/2
+            con['tol'] = tol*10
 
-        con['guess'] = guess
-        con['fsup'] = guess + limit
-        con['finf'] = guess - limit
+            # using a better model on the estimate
+            iniEst = secondaryEstimate(con)
+            # iniEst.displayResults()
+            con = iniEst.result()
 
-        con['tol'] = tol
+            # the secondary estimate is so good that the guess bellow has been
+            # effective
+            guess = numpy.array([1, 1, 1])
+            limit = numpy.array([1, 1, 1])/2
 
-    return con
+            con['guess'] = guess
+            con['fsup'] = guess + limit
+            con['finf'] = guess - limit
+
+            con['tol'] = tol
+
+        return con
+
+    def resultShow(self):
+
+        con = self.con
+        # using a quite simple estimate to start
+        iniEst = initialEstimate(con)
+        con = iniEst.result()
+
+        tol = con['tol']
+
+        if con['NStag'] > 1:  # not con['homogeneous']:
+
+            con['tol'] = tol*10
+
+            # using a better model on the estimate
+            iniEst = secondaryEstimate(con)
+            iniEst.displayResults()
+            con = iniEst.result()
+
+            # the secondary estimate is so good that the guess bellow has been
+            # effective
+            guess = numpy.array([1, 1, 1])
+            limit = numpy.array([1, 1, 1])/2
+
+            con['guess'] = guess
+            con['fsup'] = guess + limit
+            con['finf'] = guess - limit
+
+            con['tol'] = tol
+
+        return con
 
 
 if __name__ == "__main__":

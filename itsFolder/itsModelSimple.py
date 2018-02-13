@@ -7,8 +7,6 @@ Created on Fri Apr 14 14:14:40 2017
 
 Initial Trajectory Setup ModulE
 
-Version: Heterogeneous
-
 Submodule itsModelSimple: a simplied version of itsModule. This submodule is
 used in itsmeSimple.
 
