@@ -64,7 +64,7 @@ def sgra(fname: str):
     print("itsme: Inital Trajectory Setup Module")
     print("Opening case: ", fname)
 
-    con = initialize(fname).result()
+    con = initializeSGRA(fname).result()
     solution = problem(con, model).solveForFineTune()
 
     solution.basic.displayInfo()
@@ -100,7 +100,7 @@ def itsTester():
     con = initialize(folder + '/caseMu150h500NStag4.its').result()
     problem(con, model).solveForFineTune()
 
-    sgra('default.its')
+    sgra('teste.its')
 
 
 class initialize():
@@ -185,6 +185,70 @@ class initialize():
             con['tol'] = tol
 
         return con
+
+
+class problemConfigurationSGRA(problemConfiguration):
+
+    def trajmods(self):
+        """Trajectory modification parameters.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'trajmods'
+        self.con['DampCent'] = self.config.getfloat(section, 'DampCent')
+        self.con['DampSlop'] = self.config.getfloat(section, 'DampSlop')
+        targHeigStr = self.config.get(section, 'TargHeig')
+        targHeigStr = targHeigStr.split(', ')
+        targHeig = list()
+        for nStr in targHeigStr:
+            targHeig.append(float(nStr))
+        self.con['TargHeig'] = numpy.array(targHeig)
+
+    def accel(self):
+        """Acceleration limitation parameters.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'accel'
+        self.con['acc_max'] = self.config.getfloat(section, 'acc_max')
+        self.con['PFmode'] = self.config.get(section, 'PFmode')
+        self.con['acc_max_relTol'] = self.config.getfloat(section,
+                                                          'acc_max_relTol')
+        self.con['PFtol'] = self.config.getfloat(section, 'PFtol')
+
+    def sgra(self):
+        """ "Internal" settings for SGRA.
+        This should not interfere with the itsme functioning at all."""
+
+        section = 'sgra'
+        self.con['tolP'] = self.config.getfloat(section, 'tolP')
+        self.con['tolQ'] = self.config.getfloat(section, 'tolQ')
+        self.con['N'] = self.config.getint(section, 'N')
+        self.con['gradStepSrchCte'] = self.config.getfloat(section,
+                                                           'gradStepSrchCte')
+
+
+class initializeSGRA(initialize):
+
+    def __init__(self, fileAdress):
+
+        # TODO: solve the codification problem on configuration files
+        configuration = problemConfigurationSGRA(fileAdress)
+        configuration.environment()
+        configuration.initialState()
+        configuration.finalState()
+        configuration.trajectory()
+        configuration.trajmods()
+        configuration.accel()
+        configuration.sgra()
+        configuration.solver()
+
+        con = configuration.con
+
+        modelConf = modelConfiguration(con)
+        modelConf.vehicle()
+
+        con = modelConf.con
+
+        self.con = con
 
 
 if __name__ == "__main__":
