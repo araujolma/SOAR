@@ -1,44 +1,47 @@
 ###############################################################################
 # itsme configuration file (.its)
 #
-# author: Carlos Souza
+# Zenit 3M
+#
+# Font: https://en.wikipedia.org/wiki/Zenit-3SLB
+#
 ###############################################################################
 
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 50
+Mu = 9000
 #
 # Number of stages
-NStag = 2
+NStag = 3
 #
 # Specific impulse [s]
-Isp = 450
+Isp = 309.5, 350, 352
 #
-# Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+# Structural inefficiency (defined by Cornelisse as efficiency) (Guess for Ariane)
+efes = 0.076, 0.091, 0.12
 #
-# Thrust [kN]
-T = 40.0
+# Thrust [kN] (RD-8 vernier engine not considered)
+T = 7257, 912, 84.9
 #
 # softness of the transions of propulsive curve
-softness = 0.2
+softness = 0.5
 #
 # Aerodynamic coefficients
-# (B0 Miele 1998)
-CL0 =-0.03
+#
+CL0 = 0.0
 #
 # (B1 Miele 1998)
 CL1 = 0.8
 #
-# (A0 Miele 1998)
-CD0 = 0.05
+#
+CD0 = 0.5
 #
 # (A2 Miele 1998)
 CD2 = 0.5
 #
 # Reference area in [km2]
-s_ref = 7.853981633974482e-07
+s_ref = 11.95e-06
 #
 ###############################################################################
 [initial] # Initial state constants
@@ -46,7 +49,7 @@ s_ref = 7.853981633974482e-07
 # Initial altitude[km]
 h = 0.0
 #
-# Initial velocity [km/2]
+# Initial velocity [km/s]
 V = 1.0e-6
 #
 # Initial flight path angle [°]
@@ -55,8 +58,8 @@ gamma = 90.0
 ###############################################################################
 [final] # Final state constants
 #
-# Final orbital altitude [km]
-h = 600.0
+# Final orbital altitude [km] (SSO)
+h = 1269.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -65,10 +68,10 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 2.0
+AoAmax = 3.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 1.5
 #
 # Duration of attitude maneuver [°]
 tAoA = 5.0
@@ -82,14 +85,19 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth angular velocity of rotation [rad/2]
+# Earth angular velocity of rotation [rad/s]
 we = 0.0
 #
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1.0, 1.5, 1.0
+guess = 1, 2, 1
 #
-limit = 1.0, 1.5, 1.0
+limit = 1, 2, 1
 #
 tol = 1e-7
+#
+fracVel = 0.2
+#
+Ndiv = 100
+#

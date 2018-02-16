@@ -10,19 +10,19 @@
 Mu = 100
 #
 # Number of stages
-NStag = 3
+NStag = 4
 #
 # Specific impulse [s]
-Isp = 280, 290, 300
+Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = 0.12, 0.10, 0.07
+efes = 0.05
 #
 # Thrust [kN]
-T = 720.0, 370.0, 60.0
+T = 40.0
 #
 # softness of the transions of propulsive curve
-softness = 0.5
+softness = 0.3
 #
 # Aerodynamic coefficients
 #
@@ -31,14 +31,14 @@ CL0 = 0.0
 # (B1 Miele 1998)
 CL1 = 0.8
 #
-#
-CD0 = 0.5
+# (A0 Miele 1998)
+CD0 = 0.05
 #
 # (A2 Miele 1998)
 CD2 = 0.5
 #
 # Reference area in [km2]
-s_ref = 1.5e-06
+s_ref = 0.7853981633974482e-06
 #
 ###############################################################################
 [initial] # Initial state constants
@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 600.0
+h = 463.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -65,7 +65,7 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 4.0
 #
 # Initial time for attitude maneuver [s]
 tAoA1 = 3.7
@@ -82,17 +82,15 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth angular velocity of rotation [rad/s]
+# Earth amgular velocity of ratation [rad/2]
 we = 0.0
 #
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 0.5, 2.0, 1.0
+guess = 1, 1.5, 1
 #
-limit = 0.5, 1.9, 0.9
+limit = 1, 1.5, 1
 #
-tol = 1e-7
+tol = 1e-8
 #
-fraVel = 0.5
-

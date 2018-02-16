@@ -9,11 +9,13 @@ Created on Fri Jan 19 14:57:52 2018
 import numpy
 
 
-class modelInitialEstimate():
+class initialEstimate():
 
     def __init__(self, con: dict):
 
-        if con['homogeneous']:
+        self.con = con
+
+        if con['NStag'] < 2:
             iniEst = modelInitialEstimateHomogeneous(con)
         else:
             iniEst = modelInitialEstimateSimple2(con)
@@ -22,6 +24,14 @@ class modelInitialEstimate():
         self.t = iniEst.t
         self.vx = iniEst.vx
         print([self.dv, self.t, self.vx])
+
+    def result(self):
+
+        self.con['Dv1ref'] = self.dv
+        self.con['tref'] = self.t
+        self.con['vxref'] = self.vx
+
+        return self.con
 
 
 class modelInitialEstimateHomogeneous():
@@ -121,67 +131,6 @@ class modelInitialEstimateHomogeneous():
         self.V1 = V1
 
         return None
-
-
-class modelInitialEstimateSimple():
-
-    #  This class is a try of creating a simplified initial estimate method
-    #  that could be used in a heterogeneous rocket configuration
-    def __init__(self, con: dict):
-
-        self.fail = False
-        self.GM = con['GM']
-        self.R = con['R']
-        self.g0 = con['g0']
-        self.hf = con['h_final']
-        self.a = 0.4*self.g0
-        self.vc = numpy.sqrt(self.GM/(self.R + self.hf))
-        self.vx = self.vc*0.18
-        self.__newtonRaphson()
-        self.__tCalculate()
-
-    def __newtonRaphson(self)-> None:
-
-        N = 100
-        ddv = self.vc/N
-        dv = self.vc
-
-        cont = 0
-        erro = 1.0
-
-        while (abs(erro) > 1e-6) and not self.fail:
-
-            erro = self.__dvEstimate(dv)
-            dedt = (self.__dvEstimate(dv+ddv) -
-                    self.__dvEstimate(dv - ddv))/(2*ddv)
-            dv = dv - erro/dedt
-            cont += 1
-            if cont == N:
-                raise Exception('itsme saying: initialEstimate failed')
-                self.fail = True
-
-        self.cont = cont
-        self.dv = dv
-        return None
-
-    def __dvEstimate(self, dv: float)-> float:
-
-        self.h1 = dv**2/(2*self.a)
-        aux = ((dv**2)/2 + self.GM/(self.R + self.hf) -
-               self.GM/(self.R + self.h1))
-        if aux < 0:
-            aux = 0
-        perda_gravitacional = dv - numpy.sqrt(2*aux) - dv*0.05
-        perda_arrasto = dv*0.1
-
-        erro = self.vc - (self.vx + dv - perda_gravitacional - perda_arrasto)
-        return erro
-
-    def __tCalculate(self)-> None:
-
-        vx0 = self.vx*(self.R + self.hf)/(self.R + self.h1)
-        vy = numpy.sqrt(self.dv**2 - vx0**2)
-        self.t = vy/self.g0
 
 
 class modelInitialEstimateSimple2():

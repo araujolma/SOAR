@@ -1,22 +1,18 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr 14 14:14:40 2017
+Created on Wed Feb  7 20:57:12 2018
 
-@author: Carlos
-
-Initial Trajectory Setup ModulE
-
-Version: Objetification
-
+@author: carlos
 """
 
 import numpy
+from atmosphere import rho
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
-from atmosphere import rho
-from itsModelStaging import stagingCalculate
-from itsModelPropulsion import modelPropulsion, modelPropulsionHetSimple
+from itsFolder.itsModelStaging import stagingCalculate
+from itsFolder.itsModelPropulsion import (modelPropulsion,
+                                          modelPropulsionHetSimple)
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
@@ -48,10 +44,8 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     LM = qdinSrefM * (aed.CL0 + aed.CL1*alfat)
     DM = qdinSrefM * (aed.CD0 + aed.CD2*(alfat**2))
 
-    if v < 1e-6 and v >= 0.0:
-        v = 1e-6
-    elif v > -1e-6 and v < 0.0:
-        v = -1e-6
+    if v < 1e-8:
+        v = 1e-8
 
     # states derivatives
     return [v*sinGamma,  # coefficient
@@ -78,6 +72,7 @@ class model():
         Dv1 = fdv1*con['Dv1ref']
         tf = ftf*con['tref']
         Dv2 = con['V_final'] - fdv2*con['vxref']
+        self.Dv2 = Dv2
         # print('V_final: ', con['V_final'])
 
         #######################################################################
@@ -160,16 +155,6 @@ class model():
         self.traj.numpyArray()
         return None
 
-    def __errorCalculate(self):
-
-        h, v, gamma, M = self.traj.xp[-1]
-        errors = ((v - self.con['V_final'])/0.01,
-                  (gamma - self.con['gamma_final'])/0.1,
-                  (h - self.con['h_final'])/10)
-        self.errors = numpy.array(errors)
-
-        return None
-
     def __calcAedTab(self, tt, xx, uu)-> tuple:
 
         con = self.con
@@ -206,6 +191,76 @@ class model():
         self.up = numpy.concatenate([tabAlpha.multValue(self.traj.tp),
                                      tabBeta.multValue(self.traj.tp)],  axis=1)
 
+    def simulate(self, typeResult: str)-> None:
+        #######################################################################
+        con = self.con
+        self.simulCounter += 1
+
+        #######################################################################
+        # Integration
+        # Initial conditions
+        t0 = 0.0
+        x0 = [con['h_initial'], con['V_initial'],
+              con['gamma_initial'], self.p1.mtot[0]]
+
+        #######################################################################
+        # Phase times and jetsonned masses
+        self.__phasesSetting(t0, con, typeResult)
+        # tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflistP1
+        # mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melistP1
+
+# =============================================================================
+#         arg = numpy.argsort(tphases0)
+#         tphases = []
+#         mjetsoned = []
+#         for ii in arg:
+#             tphases.append(tphases0[ii])
+#             mjetsoned.append(mjetsoned0[ii])
+#
+# =============================================================================
+
+        #######################################################################
+        # Integrator setting
+        # ode set:
+        #         atol: absolute tolerance
+        #         rtol: relative tolerance
+        ode45 = ode(mdlDer).set_integrator('dopri5', atol=con['tol']/1,
+                                           rtol=con['tol']/10)
+        ode45.set_initial_value(x0,  t0)
+        ode45.set_f_params(self.tabAlpha.value, self.tabBeta.mdlDer,
+                           self.aed, self.earth)
+
+        # Integration using rk45 separated by phases
+        if (typeResult == "design"):
+            # Fast running
+            self.__integrate(ode45, t0, x0)
+        else:
+            # Slow running
+            # Check phases time monotonic increse
+            for ii in range(1, len(self.tphases)):
+                if self.tphases[ii - 1] >= self.tphases[ii]:
+                    print('tphases = ', self.tphases)
+                    raise Exception('itsme saying: tphases does ' +
+                                    'not increase monotonically!')
+
+            # Integration
+            ode45.set_solout(self.traj.appendStar)
+            self.__integrate(ode45, t0, x0)
+            self.__cntrCalculate(self.tabAlpha, self.tabBeta)
+
+            # Check solution time monotonic increse
+            if self.con['contraction'] > 0.0:
+                for ii in range(1, len(self.traj.tt)):
+                    if self.traj.tt[ii - 1] >= self.traj.tt[ii]:
+                        print('ii = ', ii, ' tt[ii-1] = ', self.traj.tt[ii-1],
+                              ' tt[ii] = ', self.traj.tt[ii])
+                        raise Exception('itsme saying: tt does not' +
+                                        ' increase monotonically!')
+
+        self.__errorCalculate()
+
+        return None
+
     def displayInfo(self)-> None:
 
         con = self.con
@@ -233,82 +288,10 @@ class model():
         print('\n\rmjetsoned: ', self.mjetsoned)
         print('\n\r')
 
-    def simulate(self, typeResult: str)-> None:
-        #######################################################################
-        con = self.con
-        self.simulCounter += 1
-
-        #######################################################################
-        # Integration
-        # Initial conditions
-        t0 = 0.0
-        x0 = [con['h_initial'], con['V_initial'],
-              con['gamma_initial'], self.p1.mtot[0]]
-
-        #######################################################################
-        # Phase times and jetsonned masses
-        tphases = [t0, con['tAoA1'], self.tAoA2] + self.tabBeta.tflist
-        mjetsoned = [0.0, 0.0, 0.0] + self.tabBeta.melist
-
-        if (typeResult == "orbital"):
-            tphases = tphases + [con['torb']]
-            mjetsoned = mjetsoned + [0.0]
-
-# =============================================================================
-#         arg = numpy.argsort(tphases0)
-#         tphases = []
-#         mjetsoned = []
-#         for ii in arg:
-#             tphases.append(tphases0[ii])
-#             mjetsoned.append(mjetsoned0[ii])
-#
-# =============================================================================
-        self.tphases = tphases
-        self.mjetsoned = mjetsoned
-
-        #######################################################################
-        # Integrator setting
-        # ode set:
-        #         atol: absolute tolerance
-        #         rtol: relative tolerance
-        ode45 = ode(mdlDer).set_integrator('dopri5', atol=con['tol']/1,
-                                           rtol=con['tol']/10)
-        ode45.set_initial_value(x0,  t0)
-        ode45.set_f_params(self.tabAlpha.value, self.tabBeta.mdlDer,
-                           self.aed, self.earth)
-
-        # Integration using rk45 separated by phases
-        if (typeResult == "design"):
-            # Fast running
-            self.__integrate(ode45, t0, x0)
-        else:
-            # Slow running
-            # Check phases time monotonic increse
-            for ii in range(1, len(tphases)):
-                if tphases[ii - 1] >= tphases[ii]:
-                    print('tphases = ', tphases)
-                    raise Exception('itsme saying: tphases does ' +
-                                    'not increase monotonically!')
-
-            # Integration
-            ode45.set_solout(self.traj.appendStar)
-            self.__integrate(ode45, t0, x0)
-            self.__cntrCalculate(self.tabAlpha, self.tabBeta)
-
-            # Check solution time monotonic increse
-            if self.con['contraction'] > 0.0:
-                for ii in range(1, len(self.traj.tt)):
-                    if self.traj.tt[ii - 1] >= self.traj.tt[ii]:
-                        print('ii = ', ii, ' tt[ii-1] = ', self.traj.tt[ii-1],
-                              ' tt[ii] = ', self.traj.tt[ii])
-                        raise Exception('itsme saying: tt does not' +
-                                        ' increase monotonically!')
-
-        self.__errorCalculate()
-
-        return None
-
     def plotResults(self):
+
+        if not self.con['homogeneous']:
+            self.tabBeta.plot()
 
         (tt, xx, uu, tp, xp, up) = (self.traj.tt, self.traj.xx, self.uu,
                                     self.traj.tp, self.traj.xp, self.up)
@@ -421,6 +404,32 @@ class model():
         print('\n\r')
 
         self.e = e
+
+
+class modelAttitude2():
+
+    def __init__(self, t1: float, t2: float, v1: float, v2: float):
+        self.t1 = t1
+        self.t2 = t2
+
+        self.v1 = v1
+        self.v2 = v2
+
+    def value(self, t: float)-> float:
+        if (t >= self.t1) and (t <= self.t2):
+            ans = self.v2
+        else:
+            ans = self.v1
+
+        return ans
+
+    def multValue(self, t: float):
+        N = len(t)
+        ans = numpy.full((N, 1), 0.0)
+        for jj in range(0, N):
+            ans[jj] = self.value(t[jj])
+
+        return ans
 
 
 class modelAttitude():

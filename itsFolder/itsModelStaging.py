@@ -54,14 +54,14 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
             Isplist = con['Isplist']
 
             p2 = modelStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
-                                                  [Tlist[-1]], Dv2, con['Mu'],
-                                                  con['g0'], con['tol'])
+                                           [Tlist[-1]], Dv2, con['Mu'],
+                                           con['g0'], con['tol'])
             # p2.bisec()
             p2.result()
             # p2.show()
             p1 = modelStagingHeterogeneous(efflist[0:-1], Isplist[0:-1],
-                                                  Tlist[0:-1], Dv1, p2.mtot[0],
-                                                  con['g0'], con['tol'])
+                                           Tlist[0:-1], Dv1, p2.mtot[0],
+                                           con['g0'], con['tol'])
             # p1.bisec()
             p1.result()
             # p1.show()

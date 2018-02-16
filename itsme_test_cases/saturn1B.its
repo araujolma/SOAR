@@ -1,44 +1,46 @@
 ###############################################################################
 # itsme configuration file (.its)
 #
-# author: Carlos Souza
+# Saturn 1B
+#
+# Font: https://en.wikipedia.org/wiki/Saturn_IB
 ###############################################################################
 
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 50
+Mu = 8500
 #
 # Number of stages
 NStag = 2
 #
 # Specific impulse [s]
-Isp = 450
+Isp = 272, 420
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+efes = 0.095, 0.093
 #
 # Thrust [kN]
-T = 40.0
+T = 7100, 890
 #
 # softness of the transions of propulsive curve
-softness = 0.2
+softness = 0.5
 #
 # Aerodynamic coefficients
-# (B0 Miele 1998)
-CL0 =-0.03
+#
+CL0 = 0.0
 #
 # (B1 Miele 1998)
 CL1 = 0.8
 #
-# (A0 Miele 1998)
-CD0 = 0.05
+#
+CD0 = 0.5
 #
 # (A2 Miele 1998)
 CD2 = 0.5
 #
 # Reference area in [km2]
-s_ref = 7.853981633974482e-07
+s_ref = 34.2e-06
 #
 ###############################################################################
 [initial] # Initial state constants
@@ -46,7 +48,7 @@ s_ref = 7.853981633974482e-07
 # Initial altitude[km]
 h = 0.0
 #
-# Initial velocity [km/2]
+# Initial velocity [km/s]
 V = 1.0e-6
 #
 # Initial flight path angle [°]
@@ -56,7 +58,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 600.0
+h = 400.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -68,10 +70,10 @@ gamma = 0.0
 AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 2.0
 #
 # Duration of attitude maneuver [°]
-tAoA = 5.0
+tAoA = 2.0
 #
 ###############################################################################
 [enviroment] # Enviroment constants
@@ -82,7 +84,7 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth angular velocity of rotation [rad/2]
+# Earth angular velocity of rotation [rad/s]
 we = 0.0
 #
 ###############################################################################
@@ -93,3 +95,7 @@ guess = 1.0, 1.5, 1.0
 limit = 1.0, 1.5, 1.0
 #
 tol = 1e-7
+#
+fracVel = 0.7
+#
+Ndiv = 100

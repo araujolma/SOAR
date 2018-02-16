@@ -7,6 +7,7 @@ Created on Fri Jan 19 16:20:20 2018
 """
 
 import numpy
+import matplotlib.pyplot as plt
 
 
 class modelPropulsion():
@@ -20,6 +21,7 @@ class modelPropulsion():
 
         self.t1 = p1.tf[-1]
         t2 = tf - p2.tb[-1]
+        self.t2 = t2
         self.t3 = tf
 
         self.v1 = v1
@@ -45,6 +47,10 @@ class modelPropulsion():
             [self.is2, self.ir2, tf]
         self.melist = p1.me[0:-1].tolist() + [0.0, p1.me[-1]] + \
             [0.0, 0.0, p2.me[-1]]
+
+        # List of time events and jetsoned masses for first propulsive part
+        self.tflistP1 = p1.tf[0:-1].tolist() + [self.fr1, self.fs1]
+        self.melistP1 = p1.me[0:-1].tolist() + [0.0, p1.me[-1]]
 
         self.fail = False
         if len(p1.tf) > 2:
@@ -120,7 +126,9 @@ class modelPropulsionHetSimple():
         self.Tlist = p1.Tlist + [0.0] + p2.Tlist
         # Total list of final t
         t2 = tf - p2.tb[-1]
+        self.t2 = t2
         self.tflist = p1.tf + [t2, tf]
+        self.tf = tf
         # Total list of jettsoned masses
         self.melist = p1.me + [0.0, p2.me[-1]]
         # Total list of Thrust control
@@ -132,6 +140,9 @@ class modelPropulsionHetSimple():
                 self.vlist.append(v2)
         # number of archs
         self.N = len(self.tflist)
+        # List of events for the first propulsive part
+        self.tflistP1 = p1.tf
+        self.melistP1 = p1.me
 
     def getIndex(self, t: float)-> int:
         ii = 0
@@ -176,6 +187,20 @@ class modelPropulsionHetSimple():
             ans[jj] = self.value(t[jj])
         return ans
 
+    def mdlDerXtime(self, N: int):
+        tt = range(0, N)*(self.tf/(N-1))
+        v_t = []
+        Isp_t = []
+        T_t = []
+
+        for t in tt:
+            v, Isp, T = self.mdlDer(t)
+            v_t.append(v)
+            Isp_t.append(Isp)
+            T_t.append(T)
+
+        return tt, v_t, Isp_t, T_t
+
     def show(self):
 
         print('Isplist', self.Isplist)
@@ -184,3 +209,24 @@ class modelPropulsionHetSimple():
         print('vlist', self.vlist)
         print('tflist', self.tflist)
         raise
+
+    def plot(self)-> None:
+
+        tt, v_t, Isp_t, T_t = self.mdlDerXtime(1000)
+
+        plt.subplot2grid((6, 2), (0, 0), rowspan=2, colspan=2)
+        plt.plot(tt, v_t, '-b')
+        plt.grid(True)
+        plt.ylabel("beta [-]")
+
+        plt.subplot2grid((6, 2), (2, 0), rowspan=2, colspan=2)
+        plt.plot(tt, Isp_t, '-b')
+        plt.grid(True)
+        plt.ylabel("Isp [s]")
+
+        plt.subplot2grid((6, 2), (4, 0), rowspan=2, colspan=2)
+        plt.plot(tt, T_t, '-b')
+        plt.grid(True)
+        plt.ylabel("T [kN]")
+
+        plt.show()
