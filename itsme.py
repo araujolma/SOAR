@@ -113,9 +113,6 @@ class initialize():
         configuration.initialState()
         configuration.finalState()
         configuration.trajectory()
-        configuration.trajmods()
-        configuration.accel()
-        configuration.sgra()
         configuration.solver()
 
         con = configuration.con
