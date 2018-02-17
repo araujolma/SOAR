@@ -8,7 +8,7 @@ Created on Tue Jun 27 13:25:28 2017
 import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
-from itsme import problemConfiguration
+from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 
@@ -16,7 +16,7 @@ class prob(sgra):
     probName = 'probRock'
 
     def loadParsFromFile(self,file):
-        pConf = problemConfiguration(fileAdress=file)
+        pConf = problemConfigurationSGRA(fileAdress=file)
         pConf.sgra()
 
         N = pConf.con['N']
