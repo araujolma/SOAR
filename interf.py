@@ -21,7 +21,7 @@ class logger():
         os.makedirs(self.folderName)
 
         try:
-            self.fhand = open(self.folderName + '/log.txt','w+')
+            self.fhand = open(self.folderName + os.sep + 'log.txt','w+')
         except:
             print("Sorry, could not open/create the file!")
             exit()
@@ -68,7 +68,7 @@ class ITman():
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
-        self.loadSolDir = 'defaults/' + probName+'_solInitRest.pkl'
+        self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 1
@@ -293,7 +293,8 @@ class ITman():
             self.log.printL("Saving a copy of the default configuration " + \
                             "file in this run's folder.\n(Just for " + \
                             "alterring later, if necessary).")
-            self.confFile = shutil.copy2(self.confFile, self.log.folderName + "/")
+            self.confFile = shutil.copy2(self.confFile, self.log.folderName + \
+                                         os.sep)
             self.log.printL('Loading "initial" solution (for comparing purposes only)...')
             solInit = self.loadSol(path=self.loadAltSolDir)
 
@@ -383,7 +384,7 @@ class ITman():
         sol.P,_,_ = sol.calcP()
         sol = self.restRnds(sol)
 
-        self.saveSol(sol,self.log.folderName + '/solInitRest.pkl')
+        self.saveSol(sol,self.log.folderName + os.sep + 'solInitRest.pkl')
 
         return sol
 
@@ -451,7 +452,7 @@ class ITman():
 
             if self.saveSolCond(sol):
                 self.prntDashStr()
-                self.saveSol(sol,self.log.folderName + '/currSol.pkl')
+                self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
 
             if self.plotSolGradCond(sol):
                 self.prntDashStr()

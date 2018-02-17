@@ -16,14 +16,14 @@ velocity.
 
 import numpy
 from sgra import sgra
-from itsme import problemConfiguration
+from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'probCart'
 
     def loadParsFromFile(self,file):
-        pConf = problemConfiguration(fileAdress=file)
+        pConf = problemConfigurationSGRA(fileAdress=file)
         pConf.sgra()
 
         N = pConf.con['N']

@@ -6,7 +6,7 @@ Created on Tue Jun 27 13:07:35 2017
 @author: levi
 """
 
-import rest_sgra, grad_sgra, numpy, copy
+import rest_sgra, grad_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from utils import ddt
 from multiprocessing import Pool
@@ -757,7 +757,7 @@ class sgra():
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            fileName = self.log.folderName + '/' + keyName + '.pdf'
+            fileName = self.log.folderName + os.sep + keyName + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
             try:
