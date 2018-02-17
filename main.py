@@ -9,17 +9,7 @@ Created on Tue Jun 27 14:19:46 2017
 import datetime, time, sys
 from interf import ITman
 
-#import probRock as prob
-#confFile = 'teste.its'
-#import prob101 as prob
-#confFile = 'default_prob101.its'
-#import probBrac as prob
-#confFile = 'default_probBrac.its'
-#import probCart as prob
-#confFile = 'default_probCart.its'
-#import probCartMod as prob
-#import probSmpl as prob
-#import os
+
 #%%
 
 # ##################
