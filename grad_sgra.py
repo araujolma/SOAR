@@ -552,7 +552,7 @@ def calcQ(self,mustPlotQs=False):
         input("calcQ in debug mode. Press any key to continue...")
     return Q,Qx,Qu,Qp,Qt
 
-def calcStepGrad(self, corr):
+def calcStepGrad(self,corr,alfa_0):
 
     self.log.printL("\nIn calcStepGrad.\n")
 
@@ -613,7 +613,8 @@ def calcStepGrad(self, corr):
         alfa0 = alfa
 
     else:
-        alfa0 = self.histStepGrad[self.NIterGrad]
+        alfa0 = alfa_0
+        #alfa0 = self.histStepGrad[self.NIterGrad]
         P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0,prntCond)
 
     # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
@@ -759,8 +760,16 @@ def calcStepGrad(self, corr):
 
     return alfa
 
+def solveLMPBVPgrad(self):
+    
+    # Calculate corrections
+    parallelOpt = self.parallelOpt
+    isParallel = parallelOpt.get('gradLMPBVP',False)
+    A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
+    
+    return A,B,C,lam,mu
 
-def grad(self,parallelOpt={}):
+def grad(self,alfa_0,A,B,C,lam,mu):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
@@ -771,8 +780,8 @@ def grad(self,parallelOpt={}):
     self.updtGRrate()
 
     # Calculate corrections
-    isParallel = parallelOpt.get('gradLMPBVP',False)
-    A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
+    #isParallel = parallelOpt.get('gradLMPBVP',False)
+    #A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
 
     # Store corrections in solution
     self.lam = lam
@@ -780,7 +789,7 @@ def grad(self,parallelOpt={}):
     corr = {'x':A,'u':B,'pi':C}
 
     # Calculation of alfa
-    alfa = self.calcStepGrad(corr)
+    alfa = self.calcStepGrad(corr,alfa_0)
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 
@@ -803,3 +812,5 @@ def grad(self,parallelOpt={}):
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
+        
+    return alfa
