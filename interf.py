@@ -7,7 +7,6 @@ Created on Wed Jun 28 09:35:29 2017
 """
 
 import dill, datetime, pprint, os, shutil
-from sgra import sgra
 from utils import getNowStr#, logPrint
 
 class logger():
