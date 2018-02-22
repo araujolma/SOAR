@@ -1,0 +1,95 @@
+###############################################################################
+# itsme configuration file (.its)
+#
+# author: Carlos Souza
+###############################################################################
+
+###############################################################################
+[vehicle] # Vehicle parameters
+# Payload mass [kg]
+Mu = 100
+#
+# Number of stages
+NStag = 2
+#
+# Specific impulse [s]
+Isp = 450
+#
+# Structural inefficiency (defined by Cornelisse as efficiency)
+efes = .05
+#
+# Thrust [kN]
+T = 40.0
+#
+# softness of the transions of propulsive curve
+softness = 0.2
+#
+# Aerodynamic coefficients
+#
+CL0 = 0.0
+#
+# (B1 Miele 1998)
+CL1 = 0.8
+#
+# (A0 Miele 1998)
+CD0 = 0.05
+#
+# (A2 Miele 1998)
+CD2 = 0.5
+#
+# Reference area in [km2]
+s_ref = 7.853981633974482e-07
+#
+###############################################################################
+[initial] # Initial state constants
+#
+# Initial altitude[km]
+h = 0.0
+#
+# Initial velocity [km/2]
+V = 1.0e-6
+#
+# Initial flight path angle [°]
+gamma = 90.0
+#
+###############################################################################
+[final] # Final state constants
+#
+# Final orbital altitude [km]
+h = 463.0
+#
+# Final flight path angle [°]
+gamma = 0.0
+#
+###############################################################################
+[trajectory] # Trajectory parameters
+#
+# Maximal angle of attack for attitude maneuver [°]
+AoAmax = 2.0
+#
+# Initial time for attitude maneuver [s]
+tAoA1 = 3.7
+#
+# Duration of attitude maneuver [°]
+tAoA = 5.0
+#
+###############################################################################
+[enviroment] # Enviroment constants
+#
+# Gravitational parameter [km3/s2]
+GM = 398600.4415
+#
+# Earth radius [km]
+R = 6371.0
+#
+# Earth angular velocity of rotation [rad/2]
+we = 0.0
+#
+###############################################################################
+[solver] # Solver parameters
+#
+guess = 1.0, 1.5, 1.0
+#
+limit = 1.0, 1.5, 1.0
+#
+tol = 1e-7

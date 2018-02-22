@@ -5,10 +5,7 @@ A software for optimizing thrust profiles and trajectories of launching vehicles
 
 # GLOBAL INPUT DATA:
 - As expected, Earth and universal constants such as G, R, g0, etc;
-- For the main mission: the desired orbit, i.e., altitude and speed at last stage burnout, number of stages for rocket;
-
-- PAYLOAD MASS??
-
+- For the main mission: the desired orbit, i.e., altitude and speed at last stage burnout, minimum payload mass, number of stages for rocket;
 - For each stage: maximum thrust, specific impulse and structural efficiency;
 
 # GLOBAL OUTPUT DATA:
@@ -16,28 +13,49 @@ A software for optimizing thrust profiles and trajectories of launching vehicles
 - The control functions, i.e., the thrust and angle of attack applied to the rocket in each time.
 
 # METHOD
-The optimization method is based on Miele’s MSGRA algorithm. Currently, the considerations apply only to single stage rockets, which corresponds to SGRA algorithm.
-
+The optimization method is based on Angelo Miele’s MSGRA algorithm. 
 
 # FLOW OF THE PROGRAM
-The main file (which is run in the highest level) is sgra_simple_rocket.py. 
-In this module there are the functions to perform Miele’s gradient and restoration processes on the ongoing solution (time, state, controls) until optimality conditions are satisfied.
+As it is, many types of optimal control problems can be solved using this program. For each of them,
+there must be a module (typically called prob<Problem Name>.py) which implements a given set of methods that shall be explained later. Therefore, this section explains the general flow of the program, not necessarily for the rocket problem.
 
-Some problem specific functions are in prob_rocket_sgra.py.
-Some general utility functions are found in utils.py.
+The overall module-calling scheme is presented below:
 
-As it turns out, SGRA requires an initial guess very close to an actual solution of the problem (that is, a solution which satisfies the constraints, but not necessarily the optimality condition). 
-Hence, the rockProp.py module was written to provide a trajectory that corresponds to a propagated solution of the problem. However, just guessing the control profiles to match a given orbit was found too hard, and the automatic_Trajectory_Design was written to solve this problem.
+The main module (which is run in the highest level) is main.py. This module imports the three basic modules:
+interf.py: user interfacing and iteration managing module, 
+sgra.py: MSGRA functions that are not specific to any particular instance of problem;
+prob<X>.py: methods that are specific to the problem.
 
+------------
+prob<X>.py:
+------------
+A running solution of the program is an object of the class prob. This class is, very appropriately, defined in prob<X>.py, and must implement methods that are required by sgra:
+- calcPhi (for the dynamic function);
+- calcGrads (for the gradients);
+- calcPsi (for the error function associated to the boundary conditions)
+- calcF (for the integral term of the cost function);
+- calcI (for the cost function itself);
 
-- MAJOR TODO’S
-@munizlgmn: first aerodynamic model
-@TBD: Implement maximum acceleration limitation, staging…
+The prob<X> class may also implement other methods for visualizing the solution (plotSol), the trajectory (plotTraj), etc. 
 
-- MINOR TODO’S
-@araujolma: Create option in plotSol to announce solution and correction
+------------
+sgra.py:
+------------
+All the methods that are not specific to the problem are defined here. Actually, in order to prevent this module from becoming gigantic, it was split into three: 
+- sgra.py, 
+- rest_sgra.py, and
+- grad_sgra.
 
-@araujolma: encapsulate all constants in a dictionary to be passed in function calls.
+The sgra.py module calls the other two. The overall guideline is that if a module is specific to restoration procedures, it goes into rest_sgra.py,
+and if it is specific to gradient procedures, it goes into grad_sgra.py.
 
+------------
+utils.py:
+------------
+Some general utility methods go here. Only the time derivative method is being used currently.
 
+------------
+interf.py:
+------------
+This module contains the object that performs user interface, and manages solution loading, saving, as well as the gradient and restoration iterations.
 
