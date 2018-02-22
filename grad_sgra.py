@@ -760,15 +760,6 @@ def calcStepGrad(self,corr,alfa_0):
 
     return alfa
 
-def solveLMPBVPgrad(self):
-    
-    # Calculate corrections
-    parallelOpt = self.parallelOpt
-    isParallel = parallelOpt.get('gradLMPBVP',False)
-    A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
-    
-    return A,B,C,lam,mu
-
 def grad(self,alfa_0,A,B,C,lam,mu):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
@@ -796,7 +787,6 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     self.plotSol(opt={'mode':'lambda'})
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
     #input("@Grad: Waiting for lambda/corrections check...")
-
 
     # Apply correction and update Q history
     self.aplyCorr(alfa,corr)
