@@ -77,8 +77,8 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
-        self.parallelOpt = {'gradLMPBVP':True,
-                         'restLMPBVP':True}
+        self.parallelOpt = {'gradLMPBVP':False,
+                         'restLMPBVP':False}
 
         self.log = logger(probName)
         # Create directory for logs and stuff
@@ -430,48 +430,78 @@ class ITman():
             return False
 
     def gradRestCycl(self,sol,altSol=None):
+        
+#        self.prntDashStr()
+#        self.log.printL("\nBeginning gradient rounds...")
+#        sol.Q,_,_,_,_ = sol.calcQ()
+#        while sol.Q > sol.tol['Q']:
+#            sol = self.restRnds(sol)
+#
+#            sol.grad(parallelOpt=self.parallelOpt)
+#
         self.prntDashStr()
-        self.log.printL("\nBeginning gradient rounds...")
-        sol.Q,_,_,_,_ = sol.calcQ()
-        while sol.Q > sol.tol['Q']:
-            sol = self.restRnds(sol)
+        self.log.printL("\nBeginning gradient-restoration rounds...")
+        I,_,_= sol.calcI()
+        
+        GR_cycle_complete = False
+        do_GR_cycle = True        
+        while do_GR_cycle:
+            sol.P,_,_ = sol.calcP()
+            sol = self.restRnds(sol)                
+            if GR_cycle_complete is False:
+                GR_cycle_complete = True                
+                parallelOpt = self.parallelOpt
+                isParallel = parallelOpt.get('gradLMPBVP',False)
+                A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
+                sol.Q,_,_,_,_ = sol.calcQ()
+                if sol.Q <= sol.tol['Q']:
+                    print("Terminate program. Solution is (x,u,pi)_r")
+                    do_GR_cycle = False
+                else:
+                    alfa_g_0 = 1
+                    alfa_g_old = sol.grad(alfa_g_0,A,B,C,lam,mu)
+            else:
+                I_r,_,_ = sol.calcI()
+                if (I_r < I):
+                    GR_cycle_complete = False
+                    I = I_r
+                else:
+                    alfa_g_0 = alfa_g_old
+                    alfa_g_old = sol.grad(alfa_g_0,A,B,C,lam,mu)
+                    
+        if self.showHistQCond(sol):
+            sol.showHistQ()
 
-            sol.grad(parallelOpt=self.parallelOpt)
+        if self.showHistICond(sol):
+            sol.showHistI()
 
-            if self.showHistQCond(sol):
-                sol.showHistQ()
+        if self.showHistGradStepCond(sol):
+            sol.showHistGradStep()
 
-            if self.showHistICond(sol):
-                sol.showHistI()
+        if self.showHistGRrateCond(sol):
+            sol.showHistGRrate()
 
-            if self.showHistGradStepCond(sol):
-                sol.showHistGradStep()
+        if self.saveSolCond(sol):
+            self.prntDashStr()
+            self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
 
-            if self.showHistGRrateCond(sol):
-                sol.showHistGRrate()
+        if self.plotSolGradCond(sol):
+            self.prntDashStr()
+            self.log.printL("\nSolution so far:")
+            sol.plotSol()
+            sol.plotF()
+            sol.plotTraj()
+            if altSol is not None:
+                sol.compWith(altSol,'Initial guess')
 
-            if self.saveSolCond(sol):
-                self.prntDashStr()
-                self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
-
-            if self.plotSolGradCond(sol):
-                self.prntDashStr()
-                self.log.printL("\nSolution so far:")
-                sol.plotSol()
-                sol.plotF()
-                sol.plotTraj()
-                if altSol is not None:
-                    sol.compWith(altSol,'Initial guess')
-
-            if self.gradRestPausCond(sol):
-                print("\a")
-                self.prntDashStr()
-                self.log.printL(datetime.datetime.now())
-                self.log.printL("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
-                self.log.printL("Grad-Rest cycle pause condition has been reached.")
-                self.log.printL("Press any key to continue, or ctrl+C to stop.")
-                self.log.printL("Load last saved solution to go back to GR cycle.")
-                self.prom()
-        #
+        if self.gradRestPausCond(sol):
+            print("\a")
+            self.prntDashStr()
+            self.log.printL(datetime.datetime.now())
+            self.log.printL("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
+            self.log.printL("Grad-Rest cycle pause condition has been reached.")
+            self.log.printL("Press any key to continue, or ctrl+C to stop.")
+            self.log.printL("Load last saved solution to go back to GR cycle.")
+            self.prom()
 
         return sol
