@@ -58,6 +58,11 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     if allResults:
 
         sol = dict()
+        sol['t [s]'] = t
+        sol['h [km]'] = h
+        sol['v [km]'] = v
+        sol['gamma [rad]'] = gamma
+        sol['M [kg]'] = M
         sol['dhdt [km/s]'] = ans[0]
         sol['a [km/s2]'] = ans[1]
         sol['dgdt [rad/s]'] = ans[2]
@@ -71,6 +76,8 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
         sol['Cd [-]'] = aed.CD0 + aed.CD2*(alfat**2)
         sol['theta [rad]'] = alfat + gamma
         sol['btm [km/s2]'] = btm
+
+        ans = sol
 
     return ans
 
@@ -202,6 +209,27 @@ class model():
             QQ[ii] = qdin
 
         return LL,  DD,  CCL,  CCD,  QQ
+
+    def __calcSolDict(self, tt, xx)-> dict:
+
+        solDict = dict()
+        ii = 0
+        sol = mdlDer(tt[ii], xx[ii], self.tabAlpha.value,
+                     self.tabBeta.mdlDer, self.aed, self.earth, True)
+        keys = sol.keys()
+        append = list.append
+
+        for k in keys:
+            solDict[k] = []
+
+        for ii in range(0,  len(tt)):
+
+            sol = mdlDer(tt[ii], xx[ii], self.tabAlpha.value,
+                         self.tabBeta.mdlDer, self.aed, self.earth, True)
+            for k in keys:
+                append(solDict[k], sol[k])
+
+        return solDict
 
     def __cntrCalculate(self, tabAlpha, tabBeta):
 
@@ -338,36 +366,58 @@ class model():
 
         return None
 
-    def plotResultsAed(self):
+# =============================================================================
+#     def plotResultsAed(self):
+#
+#         tt = self.traj.tt
+#         tp = self.traj.tp
+#         # Aed plots
+#         LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(tt,
+#                                                      self.traj.xx, self.uu)
+#         Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
+#                                                      self.traj.xp, self.up)
+#
+#         self.__calcSolDict(tt, self.traj.xx)
+#
+#         fig1 = plt.figure()
+#         fig1.suptitle('Aerodynamics')
+#
+#         ax = fig1.add_subplot(3, 1, 1)
+#         ax.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
+#         ax.set_ylabel("L and D [kN]")
+#         ax.grid(True)
+#
+#         ax = fig1.add_subplot(3, 1, 2)
+#         ax.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
+#         ax.set_ylabel("CL and CD [-]")
+#         ax.grid(True)
+#
+#         ax = fig1.add_subplot(3, 1, 3)
+#         ax.plot(tt, QQ, '.-b', tp, Qp, '.r')
+#         ax.set_ylabel("qdin [kPa]")
+#         ax.grid(True)
+#         ax.set_xlabel("t [s]")
+#         plt.show()
+#
+#         solDict = self.__calcSolDict(tt, self.traj.xx)
+#         solDictP = self.__calcSolDict(tp, self.traj.xp)
+#         keys = solDict.keys()
+#         for key in keys:
+#             fig2 = plt.figure()
+#             ax = fig2.add_subplot(111)
+#             ax.plot(tt, solDict[key], '.-b', tp, solDictP[key], '.r')
+#             ax.set_ylabel(key)
+#             ax.set_xlabel('t [s]')
+#             ax.grid(True)
+#             plt.show()
+#
+#         return None
+#
+# =============================================================================
+    def calculateAll(self)-> None:
 
-        tt = self.traj.tt
-        tp = self.traj.tp
-        # Aed plots
-        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(tt,
-                                                     self.traj.xx, self.uu)
-        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
-                                                     self.traj.xp, self.up)
-
-        fig1 = plt.figure()
-        fig1.suptitle('Aerodynamics')
-
-        ax = fig1.add_subplot(3, 1, 1)
-        ax.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
-        ax.set_ylabel("L and D [kN]")
-        ax.grid(True)
-
-        ax = fig1.add_subplot(3, 1, 2)
-        ax.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
-        ax.set_ylabel("CL and CD [-]")
-        ax.grid(True)
-
-        ax = fig1.add_subplot(3, 1, 3)
-        ax.plot(tt, QQ, '.-b', tp, Qp, '.r')
-        ax.set_ylabel("qdin [kPa]")
-        ax.grid(True)
-        ax.set_xlabel("t [s]")
-
-        plt.show()
+        self.traj.solDict = self.__calcSolDict(self.traj.tt, self.traj.xx)
+        self.traj.solDictP = self.__calcSolDict(self.traj.tp, self.traj.xp)
 
         return None
 
@@ -471,6 +521,8 @@ class modelTrajectory():
         self.tphases = []
         self.mass0 = []
         self.massJet = []
+        self.solDict = dict()
+        self.solDictP = dict()
 
     def append(self, tt, xx):
 
