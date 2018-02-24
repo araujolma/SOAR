@@ -16,7 +16,7 @@ from itsFolder.itsModelPropulsion import (modelPropulsion,
 
 
 def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
-           aed: callable, earth: callable)-> list:
+           aed: callable, earth: callable, allResults: bool)-> list:
 
     # initialization
     h = x[0]
@@ -48,12 +48,31 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
         v = 1e-8
 
     # states derivatives
-    return [v*sinGamma,  # coefficient
-            btm*numpy.cos(alfat) - g*sinGamma - DM,  # coefficient
-            btm*numpy.sin(alfat)/v +
-            (v/(h+earth.R)-g/v)*numpy.cos(gamma) +
-            (LM/v) + 2*earth.we,  # coefficient
-            -btm*M/(earth.g0*Isp)]  # coefficient
+    ans = [v*sinGamma,  # coefficient
+           btm*numpy.cos(alfat) - g*sinGamma - DM,  # coefficient
+           btm*numpy.sin(alfat)/v +
+           (v/(h+earth.R)-g/v)*numpy.cos(gamma) +
+           (LM/v) + 2*earth.we,  # coefficient
+           -btm*M/(earth.g0*Isp)]  # coefficient
+
+    if allResults:
+
+        sol = dict()
+        sol['dhdt [km/s]'] = ans[0]
+        sol['a [km/s2]'] = ans[1]
+        sol['dgdt [rad/s]'] = ans[2]
+        sol['dmdt [kg/s]'] = ans[3]
+        sol['L [kN]'] = LM*M
+        sol['D [kN]'] = DM*M
+        sol['rho [kg/m3]'] = rho(h)
+        sol['qdin [kPa]'] = 0.5 * sol['rho [kg/m3]'] * (v**2)
+        sol['Peff [kN]'] = g*M
+        sol['Cl [-]'] = aed.CL0 + aed.CL1*alfat
+        sol['Cd [-]'] = aed.CD0 + aed.CD2*(alfat**2)
+        sol['theta [rad]'] = alfat + gamma
+        sol['btm [km/s2]'] = btm
+
+    return ans
 
 
 class model():
@@ -228,7 +247,7 @@ class model():
                                            rtol=con['tol']/10)
         ode45.set_initial_value(x0,  t0)
         ode45.set_f_params(self.tabAlpha.value, self.tabBeta.mdlDer,
-                           self.aed, self.earth)
+                           self.aed, self.earth, False)
 
         # Integration using rk45 separated by phases
         if (typeResult == "design"):
@@ -296,47 +315,25 @@ class model():
         (tt, xx, uu, tp, xp, up) = (self.traj.tt, self.traj.xx, self.uu,
                                     self.traj.tp, self.traj.xp, self.up)
 
-        ii = 0
-        plt.subplot2grid((6, 4), (0, 0), rowspan=2, colspan=2)
-        plt.plot(tt, xx[:, ii], '.-b', tp, xp[:, ii], '.r')
-        plt.grid(True)
-        plt.ylabel("h [km]")
+        fig1 = plt.figure()
+        fig1.suptitle("States and controls")
+        ylabelList = ["h [m]", "V [km/s]", "gamma [deg]",
+                      "m [kg]", "alpha [deg]", "beta [-]"]
+        scales = [1, 1, 180/numpy.pi, 1, 180/numpy.pi, 1]
 
-        ii = 1
-        plt.subplot2grid((6, 4), (0, 2), rowspan=2, colspan=2)
-        plt.plot(tt, xx[:, ii], '.-b', tp, xp[:, ii], '.r')
+        for ii in range(0, 6):
+            ax = fig1.add_subplot(3, 2, ii+1)
+            if ii < 4:
+                ax.plot(tt, scales[ii]*xx[:, ii], '.-b',
+                        tp, scales[ii]*xp[:, ii], '.r')
+            else:
+                ax.plot(tt, scales[ii]*uu[:, ii-4], '.-b',
+                        tp, scales[ii]*up[:, ii-4], '.r')
+            ax.grid(True)
+            ax.set_xlabel("t [s]")
+            ax.set_ylabel(ylabelList[ii])
 
-        plt.grid(True)
-        plt.ylabel("V [km/s]")
-
-        ii = 2
-        plt.subplot2grid((6, 4), (2, 0), rowspan=2, colspan=2)
-        plt.plot(tt, xx[:, ii]*180.0/numpy.pi, '.-b',
-                 tp, xp[:, ii]*180.0/numpy.pi, '.r')
-        plt.grid(True)
-        plt.ylabel("gamma [deg]")
-
-        ii = 3
-        plt.subplot2grid((6, 4), (2, 2), rowspan=2, colspan=2)
-        plt.plot(tt, xx[:, ii], '.-b', tp, xp[:, ii], '.r')
-        plt.grid(True)
-        plt.ylabel("m [kg]")
-
-        ii = 0
-        plt.subplot2grid((6, 4), (4, 0), rowspan=2, colspan=2)
-        plt.plot(tt, uu[:, ii]*180/numpy.pi, '.-b',
-                 tp, up[:, ii]*180/numpy.pi, '.r')
-        plt.grid(True)
-        plt.ylabel("alfa [deg]")
-
-        ii = 1
-        plt.subplot2grid((6, 4), (4, 2), rowspan=2, colspan=2)
-        plt.plot(tt, uu[:, ii], '.-b',
-                 tp, up[:, ii], '.r')
-        plt.grid(True)
-        plt.xlabel("t")
-        plt.ylabel("beta [adim]")
-
+        # use plt.show() instead fig1.show() was necessary to avooid bugs
         plt.show()
 
         return None
@@ -351,20 +348,24 @@ class model():
         Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
                                                      self.traj.xp, self.up)
 
-        plt.subplot2grid((6, 2), (0, 0), rowspan=2, colspan=2)
-        plt.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
-        plt.grid(True)
-        plt.ylabel("L and D [kN]")
+        fig1 = plt.figure()
+        fig1.suptitle('Aerodynamics')
 
-        plt.subplot2grid((6, 2), (2, 0), rowspan=2, colspan=2)
-        plt.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
-        plt.grid(True)
-        plt.ylabel("CL and CD [-]")
+        ax = fig1.add_subplot(3, 1, 1)
+        ax.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
+        ax.set_ylabel("L and D [kN]")
+        ax.grid(True)
 
-        plt.subplot2grid((6, 2), (4, 0), rowspan=2, colspan=2)
-        plt.plot(tt, QQ, '.-b', tp, Qp, '.r')
-        plt.grid(True)
-        plt.ylabel("qdin [kPa]")
+        ax = fig1.add_subplot(3, 1, 2)
+        ax.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
+        ax.set_ylabel("CL and CD [-]")
+        ax.grid(True)
+
+        ax = fig1.add_subplot(3, 1, 3)
+        ax.plot(tt, QQ, '.-b', tp, Qp, '.r')
+        ax.set_ylabel("qdin [kPa]")
+        ax.grid(True)
+        ax.set_xlabel("t [s]")
 
         plt.show()
 

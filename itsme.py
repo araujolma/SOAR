@@ -162,6 +162,8 @@ class initialize():
         iniEst = initialEstimate(con)
         con = iniEst.result()
 
+        tol = con['tol']
+
         if con['NStag'] > 1:  # not con['homogeneous']:
 
             con['tol'] = tol*10
