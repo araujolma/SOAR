@@ -486,7 +486,7 @@ class solution():
 
         return None
 
-    def plot(self, entry1: str, entry2: str)-> None:
+    def plot(self, entry1: str, entry2: str)-> tuple:
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -497,4 +497,4 @@ class solution():
         ax.set_xlabel(entry1)
         ax.set_ylabel(entry2)
 
-        return None
+        return fig, ax
