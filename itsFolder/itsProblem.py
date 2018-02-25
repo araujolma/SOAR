@@ -488,6 +488,8 @@ class solution():
 
     def plot(self, entry1: str, entry2: str)-> tuple:
 
+	# for use latex you must run: sudo apt-get install texlive-xetex
+	# for use latex you must run: sudo apt-get install dvipng
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.basic.traj.solDict[entry1],
