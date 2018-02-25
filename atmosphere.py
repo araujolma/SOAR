@@ -5,6 +5,7 @@ Created on Wed Apr  5 16:09:05 2017
 @author: munizlgmn
 """
 import math
+import numpy
 
 constant = 0.03416319
 R = 287.04
@@ -17,8 +18,8 @@ def cal(p0, t0, a0, h0, h1):
         t1 = t0
         p1 = p0*math.exp(-constant*(h1 - h0)/t0)
     return t1, p1
-   
-def rho(altitude):
+
+def rhoFast(altitude):
     altitude *= 1000    # converting from km to m
     a = [-0.0065, 0.0, 0.001, 0.0028, 0.0, -0.0028, -0.002, 0.0]
     h_ref = [0, 11000, 20000, 32000, 47000, 51000, 71000, 84852]
@@ -31,7 +32,7 @@ def rho(altitude):
         for i in range(0, 8):
             if altitude <= h_ref[i]:
                 if i == 0:
-                    temperature, pressure = cal(p_ref[i], t_ref[i], a[i], h_ref[i], altitude)            
+                    temperature, pressure = cal(p_ref[i], t_ref[i], a[i], h_ref[i], altitude)
                 else:
                     temperature, pressure = cal(p_ref[i], t_ref[i], a[i-1], h_ref[i], altitude)
                 break;
@@ -40,7 +41,57 @@ def rho(altitude):
 #    strformat = 'Altitude: {0:.1f} \nTemperature: {1:.3f} \nPressure: {2:.3f} \nDensity: {3:.6f}\n'
 #    print(strformat.format(altitude, temperature, pressure, density))
     return density
-    
+
+
+def atm(altitude):
+    # This is a function based on rhoFast implementation that returns rho,
+    # pressure, temperature and sound velocity
+
+    altitude *= 1000  # converting from km to m
+    a = [-0.0065, 0.0, 0.001, 0.0028, 0.0, -0.0028, -0.002, 0.0]
+    h_ref = [0, 11000, 20000, 32000, 47000, 51000, 71000, 84852]
+    p_ref = [101325, 22632.1, 5474.8, 868.01, 110.90, 66.938, 3.9564, 0.37338]
+    t_ref = [288.15, 216.65,  216.65, 228.65, 270.65, 270.65, 214.65, 186.8673]
+    if altitude < h_ref[0]:
+        pressure = p_ref[0]
+        temperature = t_ref[0]
+    elif altitude > h_ref[-1]:
+        pressure = p_ref[-1]
+        temperature = t_ref[-1]
+    else:
+        for i in range(0, 8):
+            if altitude <= h_ref[i]:
+                if i == 0:
+                    temperature, pressure = cal(p_ref[i], t_ref[i], a[i],
+                                                h_ref[i], altitude)
+                else:
+                    temperature, pressure = cal(p_ref[i], t_ref[i], a[i-1],
+                                                h_ref[i], altitude)
+                break
+
+    density = pressure / (R * temperature)          # kg/m^3
+    density *= 1e9                                  # converting to kg/km^3
+    asound = math.sqrt(1.4 * R * temperature)*1e-3  # [km/s]
+    pressure = pressure*1e-3                        # [kPa]
+
+    return density, pressure, temperature, asound
+
+
+def rho(altitude):
+    # rho implementation for list inputs
+    ta = type(altitude)
+    if ta is numpy.float64:
+        # more frequent situation during integration
+        ans = rhoFast(altitude)
+    elif (ta is int) or (ta is float):
+        # other possible scalar situations situation during integration
+        ans = rhoFast(altitude)
+    else:
+        # vetorial situation
+        ans = list(map(rhoFast, altitude))
+
+    return ans
+
 # test cases:
 #teste1 = rho(-10)
 #teste2 = rho(0)

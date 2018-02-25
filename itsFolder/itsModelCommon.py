@@ -7,7 +7,7 @@ Created on Wed Feb  7 20:57:12 2018
 """
 
 import numpy
-from atmosphere import rho
+from atmosphere import rho, atm
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from itsFolder.itsModelStaging import stagingCalculate
@@ -58,21 +58,70 @@ def mdlDer(t: float, x: list, alfaProg: callable, betaProg: callable,
     if allResults:
 
         sol = dict()
+        sol['t [s]'] = t
+        sol['h [km]'] = h
+        sol['v [km]'] = v
+        sol['gamma [rad]'] = gamma
+        sol['M [kg]'] = M
         sol['dhdt [km/s]'] = ans[0]
         sol['a [km/s2]'] = ans[1]
         sol['dgdt [rad/s]'] = ans[2]
         sol['dmdt [kg/s]'] = ans[3]
         sol['L [kN]'] = LM*M
         sol['D [kN]'] = DM*M
-        sol['rho [kg/m3]'] = rho(h)
-        sol['qdin [kPa]'] = 0.5 * sol['rho [kg/m3]'] * (v**2)
+        dens, Patm, Tatm, asound = atm(h)
+        sol['rho [kg/km3]'] = dens
+        sol['Patm [kPa]'] = Patm
+        sol['Tatm [k]'] = Tatm
+        sol['v_{sound} [km/s]'] = asound
+        sol['Mach [-]'] = v/asound
+        sol['qdin [kPa]'] = 0.5 * dens * (v**2)
         sol['Peff [kN]'] = g*M
         sol['Cl [-]'] = aed.CL0 + aed.CL1*alfat
         sol['Cd [-]'] = aed.CD0 + aed.CD2*(alfat**2)
         sol['theta [rad]'] = alfat + gamma
         sol['btm [km/s2]'] = btm
 
+        a, e, E, momAng, ph, ah, h = orbitCalculation(x, earth)
+
+        sol['semi-major axis [km]'] = a
+        sol['eccentricity [-]'] = e
+        sol['E [GJ]'] = E
+        sol['momAng [GNm]'] = momAng
+        sol['ph [km]'] = ph
+        sol['ah [km]'] = ah
+
+        ans = sol
+
     return ans
+
+
+def orbitCalculation(x, earth):
+
+    GM = earth.GM
+    R = earth.R
+    we = earth.we
+
+    h, v, gama, M = x
+    r = R + h
+
+    cosGama = numpy.cos(gama)
+    sinGama = numpy.sin(gama)
+    vt = v*cosGama + we*r
+    vr = v*sinGama
+    v = numpy.sqrt(vt**2 + vr**2)
+    cosGama = vt/v
+    sinGama = vr/v
+
+    momAng = r * v * cosGama
+    E = .5 * v * v - GM/r
+    a = - .5*GM/E
+    aux = v * momAng / GM
+    e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
+    ph = a * (1.0 - e) - R
+    ah = 2*(a - R) - ph
+
+    return a, e, E, momAng, ph, ah, h
 
 
 class model():
@@ -202,6 +251,27 @@ class model():
             QQ[ii] = qdin
 
         return LL,  DD,  CCL,  CCD,  QQ
+
+    def __calcSolDict(self, tt, xx)-> dict:
+
+        solDict = dict()
+        ii = 0
+        sol = mdlDer(tt[ii], xx[ii], self.tabAlpha.value,
+                     self.tabBeta.mdlDer, self.aed, self.earth, True)
+        keys = sol.keys()
+        append = list.append
+
+        for k in keys:
+            solDict[k] = []
+
+        for ii in range(0,  len(tt)):
+
+            sol = mdlDer(tt[ii], xx[ii], self.tabAlpha.value,
+                         self.tabBeta.mdlDer, self.aed, self.earth, True)
+            for k in keys:
+                append(solDict[k], sol[k])
+
+        return solDict
 
     def __cntrCalculate(self, tabAlpha, tabBeta):
 
@@ -338,74 +408,76 @@ class model():
 
         return None
 
-    def plotResultsAed(self):
+# =============================================================================
+#     def plotResultsAed(self):
+#
+#         tt = self.traj.tt
+#         tp = self.traj.tp
+#         # Aed plots
+#         LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(tt,
+#                                                      self.traj.xx, self.uu)
+#         Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
+#                                                      self.traj.xp, self.up)
+#
+#         self.__calcSolDict(tt, self.traj.xx)
+#
+#         fig1 = plt.figure()
+#         fig1.suptitle('Aerodynamics')
+#
+#         ax = fig1.add_subplot(3, 1, 1)
+#         ax.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
+#         ax.set_ylabel("L and D [kN]")
+#         ax.grid(True)
+#
+#         ax = fig1.add_subplot(3, 1, 2)
+#         ax.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
+#         ax.set_ylabel("CL and CD [-]")
+#         ax.grid(True)
+#
+#         ax = fig1.add_subplot(3, 1, 3)
+#         ax.plot(tt, QQ, '.-b', tp, Qp, '.r')
+#         ax.set_ylabel("qdin [kPa]")
+#         ax.grid(True)
+#         ax.set_xlabel("t [s]")
+#         plt.show()
+#
+#         solDict = self.__calcSolDict(tt, self.traj.xx)
+#         solDictP = self.__calcSolDict(tp, self.traj.xp)
+#         keys = solDict.keys()
+#         for key in keys:
+#             fig2 = plt.figure()
+#             ax = fig2.add_subplot(111)
+#             ax.plot(tt, solDict[key], '.-b', tp, solDictP[key], '.r')
+#             ax.set_ylabel(key)
+#             ax.set_xlabel('t [s]')
+#             ax.grid(True)
+#             plt.show()
+#
+#         return None
+#
+# =============================================================================
+    def calculateAll(self)-> None:
 
-        tt = self.traj.tt
-        tp = self.traj.tp
-        # Aed plots
-        LL,  DD,  CCL,  CCD,  QQ = self.__calcAedTab(tt,
-                                                     self.traj.xx, self.uu)
-        Lp,  Dp,  CLp,  CDp,  Qp = self.__calcAedTab(tp,
-                                                     self.traj.xp, self.up)
-
-        fig1 = plt.figure()
-        fig1.suptitle('Aerodynamics')
-
-        ax = fig1.add_subplot(3, 1, 1)
-        ax.plot(tt, LL, '.-b', tp, Lp, '.r', tt, DD, '.-g', tp, Dp, '.r')
-        ax.set_ylabel("L and D [kN]")
-        ax.grid(True)
-
-        ax = fig1.add_subplot(3, 1, 2)
-        ax.plot(tt, CCL, '.-b', tp, CLp, '.r', tt, CCD, '.-g', tp, CDp, '.r')
-        ax.set_ylabel("CL and CD [-]")
-        ax.grid(True)
-
-        ax = fig1.add_subplot(3, 1, 3)
-        ax.plot(tt, QQ, '.-b', tp, Qp, '.r')
-        ax.set_ylabel("qdin [kPa]")
-        ax.grid(True)
-        ax.set_xlabel("t [s]")
-
-        plt.show()
+        self.traj.solDict = self.__calcSolDict(self.traj.tt, self.traj.xx)
+        self.traj.solDictP = self.__calcSolDict(self.traj.tp, self.traj.xp)
 
         return None
 
     def orbitResults(self):
 
-        GM = self.con['GM']
-        R = self.con['R']
+        a, e, E, momAng, ph, ah, h = orbitCalculation(
+                numpy.transpose(self.traj.xx[-1, :]), self.earth)
 
-        h, v, gama, M = numpy.transpose(self.traj.xx[-1, :])
-        r = R + h
-
-        cosGama = numpy.cos(gama)
-        sinGama = numpy.sin(gama)
-        vt = v*cosGama + self.con['we']*r
-        vr = v*sinGama
-        v = numpy.sqrt(vt**2 + vr**2)
-        cosGama = vt/v
-        sinGama = vr/v
-
-        momAng = r * v * cosGama
         print("Ang mom:", momAng)
-        en = .5 * v * v - GM/r
-        print("Energy:", en)
-        a = - .5*GM/en
+        print("Energy:", E)
         print("Semi-major axis:", a)
-        aux = v * momAng / GM
-        e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
         print("Eccentricity:", e)
-
         print("Final altitude:", h)
-        ph = a * (1.0 - e) - R
         print("Perigee altitude:", ph)
-        ah = 2*(a - R) - ph
         print("Apogee altitude:", ah)
         print('\n\r')
 
         self.e = e
-
 
 class modelAttitude2():
 
@@ -471,6 +543,8 @@ class modelTrajectory():
         self.tphases = []
         self.mass0 = []
         self.massJet = []
+        self.solDict = dict()
+        self.solDictP = dict()
 
     def append(self, tt, xx):
 
@@ -513,3 +587,4 @@ class modelEarth():
         self.g0 = con['g0']
         self.R = con['R']
         self.we = con['we']
+        self.GM = con['GM']

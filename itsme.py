@@ -47,8 +47,6 @@ def its(*arg):
 
     solution2 = problem1.solveForFineTune()
 
-    solution2.basic.plotResultsAed()
-
     solution2.displayResults()
 
     if not solution2.converged():

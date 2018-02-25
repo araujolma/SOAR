@@ -471,3 +471,32 @@ class solution():
               self.basic.traj.massJet
 
         return ans
+
+    def preprocessPlot(self)-> None:
+
+        self.basic.calculateAll()
+        self.orbital.calculateAll()
+
+        return None
+
+    def plotEntryOptions(self)-> None:
+
+        for k in list(self.basic.traj.solDict.keys()):
+            print(k)
+
+        return None
+
+    def plot(self, entry1: str, entry2: str)-> tuple:
+
+	# for use latex you must run: sudo apt-get install texlive-xetex
+	# for use latex you must run: sudo apt-get install dvipng
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(self.basic.traj.solDict[entry1],
+                self.basic.traj.solDict[entry2], '.-b',
+                self.basic.traj.solDictP[entry1],
+                self.basic.traj.solDictP[entry2], '.r')
+        ax.set_xlabel(entry1)
+        ax.set_ylabel(entry2)
+
+        return fig, ax
