@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     if overrideWithProb is None and (len(sys.argv) == 1):
         import probRock as prob
-        confFile = 'teste.its'
+        confFile = 'defaults/probRock.its'
     else:
         if overrideWithProb is None:
             probName = sys.argv[1].lower()
