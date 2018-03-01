@@ -1222,12 +1222,10 @@ class prob(sgra):
             self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
             if piIsTime:
                 plt.plot([0.0,self.pi.sum()],\
-                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
-                          linestyle='--')
+                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),'--')
             else:
                 plt.plot([0.0,self.s+1],\
-                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
-                          linestyle='--')
+                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),'--')
 
             plt.grid(True)
             if piIsTime:
@@ -1666,7 +1664,7 @@ class prob(sgra):
         altSolAcc = altSol.calcAcc()
         plt.plot([0.0,self.pi.sum()],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
-                  linestyle='--',label='accel. limit')
+                  '--',label='accel. limit')
         altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
         self.plotCat(1e3*solAcc,mark='--',color='y',labl=currSolLabl)
         plt.grid(True)

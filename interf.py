@@ -73,8 +73,8 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
-        self.parallelOpt = {'gradLMPBVP':False,
-                         'restLMPBVP':False}
+        self.parallelOpt = {'gradLMPBVP':True,
+                         'restLMPBVP':True}
 
         self.log = logger(probName)
         # Create directory for logs and stuff
