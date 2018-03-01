@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jun 27 13:25:28 2017
 
-@author: levi
-"""
 import numpy, itsme
 from sgra import sgra
 from atmosphere import rho

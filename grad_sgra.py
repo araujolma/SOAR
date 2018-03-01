@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jun 27 14:39:08 2017
-
-@author: levi
-"""
 
 import numpy
 from utils import ddt, testAlgn
@@ -789,10 +784,12 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     #input("@Grad: Waiting for lambda/corrections check...")
 
     # Apply correction and update Q history
-    self.aplyCorr(alfa,corr)
-    self.updtHistQ(alfa,mustPlotQs=True)
+    newsol = self.copy()
+    newsol.aplyCorr(alfa,corr)
+    #self.updtHistQ(alfa,mustPlotQs=True)
 
     # update P just to ensure proper restoration afterwards
+    # TODO: P old or P new? Which one?
     P,_,_ = self.calcP(mustPlotPint=True)
     self.P = P
 
@@ -802,5 +799,5 @@ def grad(self,alfa_0,A,B,C,lam,mu):
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
-        
-    return alfa
+
+    return alfa, newsol
