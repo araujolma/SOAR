@@ -868,7 +868,7 @@ class sgra():
 #%% GRADIENT-WISE METHODS
 
     def grad(self,*args,**kwargs):
-        grad_sgra.grad(self,*args,**kwargs)
+        return grad_sgra.grad(self,*args,**kwargs)
 
     def calcStepGrad(self,*args,**kwargs):
         return grad_sgra.calcStepGrad(self,*args,**kwargs)

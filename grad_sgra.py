@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Jun 27 14:39:08 2017
+
+@author: levi
+"""
 
 import numpy
 from utils import ddt, testAlgn
@@ -581,7 +586,8 @@ def calcStepGrad(self,corr,alfa_0):
         Obj = Obj1; keepLook = False; dAlfa = 1.0
         if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
             if prntCond:
-                self.log.printL("\n> Whoa! Going back to safe region of alphas...\n")
+                self.log.printL("\n> Whoa! Going back to safe region of " + \
+                                "alphas...\n")
             keepLook = True
             dAlfa = 0.1
             cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
@@ -664,7 +670,7 @@ def calcStepGrad(self,corr,alfa_0):
         else:
             if prntCond:
                 self.log.printL("\n> Beginning search for increasing alfa...")
-            # There still seems to be a negative gradient here. Objncrease alfa!
+            # There still seems to be a negative gradient here. Increase alfa!
             nObj = ObjM.copy()
             alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
             while keepSearch:
@@ -744,9 +750,12 @@ def calcStepGrad(self,corr,alfa_0):
 
     if prntCond:
         dIp = 100.0 * (I/I0 - 1.0)
-        self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa)+", Q = {:.4E}".format(Q))
-        self.log.printL("> I0 = {:.4E}".format(I0)+", I = {:.4E}".format(I)+\
-              ", dI = {:.4E}".format(I-I0)+" ({:.4E})%".format(dIp))
+        self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
+                        ", Q = {:.4E}".format(Q))
+        self.log.printL("> I0 = {:.4E}".format(I0) + \
+                        ", I = {:.4E}".format(I) + \
+                        ", dI = {:.4E}".format(I-I0) + \
+                        " ({:.4E})%".format(dIp))
         self.log.printL("> Number of objective evaluations: " + \
                         str(stepMan.cont))
 
@@ -793,11 +802,10 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     P,_,_ = self.calcP(mustPlotPint=True)
     self.P = P
 
-
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
 
-    return alfa, newsol
+    return alfa,newsol

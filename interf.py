@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Created on Wed Jun 28 09:35:29 2017
+
+@author: levi
+"""
 
 import dill, datetime, pprint, os, shutil
-from sgra import sgra
 from utils import getNowStr#, logPrint
 
 class logger():
@@ -73,8 +77,8 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
-        self.parallelOpt = {'gradLMPBVP':True,
-                         'restLMPBVP':True}
+        self.parallelOpt = {'gradLMPBVP':False,#True,
+                         'restLMPBVP':False}#True}
 
         self.log = logger(probName)
         # Create directory for logs and stuff
@@ -89,7 +93,8 @@ class ITman():
         return inp
 
     def printPars(self):
-        self.log.printL("\nThese are the attributes for the Iterations manager:\n")
+        self.log.printL("\nThese are the attributes for the" + \
+                        " Iterations manager:\n")
         self.log.pprint(self.__dict__)
 
     def greet(self):
@@ -110,26 +115,27 @@ class ITman():
         self.prntDashStr()
         # Show parameters for ITman
         self.printPars()
-        self.log.printL("\n(You can always change these here in '"+__name__+".py').")
+        self.log.printL("\n(You can always change these here in '" + \
+                            __name__ + ".py').")
 
         # Default option: generate new solution from scratch
         if self.defOpt == 'newSol':
-            self.log.printL("\nDefault starting option (defOpt) is to " + \
-                            " generate new initial guess.")
-            self.log.printL("Hit 'enter' to do it, or any other key to " + \
-                  "load a previously started solution.")
+            msg = "\nDefault starting option (defOpt) is to " + \
+                  "generate new initial guess.\n" + \
+                  "Hit 'enter' to do it, or any other key to " + \
+                  "load a previously started solution."
+            self.log.printL(msg)
             inp = self.prom()
             if inp == '':
                 # Proceed with solution generating.
                 # Find out solution generating mode (default, external, naive)
                 # TODO: not all these options apply to every problem. Fix this
                 self.isNewSol = True
-                self.log.printL("\nOk, default mode (initOpt) is '" + \
-                                self.initOpt + "'.")
-                self.log.printL("Hit 'enter' to proceed with it, " + \
-                                " or 'd' for 'default',\n" + \
-                                "or 'n' for 'naive'. See '" + self.probName + \
-                                ".py' for details. ")
+                msg = "\nOk, default mode (initOpt) is '" + self.initOpt + "'."
+                msg += "Hit 'enter' to proceed with it, " + \
+                       "or 'd' for 'default',\nor 'n' for 'naive'. " + \
+                       "See '" + self.probName + ".py' for details. "
+                self.log.printL(msg)
                 inp = self.prom().lower()
                 if inp=='d':
                     self.initOpt='default'
@@ -157,12 +163,11 @@ class ITman():
                 # existence of the file...
                 keepAsk = True
                 while keepAsk:
-                    self.log.printL("\nThe default path to loading " + \
-                                    "a solution (loadSolDir) is: " + \
-                                    self.loadSolDir)
-                    self.log.printL("Hit 'enter' to load it, or type the " + \
-                                    "path to the alternative solution to " + \
-                                    "be loaded.")
+                    msg = "\nThe default path to loading " + \
+                          "a solution (loadSolDir) is: " + self.loadSolDir + \
+                          "\nHit 'enter' to load it, or type the " + \
+                          "path to the alternative solution to be loaded."
+                    self.log.printL(msg)
 
                     inp = self.prom()
                     if inp == '':
@@ -185,10 +190,10 @@ class ITman():
                                 "that serves as a comparing baseline?")
                 keepAsk = True
                 while keepAsk:
-                    self.log.printL("\nHit 'enter' to use the same path " + \
-                                    "(" + self.loadSolDir + "),\n" + \
-                                    "or type the path to the alternative " + \
-                                    "solution to be loaded.")
+                    msg = "\nHit 'enter' to use the same path " + "(" + \
+                          self.loadSolDir + "),\nor type the path to the" + \
+                          " alternative solution to be loaded."
+                    self.log.printL(msg)
 
                     inp = self.prom()
                     if inp == '':
@@ -207,10 +212,12 @@ class ITman():
                 #
 
         elif self.defOpt == 'loadSol':
-            self.log.printL("\nDefault starting option (defOpt) is to load solution.")
-            self.log.printL("The default path to loading solution (loadSolDir) is: "+self.loadSolDir)
-            self.log.printL("Hit 'enter' to do it, 'I' to generate new initial guess,")
-            self.log.printL("or type the path to alternative solution to be loaded.")
+            msg = "\nDefault starting option (defOpt) is to load solution." + \
+                  "\nThe default path to do it (loadSolDir) is: " + \
+                  self.loadSolDir + " .\nHit 'enter' to do it, hit " + \
+                  "'I' to generate new initial guess,\n" + \
+                  "or type the path to alternative solution to be loaded."
+            self.log.printL(msg)
 
             inp = self.prom()
             if inp == '':
@@ -231,16 +238,15 @@ class ITman():
             sol.plotSol()
             self.prntDashStr()
             print("\a")
-            self.log.printL("\nAre these parameters OK?")
+            msg = "\nAre these parameters OK?\n" + \
+                  "Press 'enter' to continue, or update the configuration " + \
+                  "file:\n    (" + self.confFile + ")\n" + \
+                  "and then press any other key to reload the " + \
+                  "parameters from that file.\n" + \
+                  "Please notice that this only reloads parameters, not " + \
+                  "necessarily\nregenerating the initial guess."
+            self.log.printL(msg)
 
-            self.log.printL("Press 'enter' to continue, or update the " + \
-                                "configuration file")
-            self.log.printL("    (" + self.confFile + ")")
-            self.log.printL("and then press any other key to reload the " + \
-                            "parameters from that file.")
-            self.log.printL("Please notice that this only reloads " + \
-                            "parameters, not necessarily\nregenerating " + \
-                            "the initial guess.")
             inp = self.prom()
             if inp != '':
                 self.log.printL("\nFine, reloading parameters...")
@@ -272,13 +278,15 @@ class ITman():
         sol.log = self.log
 
     def setInitSol(self,sol):
-        self.log.printL("Setting initial solution.")
-        self.log.printL("Please wait, you will be asked to confirm it later.\n\n")
+        msg = "Setting initial solution.\n" + \
+              "Please wait, you will be asked to confirm it later.\n\n"
+        self.log.printL(msg)
         if self.isNewSol:
             # declare problem:
             solInit = sol.initGues({'initMode':self.initOpt,\
                                     'confFile':self.confFile})
-            self.log.printL("Saving a copy of the configuration file in this run's folder.")
+            self.log.printL("Saving a copy of the configuration file " + \
+                            "in this run's folder.")
             self.confFile = shutil.copy2(self.confFile, self.log.folderName +
                                          os.sep)
             self.saveSol(sol,self.log.folderName + os.sep + 'solInit.pkl')
@@ -291,7 +299,8 @@ class ITman():
                             "alterring later, if necessary).")
             self.confFile = shutil.copy2(self.confFile, self.log.folderName + \
                                          os.sep)
-            self.log.printL('Loading "initial" solution (for comparing purposes only)...')
+            self.log.printL('Loading "initial" solution ' + \
+                            '(for comparing purposes only)...')
             solInit = self.loadSol(path=self.loadAltSolDir)
 
         # Plot obtained solution, check parameters
@@ -369,7 +378,8 @@ class ITman():
             contRest += 1
 
         sol.showHistP()
-        self.log.printL("End of restoration rounds. Solution so far:")
+        self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
+                        "). Solution so far:")
         sol.plotSol()
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol
@@ -430,52 +440,55 @@ class ITman():
         self.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
 
-
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
         while do_GR_cycle:
+            #input("\nComeçando novo ciclo!")
 
             sol.P,_,_ = sol.calcP()
             sol = self.restRnds(sol)
-            I,_,_= sol.calcI()
+            I, _, _ = sol.calcI()
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.Q,_,_,_,_ = sol.calcQ()
 
             if sol.Q <= sol.tol['Q']:
-
-                self.log.printL("Terminate program. Solution is sol_r")
+                self.log.printL("Terminate program. Solution is sol_r.")
                 do_GR_cycle = False
 
             else:
-
-                next_grad += 1
-                self.log.printL("\nNext grad counter = " + str(next_grad))
-                self.log.printL("\nLast grad counter = " + str(last_grad))
+                #input("\nVamos tentar dar um passo de grad pra frente!")
                 keep_walking_grad = True
-                alfa_g_0 = 1
+                alfa_g_0 = 1.0
 
                 while keep_walking_grad:
-
+                    #input("\nProcurando passo a partir de "+str(alfa_g_0))
                     alfa_g_old,sol_new = sol.grad(alfa_g_0,A,B,C,lam,mu)
                     sol_new = self.restRnds(sol_new)
-                    I_new,_,_ = sol_new.calcI()
+                    I_new, _, _ = sol_new.calcI()
 
-                    if (I_new < I):
-
+                    if I_new < I:
                         I = I_new
                         sol = sol_new
                         keep_walking_grad = False
-
+                        next_grad += 1
+                        sol.updtHistQ(alfa_g_old,mustPlotQs=True)
+                        self.log.printL("\nNext grad counter = " + str(next_grad))
+                        self.log.printL("\nLast grad counter = " + str(last_grad))
+                        #input("\nDeu certo, passo dado!")
                     else:
                         last_grad += 1
-                        self.log.printL("\nLast grad counter = " + str(last_grad))
-                        self.log.printL("\nNext grad counter = " + str(next_grad))
+                        self.log.printL("\nNext grad counter = " + \
+                                        str(next_grad))
+                        self.log.printL("\nLast grad counter = " + \
+                                        str(last_grad))
                         alfa_g_0 = alfa_g_old
+                        #input("\nNão deu certo... vamos tentar de novo!")
                     #
                 #
             #
+
             if self.showHistQCond(sol):
                 sol.showHistQ()
 
@@ -505,11 +518,14 @@ class ITman():
                 print("\a")
                 self.prntDashStr()
                 self.log.printL(datetime.datetime.now())
-                self.log.printL("\nAfter "+str(sol.NIterGrad)+" gradient iterations,")
-                self.log.printL("Grad-Rest cycle pause condition has been reached.")
-                self.log.printL("Press any key to continue, or ctrl+C to stop.")
-                self.log.printL("Load last saved solution to go back to GR cycle.")
+                msg = "\nAfter " + str(sol.NIterGrad) + \
+                      " gradient iterations,\n" + \
+                      "Grad-Rest cycle pause condition has been reached.\n" + \
+                      "Press any key to continue, or ctrl+C to stop.\n" + \
+                      "Load last saved solution to go back to GR cycle."
+                self.log.printL(msg)
                 self.prom()
             #
         #
+
         return sol
