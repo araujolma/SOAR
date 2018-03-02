@@ -802,11 +802,10 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     P,_,_ = self.calcP(mustPlotPint=True)
     self.P = P
 
-
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
 
-    return alfa, newsol
+    return alfa,newsol

@@ -77,8 +77,8 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
-        self.parallelOpt = {'gradLMPBVP':True,
-                         'restLMPBVP':True}
+        self.parallelOpt = {'gradLMPBVP':False,#True,
+                         'restLMPBVP':False}#True}
 
         self.log = logger(probName)
         # Create directory for logs and stuff
@@ -378,7 +378,8 @@ class ITman():
             contRest += 1
 
         sol.showHistP()
-        self.log.printL("End of restoration rounds (" + str(contRest) + \
+
+        self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
                         "). Solution so far:")
         sol.plotSol()
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
@@ -444,6 +445,7 @@ class ITman():
         last_grad = 0
         next_grad = 0
         while do_GR_cycle:
+            #input("\nComeçando novo ciclo!")
             sol.P,_,_ = sol.calcP()
             sol = self.restRnds(sol)
             I, _, _ = sol.calcI()
@@ -456,13 +458,16 @@ class ITman():
                 do_GR_cycle = False
 
             else:
+                #input("\nVamos tentar dar um passo de grad pra frente!")
                 next_grad += 1
                 self.log.printL("\nNext grad counter = " + str(next_grad))
                 self.log.printL("\nLast grad counter = " + str(last_grad))
+
                 keep_walking_grad = True
                 alfa_g_0 = 1.0
 
                 while keep_walking_grad:
+                    #input("\nProcurando passo a partir de "+str(alfa_g_0))
                     alfa_g_old,sol_new = sol.grad(alfa_g_0,A,B,C,lam,mu)
                     sol_new = self.restRnds(sol_new)
                     I_new, _, _ = sol_new.calcI()
@@ -471,7 +476,11 @@ class ITman():
                         I = I_new
                         sol = sol_new
                         keep_walking_grad = False
-
+                        next_grad += 1
+                        sol.updtHistQ(alfa_g_old,mustPlotQs=True)
+                        self.log.printL("\nNext grad counter = " + str(next_grad))
+                        self.log.printL("\nLast grad counter = " + str(last_grad))
+                        #input("\nDeu certo, passo dado!")
                     else:
                         last_grad += 1
                         self.log.printL("\nNext grad counter = " + \
@@ -479,6 +488,7 @@ class ITman():
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
                         alfa_g_0 = alfa_g_old
+                        #input("\nNão deu certo... vamos tentar de novo!")
                     #
                 #
             #

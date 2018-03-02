@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime, time, sys
+import datetime, time, sys, os
 from interf import ITman
 
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = None#'cart'
+    overrideWithProb = '101'#'brac'#'cart'#'101'#None#'cart'
 
     if overrideWithProb is None and (len(sys.argv) == 1):
         import probRock as prob
@@ -40,7 +40,7 @@ if __name__ == "__main__":
             confFile = 'defaults/probBrac.its'
         elif '101' in probName:
             import prob101 as prob
-            confFile = 'defaults/prob101.its'
+            confFile = 'defaults'+ os.sep + 'prob101.its'
         else:
             import probRock as prob
             confFile = 'defaults/probRock.its'
