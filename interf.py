@@ -378,6 +378,7 @@ class ITman():
             contRest += 1
 
         sol.showHistP()
+
         self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
                         "). Solution so far:")
         sol.plotSol()
@@ -445,7 +446,6 @@ class ITman():
         next_grad = 0
         while do_GR_cycle:
             #input("\nComeçando novo ciclo!")
-
             sol.P,_,_ = sol.calcP()
             sol = self.restRnds(sol)
             I, _, _ = sol.calcI()
@@ -459,6 +459,10 @@ class ITman():
 
             else:
                 #input("\nVamos tentar dar um passo de grad pra frente!")
+                next_grad += 1
+                self.log.printL("\nNext grad counter = " + str(next_grad))
+                self.log.printL("\nLast grad counter = " + str(last_grad))
+
                 keep_walking_grad = True
                 alfa_g_0 = 1.0
 

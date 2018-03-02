@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Created on Tue Jun 27 13:25:28 2017
 
+@author: levi
+"""
 import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
@@ -392,7 +396,8 @@ class prob(sgra):
             # get proper initial mass condition
             self.boundary['m_initial'] = x_its[0,3]
 
-            self.log.printL("Re-integrating ITSME solution with fixed step scheme...")
+            self.log.printL("Re-integrating ITSME solution with fixed " + \
+                            "step scheme...")
             # Re-integration of proposed solution (RK4)
             # Only the controls are used, not the integrated state itself
             for arc in range(s):
@@ -846,14 +851,17 @@ class prob(sgra):
             for arc in range(s):
                 ## fp derivatives
                 if PFmode == 'lin':
-                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
-                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)
+                    fp[:,arc,arc] = thrust[:,arc]/g0Isp[arc]/(1.0-s_f[arc]) + \
+                                    Kpf * PenaltyIsTrue[:,arc] * \
+                                    (acc[:,arc]-acc_max)
                 elif PFmode == 'quad':
-                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
-                                Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)**2
+                    fp[:,arc,arc] = thrust[:,arc]/g0Isp[arc]/(1.0-s_f[arc]) + \
+                                    Kpf * PenaltyIsTrue[:,arc] * \
+                                    (acc[:,arc]-acc_max)**2
                 elif PFmode == 'tanh':
-                    fp[:,arc,arc] = (thrust[:,arc])/(g0Isp[arc] * (1.0-s_f[arc]))+\
-                                Kpf * PenaltyIsTrue[:,arc] * tanh(acc[:,arc]/acc_max-1.0)
+                    fp[:,arc,arc] = thrust[:,arc]/g0Isp[arc]/(1.0-s_f[arc]) + \
+                                    Kpf * PenaltyIsTrue[:,arc] * \
+                                    tanh(acc[:,arc]/acc_max-1.0)
 
                 # fx is ready!
                 fx[:,:,arc] *= pi[arc]
@@ -1032,7 +1040,8 @@ class prob(sgra):
             elif PFmode == 'quad':
                 fPF[:,arc] = self.pi[arc] * Kpf * (acc[:,arc]-acc_max)**2
             elif PFmode == 'tanh':
-                fPF[:,arc] = self.pi[arc] * Kpf * numpy.tanh(acc[:,arc]/acc_max-1.0)
+                fPF[:,arc] = self.pi[arc] * Kpf * \
+                             numpy.tanh(acc[:,arc]/acc_max-1.0)
 #            fPF[:,arc] = self.pi[arc] * Kpf * \
 #                .5 * (1.0 + numpy.tanh(500.0*(acc[:,arc]/acc_max-1.001)) )
 #0.5*(1.0+numpy.tanh((a-1- 0.001)*500.0 ))
@@ -1117,9 +1126,11 @@ class prob(sgra):
             self.log.printL('"Possible" payload mass: ' + str(mFinl))
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
             DvId = self.calcIdDv()
-            self.log.printL("Ideal Delta v (Tsiolkovsky) with used propellants: "+str(DvId))
+            self.log.printL("Ideal Delta v (Tsiolkovsky) with used " + \
+                            "propellants: "+str(DvId))
             missDv = self.boundary['mission_dv']
-            self.log.printL("Mission Delta v (orbital height + speed): " + str(missDv))
+            self.log.printL("Mission Delta v (orbital height + speed): " + \
+                            str(missDv))
             dvLossPerc = 100.0*(DvId-missDv)/DvId
             self.log.printL("Losses (%): " + str(dvLossPerc))
 
@@ -1222,10 +1233,12 @@ class prob(sgra):
             self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
             if piIsTime:
                 plt.plot([0.0,self.pi.sum()],\
-                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),'--')
+                          1e3 * self.restrictions['acc_max'] * \
+                          numpy.array([1.0,1.0]),'--')
             else:
                 plt.plot([0.0,self.s+1],\
-                          1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),'--')
+                          1e3 * self.restrictions['acc_max'] * \
+                          numpy.array([1.0,1.0]),'--')
 
             plt.grid(True)
             if piIsTime:
@@ -1256,7 +1269,7 @@ class prob(sgra):
                 plt.show()
                 plt.clf()
 
-            self.log.printL("Final (injected into orbit) rocket mass: "+\
+            self.log.printL("Final (injected into orbit) rocket mass: " + \
                   "{:.4E}\n".format(x[-1,3,self.s-1]))
             EjctMass = list()
             # get ejected masses:
@@ -1492,8 +1505,9 @@ class prob(sgra):
         self.plotCat(args['normErrQu'],color='b',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Integrand of Qu")
-        titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
-        titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+        titlStr = "Qu = int || f_u - phi_u^T*lam || = " + \
+                  "{:.4E}".format(args['Qu']) + \
+                  "\n(grad iter #" + str(self.NIterGrad+1) + ")"
         plt.title(titlStr)
 
         errQu = args['errQu']
@@ -1684,7 +1698,8 @@ class prob(sgra):
         ax.set_xticklabels(stages)
         plt.xlabel("Stages")
         plt.ylabel("Duration [s]")
-        ax.legend((current[0], initial[0]),(currSolLabl,altSolLabl),loc="upper left", bbox_to_anchor=(1,1))
+        ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
+                  loc="upper left", bbox_to_anchor=(1,1))
 
         if mustSaveFig:
             self.savefig(keyName='comp',fullName='comparisons')
@@ -1700,7 +1715,8 @@ class prob(sgra):
               "% more payload!\n")
 
 
-    def plotTraj(self,compare=False,altSol=None,altSolLabl='altSol',mustSaveFig=True):
+    def plotTraj(self,compare=False, altSol=None, altSolLabl='altSol', \
+                 mustSaveFig=True):
         self.log.printL("\nIn plotTraj!")
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
@@ -1719,8 +1735,9 @@ class prob(sgra):
 
         if compare:
             if altSol is None:
-                self.log.printL("plotTraj: comparing mode is set to True, but no "+\
-                      "solution was given to which compare. Ignoring...")
+                self.log.printL("plotTraj: comparing mode is set to True," + \
+                                " but no solution was given to which " + \
+                                "compare. Ignoring...")
                 compare=False
             else:
                 X_alt = X; Z_alt = Z;
