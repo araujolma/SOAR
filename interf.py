@@ -145,7 +145,7 @@ class ITman():
                 # TODO: not all these options apply to every problem. Fix this
                 self.isNewSol = True
                 msg = "\nOk, default mode (initOpt) is '" + self.initOpt + "'."
-                msg += "Hit 'enter' to proceed with it, " + \
+                msg += "\nHit 'enter' to proceed with it, " + \
                        "or 'd' for 'default',\nor 'n' for 'naive'. " + \
                        "See '" + self.probName + ".py' for details. "
                 self.log.printL(msg)
@@ -486,13 +486,15 @@ class ITman():
                     I_new, _, _ = sol_new.calcI()
 
                     if I_new < I:
-                        I = I_new
+                        I = I_new # PARA QUE SERVE ESTE COMANDO?
                         sol = sol_new
                         keep_walking_grad = False
                         next_grad += 1
                         sol.updtHistQ(alfa_g_old,mustPlotQs=True)
-                        self.log.printL("\nNext grad counter = " + str(next_grad))
-                        self.log.printL("\nLast grad counter = " + str(last_grad))
+                        self.log.printL("\nNext grad counter = " + \
+                                        str(next_grad))
+                        self.log.printL("\nLast grad counter = " + \
+                                        str(last_grad))
                         #input("\nDeu certo, passo dado!")
                     else:
                         last_grad += 1
@@ -511,6 +513,7 @@ class ITman():
 
             if self.showHistICond(sol):
                 sol.showHistI()
+
 
             if self.showHistGradStepCond(sol):
                 sol.showHistGradStep()
