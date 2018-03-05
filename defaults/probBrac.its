@@ -13,9 +13,9 @@ tolP = 1e-5
 tolQ = 1e-6
 #
 # Number of divisions in time array [-]
-N = 4001
+N = 5001
 #
 # Gradient step search objective modulation constant (see grad_sgra.py) [-]
-gradStepSrchCte = 1.0
+gradStepSrchCte = 1.0e-3
 #
 ###############################################################################

@@ -79,23 +79,23 @@ class ITman():
         self.RestHistShowRate = 5
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
-        self.overrideParallel()
-        self.log = logger(probName)
+
         # Create directory for logs and stuff
+        self.log = logger(probName)
+        self.overrideParallel()
 
     def overrideParallel(self):
         """Override the parallel configurations in order to prevent entering
         into parallel mode in Windows systems. (issue #63, btw)"""
 
         if os.sep != '/':
+            # windows systems!
             msg = "\n\n" + '-'*88 + \
-                  "Overriding the parallel settings to False!" + \
+                  "\nOverriding the parallel settings to False!\n" + \
                   '-'*88 + "\n\n"
             self.log.printL(msg)
-            self.parallelOpt = {'gradLMPBVP':False,#True,
-                                'restLMPBVP':False}#True}
-            # windows systems!
-            self.parallelOpt
+            self.parallelOpt = {'gradLMPBVP':False,
+                                'restLMPBVP':False}
 
     def prntDashStr(self):
         self.log.printL(self.dashStr)
