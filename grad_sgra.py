@@ -768,11 +768,11 @@ def grad(self,alfa_0,A,B,C,lam,mu):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
-    # update Gradient-Restoration event list
-    self.GREvIndx += 1
-    self.GREvList[self.GREvIndx] = True
-
-    self.updtGRrate()
+#    # update Gradient-Restoration event list
+#    self.GREvIndx += 1
+#    self.GREvList[self.GREvIndx] = True
+#
+#    self.updtGRrate()
 
     # Calculate corrections
     #isParallel = parallelOpt.get('gradLMPBVP',False)
@@ -798,8 +798,7 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     #self.updtHistQ(alfa,mustPlotQs=True)
 
     # update P just to ensure proper restoration afterwards
-    # TODO: P old or P new? Which one?
-    P,_,_ = self.calcP(mustPlotPint=True)
+    P,_,_ = newsol.calcP(mustPlotPint=True)
     self.P = P
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))

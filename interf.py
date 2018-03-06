@@ -458,10 +458,14 @@ class ITman():
         last_grad = 0
         next_grad = 0
         while do_GR_cycle:
-            #input("\nComeçando novo ciclo!")
+
             sol.P,_,_ = sol.calcP()
             sol = self.restRnds(sol)
             I, _, _ = sol.calcI()
+            msg = "\nStarting new cycle, I_base = {:.4E}".format(I) + \
+                  ", P_base = {:.4E}".format(sol.P)
+            self.log.printL(msg)
+            self.prom()
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.Q,_,_,_,_ = sol.calcQ()
@@ -472,30 +476,39 @@ class ITman():
 
             else:
                 #input("\nVamos tentar dar um passo de grad pra frente!")
-                next_grad += 1
-                self.log.printL("\nNext grad counter = " + str(next_grad))
-                self.log.printL("\nLast grad counter = " + str(last_grad))
 
                 keep_walking_grad = True
-                alfa_g_0 = 1.0
+                #alfa_g_0 = 1.0
+                alfa_g_0 = sol.histStepGrad[sol.NIterGrad]
 
                 while keep_walking_grad:
                     #input("\nProcurando passo a partir de "+str(alfa_g_0))
                     alfa_g_old,sol_new = sol.grad(alfa_g_0,A,B,C,lam,mu)
                     sol_new = self.restRnds(sol_new)
                     I_new, _, _ = sol_new.calcI()
+                    msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
+                          ", I = {:.4E}".format(I_new) + \
+                          ", P = {:.4E}".format(sol_new.P)
+                    self.log.printL(msg)
+                    self.prom()
 
                     if I_new < I:
                         I = I_new # PARA QUE SERVE ESTE COMANDO?
                         sol = sol_new
                         keep_walking_grad = False
                         next_grad += 1
+                        # update Gradient-Restoration event list
+                        self.GREvIndx += 1
+                        self.GREvList[self.GREvIndx] = True
+                        self.updtGRrate()
+
                         sol.updtHistQ(alfa_g_old,mustPlotQs=True)
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
-                        #input("\nDeu certo, passo dado!")
+                        self.log.printL("\nI was lowered, step given!")
+                        self.prom()
                     else:
                         last_grad += 1
                         self.log.printL("\nNext grad counter = " + \
@@ -503,7 +516,8 @@ class ITman():
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
                         alfa_g_0 = alfa_g_old
-                        #input("\nNão deu certo... vamos tentar de novo!")
+                        self.log.printL("\nI was not lowered... trying again!")
+                        self.prom()
                     #
                 #
             #
