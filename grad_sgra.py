@@ -552,7 +552,7 @@ def calcQ(self,mustPlotQs=False):
         input("calcQ in debug mode. Press any key to continue...")
     return Q,Qx,Qu,Qp,Qt
 
-def calcStepGrad(self,corr,alfa_0):
+def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     self.log.printL("\nIn calcStepGrad.\n")
 
@@ -573,114 +573,136 @@ def calcStepGrad(self,corr,alfa_0):
     Obj0 = stepMan.calcObj(P0,Q0,I0)
     self.log.printL("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
-
-    if self.NIterGrad == 0:
-
-        # Get status associated with integral correction (alfa=1.0)
+    if retry_grad:
         if prntCond:
-            self.log.printL("\n> Trying alfa = 1.0 first, fingers crossed...")
-        alfa = 1.0
-        P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa,prntCond)
+            self.log.printL("\n> Retrying alfa. Base value: {:.4E}".format(alfa_0))
+        Pbase,Qbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0,prntCond)
 
-        # Search for a better starting point for alfa
-        Obj = Obj1; keepLook = False; dAlfa = 1.0
-        if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
-            if prntCond:
-                self.log.printL("\n> Whoa! Going back to safe region of " + \
-                                "alphas...\n")
-            keepLook = True
-            dAlfa = 0.1
-            cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
-        # Or increase alfa, if the conditions seem Ok for it
-        elif Obj<Obj0:#se:#if Q<Q0:
-            if prntCond:
-                self.log.printL("\n> This seems boring. Going forward!\n")
-            keepLook = True
-            dAlfa = 10.0
-            cond = lambda nObj,Obj: nObj<Obj
+        # LOWER alfa!
+        alfa = .9 * alfa_0
+        if prntCond:
+            self.log.printL("\n> Let's try alfa 10% lower.")
+        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa,prntCond)
 
-        nObj = Obj.copy()
-        while keepLook:
-            Obj = nObj.copy()
-            alfa *= dAlfa
-            nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
-            keepLook = cond(nObj,Obj)
-        #
-        if dAlfa > 1.0:
-            alfa /= dAlfa
-        elif dAlfa < 1.0:
-            Obj = nObj.copy()
-
-        alfa0 = alfa
-
-    else:
-        alfa0 = alfa_0
-        #alfa0 = self.histStepGrad[self.NIterGrad]
-        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0,prntCond)
-
-    # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
-    if prntCond:
-        self.log.printL("\n> Starting bilateral analysis...\n")
-
-    alfa = 1.1*alfa0
-    PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa,prntCond)
-
-    alfa = .9*alfa0
-    Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa,prntCond)
-
-    # Start refined search
-    self.log.printL("\nObj = "+str(Obj))
-    if Objm < Obj:
-        if self.dbugOptGrad['prntCalcStepGrad']:
-            self.log.printL("\n> Beginning search for decreasing alfa...")
-        # if the tendency is to still decrease alfa, do it...
-        nObj = Obj.copy(); keepSearch = True
-        while keepSearch and alfa > 1.0e-15:
-            Obj = nObj.copy()
+        while Obj > Obj0:
             alfa *= .9
-            nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+            if prntCond:
+                self.log.printL("\n> Let's try alfa 10% lower.")
+            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa,prntCond)
 
-            # TODO: use testAlgn to test alignment of points,
-            # and use it to improve calcStepGrad. E.G.:
+        if prntCond:
+            self.log.printL("\n> Ok, this value should work.")
 
-#            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
-#                           histQ[(cont-4):(cont-1)])) < 1e-3)
-#
-#            if isAlgn:
-#                m = (histQ[cont-2]-histQ[cont-3]) / \
-#                    (histAlfa[cont-2]-histAlfa[cont-3])
-#                b = histQ[cont-2] - m * histAlfa[cont-2]
-#                self.log.printL("m =",m,"b =",b)
-
-            if nObj < Obj0:
-                keepSearch = ((nObj-Obj)/Obj < -.1)#-.001)#nQ<Q#
-        alfa /= 0.9
     else:
+        if self.NIterGrad == 0:
 
-        # no overdrive!
-#        if prntCond:
-#                self.log.printL("\n> Apparently alfa =",alfa0,"is the best.")
-#        alfa = alfa0 # BRASIL
+            # Get status associated with integral correction (alfa=1.0)
+            if prntCond:
+                self.log.printL("\n> Trying alfa = 1.0 first, fingers crossed...")
+            alfa = 1.0
+            P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa,prntCond)
 
-        if Obj <= ObjM:
-            if prntCond:
-                self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
-                                " is the best.")
-            alfa = alfa0 # BRASIL
-        else:
-            if prntCond:
-                self.log.printL("\n> Beginning search for increasing alfa...")
-            # There still seems to be a negative gradient here. Increase alfa!
-            nObj = ObjM.copy()
-            alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
-            while keepSearch:
+            # Search for a better starting point for alfa
+            Obj = Obj1; keepLook = False; dAlfa = 1.0
+            if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
+                if prntCond:
+                    self.log.printL("\n> Whoa! Going back to safe region of " + \
+                                    "alphas...\n")
+                keepLook = True
+                dAlfa = 0.1
+                cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
+            # Or increase alfa, if the conditions seem Ok for it
+            elif Obj<Obj0:#se:#if Q<Q0:
+                if prntCond:
+                    self.log.printL("\n> This seems boring. Going forward!\n")
+                keepLook = True
+                dAlfa = 10.0
+                cond = lambda nObj,Obj: nObj<Obj
+
+            nObj = Obj.copy()
+            while keepLook:
                 Obj = nObj.copy()
-                alfa *= 1.1
+                alfa *= dAlfa
+                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+                keepLook = cond(nObj,Obj)
+            #
+            if dAlfa > 1.0:
+                alfa /= dAlfa
+            elif dAlfa < 1.0:
+                Obj = nObj.copy()
+
+            alfa0 = alfa
+
+        else:
+            alfa0 = alfa_0
+            #alfa0 = self.histStepGrad[self.NIterGrad]
+            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0,prntCond)
+
+        # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
+        if prntCond:
+            self.log.printL("\n> Starting bilateral analysis...\n")
+
+        alfa = 1.1*alfa0
+        PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa,prntCond)
+
+        alfa = .9*alfa0
+        Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa,prntCond)
+
+        # Start refined search
+        self.log.printL("\nObj = "+str(Obj))
+        if Objm < Obj:
+            if self.dbugOptGrad['prntCalcStepGrad']:
+                self.log.printL("\n> Beginning search for decreasing alfa...")
+            # if the tendency is to still decrease alfa, do it...
+            nObj = Obj.copy(); keepSearch = True
+            while keepSearch and alfa > 1.0e-15:
+                Obj = nObj.copy()
+                alfa *= .9
                 nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
 
-                keepSearch = nObj<Obj
-                #if nPint < Pint0:
-            alfa /= 1.1
+                # TODO: use testAlgn to test alignment of points,
+                # and use it to improve calcStepGrad. E.G.:
+
+    #            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
+    #                           histQ[(cont-4):(cont-1)])) < 1e-3)
+    #
+    #            if isAlgn:
+    #                m = (histQ[cont-2]-histQ[cont-3]) / \
+    #                    (histAlfa[cont-2]-histAlfa[cont-3])
+    #                b = histQ[cont-2] - m * histAlfa[cont-2]
+    #                self.log.printL("m =",m,"b =",b)
+
+                if nObj < Obj0:
+                    keepSearch = ((nObj-Obj)/Obj < -.1)#-.001)#nQ<Q#
+            alfa /= 0.9
+        else:
+
+            # no overdrive!
+    #        if prntCond:
+    #                self.log.printL("\n> Apparently alfa =",alfa0,"is the best.")
+    #        alfa = alfa0 # BRASIL
+
+            if Obj <= ObjM:
+                if prntCond:
+                    self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
+                                    " is the best.")
+                alfa = alfa0 # BRASIL
+            else:
+                if prntCond:
+                    self.log.printL("\n> Beginning search for increasing alfa...")
+                # There still seems to be a negative gradient here. Increase alfa!
+                nObj = ObjM.copy()
+                alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
+                while keepSearch:
+                    Obj = nObj.copy()
+                    alfa *= 1.1
+                    nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+
+                    keepSearch = nObj<Obj
+                    #if nPint < Pint0:
+                alfa /= 1.1
+
+
 
     # Get index for applied alfa
     histAlfa = stepMan.histStep
@@ -764,7 +786,7 @@ def calcStepGrad(self,corr,alfa_0):
 
     return alfa
 
-def grad(self,alfa_0,A,B,C,lam,mu):
+def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
@@ -784,7 +806,7 @@ def grad(self,alfa_0,A,B,C,lam,mu):
     corr = {'x':A,'u':B,'pi':C}
 
     # Calculation of alfa
-    alfa = self.calcStepGrad(corr,alfa_0)
+    alfa = self.calcStepGrad(corr,alfa_0,retry_grad)
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 

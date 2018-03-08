@@ -478,12 +478,13 @@ class ITman():
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
+                retry_grad = False
                 #alfa_g_0 = 1.0
                 alfa_g_0 = sol.histStepGrad[sol.NIterGrad]
 
                 while keep_walking_grad:
                     #input("\nProcurando passo a partir de "+str(alfa_g_0))
-                    alfa_g_old,sol_new = sol.grad(alfa_g_0,A,B,C,lam,mu)
+                    alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,A,B,C,lam,mu)
                     sol_new = self.restRnds(sol_new)
                     I_new, _, _ = sol_new.calcI()
                     msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
@@ -498,9 +499,9 @@ class ITman():
                         keep_walking_grad = False
                         next_grad += 1
                         # update Gradient-Restoration event list
-                        self.GREvIndx += 1
-                        self.GREvList[self.GREvIndx] = True
-                        self.updtGRrate()
+                        sol.GREvIndx += 1
+                        sol.GREvList[sol.GREvIndx] = True
+                        sol.updtGRrate()
 
                         sol.updtHistQ(alfa_g_old,mustPlotQs=True)
                         self.log.printL("\nNext grad counter = " + \
@@ -511,6 +512,7 @@ class ITman():
                         self.prom()
                     else:
                         last_grad += 1
+                        retry_grad = True
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
