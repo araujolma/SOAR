@@ -677,30 +677,46 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             alfa /= 0.9
         else:
 
-            # no overdrive!
-    #        if prntCond:
-    #                self.log.printL("\n> Apparently alfa =",alfa0,"is the best.")
-    #        alfa = alfa0 # BRASIL
+#            # no overdrive!
+#            if prntCond:
+#                self.log.printL("\n> No overdrive! Let's stay with " + \
+#                                "alfa = {:.4E}.".format(alfa0))
+#            alfa = alfa0 # BRASIL
 
             if Obj <= ObjM:
+                alfa = alfa0 # BRASIL
+
                 if prntCond:
                     self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
                                     " is the best.")
-                alfa = alfa0 # BRASIL
-            else:
-                if prntCond:
-                    self.log.printL("\n> Beginning search for increasing alfa...")
-                # There still seems to be a negative gradient here. Increase alfa!
-                nObj = ObjM.copy()
-                alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
-                while keepSearch:
-                    Obj = nObj.copy()
-                    alfa *= 1.1
-                    nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
 
-                    keepSearch = nObj<Obj
-                    #if nPint < Pint0:
-                alfa /= 1.1
+            else:
+                # ObjM is the lowest. But increasing alfa is riskier...
+
+                alfa = 1.1 * alfa0
+                if prntCond:
+                    self.log.printL("\n> Let's try alfa = " + str(alfa) + \
+                                    " (very carefully!).")
+
+#            if Obj <= ObjM:
+#                if prntCond:
+#                    self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
+#                                    " is the best.")
+#                alfa = alfa0 # BRASIL
+#            else:
+#                if prntCond:
+#                    self.log.printL("\n> Beginning search for increasing alfa...")
+#                # There still seems to be a negative gradient here. Increase alfa!
+#                nObj = ObjM.copy()
+#                alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
+#                while keepSearch:
+#                    Obj = nObj.copy()
+#                    alfa *= 1.1
+#                    nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+#
+#                    keepSearch = nObj<Obj
+#                    #if nPint < Pint0:
+#                alfa /= 1.1
 
 
 
@@ -821,7 +837,7 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
 
     # update P just to ensure proper restoration afterwards
     P,_,_ = newsol.calcP(mustPlotPint=True)
-    self.P = P
+    newsol.P = P
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))

@@ -465,7 +465,7 @@ class ITman():
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I) + \
                   ", P_base = {:.4E}".format(sol.P)
             self.log.printL(msg)
-            self.prom()
+            #self.prom()
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.Q,_,_,_,_ = sol.calcQ()
@@ -491,7 +491,7 @@ class ITman():
                           ", I = {:.4E}".format(I_new) + \
                           ", P = {:.4E}".format(sol_new.P)
                     self.log.printL(msg)
-                    self.prom()
+                    #self.prom()
 
                     if I_new < I:
                         I = I_new # PARA QUE SERVE ESTE COMANDO?
@@ -509,7 +509,7 @@ class ITman():
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
                         self.log.printL("\nI was lowered, step given!")
-                        self.prom()
+                        #self.prom()
                     else:
                         last_grad += 1
                         retry_grad = True
@@ -519,7 +519,7 @@ class ITman():
                                         str(last_grad))
                         alfa_g_0 = alfa_g_old
                         self.log.printL("\nI was not lowered... trying again!")
-                        self.prom()
+                        #self.prom()
                     #
                 #
             #
