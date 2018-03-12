@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 11 10:40:31 2017
-
-@author: araujolma
-
 A module for the problem 10-2 from Miele (1970)
 """
 
@@ -150,43 +146,39 @@ class prob(sgra):
 
         sin = numpy.sin
         cos = numpy.cos
-
+        sin_u = sin(u[:,0,0])
+        cos_u = cos(u[:,0,0])
+        z = x[:,2,0]
 
         Grads['dt'] = 1.0/(N-1)
 
         phix = numpy.zeros((N,n,n,s))
         phiu = numpy.zeros((N,n,m,s))
-
         if p>0:
             phip = numpy.zeros((N,n,p,s))
         else:
             phip = numpy.zeros((N,n,1,s))
 
-        fx = numpy.zeros((N,n,s))
-        fu = numpy.zeros((N,m,s))
-        fp = numpy.ones((N,p,s))
+        phix[:,0,2,0] = pi[0] * cos_u
+        phix[:,1,2,0] = pi[0] * sin_u
+        phiu[:,0,0,0] = - pi[0] * z * sin_u
+        phiu[:,1,0,0] = pi[0] * z * cos_u
+        phiu[:,2,0,0] = pi[0] * cos_u
+        phip[:,0,0,0] = z * cos_u
+        phip[:,1,0,0] = z * sin_u
+        phip[:,2,0,0] = sin_u
 
         psiy = numpy.zeros((q,2*n*s))
+
         psiy[0,0] = 1.0
         psiy[1,1] = 1.0
         psiy[2,2] = 1.0
         psiy[3,3] = 1.0
-
         psip = numpy.zeros((q,p))
 
-        cos_u = cos(u[:,0,0])
-        sin_u = sin(u[:,0,0])
-        z = x[:,2,0]
-        phix[:,0,2,0] = pi[0] * cos_u
-        phix[:,1,2,0] = pi[0] * sin_u
-
-        phiu[:,0,0,0] = - pi[0] * z * sin_u
-        phiu[:,1,0,0] = pi[0] * z * cos_u
-        phiu[:,2,0,0] = pi[0] * cos_u
-
-        phip[:,0,0,0] = z * cos_u
-        phip[:,1,0,0] = z * sin_u
-        phip[:,2,0,0] = sin_u
+        fx = numpy.zeros((N,n,s))
+        fu = numpy.zeros((N,m,s))
+        fp = numpy.ones((N,p,s))
 
         Grads['phix'] = phix
         Grads['phiu'] = phiu

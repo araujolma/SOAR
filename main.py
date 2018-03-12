@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = '9_1'#'10_2'#None#'brac'#'cart'#'10_1'#'cart'
+    overrideWithProb = '9_1'#None#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
     if overrideWithProb is None and (len(sys.argv) == 1):
         # Default of the default, rocket problem
