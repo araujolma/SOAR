@@ -10,31 +10,10 @@ A module for the problem 10-2 from Miele (1970)
 
 import numpy
 from sgra import sgra
-from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'prob101'
-
-    def loadParsFromFile(self,file):
-        pConf = problemConfigurationSGRA(fileAdress=file)
-        pConf.sgra()
-
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
-
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
-        self.N = N
-
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
 
     def initGues(self,opt={}):
 

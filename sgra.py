@@ -10,6 +10,7 @@ import rest_sgra, grad_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from utils import ddt
 from multiprocessing import Pool
+from itsme import problemConfigurationSGRA
 
 class binFlagDict(dict):
     """Class for binary flag dictionaries.
@@ -648,8 +649,26 @@ class sgra():
         self.pi += alfa * corr['pi']
 
     def initGues(self):
-        # implemented by child classes
+        # Must be implemented by child classes
         pass
+
+    def loadParsFromFile(self,file):
+        pConf = problemConfigurationSGRA(fileAdress=file)
+        pConf.sgra()
+
+        N = pConf.con['N']
+        tolP = pConf.con['tolP']
+        tolQ = pConf.con['tolQ']
+        k = pConf.con['gradStepSrchCte']
+
+        self.tol = {'P': tolP,
+                    'Q': tolQ}
+        self.constants['gradStepSrchCte'] = k
+
+        self.N = N
+
+        self.dt = 1.0/(N-1)
+        self.t = numpy.linspace(0,1.0,N)
 
     def printPars(self):
         dPars = self.__dict__
@@ -968,6 +987,8 @@ class sgra():
             plt.ylabel("Step values")
 
             self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
+        else:
+            self.log.printL("showHistGRrate: No positive values. Skipping...")
 
 #%% LMPBVP
 

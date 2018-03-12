@@ -21,13 +21,14 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = '101'#'brac'#'cart'#'101'#None#'cart'
+    overrideWithProb = '101'#None#'brac'#'cart'#'101'#'cart'
 
     if overrideWithProb is None and (len(sys.argv) == 1):
+        # Default of the default, rocket problem
         import probRock as prob
         confFile = 'defaults/probRock.its'
     else:
-        if overrideWithProb is None:
+        if len(sys.argv) > 1:
             probName = sys.argv[1].lower()
         else:
             probName = overrideWithProb

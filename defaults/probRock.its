@@ -107,10 +107,10 @@ PFtol = 1.0e-2
 tolP = 1e-5
 #
 # Tolerance for Q functional
-tolQ = 1e-7
+tolQ = 1e-6
 #
 # Number of divisions in time array [-]
-N = 10000
+N = 10001
 #
 # Gradient step search objective modulation constant (see grad_sgra.py) [-]
 gradStepSrchCte = 1.0e-4
