@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = '9_1'#None#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
+    overrideWithProb = 'zer'#None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
     if overrideWithProb is None and (len(sys.argv) == 1):
         # Default of the default, rocket problem
@@ -39,6 +39,9 @@ if __name__ == "__main__":
         elif 'brac' in probName:
             import probBrac as prob
             confFile = 'defaults'+ os.sep + 'probBrac.its'
+        elif 'zer' in probName:
+            import probZer as prob
+            confFile = 'defaults'+ os.sep + 'probZer.its'
         elif '9_1' in probName:
             import prob9_1 as prob
             confFile = 'defaults'+ os.sep + 'prob9_1.its'
@@ -51,14 +54,7 @@ if __name__ == "__main__":
         elif '10_2' in probName:
             import prob10_2 as prob
             confFile = 'defaults'+ os.sep + 'prob10_2.its'
-        elif 'lqr' in probName:
-            import probLQR as prob
-            confFile = 'defaults' + os.sep + 'probLQR.its'
-
         else:
-            print("\nSorry, I did not understand the problem instance:" + \
-                  '\n   "' + probName + '"\n'\
-                  "Let's carry on with the rocket problem, shall we?")
             import probRock as prob
             confFile = 'defaults'+ os.sep + 'probRock.its'
 
