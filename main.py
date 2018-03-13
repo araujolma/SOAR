@@ -35,14 +35,20 @@ if __name__ == "__main__":
 
         if 'cart' in probName:
             import probCart as prob
-            confFile = 'defaults/probCart.its'
+            confFile = 'defaults' + os.sep + 'probCart.its'
         elif 'brac' in probName:
             import probBrac as prob
-            confFile = 'defaults/probBrac.its'
+            confFile = 'defaults' + os.sep + 'probBrac.its'
         elif '101' in probName:
             import prob101 as prob
-            confFile = 'defaults'+ os.sep + 'prob101.its'
+            confFile = 'defaults' + os.sep + 'prob101.its'
+        elif 'lqr' in probName:
+            import probLQR as prob
+            confFile = 'defaults' + os.sep + 'probLQR.its'
         else:
+            print("\nSorry, I did not understand the problem instance:" + \
+                  '\n   "' + probName + '"\n'\
+                  "Let's carry on with the rocket problem, shall we?")
             import probRock as prob
             confFile = 'defaults/probRock.its'
 
