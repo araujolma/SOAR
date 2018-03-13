@@ -7,31 +7,10 @@ A module for the problem 9-1 from Miele (1970)
 
 import numpy
 from sgra import sgra
-from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'prob9_1'
-
-    def loadParsFromFile(self,file):
-        pConf = problemConfigurationSGRA(fileAdress=file)
-        pConf.sgra()
-
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
-
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
-        self.N = N
-
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
 
     def initGues(self,opt={}):
 
@@ -228,7 +207,7 @@ class prob(sgra):
         s = self.s
         f = numpy.zeros((N,s))
 
-        f =  1.0 + x[:,0,0]**2 + x[:,1,0]**2 + u[:,0,0]**2
+        f =  1.0 + x[:,0,:]**2 + x[:,1,:]**2 + u[:,0,:]**2
 
         return f,f,numpy.zeros((N,s))
 

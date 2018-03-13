@@ -51,7 +51,14 @@ if __name__ == "__main__":
         elif '10_2' in probName:
             import prob10_2 as prob
             confFile = 'defaults'+ os.sep + 'prob10_2.its'
+        elif 'lqr' in probName:
+            import probLQR as prob
+            confFile = 'defaults' + os.sep + 'probLQR.its'
+
         else:
+            print("\nSorry, I did not understand the problem instance:" + \
+                  '\n   "' + probName + '"\n'\
+                  "Let's carry on with the rocket problem, shall we?")
             import probRock as prob
             confFile = 'defaults'+ os.sep + 'probRock.its'
 

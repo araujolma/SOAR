@@ -6,31 +6,10 @@ A module for the problem 9-2 from Miele (1970)
 
 import numpy
 from sgra import sgra
-from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'prob9_2'
-
-    def loadParsFromFile(self,file):
-        pConf = problemConfigurationSGRA(fileAdress=file)
-        pConf.sgra()
-
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
-
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
-        self.N = N
-
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
 
     def initGues(self,opt={}):
 
@@ -44,7 +23,6 @@ class prob(sgra):
         p = 1
         q = 4
         s = 1
-
 
         self.n = n
         self.m = m
@@ -157,9 +135,7 @@ class prob(sgra):
         #q = sizes['q']
         #N0 = sizes['N0']
 
-        x = self.x
         u = self.u
-        pi = self.pi
 
         # Pre-assign functions
 
@@ -225,14 +201,14 @@ class prob(sgra):
         N = self.N
         s = self.s
         u = self.u
-        f = numpy.zeros((N,s))
-        f =  2*numpy.cos(u[:,0,0])
+        f =  2*numpy.cos(u[:,0,:])
 
-        return f,f,numpy.zeros((N,s))
+        return f, f, numpy.zeros((N,s))
 
     def calcI(self):
         f,_,_ = self.calcF()
-        return f.sum(),f.sum(),0.0
+        I = f.sum()
+        return I, I, 0.0
 #%%
     def plotSol(self,opt={},intv=[]):
         t = self.t

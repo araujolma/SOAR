@@ -206,10 +206,10 @@ class prob(sgra):
         s = self.s
         f = self.pi[0]*numpy.ones((N,s))
 
-        return f,f,numpy.zeros((N,s))
+        return f, f, numpy.zeros((N,s))
 
     def calcI(self):
-        return self.pi[0],self.pi[0],0.0
+        return self.pi[0], self.pi[0], 0.0
 #%%
     def plotSol(self,opt={},intv=[]):
         t = self.t
