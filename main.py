@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = '101'#None#'brac'#'cart'#'101'#'cart'
+    overrideWithProb = '9_1'#None#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
     if overrideWithProb is None and (len(sys.argv) == 1):
         # Default of the default, rocket problem
@@ -35,16 +35,25 @@ if __name__ == "__main__":
 
         if 'cart' in probName:
             import probCart as prob
-            confFile = 'defaults/probCart.its'
+            confFile = 'defaults'+ os.sep + 'probCart.its'
         elif 'brac' in probName:
             import probBrac as prob
-            confFile = 'defaults/probBrac.its'
-        elif '101' in probName:
-            import prob101 as prob
-            confFile = 'defaults'+ os.sep + 'prob101.its'
+            confFile = 'defaults'+ os.sep + 'probBrac.its'
+        elif '9_1' in probName:
+            import prob9_1 as prob
+            confFile = 'defaults'+ os.sep + 'prob9_1.its'
+        elif '9_2' in probName:
+            import prob9_2 as prob
+            confFile = 'defaults'+ os.sep + 'prob9_2.its'
+        elif '10_1' in probName:
+            import prob10_1 as prob
+            confFile = 'defaults'+ os.sep + 'prob10_1.its'
+        elif '10_2' in probName:
+            import prob10_2 as prob
+            confFile = 'defaults'+ os.sep + 'prob10_2.its'
         else:
             import probRock as prob
-            confFile = 'defaults/probRock.its'
+            confFile = 'defaults'+ os.sep + 'probRock.its'
 
         if len(sys.argv) > 2:
             confFile = sys.argv[2]
