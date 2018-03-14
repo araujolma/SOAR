@@ -4,7 +4,7 @@
 """
 A module for the Zermelo Problem, which is a classical minimum-time navigation
 problem:
-    Find the steering program of a boat that navigates from a given
+    Find the steering program of a boat that navigates from a given initial
 position to a given terminal position in minimal time. The stream moves with a
 constant velocity and the boat moves with a constant magnitude velocity
 relative to the stream.
@@ -12,31 +12,10 @@ relative to the stream.
 
 import numpy
 from sgra import sgra
-from itsme import problemConfigurationSGRA
 import matplotlib.pyplot as plt
 
 class prob(sgra):
     probName = 'probZer'
-
-    def loadParsFromFile(self,file):
-        pConf = problemConfigurationSGRA(fileAdress=file)
-        pConf.sgra()
-
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
-
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
-        self.N = N
-
-        dt = 1.0/(N-1)
-        t = numpy.arange(0,1.0+dt,dt)
-        self.dt = dt
-        self.t = t
 
     def initGues(self,opt={}):
 
