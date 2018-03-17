@@ -562,6 +562,8 @@ class ITman():
                 self.log.printL(msg)
                 self.prom()
             #
+            #print("\nPronto.")
+            #self.prom()
         #
 
         return sol

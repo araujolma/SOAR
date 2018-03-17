@@ -162,7 +162,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([2.0])
+            pi = numpy.array([10.0])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -175,7 +175,7 @@ class prob(sgra):
             self.u = u
             self.pi = pi
             self.lam = lam
-            self.mu= mu
+            self.mu = mu
 
             solInit = self.copy()
 
@@ -230,7 +230,7 @@ class prob(sgra):
 
         fx = numpy.zeros((N,n,s))
         fu = numpy.zeros((N,m,s))
-        fp = numpy.empty((N,p,s))
+        fp = numpy.zeros((N,p,s))
 
         #psiy = numpy.eye(q,2*n*s)
         psiy = numpy.zeros((q,2*n*s))
@@ -248,12 +248,12 @@ class prob(sgra):
             phiu[:,0,0,arc] = pi[arc]
             phiu[:,1,0,arc] = pi[arc]
 
-            phip[:,0,arc,arc] = auto1 * self.x[:,0,arc] + self.u[:,0,arc]
-            phip[:,1,arc,arc] = auto2 * self.x[:,1,arc] + self.u[:,0,arc]
+            phip[:,0,arc,arc] = numpy.zeros(N)#auto1 * self.x[:,0,arc] + self.u[:,0,arc]
+            phip[:,1,arc,arc] = numpy.zeros(N)#auto2 * self.x[:,1,arc] + self.u[:,0,arc]
 
-            fp[:,arc,arc] = (self.x[:,0,arc] - finish1) ** 2 + \
-                            (self.x[:,1,arc] - finish2) ** 2 + \
-                            contCostWeig * self.u[:,0,arc]**2
+            #fp[:,arc,arc] = (self.x[:,0,arc] - finish1) ** 2 + \
+            #                (self.x[:,1,arc] - finish2) ** 2 + \
+            #                contCostWeig * self.u[:,0,arc]**2
             fx[:,0,arc] = 2.0 * (self.x[:,0,arc] - finish1) * pi[arc]
             fx[:,1,arc] = 2.0 * (self.x[:,1,arc] - finish2) * pi[arc]
             fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc]
