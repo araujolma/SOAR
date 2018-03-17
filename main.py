@@ -39,6 +39,9 @@ if __name__ == "__main__":
         elif 'brac' in probName:
             import probBrac as prob
             confFile = 'defaults'+ os.sep + 'probBrac.its'
+        elif 'lqr' in probName:
+            import probLQR as prob
+            confFile = 'defaults'+ os.sep + 'probLQR.its'
         elif 'zer' in probName:
             import probZer as prob
             confFile = 'defaults'+ os.sep + 'probZer.its'
@@ -55,6 +58,10 @@ if __name__ == "__main__":
             import prob10_2 as prob
             confFile = 'defaults'+ os.sep + 'prob10_2.its'
         else:
+            if 'rock' not in probName:
+                print("\nSorry, I didn't understand the problem instance:" + \
+                      '   "' + probName + '"...\n' + \
+                      "I will carry on with probRock, ok?\n")
             import probRock as prob
             confFile = 'defaults'+ os.sep + 'probRock.its'
 
