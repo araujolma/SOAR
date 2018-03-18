@@ -15,7 +15,10 @@ Requirement:
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy
-from mayavi import mlab
+import sys
+from mayavi_master.mayavi import mlab
+
+sys.path.append('/mayavi_master')
 
 
 #############################################################################
@@ -31,9 +34,20 @@ class surfClass():
         self.z = z
         self.color = color
 
+        r = numpy.sqrt(x**2 + y**2)
+
+        self.z0 = self.z.min()
+        self.z1 = self.z.max()
+        self.r0 = r.min()
+        self.r1 = r.max()
+
     def copy(self):
 
         return surfClass(self.x, self.y, self.z, self.color)
+
+    def isSurf(self):
+
+        return True
 
     def translate(self, delta):
 
@@ -55,6 +69,12 @@ class surfClass():
         self.z = x0*numpy.cos(theta) + y0*numpy.sin(theta)
         self.x = y0*numpy.cos(theta) - x0*numpy.sin(theta)
 
+    def scale(self, alpha):
+
+        self.x = self.x*alpha
+        self.y = self.y*alpha
+        self.z = self.z*alpha
+
     def plot(self, ax):
 
         aux = (self.color[0], self.color[1], self.color[2])
@@ -75,20 +95,58 @@ class group():
     def __init__(self, objList):
 
         self.objList = []
+        self.z0 = 0.0
+        self.z1 = 0.0
+        self.r0 = 0.0
+        self.r1 = 0.0
+
         for obj in objList:
+
             self.objList.append(obj.copy())
+            self.z0 = numpy.min([self.z0, obj.z0])
+            self.z1 = numpy.max([self.z1, obj.z1])
+            self.r0 = numpy.min([self.r0, obj.r0])
+            self.r1 = numpy.max([self.r1, obj.r1])
 
     def copy(self):
 
         return group(self.objList)
 
+    def isSurf(self):
+
+        return False
+
+    def fixCopy(self):
+
+        surfList = []
+        surfList = self._getSurf(surfList)
+        return group(surfList)
+
+    def _getSurf(self, surfList):
+
+        for obj in self.objList:
+            if obj.isSurf():
+                surfList.append(obj)
+            else:
+                surfList = obj._getSurf(surfList)
+
+        return surfList
+
     def around(self, group2, N, d):
 
         dt = 2*numpy.pi/N
         for ii in range(0, N):
-            aux = group2.copy()
+            aux = group2.fixCopy()
             aux.translate([d, 0.0, 0.0])
             aux.rotateZ(dt*ii)
+            self.objList.append(aux)
+
+    def aroundAngles(self, group2, angles, d):
+
+        for ang in angles:
+            aux = group2.copy()
+            aux.translate([d, 0.0, 0.0])
+            aux.rotateZ(ang)
             self.objList.append(aux)
 
     def translate(self, delta):
@@ -105,6 +163,11 @@ class group():
 
         for obj in self.objList:
             obj.rotateY(theta)
+
+    def scale(self, alpha):
+
+        for obj in self.objList:
+            obj.scale(alpha)
 
     def plot(self, ax):
 
@@ -171,13 +234,6 @@ class module(group):
     def copy(self):
 
         return module(self.objList)
-
-    def copyObj(self, aux):
-
-        for obj in self.objList:
-            aux.objList.append(obj.copy())
-
-        return aux
 
     def calculate(self):
 
@@ -299,7 +355,7 @@ class nozzle(stack):
         self.Nt = Nt
         self.color = color
 
-        c2 = numpy.array([1, 1, 1])*0.0
+        c2 = numpy.array([1, 1, 1])*0.1
         cyl1 = cyl(L, R, Nt, color)
         cone1 = cone(L, R*0.75, R*0.25, Nt, c2)
         cone2 = cone(0, R*0.25, 0.0, Nt, c2)
@@ -326,28 +382,45 @@ if __name__ == "__main__":
     # colors based on a grey scale.
     c1 = numpy.array([1.0, 1.0, 1.0])
 
+    # stages desing
+    # stg1
+    cone1 = cone(1.5, 1.5, 1.0, 50, c1)
+    disc1 = cone(0.0, 1.4, 0.0, 50, c1)
+    cyl3 = cyl(10, 1.5, 50, c1*0.8)
+    nozzle1 = nozzle(2, 1.5, 50, c1*0.5)
+    stg1 = stack([nozzle1, cyl3, disc1, cone1])
+
+    # stg2
     cyl1 = cyl(1, 1, 50, c1)
     cyl2 = cyl(6, 1, 50, c1*0.8)
-    cone1 = cone(1.5, 1.5, 1.0, 50, c1)
-    cyl3 = cyl(10, 1.5, 50, c1*0.8)
-    cyl4 = cyl(3, 1, 50, c1*0.8)
+    nozzle2 = nozzle(1.5, 1, 50, c1*0.5)
+    stg2 = stack([nozzle2, cyl2, cyl1])
+
+    # stg3
+    cyl4 = cyl(2.5, 1, 50, c1*0.8)
+    stg3 = stack([nozzle2, cyl4, cyl1])
+
+    # coife
     cyl5 = cyl(0.5, 1, 50, c1*0.7)
     coife1 = coife(3, 1, 0.3, 50, c1*0.7)
-    nozzle1 = nozzle(2, 1.5, 50, c1*0.5)
-    nozzle2 = nozzle(1.5, 1, 50, c1*0.5)
-
-    stg1 = stack([nozzle1, cyl3, cone1])
-    stg2 = stack([nozzle2, cyl2, cyl1])
-    stg3 = stack([nozzle2, cyl4, cyl1])
     stgCoife = stack([cyl5, coife1])
 
+    # Central body design
     rocket1 = stack([stg1, stg2, stg3, stgCoife])
-    booster1 = stack([stg2, stgCoife])
-    rocket1.around(booster1, 4, 2.7)
 
+    # Booster design
+    booster1 = stack([stg2, stgCoife])
+    booster1.scale(0.7)
+
+    # Final rocket
+    rocket1.around(booster1, 4, 2.4)
+
+    # Display
     mlab.figure(1, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), size=(400, 300))
     mlab.clf()
     mlab = rocket1.plot(mlab)
+    # TODO: solve the bug in saving figures
+    #mlab.savefig(filename='test.png')
     mlab.show()
 
 #==============================================================================
