@@ -22,7 +22,7 @@ sys.path.append('/mayavi_master')
 
 
 #############################################################################
-# Basic objects
+# Basic classes
 
 
 class surfClass():
@@ -184,7 +184,7 @@ class group():
         return ax
 
 #############################################################################
-# Ineritated classes
+# Ineherited classes
 
 
 class stack(group):
@@ -345,6 +345,32 @@ class coife(module):
                 self.rc.append(self.rho*numpy.cos(ang))
                 self.zc.append(self.rho*numpy.sin(ang) + self.L - self.rho)
 
+class brackets(group):
+
+    def __init__(self, d, r, z0, L, color):
+
+        cyl1 = cyl(d, r, 50, color)
+        cyl1.rotateY(-numpy.pi/2)
+        cyl1.translate([0.0, 0.0, z0])
+        cyl1 = cyl1.fixCopy()
+        cyl2 = cyl1.copy()
+        cyl2.translate([0.0, 0.0, L])
+        cyl2 = cyl2.fixCopy()
+
+        self.objList = [cyl1, cyl2]
+
+        self.z0 = 0.0
+        self.z1 = 0.0
+        self.r0 = 0.0
+        self.r1 = 0.0
+
+        for obj in self.objList:
+
+            self.z0 = numpy.min([self.z0, obj.z0])
+            self.z1 = numpy.max([self.z1, obj.z1])
+            self.r0 = numpy.min([self.r0, obj.r0])
+            self.r1 = numpy.max([self.r1, obj.r1])
+
 
 class nozzle(stack):
 
@@ -400,17 +426,26 @@ if __name__ == "__main__":
     cyl4 = cyl(2.5, 1, 50, c1*0.8)
     stg3 = stack([nozzle2, cyl4, cyl1])
 
-    # coife
+    # coife booster
     cyl5 = cyl(0.5, 1, 50, c1*0.7)
     coife1 = coife(3, 1, 0.3, 50, c1*0.7)
-    stgCoife = stack([cyl5, coife1])
+    stgCoifeB = stack([cyl5, coife1])
+
+    # coife Central Body
+    cone2 = cone(1.5, 1.0, 1.3, 50, c1*0.7)
+    cyl6 = cyl(3, 1.3, 50, c1*0.7)
+    coife1 = coife(3, 1.3, 0.3, 50, c1*0.7)
+    stgCoifeC = stack([cone2, cyl6, coife1])
 
     # Central body design
-    rocket1 = stack([stg1, stg2, stg3, stgCoife])
+    rocket1 = stack([stg1, stg2, stg3, stgCoifeC])
 
     # Booster design
-    booster1 = stack([stg2, stgCoife])
+    booster1 = stack([stg2, stgCoifeB])
+    brackets1 = brackets(0.3, 0.1, 2, 5, c1*0.2)
+    booster1.around(brackets1, 1, 1)
     booster1.scale(0.7)
+    booster1.rotateZ(numpy.pi)
 
     # Final rocket
     rocket1.around(booster1, 4, 2.4)
