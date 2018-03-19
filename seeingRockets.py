@@ -14,6 +14,7 @@ Requirement:
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import numpy
 import sys
 from mayavi_master.mayavi import mlab
@@ -75,6 +76,10 @@ class surfClass():
         self.y = self.y*alpha
         self.z = self.z*alpha
 
+    def inclinate(self, a):
+
+        self.x = self.x - a*self.z
+
     def plot(self, ax):
 
         aux = (self.color[0], self.color[1], self.color[2])
@@ -85,7 +90,8 @@ class surfClass():
     def matPlot(self, ax):
 
         ax.plot_surface(self.x, self.y, self.z, antialiased=False,
-                        color=self.color, linewidth=0)
+                        color=[self.color[0], self.color[1], self.color[2]],
+                        linewidth=0)
 
         return ax
 
@@ -168,6 +174,11 @@ class group():
 
         for obj in self.objList:
             obj.scale(alpha)
+
+    def inclinate(self, a):
+
+        for obj in self.objList:
+            obj.inclinate(a)
 
     def plot(self, ax):
 
@@ -345,6 +356,7 @@ class coife(module):
                 self.rc.append(self.rho*numpy.cos(ang))
                 self.zc.append(self.rho*numpy.sin(ang) + self.L - self.rho)
 
+
 class brackets(group):
 
     def __init__(self, d, r, z0, L, color):
@@ -401,11 +413,47 @@ class nozzle(stack):
         return nozzle(self.L, self.R, self.Nt, self.color)
 
 
+class thin(group):
+
+    def __init__(self, rootChord, tipChord, span, swipeAngle, color):
+
+        self.rc = rootChord
+        self.tc = tipChord
+        self.s = span
+        self.sa = swipeAngle
+        self.color = color
+
+        z0 = span*numpy.tan(swipeAngle)
+        self.z = [[rootChord, tipChord - z0], [0.0, 0.0 - z0]]
+        self.x = [[0.0, span], [0.0, span]]
+        self.y = [[0.0, 0.0], [0.0, 0.0]]
+
+        self.x = numpy.array(self.x)
+        self.y = numpy.array(self.y)
+        self.z = numpy.array(self.z)
+
+        obj = surfClass(self.x, self.y, self.z, self.color)
+
+        self.objList = [obj]
+
+        self.z0 = -z0
+        self.z1 = rootChord
+        self.r0 = 0.0
+        self.r1 = span
+
+    def copy(self):
+
+        return thin(self.rc, self.tc, self.s, self.sa, self.color)
+
+
+
 if __name__ == "__main__":
 
     # Example of use:
 
     # colors based on a grey scale.
+    cmap = cm.get_cmap('Greys')
+
     c1 = numpy.array([1.0, 1.0, 1.0])
 
     # stages desing
@@ -434,7 +482,7 @@ if __name__ == "__main__":
     # coife Central Body
     cone2 = cone(1.5, 1.0, 1.3, 50, c1*0.7)
     cyl6 = cyl(3, 1.3, 50, c1*0.7)
-    coife1 = coife(3, 1.3, 0.3, 50, c1*0.7)
+    coife1 = coife(3, 1.3, 0.3, 50, cmap(0.3))
     stgCoifeC = stack([cone2, cyl6, coife1])
 
     # Central body design
@@ -446,6 +494,8 @@ if __name__ == "__main__":
     booster1.around(brackets1, 1, 1)
     booster1.scale(0.7)
     booster1.rotateZ(numpy.pi)
+    thin1 = thin(1, 0.5, 0.5, 0.1*numpy.pi, c1*0.8)
+    booster1.around(thin1, 1, 0.7)
 
     # Final rocket
     rocket1.around(booster1, 4, 2.4)
