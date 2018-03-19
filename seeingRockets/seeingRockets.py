@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy
 import sys
-from mayavi_master.mayavi import mlab
+from mayavi import mlab
 
 sys.path.append('/mayavi_master')
 
@@ -198,6 +198,23 @@ class group():
 # Ineherited classes
 
 
+class lineClass(surfClass):
+
+    def plot(self, ax):
+
+        aux = (self.color[0], self.color[1], self.color[2])
+        ax.plot3d(self.x, self.y, self.z, color=aux)
+
+        return ax
+
+    def matPlot(self, ax):
+
+        ax.plot(self.x, self.y, self.z,
+                color=[self.color[0], self.color[1], self.color[2]])
+
+        return ax
+
+
 class stack(group):
 
     def __init__(self, objList):
@@ -273,6 +290,71 @@ class module(group):
 
         plt.plot(self.z, self.r)
         plt.show()
+
+
+class interTruss(group):
+
+    def __init__(self, L, R, Nt, color):
+
+        self.color = color
+        self.L = L
+        self.R = R
+        self.Nt = Nt
+
+        self.objList = []
+        self.calculate()
+
+        self.z0 = 0.0
+        self.z1 = L
+        self.r0 = R
+        self.r1 = R
+
+    def calculate(self):
+
+        self.r0 = 0.0
+        self.r1 = self.R
+        self.z0 = 0.0
+        self.z1 = self.L
+
+        theta = numpy.linspace(0, 2*numpy.pi, self.Nt)
+
+        x00 = numpy.cos(theta)*self.R
+        y00 = numpy.sin(theta)*self.R
+        z00 = theta*0.0 + self.z0
+
+        alpha = numpy.pi/self.Nt
+
+        x11 = numpy.cos(theta + alpha)*self.R
+        y11 = numpy.sin(theta + alpha)*self.R
+        z11 = theta*0.0 + self.z1
+
+        x = []
+        y = []
+        z = []
+
+        for ii in range(0, len(x00)):
+
+            x.append(x00[ii])
+            x.append(x11[ii])
+            y.append(y00[ii])
+            y.append(y11[ii])
+            z.append(z00[ii])
+            z.append(z11[ii])
+
+        ii = 0
+        x.append(x00[ii])
+        x.append(x11[ii])
+        y.append(y00[ii])
+        y.append(y11[ii])
+        z.append(z00[ii])
+        z.append(z11[ii])
+
+        self.objList = [lineClass(numpy.array(x), numpy.array(y),
+                                  numpy.array(z), self.color)]
+
+    def copy(self):
+
+        return interTruss(self.L, self.R, self.Nt, self.color)
 
 
 class cyl(module):
@@ -444,6 +526,8 @@ class thin(group):
     def copy(self):
 
         return thin(self.rc, self.tc, self.s, self.sa, self.color)
+
+
 
 
 
