@@ -820,6 +820,8 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
     self.lam = lam
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
+    #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    #input("Olha lá a correção...")
 
     # Calculation of alfa
     alfa = self.calcStepGrad(corr,alfa_0,retry_grad)
