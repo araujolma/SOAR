@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from utils import ddt
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
+from scipy.linalg import expm
 
 class binFlagDict(dict):
     """Class for binary flag dictionaries.
@@ -131,6 +132,19 @@ class LMPBVPhelp():
                 DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
         self.DynMat = DynMat
 
+        #self.showEig()
+
+    def showEig(self,N,n,s):
+        eigen = numpy.empty((N,2*n,s))
+        for arc in range(s):
+            eigen[:,:,arc] = numpy.linalg.eigvals(self.DynMat[:,:,:,arc])
+
+            for i in range(2*n):
+                plt.scatter(eigen[:,i,arc].real,eigen[:,i,arc].imag)
+            plt.grid(True)
+            plt.title('Eigenvalues for Arc #'+str(arc))
+            plt.show()
+
     def propagate(self,j):
         """This method computes each solution, via propagation of the
         applicable Linear System of Ordinary Differential Equations."""
@@ -226,18 +240,35 @@ class LMPBVPhelp():
 #                            phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 #            phiLamIntCol += .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 
-            # Integrate the LSODE by Euler Backwards implicit
+#            # Integrate the LSODE by Euler Backwards implicit
+#            B[0,:,arc] = -rhoFu[0,:,arc] + \
+#                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#            phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+#
+#            for k in range(N-1):
+#                Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
+#                  Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
+#                lam[k+1,:,arc] = Xi[k+1,n:,arc]
+#                B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
+#                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#                phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#
+#            phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
+
+            # Integrate the LSODE by matrix exponentiation
             B[0,:,arc] = -rhoFu[0,:,arc] + \
                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
             phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
             for k in range(N-1):
-                Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
-                  Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
+                expDM = expm(DynMat[k,:,:,arc]*dt)
+                NHterm = expDM.dot(nonHom[k,:,arc]) - nonHom[k,:,arc]
+                Xi[k+1,:,arc] = expDM.dot(Xi[k,:,arc]) + \
+                                numpy.linalg.solve(DynMat[k,:,:,arc], NHterm)
                 lam[k+1,:,arc] = Xi[k+1,n:,arc]
                 B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
                                 phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
                 phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+            #
 
             phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 

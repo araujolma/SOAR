@@ -475,7 +475,10 @@ class ITman():
                 do_GR_cycle = False
 
             else:
-                #input("\nVamos tentar dar um passo de grad pra frente!")
+                sol.plotSol()
+                sol.plotF()
+                sol.plotTraj()
+                input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
                 retry_grad = False
@@ -562,8 +565,8 @@ class ITman():
                 self.log.printL(msg)
                 self.prom()
             #
-            #print("\nPronto.")
-            #self.prom()
+            print("\nPronto.")
+            self.prom()
         #
 
         return sol

@@ -820,8 +820,8 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
     self.lam = lam
     self.mu = mu
     corr = {'x':A,'u':B,'pi':C}
-    #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
-    #input("Olha lá a correção...")
+    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    input("Olha lá a correção...")
 
     # Calculation of alfa
     alfa = self.calcStepGrad(corr,alfa_0,retry_grad)
@@ -830,7 +830,7 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
 
     self.plotSol(opt={'mode':'lambda'})
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    #input("@Grad: Waiting for lambda/corrections check...")
+    input("@Grad: Waiting for lambda/corrections check...")
 
     # Apply correction and update Q history
     newsol = self.copy()

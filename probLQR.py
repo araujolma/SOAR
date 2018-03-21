@@ -162,7 +162,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([10.0])
+            pi = numpy.array([5.0])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
