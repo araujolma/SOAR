@@ -21,64 +21,82 @@ def calcP(self,mustPlotPint=False):
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
 
+#    for arc in range(s):
+#        P = .5*(func[0,:,arc].dot(func[0,:,arc].transpose()))
+#        vetP[0,arc] = P
+#        vetIP[0,arc] = P
+#
+#        for t in range(1,N-1):
+#            vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
+#            P += vetP[t,arc]
+#            vetIP[t,arc] = P
+#
+#        vetP[N-1,arc] = .5*(func[N-1,:,arc].dot(func[N-1,:,arc].transpose()))
+#        P += vetP[N-1,arc]
+#        vetIP[N-1,arc] = P
+#
+#    #P *= dt
+#
+#    vetIP *= dt
+
     for arc in range(s):
-        P = .5*(func[0,:,arc].dot(func[0,:,arc].transpose()))
-        vetP[0,arc] = P
-        vetIP[0,arc] = P
-
-        for t in range(1,N-1):
+        for t in range(N):
             vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
-            P += vetP[t,arc]
-            vetIP[t,arc] = P
 
-        vetP[N-1,arc] = .5*(func[N-1,:,arc].dot(func[N-1,:,arc].transpose()))
-        P += vetP[N-1,arc]
-        vetIP[N-1,arc] = P
-
-    #P *= dt
+    for arc in range(s):
+        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
+        vetIP[1,arc] = vetIP[0,arc] + (59.0/48.0) * vetP[1,arc]
+        vetIP[2,arc] = vetIP[1,arc] + (43.0/48.0) * vetP[2,arc]
+        vetIP[3,arc] = vetIP[2,arc] + (49.0/48.0) * vetP[3,arc]
+        for t in range(4,N-4):
+            vetIP[t] = vetIP[t-1,arc] + vetP[t,arc]
+        vetIP[N-4,arc] = vetIP[N-5,arc] + (49.0/48.0) * vetP[N-4,arc]
+        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
+        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
+        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
 
     vetIP *= dt
 
     # Look for some debug plot
-    someDbugPlot = False
-    for key in self.dbugOptRest.keys():
-        if ('plot' in key) or ('Plot' in key):
-            if self.dbugOptRest[key]:
-                someDbugPlot = True
-                break
-    if someDbugPlot:
-        self.log.printL("\nDebug plots for this calcP run:")
-
-        indMaxP = numpy.argmax(vetP, axis=0)
-        self.log.printL(indMaxP)
-        for arc in range(s):
-            self.log.printL("\nArc =",arc,"\n")
-            ind1 = numpy.array([indMaxP[arc]-20,0]).max()
-            ind2 = numpy.array([indMaxP[arc]+20,N]).min()
-
-            if self.dbugOptRest['plotP_int']:
-                plt.plot(self.t,vetP[:,arc])
-                plt.grid(True)
-                plt.title("Integrand of P")
-                plt.show()
-
-            if self.dbugOptRest['plotIntP_int']:
-                plt.plot(self.t,vetIP[:,arc])
-                plt.grid(True)
-                plt.title("Partially integrated P")
-                plt.show()
-
-            #for zoomed version:
-            if self.dbugOptRest['plotP_intZoom']:
-                plt.plot(self.t[ind1:ind2],vetP[ind1:ind2,arc],'o')
-                plt.grid(True)
-                plt.title("Integrand of P (zoom)")
-                plt.show()
-
-            if self.dbugOptRest['plotSolMaxP']:
-                self.log.printL("rest_sgra: plotSol @ MaxP region: not implemented yet!")
-                #self.log.printL("\nSolution on the region of MaxP:")
-                #self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
+#    someDbugPlot = False
+#    for key in self.dbugOptRest.keys():
+#        if ('plot' in key) or ('Plot' in key):
+#            if self.dbugOptRest[key]:
+#                someDbugPlot = True
+#                break
+#    if someDbugPlot:
+#        self.log.printL("\nDebug plots for this calcP run:")
+#
+#        indMaxP = numpy.argmax(vetP, axis=0)
+#        self.log.printL(indMaxP)
+#        for arc in range(s):
+#            self.log.printL("\nArc =",arc,"\n")
+#            ind1 = numpy.array([indMaxP[arc]-20,0]).max()
+#            ind2 = numpy.array([indMaxP[arc]+20,N]).min()
+#
+#            if self.dbugOptRest['plotP_int']:
+#                plt.plot(self.t,vetP[:,arc])
+#                plt.grid(True)
+#                plt.title("Integrand of P")
+#                plt.show()
+#
+#            if self.dbugOptRest['plotIntP_int']:
+#                plt.plot(self.t,vetIP[:,arc])
+#                plt.grid(True)
+#                plt.title("Partially integrated P")
+#                plt.show()
+#
+#            #for zoomed version:
+#            if self.dbugOptRest['plotP_intZoom']:
+#                plt.plot(self.t[ind1:ind2],vetP[ind1:ind2,arc],'o')
+#                plt.grid(True)
+#                plt.title("Integrand of P (zoom)")
+#                plt.show()
+#
+#            if self.dbugOptRest['plotSolMaxP']:
+#                self.log.printL("rest_sgra: plotSol @ MaxP region: not implemented yet!")
+#                #self.log.printL("\nSolution on the region of MaxP:")
+#                #self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
 
 #        # TODO: extend these debug plots
 #    if self.dbugOptRest['plotRsidMaxP']:
@@ -156,7 +174,7 @@ def calcP(self,mustPlotPint=False):
 #        #
 #    #
 
-    Pint = vetIP[N-1,:].sum()#P
+    Pint = vetIP[N-1,:].sum()
     Ppsi = psi.transpose().dot(psi)
     P = Ppsi + Pint
     strPs = "P = {:.6E}".format(P)+", Pint = {:.6E}".format(Pint)+\

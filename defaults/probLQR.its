@@ -23,11 +23,20 @@ gradStepSrchCte = 1.0e-2
 ###############################################################################
 [dyn] # Dynamics parameters
 #
-# Eigenvalue for the first state
-auto1 = -2.0
+# derivative of first state time derivative, with respect to first state
+a11 = 0.0
 #
-# Eigenvalue for the second state
-auto2 = -3.0
+# derivative of first state time derivative, with respect to second state
+a12 = -2.0
+#
+#
+# derivative of second state time derivative, with respect to first state
+a21 = 2.0
+#
+#
+# derivative of second state time derivative, with respect to second state
+a22 = 0.0
+#
 #
 ###############################################################################
 

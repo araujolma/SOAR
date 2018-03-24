@@ -213,7 +213,17 @@ class prob(sgra):
 
     def calcI(self):
         f,_,_ = self.calcF()
-        return f.sum(),f.sum(),0.0
+        N = self.N
+        I = 0.0
+        coefList = numpy.ones(N)
+        coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
+        coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
+        coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
+        coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
+
+        for arc in range(self.s):
+            I += coefList.dot(f[:,arc])
+        return I, I, 0.0
 #%%
     def plotSol(self,opt={},intv=[]):
         t = self.t
@@ -280,6 +290,28 @@ class prob(sgra):
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='corr',fullName='corrections')
+        elif opt['mode'] == 'lambda':
+
+            titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
+
+            plt.subplot2grid((3,1),(0,0))
+            self.plotCat(self.lam[:,0,:],intv=intv)
+            plt.grid(True)
+            plt.ylabel("lam - x")
+            plt.title(titlStr)
+
+            plt.subplot2grid((3,1),(1,0))
+            self.plotCat(self.lam[:,1,:],color='g',intv=intv)
+            plt.grid(True)
+            plt.ylabel("lam - y")
+
+            plt.subplot2grid((3,1),(2,0))
+            self.plotCat(self.u[intv,0,:],color='k',intv=intv)
+            plt.grid(True)
+            plt.ylabel("u")
+
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+            self.savefig(keyName='currLamb',fullName='lambdas')
 
         else:
             titlStr = opt['mode']

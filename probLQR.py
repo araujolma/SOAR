@@ -18,9 +18,10 @@ class problemConfigurationSGRA2(problemConfigurationSGRA):
         """Dynamics parameters."""
 
         section = 'dyn'
-        self.con['auto1'] = self.config.getfloat(section, 'auto1')
-        self.con['auto2'] = self.config.getfloat(section, 'auto2')
-
+        self.con['a11'] = self.config.getfloat(section, 'a11')
+        self.con['a12'] = self.config.getfloat(section, 'a12')
+        self.con['a21'] = self.config.getfloat(section, 'a21')
+        self.con['a22'] = self.config.getfloat(section, 'a22')
     def restr(self):
         """Restriction parameters."""
         section = 'restr'
@@ -54,8 +55,10 @@ class prob(sgra):
                     'Q': tolQ}
         self.constants['gradStepSrchCte'] = k
 
-        self.constants['auto1'] = pConf.con['auto1']
-        self.constants['auto2'] = pConf.con['auto2']
+        self.constants['a11'] = pConf.con['a11']
+        self.constants['a12'] = pConf.con['a12']
+        self.constants['a21'] = pConf.con['a21']
+        self.constants['a22'] = pConf.con['a22']
         self.constants['contCostWeig'] = pConf.con['contCostWeig']
 
         self.restrictions = {'start1': pConf.con['start1'],
@@ -192,12 +195,17 @@ class prob(sgra):
         x = self.x
         u = self.u
         pi = self.pi
-        auto1 = self.constants['auto1']
-        auto2 = self.constants['auto2']
+        a11 = self.constants['a11']
+        a12 = self.constants['a12']
+        a21 = self.constants['a21']
+        a22 = self.constants['a22']
+
 
         for arc in range(s):
-            phi[:,0,arc] = pi[arc] * (auto1 * x[:,0,arc] + u[:,0,arc])
-            phi[:,1,arc] = pi[arc] * (auto2 * x[:,1,arc] + u[:,0,arc])
+            phi[:,0,arc] = pi[arc] * \
+                            (a11 * x[:,0,arc] + a12 * x[:,1,arc] + u[:,0,arc])
+            phi[:,1,arc] = pi[arc] * \
+                            (a21 * x[:,0,arc] + a22 * x[:,1,arc] + u[:,0,arc])
 
 
         return phi
@@ -210,8 +218,11 @@ class prob(sgra):
         N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
         pi = self.pi
 
-        auto1 = self.constants['auto1']
-        auto2 = self.constants['auto2']
+        a11 = self.constants['a11']
+        a12 = self.constants['a12']
+        a21 = self.constants['a21']
+        a22 = self.constants['a22']
+
         contCostWeig = self.constants['contCostWeig']
 
         finish1 = self.restrictions['finish1']
@@ -242,8 +253,10 @@ class prob(sgra):
         psip = numpy.zeros((q,p))
 
         for arc in range(s):
-            phix[:,0,0,arc] = pi[arc] * auto1
-            phix[:,1,1,arc] = pi[arc] * auto2
+            phix[:,0,0,arc] = pi[arc] * a11
+            phix[:,0,1,arc] = pi[arc] * a12
+            phix[:,1,0,arc] = pi[arc] * a21
+            phix[:,1,1,arc] = pi[arc] * a22
 
             phiu[:,0,0,arc] = pi[arc]
             phiu[:,1,0,arc] = pi[arc]
