@@ -204,11 +204,36 @@ def calcQ(self,mustPlotQs=False):
     errQu = numpy.empty((N,m,s)); normErrQu = numpy.empty((N,s))
     errQp = numpy.empty((N,p,s)); #normErrQp = numpy.empty(N)
 
+    coefList = numpy.ones(N)
+    coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
+    coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
+    coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
+    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
     z = numpy.empty(2*n*s)
     for arc in range(s):
         z[2*arc*n : (2*arc+1)*n] = -lam[0,:,arc]
         z[(2*arc+1)*n : (2*arc+2)*n] = lam[N-1,:,arc]
 
+#        for k in range(N):
+#            errQx[k,:,arc] = dlam[k,:,arc] - fx[k,:,arc] + \
+#                             phix[k,:,:,arc].transpose().dot(lam[k,:,arc])
+#            errQu[k,:,arc] = fu[k,:,arc] +  \
+#                            - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
+#            errQp[k,:,arc] = fp[k,:,arc] + \
+#                            - phip[k,:,:,arc].transpose().dot(lam[k,:,arc])
+#
+#            normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
+#            normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
+#
+#            Qx += normErrQx[k,arc]
+#            Qu += normErrQu[k,arc]
+#            auxVecIntQp[:,arc] += errQp[k,:,arc]
+#        #
+#        Qx -= .5*(normErrQx[0,arc]+normErrQx[N-1,arc])
+#        Qu -= .5*(normErrQu[0,arc]+normErrQu[N-1,arc])
+#
+#
+#        auxVecIntQp[:,arc] -= .5*(errQp[0,:,arc]+errQp[N-1,:,arc])
         for k in range(N):
             errQx[k,:,arc] = dlam[k,:,arc] - fx[k,:,arc] + \
                              phix[k,:,:,arc].transpose().dot(lam[k,:,arc])
@@ -220,15 +245,10 @@ def calcQ(self,mustPlotQs=False):
             normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
             normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
 
-            Qx += normErrQx[k,arc]
-            Qu += normErrQu[k,arc]
-            auxVecIntQp[:,arc] += errQp[k,:,arc]
+            Qx += normErrQx[k,arc] * coefList[k]
+            Qu += normErrQu[k,arc] * coefList[k]
+            auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
         #
-        Qx -= .5*(normErrQx[0,arc]+normErrQx[N-1,arc])
-        Qu -= .5*(normErrQu[0,arc]+normErrQu[N-1,arc])
-
-
-        auxVecIntQp[:,arc] -= .5*(errQp[0,:,arc]+errQp[N-1,:,arc])
 
     auxVecIntQp *= dt
     Qx *= dt

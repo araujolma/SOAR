@@ -389,6 +389,8 @@ class ITman():
         while sol.P > sol.tol['P']:
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
+            sol.plotSol()
+            input("\nOne more restoration complete.")
 
         sol.showHistP()
 
@@ -475,6 +477,9 @@ class ITman():
                 do_GR_cycle = False
 
             else:
+                sol.plotSol()
+                sol.plotF()
+                sol.plotTraj()
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
