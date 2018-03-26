@@ -31,7 +31,9 @@ class stepMngr():
         self.log = log
 
     def calcObj(self,P,Q,I):
-        return (I + (self.k)*P)
+        J,_,_,_ = self.calcJ()
+        return J
+        #return (I + (self.k)*P)
 #        if P > self.tolP:
 #            return (I + (self.k)*(P-self.tolP))
 #        else:
@@ -59,13 +61,15 @@ class stepMngr():
         #Q,_,_,_,_ = newSol.calcQ()
         Q = 1.0
         I,_,_ = newSol.calcI()
+        J,_,_,_ = newSol.calcJ()
 
         Obj = self.calcObj(P,Q,I)
 
         if mustPrnt:
             self.log.printL("\nResults:\nalfa = {:.4E}".format(alfa)+\
                   " P = {:.4E}".format(P)+" Q = {:.4E}".format(Q)+\
-                  " I = {:.4E}".format(I)+" Obj = {:.7E}".format(Obj))
+                  " I = {:.4E}".format(I)+" J = {:.7E}".format(J)+\
+                  " Obj = {:.7E}".format(Obj))
 
         self.histStep.append(alfa)
         self.histP.append(P)
@@ -167,6 +171,54 @@ def plotQRes(self,args):
     plt.xlabel("t [s]")
 
     self.savefig(keyName='Qp',fullName='Qp')
+    
+def calcJ(self):
+    N,s,dt = self.N,self.s,self.dt
+    x = self.x
+
+    phi = self.calcPhi()
+    psi = self.calcPsi()
+    lam = self.lam
+    mu = self.mu
+    dx = ddt(x,N)
+    I,_,_ = self.calcI()
+    
+    func = dx-phi
+    vetL = numpy.empty((N,s))
+    vetIL = numpy.empty((N,s))
+
+
+    for arc in range(s):
+        for t in range(N):
+            vetL[t,arc] = lam[t,:,arc].transpose().dot(func[t,:,arc])
+
+    for arc in range(s):
+        vetIL[0,arc] = (17.0/48.0) * vetL[0,arc]
+        vetIL[1,arc] = vetIL[0,arc] + (59.0/48.0) * vetL[1,arc]
+        vetIL[2,arc] = vetIL[1,arc] + (43.0/48.0) * vetL[2,arc]
+        vetIL[3,arc] = vetIL[2,arc] + (49.0/48.0) * vetL[3,arc]
+        for t in range(4,N-4):
+            vetIL[t] = vetIL[t-1,arc] + vetL[t,arc]
+        vetIL[N-4,arc] = vetIL[N-5,arc] + (49.0/48.0) * vetL[N-4,arc]
+        vetIL[N-3,arc] = vetIL[N-4,arc] + (43.0/48.0) * vetL[N-3,arc]
+        vetIL[N-2,arc] = vetIL[N-3,arc] + (59.0/48.0) * vetL[N-2,arc]
+        vetIL[N-1,arc] = vetIL[N-2,arc] + (17.0/48.0) * vetL[N-1,arc]
+
+    vetIL *= dt
+
+    Lint = vetIL[N-1,:].sum()
+    Lpsi = mu.transpose().dot(psi)
+    L = Lint + Lpsi   
+       
+    J_Lint = Lint
+    J_Lpsi = Lpsi
+    J_I = I
+    J = L + J_I
+    strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
+          ",J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
+    self.log.printL(strJs)    
+
+    return J,J_Lint,J_Lpsi,J_I
 
 def calcQ(self,mustPlotQs=False):
     # Q expression from (15).
