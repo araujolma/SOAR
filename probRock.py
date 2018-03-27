@@ -26,25 +26,8 @@ class prob(sgra):
         # Get initialization mode
         initMode = opt.get('initMode','default')
 
-        if initMode == 'default':
-            # artesanal handicraft with L and D (Miele 2003)
-#            x[:,0] = h_final*numpy.sin(numpy.pi*t/2)
-#            x[:,1] = 3.793*numpy.exp(0.7256*t) -1.585 -3.661*numpy.cos(3.785*t+0.9552)
-#            #x[:,1] = V_final*numpy.sin(numpy.pi*t.copy()/2)
-#            #x[:,1] = 1.0e3*(-0.4523*t.copy()**5 + 1.2353*t.copy()**4-1.1884*t.copy()**3+0.4527*t.copy()**2-0.0397*t.copy())
-#            x[:,2] = (numpy.pi/2)*(numpy.exp(-(t.copy()**2)/0.017))+0.06419
-#            x[:,3] = m_initial*((0.7979*numpy.exp(-(t.copy()**2)/0.02))+0.1901*numpy.cos(t.copy()))
-#            #x[:,3] = m_initial*(1.0-0.89*t.copy())
-#            #x[:,3] = m_initial*(-2.9*t.copy()**3 + 6.2*t.copy()**2 - 4.2*t.copy() + 1)
-#            for k in range(N):
-#                if k<910:
-#                    u[k,1] = (numpy.pi/2)
-#                else:
-#                    if k>4999:
-#                        u[k,1] = (numpy.pi/2)*0.27
-#            pi = 1100*numpy.ones((p,1))
-
-            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        if initMode == 'default' or initMode =='naive':
+            N = 10000+1
             self.N = N
 
             dt = 1.0/(N-1)
@@ -60,15 +43,13 @@ class prob(sgra):
 
             q = 2*n - 1 + n * (s-1)
             self.q = q
-            # Payload mass
-            self.mPayl = 100.0
-
+            
             x = numpy.zeros((N,n,s))
             u = numpy.zeros((N,m,s))
 
             #prepare tolerances
             tolP = 1.0e-5
-            tolQ = 1.0e-7#5
+            tolQ = 1.0e-7
             tol = dict()
             tol['P'] = tolP
             tol['Q'] = tolQ
@@ -79,42 +60,46 @@ class prob(sgra):
             GM = 398600.4415       # km^3 s^-2
             grav_e = GM/r_e/r_e    #9.8e-3       km/s^2
 
+            # Payload mass
+            self.mPayl = 100
+            
             # rocket constants
-            Thrust = numpy.array([40.0])                 # kg km/s² [= kN] 1.3*m_initial # N
+            Thrust = 40*numpy.ones(s)                 # kg km/s² [= kN] 1.3*m_initial # N
 
             Kpf = 100.0  # First guess........
-
+            DampCent = 0
+            DampSlop = 0
+            PFmode = 'quad'
+            gradStepSrchCte = 1.0e-4
+            
             Isp = 450.0*numpy.ones(s)                     # s
             s_f = 0.05*numpy.ones(s)
-            CL0 = 0.0*numpy.ones(s)#-0.03                 # (B0 Miele 1998)
+            CL0 = 0.0*numpy.ones(s)                       # (B0 Miele 1998)
             CL1 = 0.8*numpy.ones(s)                       # (B1 Miele 1998)
             CD0 = 0.05*numpy.ones(s)                      # (A0 Miele 1998)
             CD2 = 0.5*numpy.ones(s)                       # (A2 Miele 1998)
             s_ref = (numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
-            DampCent = 3.0#2.0#
-            DampSlop = 3.0
-
+            
             # boundary conditions
             h_initial = 0.0            # km
-            V_initial = 1e-6#0.0       # km/s
+            V_initial = 1e-6           # km/s
             gamma_initial = numpy.pi/2 # rad
-            #m_initial = 50000          # kg
-            h_final = 463.0   # km
+            m_initial = 50000          # kg
+            h_final = 463.0            # km
             V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
             gamma_final = 0.0 # rad
-            #m_final = free   # kg
-
+                        
             boundary = dict()
             boundary['h_initial'] = h_initial
             boundary['V_initial'] = V_initial
             boundary['gamma_initial'] = gamma_initial
-            #boundary['m_initial'] = m_initial
+            boundary['m_initial'] = m_initial
             boundary['h_final'] = h_final
             boundary['V_final'] = V_final
             boundary['gamma_final'] = gamma_final
-
+            boundary['mission_dv'] = numpy.sqrt((GM/r_e)*\
+                    (2.0-r_e/(r_e+h_final)))
             self.boundary = boundary
-
 
             constants = dict()
             constants['grav_e'] = grav_e
@@ -130,7 +115,10 @@ class prob(sgra):
             constants['s_ref'] = s_ref
             constants['DampCent'] = DampCent
             constants['DampSlop'] = DampSlop
+            constants['PFmode'] = PFmode
             constants['Kpf'] = Kpf
+            constants['gradStepSrchCte'] = gradStepSrchCte
+            
             self.constants = constants
 
             # restrictions
@@ -145,39 +133,46 @@ class prob(sgra):
             restrictions['beta_min'] = beta_min
             restrictions['beta_max'] = beta_max
             restrictions['acc_max'] = acc_max
-            self.restrictions = restrictions
-            solInit = None
+            self.restrictions = restrictions  
+            PFtol = 1.0e-2
+            acc_max_relTol = 0.1
+            
+            costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)           
+            acc_max_tol = acc_max_relTol * acc_max
+            if PFmode == 'lin':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol)
+            elif PFmode == 'quad':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol**2)
+            elif PFmode == 'tanh':
+                Kpf = PFtol * max(costFuncVals) / numpy.tanh(acc_max_relTol)
+            else:
+                self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
+                raise KeyError
+                        
+            if initMode == 'default':
+############### Artesanal handicraft with L and D (Miele 2003)
+                x[:,0,:] = h_final*numpy.sin(numpy.pi*t/2)
+                x[:,1,:] = 3.793*numpy.exp(0.7256*t) -1.585 -3.661*numpy.cos(3.785*t+0.9552)
+                #x[:,1] = V_final*numpy.sin(numpy.pi*t.copy()/2)
+                #x[:,1] = 1.0e3*(-0.4523*t.copy()**5 + 1.2353*t.copy()**4-1.1884*t.copy()**3+0.4527*t.copy()**2-0.0397*t.copy())
+                x[:,2,:] = (numpy.pi/2)*(numpy.exp(-(t.copy()**2)/0.017))+0.06419
+                x[:,3,:] = m_initial*((0.7979*numpy.exp(-(t.copy()**2)/0.02))+0.1901*numpy.cos(t.copy()))
+                #x[:,3] = m_initial*(1.0-0.89*t.copy())
+                #x[:,3] = m_initial*(-2.9*t.copy()**3 + 6.2*t.copy()**2 - 4.2*t.copy() + 1)
+                for k in range(N):
+                    if k<910:
+                        u[k,1,:] = (numpy.pi/2)
+                    else:
+                        if k>4999:
+                            u[k,1,:] = (numpy.pi/2)*0.27
+                pi = 1100*numpy.ones((p,1))  
 
-        elif initMode == 'naive':
-            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
-            self.N = N
-
-            dt = 1.0/(N-1)
-            t = numpy.arange(0,1.0+dt,dt)
-            self.dt = dt
-            self.t = t
-
-            #prepare tolerances
-            tolP = 1.0e-5
-            tolQ = 1.0e-7#5
-            tol = dict()
-            tol['P'] = tolP
-            tol['Q'] = tolQ
-            self.tol = tol
-
-#            pis2 = numpy.pi*0.5
-#            pi = numpy.array([300.0])
-#            dt = pi[0]/(N-1); dt6 = dt/6
-#            x[0,:] = numpy.array([0.0,1.0e-6,pis2,2000.0])
-#            for i in range(N-1):
-#                tt = i * dt
-#                k1 = calcXdot(sizes,tt,x[i,:],u[i,:],constants,restrictions)
-#                k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-#                k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-#                k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
-#                x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4)
-            solInit = None
-
+            else:
+############### Naive
+                x = numpy.ones((N,n,s))
+                u = numpy.ones((N,m,s))
+                pi = numpy.ones(s)
+#
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
             self.log.printL("Starting ITSME with input = " + inpFile)
