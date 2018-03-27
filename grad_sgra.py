@@ -29,11 +29,11 @@ class stepMngr():
         self.k = k
         self.tolP = tolP
         self.log = log
+        
 
-    def calcObj(self,P,Q,I):
-        J,_,_,_ = self.calcJ()
+    def calcObj(self,P,Q,I,J):
         return J
-        #return (I + (self.k)*P)
+#        return (I + (self.k)*P)
 #        if P > self.tolP:
 #            return (I + (self.k)*(P-self.tolP))
 #        else:
@@ -63,7 +63,7 @@ class stepMngr():
         I,_,_ = newSol.calcI()
         J,_,_,_ = newSol.calcJ()
 
-        Obj = self.calcObj(P,Q,I)
+        Obj = self.calcObj(P,Q,I,J)
 
         if mustPrnt:
             self.log.printL("\nResults:\nalfa = {:.4E}".format(alfa)+\
@@ -636,13 +636,14 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     Q0 = 1.0
     P0,_,_ = self.calcP()
     I0,_,_ = self.calcI()
+    J0,_,_,_ = self.calcJ()
     k = self.constants['gradStepSrchCte'] * I0/self.tol['P']
     stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'])
     #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
-    Obj0 = stepMan.calcObj(P0,Q0,I0)
+    Obj0 = stepMan.calcObj(P0,Q0,I0,J0)
     self.log.printL("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
     if retry_grad:
