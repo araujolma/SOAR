@@ -1148,6 +1148,9 @@ class sgra():
 
     def calcStepGrad(self,*args,**kwargs):
         return grad_sgra.calcStepGrad(self,*args,**kwargs)
+    
+    def calcJ(self,*args,**kwargs):
+        return grad_sgra.calcJ(self,*args,**kwargs)
 
     def calcQ(self,*args,**kwargs):
         return grad_sgra.calcQ(self,*args,**kwargs)
