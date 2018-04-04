@@ -169,14 +169,14 @@ class prob(sgra):
                                  0.1901*numpy.cos(tarc[:,arc]))
                     #x[:,3,arc] = m_initial*(1.0-0.89*tarc[:,arc])
                     #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + 6.2*tarc[:,arc]**2 - 4.2*tarc[:,arc] + 1)
-               
+                total_time = 1100
                 for k in range(N):
-                    if k<910:
+                    if total_time*t[k]<200:
                         u[k,1,:] = (numpy.pi/2)
-                    elif k>4999:
+                    elif total_time*t[k]>600:
                         u[k,1,:] = (numpy.pi/2)*0.27
                 
-                pi = 1100*numpy.ones(p)
+                pi = total_time*numpy.ones(p)
             else:
 ############### Naive
                 x = numpy.ones((N,n,s))
