@@ -18,6 +18,7 @@ def calcP(self,mustPlotPint=False):
     dx = ddt(x,N)
 
     func = dx-phi
+    #func[N-1,:,:] = numpy.zeros((self.n,s))
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
 
@@ -301,6 +302,8 @@ def rest(self,parallelOpt={}):
             'pi':C}
 
     alfa = self.calcStepRest(corr)
+    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+    input("Olha lá a correção!")
     self.aplyCorr(alfa,corr)
     self.updtHistP(alfa,mustPlotPint=True)
 

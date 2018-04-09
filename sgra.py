@@ -60,6 +60,7 @@ class LMPBVPhelp():
             # calculate phi and psi
             phi = sol.calcPhi()
             err = phi - ddt(sol.x,N)
+#            err[N-1,:,:] = err[N-2,:,:]#numpy.zeros((n,s))
         else:
             err = numpy.zeros((N,n,s))
 
@@ -252,23 +253,84 @@ class LMPBVPhelp():
 #            B[N-1,:,arc] = -rhoFu[N-1,:,arc] + \
 #                            phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 #            phiLamIntCol += .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-
 ###############################################################################
-            # Integrate the LSODE by "original" Euler Backwards implicit
+            # Integrate the LSODE by trapezoidal (implicit) method
             B[0,:,arc] = -rhoFu[0,:,arc] + \
                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
             phiLamIntCol += .5*(phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
             for k in range(N-1):
-                Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
-                  Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
+                Xi[k+1,:,arc] = numpy.linalg.solve(I - .5 * dt * DynMat[k+1,:,:,arc],\
+                  (I + .5 * dt * DynMat[k,:,:,arc]).dot(Xi[k,:,arc]) + \
+                  .5 * dt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
                 lam[k+1,:,arc] = Xi[k+1,n:,arc]
                 B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
                                 phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
                 phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
 
             phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-
+###############################################################################
+#            # Integrate the LSODE by "original" Euler Backwards implicit
+#            B[0,:,arc] = -rhoFu[0,:,arc] + \
+#                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#            phiLamIntCol += .5*(phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+#
+#            for k in range(N-1):
+#                Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
+#                  Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
+#                lam[k+1,:,arc] = Xi[k+1,n:,arc]
+#                B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
+#                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#                phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#
+#            phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
+###############################################################################
+#            # Integrate the LSODE by "leapfrog" with special start and end
+#
+#            # with special 1st step...
+#            B[0,:,arc] = -rhoFu[0,:,arc] + \
+#                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#            phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+#
+#            Xi[1,:,arc] = Xi[0,:,arc] + dt * \
+#                          (DynMat[0,:,:,arc].dot(Xi[0,:,arc])+nonHom[0,:,arc])
+#            lam[1,:,arc] = Xi[1,n:,arc]
+#            B[1,:,arc] = -rhoFu[1,:,arc] + \
+#                                phiuTr[1,:,:,arc].dot(lam[1,:,arc])
+#            phiLamIntCol += coefList[1] * \
+#                                phipTr[1,:,:,arc].dot(lam[1,:,arc])
+#
+#            for k in range(1,N-2):
+#
+#                Xi[k+1,:,arc] = Xi[k-1,:,arc] + 2. * dt * \
+#                    (DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc])
+#                lam[k+1,:,arc] = Xi[k+1,n:,arc]
+#                B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
+#                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#                phiLamIntCol += coefList[k+1] * \
+#                                phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+#
+##            # with special last step...
+#            Xi[N-1,:,arc] = numpy.linalg.solve(I - dt*DynMat[N-1,:,:,arc],\
+#                  Xi[N-2,:,arc] + dt*nonHom[N-1,:,arc])
+#
+##            # with special last step...
+##            Xi[N-1,:,arc] = Xi[N-2,:,arc] + dt * \
+##                          (DynMat[N-1,:,:,arc].dot(Xi[N-2,:,arc])+nonHom[N-1,:,arc])
+#
+#            # with special last step...
+##            derXik = DynMat[N-2,:,:,arc].dot(Xi[N-2,:,arc]) + \
+##                        nonHom[N-2,:,arc]
+##            aux = Xi[N-2,:,arc] + dt * derXik
+##            Xi[N-1,:,arc] = Xi[N-2,:,arc] + .5 * dt * (derXik + \
+##                                DynMat[N-1,:,:,arc].dot(aux) + \
+##                                nonHom[N-1,:,arc])
+#
+#            lam[N-1,:,arc] = Xi[N-1,n:,arc]
+#            B[N-1,:,arc] = -rhoFu[N-1,:,arc] + \
+#                                phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
+#            phiLamIntCol += coefList[N-1] * \
+#                                phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 ###############################################################################
 #            # Integrate the LSODE by Euler Backwards implicit,
 #            # with special 1st step...
@@ -292,9 +354,8 @@ class LMPBVPhelp():
 #                                phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
 #                phiLamIntCol += coefList[k+1] * \
 #                                phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-#
 ###############################################################################
-#            # Integrate the LSODE by Hamming's mod predictor-corrector method
+##            # Integrate the LSODE by Hamming's mod predictor-corrector method
 #            B[0,:,arc] = -rhoFu[0,:,arc] + \
 #                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
 #            phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
@@ -372,7 +433,6 @@ class LMPBVPhelp():
 #                                phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
 #                pk, ck = pkp1, ckp1
 #            #
-
 ###############################################################################
 #            # Integrate the LSODE by Hamming's predictor-corrector method
 #            B[0,:,arc] = -rhoFu[0,:,arc] + \
@@ -421,7 +481,6 @@ class LMPBVPhelp():
 #                phiLamIntCol += coefList[k+1] * \
 #                                phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
 #            #
-
 ###############################################################################
 #            # Integrate the LSODE by matrix exponentiation
 #            B[0,:,arc] = -rhoFu[0,:,arc] + \
