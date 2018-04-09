@@ -303,7 +303,7 @@ def rest(self,parallelOpt={}):
 
     alfa = self.calcStepRest(corr)
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    input("Olha lá a correção!")
+    input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
     self.updtHistP(alfa,mustPlotPint=True)
 
