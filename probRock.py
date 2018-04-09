@@ -10,7 +10,6 @@ from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
 
-
 class prob(sgra):
     probName = 'probRock'
 
@@ -25,26 +24,9 @@ class prob(sgra):
         d2r = numpy.pi / 180.0
         # Get initialization mode
         initMode = opt.get('initMode','default')
-
-        if initMode == 'default':
-            # artesanal handicraft with L and D (Miele 2003)
-#            x[:,0] = h_final*numpy.sin(numpy.pi*t/2)
-#            x[:,1] = 3.793*numpy.exp(0.7256*t) -1.585 -3.661*numpy.cos(3.785*t+0.9552)
-#            #x[:,1] = V_final*numpy.sin(numpy.pi*t.copy()/2)
-#            #x[:,1] = 1.0e3*(-0.4523*t.copy()**5 + 1.2353*t.copy()**4-1.1884*t.copy()**3+0.4527*t.copy()**2-0.0397*t.copy())
-#            x[:,2] = (numpy.pi/2)*(numpy.exp(-(t.copy()**2)/0.017))+0.06419
-#            x[:,3] = m_initial*((0.7979*numpy.exp(-(t.copy()**2)/0.02))+0.1901*numpy.cos(t.copy()))
-#            #x[:,3] = m_initial*(1.0-0.89*t.copy())
-#            #x[:,3] = m_initial*(-2.9*t.copy()**3 + 6.2*t.copy()**2 - 4.2*t.copy() + 1)
-#            for k in range(N):
-#                if k<910:
-#                    u[k,1] = (numpy.pi/2)
-#                else:
-#                    if k>4999:
-#                        u[k,1] = (numpy.pi/2)*0.27
-#            pi = 1100*numpy.ones((p,1))
-
-            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
+        self.initMode = initMode
+        if initMode == 'default' or initMode == 'naive':
+            N = 10000+1
             self.N = N
 
             dt = 1.0/(N-1)
@@ -53,22 +35,20 @@ class prob(sgra):
             self.t = t
 
             s = 1
-            p = 1
+            p = s
             self.s = s
             self.p = p
             self.Ns = 2*n*s + p
 
             q = 2*n - 1 + n * (s-1)
             self.q = q
-            # Payload mass
-            self.mPayl = 100.0
 
             x = numpy.zeros((N,n,s))
             u = numpy.zeros((N,m,s))
 
             #prepare tolerances
             tolP = 1.0e-5
-            tolQ = 1.0e-7#5
+            tolQ = 1.0e-7
             tol = dict()
             tol['P'] = tolP
             tol['Q'] = tolQ
@@ -79,42 +59,46 @@ class prob(sgra):
             GM = 398600.4415       # km^3 s^-2
             grav_e = GM/r_e/r_e    #9.8e-3       km/s^2
 
+            # Payload mass
+            self.mPayl = 100
+
             # rocket constants
-            Thrust = numpy.array([40.0])                 # kg km/s² [= kN] 1.3*m_initial # N
+            Thrust = 40*numpy.ones(s)                 # kg km/s² [= kN] 1.3*m_initial # N
 
             Kpf = 100.0  # First guess........
+            DampCent = 0
+            DampSlop = 0
+            PFmode = 'quad'
+            gradStepSrchCte = 1.0e-4
 
             Isp = 450.0*numpy.ones(s)                     # s
             s_f = 0.05*numpy.ones(s)
-            CL0 = 0.0*numpy.ones(s)#-0.03                 # (B0 Miele 1998)
+            CL0 = 0.0*numpy.ones(s)                       # (B0 Miele 1998)
             CL1 = 0.8*numpy.ones(s)                       # (B1 Miele 1998)
             CD0 = 0.05*numpy.ones(s)                      # (A0 Miele 1998)
             CD2 = 0.5*numpy.ones(s)                       # (A2 Miele 1998)
             s_ref = (numpy.pi*(0.0005)**2)*numpy.ones(s)  # km^2
-            DampCent = 3.0#2.0#
-            DampSlop = 3.0
 
             # boundary conditions
             h_initial = 0.0            # km
-            V_initial = 1e-6#0.0       # km/s
+            V_initial = 1e-6           # km/s
             gamma_initial = numpy.pi/2 # rad
-            #m_initial = 50000          # kg
-            h_final = 463.0   # km
+            m_initial = 50000          # kg
+            h_final = 463.0            # km
             V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
             gamma_final = 0.0 # rad
-            #m_final = free   # kg
 
             boundary = dict()
             boundary['h_initial'] = h_initial
             boundary['V_initial'] = V_initial
             boundary['gamma_initial'] = gamma_initial
-            #boundary['m_initial'] = m_initial
+            boundary['m_initial'] = m_initial
             boundary['h_final'] = h_final
             boundary['V_final'] = V_final
             boundary['gamma_final'] = gamma_final
-
+            boundary['mission_dv'] = numpy.sqrt((GM/r_e)*\
+                    (2.0-r_e/(r_e+h_final)))
             self.boundary = boundary
-
 
             constants = dict()
             constants['grav_e'] = grav_e
@@ -130,7 +114,10 @@ class prob(sgra):
             constants['s_ref'] = s_ref
             constants['DampCent'] = DampCent
             constants['DampSlop'] = DampSlop
+            constants['PFmode'] = PFmode
             constants['Kpf'] = Kpf
+            constants['gradStepSrchCte'] = gradStepSrchCte
+
             self.constants = constants
 
             # restrictions
@@ -146,38 +133,56 @@ class prob(sgra):
             restrictions['beta_max'] = beta_max
             restrictions['acc_max'] = acc_max
             self.restrictions = restrictions
-            solInit = None
+            PFtol = 1.0e-2
+            acc_max_relTol = 0.1
 
-        elif initMode == 'naive':
-            N = 10000+1#7500+1#10000 + 1#40000+1#20000+1#5000000 + 1 #
-            self.N = N
-
-            dt = 1.0/(N-1)
-            t = numpy.arange(0,1.0+dt,dt)
-            self.dt = dt
-            self.t = t
-
-            #prepare tolerances
-            tolP = 1.0e-5
-            tolQ = 1.0e-7#5
-            tol = dict()
-            tol['P'] = tolP
-            tol['Q'] = tolQ
-            self.tol = tol
-
-#            pis2 = numpy.pi*0.5
-#            pi = numpy.array([300.0])
-#            dt = pi[0]/(N-1); dt6 = dt/6
-#            x[0,:] = numpy.array([0.0,1.0e-6,pis2,2000.0])
-#            for i in range(N-1):
-#                tt = i * dt
-#                k1 = calcXdot(sizes,tt,x[i,:],u[i,:],constants,restrictions)
-#                k2 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k1,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-#                k3 = calcXdot(sizes,tt+.5*dt,x[i,:]+.5*dt*k2,.5*(u[i,:]+u[i+1,:]),constants,restrictions)
-#                k4 = calcXdot(sizes,tt+dt,x[i,:]+dt*k3,u[i+1,:],constants,restrictions)
-#                x[i+1,:] = x[i,:] + dt6 * (k1+k2+k2+k3+k3+k4)
-            solInit = None
-
+            costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
+            acc_max_tol = acc_max_relTol * acc_max
+            if PFmode == 'lin':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol)
+            elif PFmode == 'quad':
+                Kpf = PFtol * max(costFuncVals) / (acc_max_tol**2)
+            elif PFmode == 'tanh':
+                Kpf = PFtol * max(costFuncVals) / numpy.tanh(acc_max_relTol)
+            else:
+                self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
+                raise KeyError
+            if initMode == 'default':
+############### Artesanal handicraft with L and D (Miele 2003)
+                arclen = numpy.floor(len(t)/s).astype(int)
+                tarc = numpy.zeros((arclen,s+1))
+                for k in range(s):
+                    tarc[:,k] = t[k*arclen:(k+1)*arclen]
+                
+                remainder = len(t) % arclen
+                for r in range(remainder):
+                    tarc[r,s] = t[s*arclen+r]
+                
+                for arc in range(s):
+                    x[:,0,arc] = h_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
+                    #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
+                    x[:,1,arc] = V_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
+                    #x[:,1,arc] = 1.0e3*(-0.4523*tarc[:,arc]**5 + 1.2353*tarc[:,arc]**4-1.1884*tarc[:,arc]**3+0.4527*tarc[:,arc]**2-0.0397*tarc[:,arc])
+                    x[:,2,arc] = (numpy.pi/2)*(numpy.exp(-(tarc[:,arc]**2)/0.017))#+0.06419
+                    x[:,3,arc] = m_initial*((0.7979* \
+                                 numpy.exp(-(tarc[:,arc]**2)/0.02))+ \
+                                 0.1901*numpy.cos(tarc[:,arc]))
+                    #x[:,3,arc] = m_initial*(1.0-0.89*tarc[:,arc])
+                    #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + 6.2*tarc[:,arc]**2 - 4.2*tarc[:,arc] + 1)
+                total_time = 1100
+                for k in range(N):
+                    if total_time*t[k]<200:
+                        u[k,1,:] = (numpy.pi/2)
+                    elif total_time*t[k]>600:
+                        u[k,1,:] = (numpy.pi/2)*0.27
+                
+                pi = total_time*numpy.ones(p)
+            else:
+############### Naive
+                x = numpy.ones((N,n,s))
+                u = numpy.ones((N,m,s))
+                pi = numpy.ones(s)
+#
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
             self.log.printL("Starting ITSME with input = " + inpFile)
@@ -701,16 +706,18 @@ class prob(sgra):
 
             # For mass:
             stt = n-1; ind = i0 + stt
-            if self.isStagSep[arc]:
-                # mass, next arc (init cond)
-                psiy[ind,j0+ind+n] = 1.0
-                # mass, this arc (end cond):
-                psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc])
-                # mass, this arc (init cond):
-                psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
-            else:
-                psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
-                psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
+            initMode = self.initMode
+            if initMode == 'extSol':
+                if self.isStagSep[arc]:
+                    # mass, next arc (init cond)
+                    psiy[ind,j0+ind+n] = 1.0
+                    # mass, this arc (end cond):
+                    psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc])
+                    # mass, this arc (init cond):
+                    psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
+                else:
+                    psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
+                    psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
 
             i0 = ind + 1
             j0 += n
@@ -976,11 +983,13 @@ class prob(sgra):
             psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc]
             psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
             psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
-            if self.isStagSep[arc]:
-                psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
-                            (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
-            else:
-                psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            initMode = self.initMode
+            if initMode == 'extSol':
+                if self.isStagSep[arc]:
+                    psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
+                                (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
+                else:
+                    psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
             #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
@@ -1252,10 +1261,12 @@ class prob(sgra):
                   "{:.4E}\n".format(x[-1,3,self.s-1]))
             EjctMass = list()
             # get ejected masses:
-            for arc in range(self.s-1):
-                if self.isStagSep[arc]:
-                    EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
-            self.log.printL("Ejected masses: " + str(EjctMass))
+            initMode = self.initMode
+            if initMode == 'extSol':
+                for arc in range(self.s-1):
+                    if self.isStagSep[arc]:
+                        EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
+                self.log.printL("Ejected masses: " + str(EjctMass))
 
         elif opt['mode'] == 'lambda':
             titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
@@ -1898,16 +1909,18 @@ class prob(sgra):
 
         # Plot stage separation points in blue
         mustLabl = True
-        for arc in range(s-1):
-            if self.isStagSep[arc]:
-                # this trick only labels the first segment, to avoid multiple
-                # labels afterwards
-                if mustLabl:
-                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
-                             color='blue',label='Stage separation point')
-                    mustLabl = False
-                else:
-                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
+        initMode = self.initMode
+        if initMode == 'extSol':
+            for arc in range(s-1):
+                if self.isStagSep[arc]:
+                    # this trick only labels the first segment, to avoid multiple
+                    # labels afterwards
+                    if mustLabl:
+                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
+                                 color='blue',label='Stage separation point')
+                        mustLabl = False
+                    else:
+                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
 
         # Plot altSol
         if compare:
