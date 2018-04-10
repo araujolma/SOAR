@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
-
+from utils import ddt
 
 
 class binFlagDict(dict):
@@ -534,6 +534,26 @@ class sgra():
             self.log.printL("showHistGRrate: No positive values. Skipping...")
 
 #%% LMPBVP
+    def calcErr(self):
+
+        # Old method (which is adequate for Euler + leapfrog, actually...)
+#        phi = self.calcPhi()
+#        err = phi - ddt(self.x,self.N)
+
+        # New method, adequate for trapezoidal intergration scheme
+        phi = self.calcPhi()
+        err = numpy.empty((self.N,self.n,self.s))
+        #err[0,:,:] = numpy.zeros((self.n,self.s))
+        m = .5*(phi[0,:,:] + phi[1,:,:]) + \
+                -(self.x[1,:,:]-self.x[0,:,:])/self.dt
+        err[0,:,:] = m
+        err[1,:,:] = m
+        for k in range(2,self.N):
+            err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
+                        -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
+                        -err[k-1,:,:]
+
+        return err
 
     def LMPBVP(self,rho=0.0,isParallel=False):
 

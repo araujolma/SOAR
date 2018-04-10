@@ -39,10 +39,7 @@ class LMPBVPhelp():
         psi = sol.calcPsi()
         self.psi = psi
         if rho < .5:
-            # calculate phi and psi
-            phi = sol.calcPhi()
-            err = phi - ddt(sol.x,N)
-#            err[N-1,:,:] = err[N-2,:,:]#numpy.zeros((n,s))
+            err = sol.calcErr()
         else:
             err = numpy.zeros((N,n,s))
 

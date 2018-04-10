@@ -6,18 +6,18 @@ Created on Tue Jun 27 14:36:59 2017
 @author: levi
 """
 import numpy
-from utils import ddt
+#from utils import ddt
 import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
     N,s,dt = self.N,self.s,self.dt
-    x = self.x
+    #x = self.x
 
-    phi = self.calcPhi()
+    #phi = self.calcPhi()
     psi = self.calcPsi()
-    dx = ddt(x,N)
+    #dx = ddt(x,N)
 
-    func = dx-phi
+    func = self.calcErr()#dx-phi
     #func[N-1,:,:] = numpy.zeros((self.n,s))
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
@@ -256,6 +256,8 @@ def calcStepRest(self,corr):
             alfa /= 0.8
     else:
         # no "overdrive!"
+        self.log.printL("Leaving rest with alfa = 1.")
+        self.log.printL("Delta pi = "+str(corr['pi']))
         return 1.0
 
 
@@ -286,6 +288,11 @@ def calcStepRest(self,corr):
                 keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
                 #if nPint < Pint0:
             alfa /= 1.2
+        #
+    #
+
+    self.log.printL("Leaving rest with alfa = "+str(alfa))
+    self.log.printL("Delta pi = "+str(alfa*corr['pi']))
     return alfa
 
 
@@ -302,8 +309,8 @@ def rest(self,parallelOpt={}):
             'pi':C}
 
     alfa = self.calcStepRest(corr)
-    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    input("rest_sgra: Olha lá a correção!")
+    #self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+    #input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
     self.updtHistP(alfa,mustPlotPint=True)
 

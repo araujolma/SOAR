@@ -29,7 +29,7 @@ class stepMngr():
         self.k = k
         self.tolP = tolP
         self.log = log
-        
+
 
     def calcObj(self,P,Q,I,J):
         return J
@@ -171,19 +171,19 @@ def plotQRes(self,args):
     plt.xlabel("t [s]")
 
     self.savefig(keyName='Qp',fullName='Qp')
-    
+
 def calcJ(self):
     N,s,dt = self.N,self.s,self.dt
-    x = self.x
+    #x = self.x
 
-    phi = self.calcPhi()
+    #phi = self.calcPhi()
     psi = self.calcPsi()
     lam = self.lam
     mu = self.mu
-    dx = ddt(x,N)
+    #dx = ddt(x,N)
     I,_,_ = self.calcI()
-    
-    func = dx-phi
+
+    func = self.calcErr()#dx-phi
     vetL = numpy.empty((N,s))
     vetIL = numpy.empty((N,s))
 
@@ -208,15 +208,15 @@ def calcJ(self):
 
     Lint = vetIL[N-1,:].sum()
     Lpsi = mu.transpose().dot(psi)
-    L = Lint + Lpsi   
-       
+    L = Lint + Lpsi
+
     J_Lint = Lint
     J_Lpsi = Lpsi
     J_I = I
     J = L + J_I
     strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
           ",J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
-    self.log.printL(strJs)    
+    self.log.printL(strJs)
 
     return J,J_Lint,J_Lpsi,J_I
 
