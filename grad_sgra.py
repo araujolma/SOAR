@@ -7,7 +7,7 @@ Created on Tue Jun 27 14:39:08 2017
 """
 
 import numpy
-from utils import ddt, testAlgn
+#from utils import ddt, testAlgn
 import matplotlib.pyplot as plt
 
 class stepMngr():
@@ -215,7 +215,7 @@ def calcJ(self):
     J_I = I
     J = L + J_I
     strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
-          ",J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
+          ", J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
     self.log.printL(strJs)
 
     return J,J_Lint,J_Lpsi,J_I
@@ -243,7 +243,7 @@ def calcQ(self,mustPlotQs=False):
     fp = Grads['fp']
     psiy = Grads['psiy']
     psip = Grads['psip']
-    dlam = ddt(lam,N)
+    #dlam = ddt(lam,N)
 
     Qx = 0.0
     Qu = 0.0
@@ -262,33 +262,31 @@ def calcQ(self,mustPlotQs=False):
     coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
     coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
     z = numpy.empty(2*n*s)
+
+
     for arc in range(s):
         z[2*arc*n : (2*arc+1)*n] = -lam[0,:,arc]
         z[(2*arc+1)*n : (2*arc+2)*n] = lam[N-1,:,arc]
 
-#        for k in range(N):
+        # calculate Qx separately. In this way, the derivative avaliation is
+        # adequate with the trapezoidal integration method
+        med = (lam[1,:,arc]-lam[0,:,arc])/dt -.5*(fx[0,:,arc]+fx[1,:,arc]) + \
+                .5 * phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) + \
+                .5 * phix[1,:,:,arc].transpose().dot(lam[1,:,arc])
+
+        errQx[0,:,arc] = med
+        errQx[1,:,arc] = med
+        for k in range(2,N):
+            errQx[k,:,arc] = 2.0 * (lam[k,:,arc]-lam[k-1,:,arc]) / dt + \
+                        -fx[k,:,arc] - fx[k-1,:,arc] + \
+                        phix[k,:,:,arc].transpose().dot(lam[k,:,arc]) + \
+                        phix[k-1,:,:,arc].transpose().dot(lam[k-1,:,arc]) + \
+                        -errQx[k-1,:,arc]
+
+        for k in range(N):
 #            errQx[k,:,arc] = dlam[k,:,arc] - fx[k,:,arc] + \
 #                             phix[k,:,:,arc].transpose().dot(lam[k,:,arc])
-#            errQu[k,:,arc] = fu[k,:,arc] +  \
-#                            - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
-#            errQp[k,:,arc] = fp[k,:,arc] + \
-#                            - phip[k,:,:,arc].transpose().dot(lam[k,:,arc])
-#
-#            normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
-#            normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
-#
-#            Qx += normErrQx[k,arc]
-#            Qu += normErrQu[k,arc]
-#            auxVecIntQp[:,arc] += errQp[k,:,arc]
-#        #
-#        Qx -= .5*(normErrQx[0,arc]+normErrQx[N-1,arc])
-#        Qu -= .5*(normErrQu[0,arc]+normErrQu[N-1,arc])
-#
-#
-#        auxVecIntQp[:,arc] -= .5*(errQp[0,:,arc]+errQp[N-1,:,arc])
-        for k in range(N):
-            errQx[k,:,arc] = dlam[k,:,arc] - fx[k,:,arc] + \
-                             phix[k,:,:,arc].transpose().dot(lam[k,:,arc])
+
             errQu[k,:,arc] = fu[k,:,arc] +  \
                             - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
             errQp[k,:,arc] = fp[k,:,arc] + \
