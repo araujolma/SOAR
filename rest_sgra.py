@@ -198,7 +198,8 @@ def calcP(self,mustPlotPint=False):
                   "P = {:.4E}, ".format(P)+\
                   "P_int = {:.4E}, ".format(Pint)+\
                   "P_psi = {:.4E}".format(Ppsi)+\
-                  "\n(rest. iter. #"+str(self.NIterRest+1)+")\n")
+                  "\n(event #" + str(int((self.EvntIndx+1)/2)) + \
+                  ", rest. iter. #"+str(self.NIterRest+1)+")\n")
         plt.ylabel('Accum.')
 
         plt.subplot2grid((Np,1),(1,0))
@@ -312,18 +313,14 @@ def rest(self,parallelOpt={}):
     #self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
     #input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
-    self.updtHistP(alfa,mustPlotPint=True)
 
-    # update Gradient-Restoration event list
-    self.GREvIndx += 1
-    self.GREvList[self.GREvIndx] = False
-#    print("\nUpdating GREvList.")
-#    print("Writing False in position",self.GREvIndx)
-#    print("GREvList =",self.GREvList[:(self.GREvIndx+1)])
+    self.updtEvntList('rest')
+    self.updtHistP(mustPlotPint=True)
+    self.updtHistRest(alfa)
 
     self.log.printL("Leaving rest with alfa = "+str(alfa))
-
-
+    self.log.printL("\nThis is the event list: " + \
+                    str(self.EvntList[:(self.EvntIndx+1)]))
     if self.dbugOptRest['pausRest']:
         self.plotSol()
         input('Rest in debug mode. Press any key to continue...')

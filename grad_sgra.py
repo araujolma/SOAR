@@ -60,8 +60,7 @@ class stepMngr():
         P,_,_ = newSol.calcP()
         #Q,_,_,_,_ = newSol.calcQ()
         Q = 1.0
-        I,_,_ = newSol.calcI()
-        J,_,_,_ = newSol.calcJ()
+        J,_,_,I,_,_ = newSol.calcJ()
 
         Obj = self.calcObj(P,Q,I,J)
 
@@ -181,7 +180,7 @@ def calcJ(self):
     lam = self.lam
     mu = self.mu
     #dx = ddt(x,N)
-    I,_,_ = self.calcI()
+    I,Iorig,Ipf = self.calcI()
 
     func = self.calcErr()#dx-phi
     vetL = numpy.empty((N,s))
@@ -218,7 +217,7 @@ def calcJ(self):
           ", J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
     self.log.printL(strJs)
 
-    return J,J_Lint,J_Lpsi,J_I
+    return J, J_Lint, J_Lpsi, I, Iorig, Ipf
 
 def calcQ(self,mustPlotQs=False):
     # Q expression from (15).
@@ -633,8 +632,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     #Q0,_,_,_,_ = self.calcQ()
     Q0 = 1.0
     P0,_,_ = self.calcP()
-    I0,_,_ = self.calcI()
-    J0,_,_,_ = self.calcJ()
+    J0,_,_,I0,_,_ = self.calcJ()
     k = self.constants['gradStepSrchCte'] * I0/self.tol['P']
     stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'])
     #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
@@ -911,11 +909,12 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
     # update P just to ensure proper restoration afterwards
     P,_,_ = newsol.calcP(mustPlotPint=True)
     newsol.P = P
-
+    newsol.updtHistP()
+    newsol.updtHistGrad(alfa,mustPlotQs=True)
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
-
-    return alfa,newsol
+    input("grad_sgra: esperando um pouco...")
+    return alfa, newsol

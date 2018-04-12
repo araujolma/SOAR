@@ -455,7 +455,8 @@ class ITman():
 
         self.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
-
+        sol.updtEvntList('init')
+        #sol.updtHistP()
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
@@ -490,6 +491,7 @@ class ITman():
                 while keep_walking_grad:
                     #input("\nProcurando passo a partir de "+str(alfa_g_0))
                     alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,A,B,C,lam,mu)
+                    input("\ninterf: sol_new tem a solução mais atualizada!")
                     sol_new = self.restRnds(sol_new)
                     I_new, _, _ = sol_new.calcI()
                     msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
@@ -501,11 +503,10 @@ class ITman():
                     if I_new < I:
                         I = I_new # PARA QUE SERVE ESTE COMANDO?
                         sol = sol_new
+                        sol.updtEvntList('gradOK')
                         keep_walking_grad = False
                         next_grad += 1
                         # update Gradient-Restoration event list
-                        sol.GREvIndx += 1
-                        sol.GREvList[sol.GREvIndx] = True
                         sol.updtGRrate()
 
                         sol.updtHistQ(alfa_g_old,mustPlotQs=True)
@@ -514,10 +515,12 @@ class ITman():
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
                         self.log.printL("\nI was lowered, step given!")
+
                         #self.prom()
                     else:
                         last_grad += 1
                         retry_grad = True
+                        sol.updtEvntList('gradReject')
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
@@ -526,6 +529,9 @@ class ITman():
                         self.log.printL("\nI was not lowered... trying again!")
                         #self.prom()
                     #
+                    self.log.printL("\nThis is the event list: " + \
+                                    str(sol.EvntList[:(sol.EvntIndx+1)]))
+                    sol.updtHistP(mustPlotPint=True)
                 #
             #
 
@@ -534,7 +540,6 @@ class ITman():
 
             if self.showHistICond(sol):
                 sol.showHistI()
-
 
             if self.showHistGradStepCond(sol):
                 sol.showHistGradStep()
