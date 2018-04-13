@@ -319,8 +319,6 @@ def rest(self,parallelOpt={}):
     self.updtHistRest(alfa)
 
     self.log.printL("Leaving rest with alfa = "+str(alfa))
-    self.log.printL("\nThis is the event list: " + \
-                    str(self.EvntList[:(self.EvntIndx+1)]))
     if self.dbugOptRest['pausRest']:
         self.plotSol()
         input('Rest in debug mode. Press any key to continue...')

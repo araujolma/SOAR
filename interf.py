@@ -390,7 +390,6 @@ class ITman():
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
             sol.plotSol()
-            input("\nInterf: One more restoration complete.")
 
         sol.showHistP()
 
@@ -455,8 +454,8 @@ class ITman():
 
         self.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
-        sol.updtEvntList('init')
-        #sol.updtHistP()
+        evnt = 'init'
+
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
@@ -473,11 +472,19 @@ class ITman():
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.Q,_,_,_,_ = sol.calcQ()
 
+            # TODO: ideia -- na primeira iteração esse Q é de fato Q0;
+            # ainda não foi dado um passo de grad pra frente.
+            # Ao custo de um condicional, pode colocar no histórico
+
+
             if sol.Q <= sol.tol['Q']:
-                self.log.printL("Terminate program. Solution is sol_r.")
+                self.log.printL("\nTerminate program. Solution is sol_r.")
                 do_GR_cycle = False
 
             else:
+                msg = "\nOk, so Q = {:.4E}".format(sol.Q) + " > tolQ, "+\
+                      "let's keep improving the solution!\n"
+                self.log.printL(msg)
                 sol.plotSol()
                 sol.plotF()
                 sol.plotTraj()
@@ -490,8 +497,8 @@ class ITman():
 
                 while keep_walking_grad:
                     #input("\nProcurando passo a partir de "+str(alfa_g_0))
-                    alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,A,B,C,lam,mu)
-                    input("\ninterf: sol_new tem a solução mais atualizada!")
+                    alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,\
+                                                  A,B,C,lam,mu,evnt)
                     sol_new = self.restRnds(sol_new)
                     I_new, _, _ = sol_new.calcI()
                     msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
@@ -501,15 +508,11 @@ class ITman():
                     #self.prom()
 
                     if I_new < I:
-                        I = I_new # PARA QUE SERVE ESTE COMANDO?
                         sol = sol_new
-                        sol.updtEvntList('gradOK')
+                        evnt = 'gradOK'
                         keep_walking_grad = False
                         next_grad += 1
-                        # update Gradient-Restoration event list
-                        sol.updtGRrate()
 
-                        sol.updtHistQ(alfa_g_old,mustPlotQs=True)
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
@@ -520,7 +523,10 @@ class ITman():
                     else:
                         last_grad += 1
                         retry_grad = True
-                        sol.updtEvntList('gradReject')
+                        evnt = 'gradReject'
+                        # Save in 'sol' the histories from sol_new,
+                        # otherwise the last grad and the rests would be lost!
+                        sol.copyHistFrom(sol_new)
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
@@ -529,8 +535,6 @@ class ITman():
                         self.log.printL("\nI was not lowered... trying again!")
                         #self.prom()
                     #
-                    self.log.printL("\nThis is the event list: " + \
-                                    str(sol.EvntList[:(sol.EvntIndx+1)]))
                     sol.updtHistP(mustPlotPint=True)
                 #
             #

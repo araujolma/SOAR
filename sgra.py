@@ -70,45 +70,7 @@ class sgra():
 
 
         # Histories
-        MaxIterRest = 100000
-        MaxIterGrad = 10000
-        MaxEvnt = 2*MaxIterRest + MaxIterGrad
-        # Gradient-Restoration EVent List
-        # (00-rest, 10-denied grad, 11-accepted grad)
-        self.MaxEvnt = MaxEvnt
-        self.EvntList = numpy.zeros(MaxEvnt,dtype='bool')
-        self.EvntIndx = 0
-        #self.GREvIndx = -1
-
-        # Basic maximum number of iterations for grad/rest.
-        # May be overriden in the problem definition
-
-        self.MaxIterRest = MaxIterRest
-        self.NIterRest = 0
-        self.histStepRest = numpy.zeros(MaxIterRest)
-        MaxHistP = int((MaxEvnt+1)/2)
-        self.histP = numpy.zeros(MaxHistP)
-        self.histPint = numpy.zeros(MaxHistP)
-        self.histPpsi = numpy.zeros(MaxHistP)
-
-        self.MaxIterGrad = MaxIterGrad
-        self.NIterGrad = 0
-
-        self.histStepGrad = numpy.zeros(MaxIterGrad)
-        self.histQ = numpy.zeros(MaxIterGrad)
-        self.histQx = numpy.zeros(MaxIterGrad)
-        self.histQu = numpy.zeros(MaxIterGrad)
-        self.histQp = numpy.zeros(MaxIterGrad)
-        self.histQt = numpy.zeros(MaxIterGrad)
-
-        self.histI = numpy.zeros(MaxIterGrad)
-        self.histIorig = numpy.zeros(MaxIterGrad)
-        self.histIpf = numpy.zeros(MaxIterGrad)
-        self.histJ = numpy.zeros(MaxIterGrad)
-        self.histJLint = numpy.zeros(MaxIterGrad)
-        self.histJLpsi = numpy.zeros(MaxIterGrad)
-
-        self.histGRrate = numpy.zeros(MaxIterGrad)
+        self.declHist()
 
         self.tol = {'P':1e-7,'Q':1e-7}
 
@@ -407,12 +369,15 @@ class sgra():
     def plotF(self,*args,**kwargs):
         return grad_sgra.plotF(self,*args,**kwargs)
 
-#%% HISTORY METHODS
+#%% HISTORY-RELATED METHODS (P, Q, step sizes, events)
+    def declHist(self,*args, **kwargs):
+        return hist_sgra.declHist(self, *args, **kwargs)
+
     def updtEvntList(self,*args,**kwargs):
         return hist_sgra.updtEvntList(self,*args,**kwargs)
 
-    def updtGRrate(self,*args,**kwargs):
-        return hist_sgra.updtEvntList(self,*args,**kwargs)
+#    def updtHistGRrate(self,*args,**kwargs):
+#        return hist_sgra.updtHistGRrate(self,*args,**kwargs)
 
     def updtHistP(self,*args,**kwargs):
         return hist_sgra.updtHistP(self,*args,**kwargs)
@@ -438,7 +403,8 @@ class sgra():
     def showHistGRrate(self,*args,**kwargs):
         return hist_sgra.showHistGRrate(self,*args,**kwargs)
 
-
+    def copyHistFrom(self,*args,**kwargs):
+        return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
     def calcErr(self):

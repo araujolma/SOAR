@@ -871,19 +871,13 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     return alfa
 
-def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
+def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
 
 #    # update Gradient-Restoration event list
-#    self.GREvIndx += 1
-#    self.GREvList[self.GREvIndx] = True
 #
 #    self.updtGRrate()
-
-    # Calculate corrections
-    #isParallel = parallelOpt.get('gradLMPBVP',False)
-    #A,B,C,lam,mu = self.LMPBVP(rho=1.0,isParallel=isParallel)
 
     # Store corrections in solution
     self.lam = lam
@@ -901,20 +895,17 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu):
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
     #input("@Grad: Waiting for lambda/corrections check...")
 
-    # Apply correction and update Q history
+    # Apply correction, update histories in alternative solution
     newsol = self.copy()
     newsol.aplyCorr(alfa,corr)
-    #self.updtHistQ(alfa,mustPlotQs=True)
-
-    # update P just to ensure proper restoration afterwards
-    P,_,_ = newsol.calcP(mustPlotPint=True)
-    newsol.P = P
-    newsol.updtHistP()
+    newsol.updtEvntList(evnt)
     newsol.updtHistGrad(alfa,mustPlotQs=True)
+    newsol.updtHistP()
+
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
-    input("grad_sgra: esperando um pouco...")
+
     return alfa, newsol

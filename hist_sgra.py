@@ -9,6 +9,52 @@ Created on Wed Apr 11 18:24:24 2018
 import numpy
 import matplotlib.pyplot as plt
 
+def declHist(self):
+    """A method for declaring all the histories. """
+
+    MaxIterRest = 100000
+    MaxIterGrad = 10000
+    MaxEvnt = 2*MaxIterRest + MaxIterGrad
+    # Gradient-Restoration EVent List
+    # (00-rest, 10-denied grad, 11-accepted grad)
+    self.MaxEvnt = MaxEvnt
+    self.EvntList = numpy.zeros(MaxEvnt,dtype='bool')
+    self.EvntIndx = 0
+    self.ContRest = 0
+    #self.GREvIndx = -1
+
+    # Basic maximum number of iterations for grad/rest.
+    # May be overriden in the problem definition
+
+    self.MaxIterRest = MaxIterRest
+    self.NIterRest = 0
+    self.histStepRest = numpy.zeros(MaxIterRest)
+    MaxHistP = int((MaxEvnt+1)/2)
+    self.histP = numpy.zeros(MaxHistP)
+    self.histPint = numpy.zeros(MaxHistP)
+    self.histPpsi = numpy.zeros(MaxHistP)
+
+    self.MaxIterGrad = MaxIterGrad
+    self.NIterGrad = 0
+
+    self.histStepGrad = numpy.zeros(MaxIterGrad)
+    self.histQ = numpy.zeros(MaxIterGrad)
+    self.histQx = numpy.zeros(MaxIterGrad)
+    self.histQu = numpy.zeros(MaxIterGrad)
+    self.histQp = numpy.zeros(MaxIterGrad)
+    self.histQt = numpy.zeros(MaxIterGrad)
+
+    self.histI = numpy.zeros(MaxIterGrad)
+    self.histIorig = numpy.zeros(MaxIterGrad)
+    self.histIpf = numpy.zeros(MaxIterGrad)
+    self.histJ = numpy.zeros(MaxIterGrad)
+    self.histJLint = numpy.zeros(MaxIterGrad)
+    self.histJLpsi = numpy.zeros(MaxIterGrad)
+
+    self.histGRrate = numpy.zeros(MaxIterGrad)
+    self.histGaRrate = numpy.zeros(MaxIterGrad)
+    self.histGaGrRate = numpy.zeros(MaxIterGrad)
+
 def updtEvntList(self,evnt):
     """ Update the event list.
     This happens at every restoration, grad-reject or grad-accept.
@@ -20,33 +66,23 @@ def updtEvntList(self,evnt):
 
     self.EvntIndx += 2
     if evnt == 'rest': #00
-        # No alteration needed
-        pass
+        # No alteration needed in the bits
+        self.ContRest += 1
     elif evnt == 'init': #01
+        # second bit becomes true
         self.EvntList[self.EvntIndx] = True
+        self.histGRrate[1] = self.ContRest
+        self.ContRest = 0
     else:
         self.EvntList[self.EvntIndx-1] = True
         if evnt == 'gradOK': #11
+            # both bits become true
             self.EvntList[self.EvntIndx] = True
         else: #10
-            # Rejected gradient. This entry stays false
+            # Rejected gradient. Second bit stays false
             pass
-
-def updtGRrate(self):
-        pass
-#        # find last gradient step index in event list
-#        LastGradIndx = self.GREvIndx - 1
-#
-#        while self.GREvList[LastGradIndx] == False and LastGradIndx > 0:
-#            LastGradIndx -= 1
-#
-#        # number of restorations after last gradient step
-#        if LastGradIndx == 0:
-#            nRest = self.GREvIndx-1
-#        else:
-#            nRest = self.GREvIndx - 1 - LastGradIndx
-#
-#        self.histGRrate[self.NIterGrad] = nRest
+        self.histGRrate[self.NIterGrad+1] = self.ContRest
+        self.ContRest = 0
 
 def updtHistP(self,mustPlotPint=False):
     """Update the P histories.
@@ -62,6 +98,7 @@ def updtHistP(self,mustPlotPint=False):
 def updtHistRest(self,alfa):
     """Update the restoration histories.
         Currently only the restoration step is used."""
+
     NIterRest = self.NIterRest+1
 
     self.histStepRest[NIterRest] = alfa
@@ -70,11 +107,12 @@ def updtHistRest(self,alfa):
 def showHistP(self):
     """ Show the history of P, Pint and Ppsi."""
 
+    # Total number of events
     NEvnt = int((self.EvntIndx+1)/2) + 1
-    print("NEvnt =",NEvnt)
+    # array for plotting (x-axis)
     Evnt = numpy.arange(0,NEvnt,1)
-    print("Evnt =",Evnt)
 
+    # the actual plots of P, Pint, Ppsi
     if self.histP[Evnt].any() > 0:
         plt.semilogy(Evnt,self.histP[Evnt],'b',label='P')
 
@@ -83,6 +121,9 @@ def showHistP(self):
 
     if self.histPpsi[Evnt].any() > 0:
         plt.semilogy(Evnt,self.histPpsi[Evnt],'r',label='P_psi')
+
+    # Assemble lists for the indexes (relative to the event list)
+    # where there is a gradient (init, accept, reject)
 
     GradAcptIndxList = []
     GradRjecIndxList = []
@@ -96,18 +137,23 @@ def showHistP(self):
                 GradAcptIndxList.append(i)
             else:
                 GradRjecIndxList.append(i)
+
+    # with the lists assembled, mark the points where there is a gradient
+    # (init, accept, reject)
+
     if len(GradInitIndx)>0:
-        plt.semilogy(Evnt[GradInitIndx],self.histP[GradInitIndx],'*',\
-                 label='Init')
+        plt.semilogy(GradInitIndx,self.histP[GradInitIndx],'*',\
+                 label='GradInit')
     if len(GradAcptIndxList)>0:
-        plt.semilogy(Evnt[GradAcptIndxList], \
-                     self.histP[Evnt[GradAcptIndxList]], \
+        plt.semilogy(GradAcptIndxList, \
+                     self.histP[GradAcptIndxList], \
                      'ob', label='GradAccept')
     if len(GradRjecIndxList)>0:
-        plt.semilogy(Evnt[GradRjecIndxList], \
-                     self.histP[Evnt[GradRjecIndxList]], \
+        plt.semilogy(GradRjecIndxList, \
+                     self.histP[GradRjecIndxList], \
                      'xb', label='GradReject')
 
+    # Finally, plot the P tolerance
     plt.plot(Evnt,self.tol['P']+0.0*Evnt,'-.b',label='tolP')
     plt.title("Convergence report on P")
     plt.grid(True)
@@ -117,8 +163,6 @@ def showHistP(self):
 
     self.savefig(keyName='histP',fullName='P')
 
-    print("HistP: ",self.histP[Evnt])
-    input("showHistP: aguardando...")
 
 def updtHistGrad(self,alfa,mustPlotQs=False):
     """ Updates the gradient histories.
@@ -146,12 +190,17 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.histIorig[NIterGrad] = Iorig
     self.histIpf[NIterGrad] = Ipf
 
+    self.ContRest = 0
     self.NIterGrad = NIterGrad
 
 
 def showHistQ(self):
+    """ Show the Q, Qx, Qu, Qp, Qt histories."""
+
+    # Assemble the plotting array (x-axis)
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
+    # Perform the plots
     if self.histQ[IterGrad].any() > 0:
         plt.semilogy(IterGrad,self.histQ[IterGrad],'b',label='Q')
 
@@ -166,6 +215,41 @@ def showHistQ(self):
 
     if self.histQt[IterGrad].any() > 0:
         plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
+
+    # Assemble lists for the indexes (relative to the gradient event list)
+    # where there is each gradient (init, accept, reject)
+
+    GradAcptIndxList = []
+    GradRjecIndxList = []
+    GradInitIndx = []
+
+    iGrad = 0
+    NEvnt = int((self.EvntIndx+1)/2) + 1
+    for i in range(1,NEvnt):
+        if self.EvntList[2*i-1] == 0:
+            if self.EvntList[2*i] == 1:
+                iGrad += 1
+                GradInitIndx = [iGrad]
+        else:
+            if self.EvntList[2*i] == 1:
+                iGrad += 1
+                GradAcptIndxList.append(iGrad)
+            else:
+                iGrad += 1
+                GradRjecIndxList.append(iGrad)
+
+    if len(GradInitIndx)>0:
+        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*',\
+                 label='GradInit')
+    if len(GradAcptIndxList)>0:
+        plt.semilogy(GradAcptIndxList, \
+                     self.histQ[GradAcptIndxList], \
+                     'ob', label='GradAccept')
+    if len(GradRjecIndxList)>0:
+        plt.semilogy(GradRjecIndxList, \
+                     self.histQ[GradRjecIndxList], \
+                     'xb', label='GradReject')
+
 
     plt.plot(IterGrad,self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
     plt.title("Convergence report on Q")
@@ -200,19 +284,47 @@ def showHistGradStep(self):
     plt.ylabel("Step values")
 
     self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
+    self.log.printL("showHistGradStep: these are the gradSteps: " + \
+          str(self.histStepGrad[IterGrad]))
 
 def showHistGRrate(self):
-    pass
-#    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-#
-#    if self.histGRrate[IterGrad].any() > 0:
-#        plt.title("Gradient-restoration rate history")
-#        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
-#        plt.grid(True)
-#        plt.xlabel("Grad iterations")
-#        plt.ylabel("Step values")
-#
-#        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
-#    else:
-#        self.log.printL("showHistGRrate: No positive values. Skipping...")
 
+    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+
+    if self.histGRrate[IterGrad].any() > 0:
+        plt.title("Gradient-restoration rate history")
+        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
+        plt.grid(True)
+        plt.xlabel("Grad iterations")
+        plt.ylabel("Restorations per grad")
+
+        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
+    else:
+        self.log.printL("showHistGRrate: No positive values. Skipping...")
+
+def copyHistFrom(self,sol_from):
+    self.EvntList = sol_from.EvntList
+    self.EvntIndx = sol_from.EvntIndx
+    self.ContRest = sol_from.ContRest
+
+    self.histP = sol_from.histP
+    self.histPint = sol_from.histPint
+    self.histPpsi = sol_from.histPpsi
+    self.histStepRest = sol_from.histStepRest
+    self.NIterRest = sol_from.NIterRest
+
+    self.histQ = sol_from.histQ
+    self.histQx = sol_from.histQx
+    self.histQu = sol_from.histQu
+    self.histQp = sol_from.histQp
+    self.histQt = sol_from.histQt
+
+    self.histI = sol_from.histI
+    self.histIorig = sol_from.histIorig
+    self.histIpf = sol_from.histIpf
+    self.histJ = sol_from.histJ
+    self.histJLint = sol_from.histJLint
+    self.histJLpsi = sol_from.histJLpsi
+
+    self.histGRrate = sol_from.histGRrate
+    self.NIterGrad = sol_from.NIterGrad
