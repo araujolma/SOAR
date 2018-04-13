@@ -390,7 +390,7 @@ class ITman():
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
             sol.plotSol()
-            input("\nOne more restoration complete.")
+            input("\nInterf: One more restoration complete.")
 
         sol.showHistP()
 
