@@ -88,6 +88,7 @@ class prob(sgra):
             self.constants['gradStepSrchCte'] = 1e-3
 
             solInit = self.copy()
+            self.compWith(solInit,'Initial Guess')
 
             self.log.printL("\nInitialization complete.\n")
             return solInit
@@ -130,6 +131,7 @@ class prob(sgra):
             self.mu= mu
 
             solInit = self.copy()
+            self.compWith(solInit,'Initial Guess')
 
             self.log.printL("\nInitialization complete.\n")
             return solInit
@@ -380,32 +382,115 @@ class prob(sgra):
 
         else:
             titlStr = opt['mode']
+            
+    def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
+        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                     'top':2.5,'wspace':0.2,'hspace':0.2}):
+        self.log.printL("\nComparing solutions...\n")
+        pi = self.pi
+        r2d = 180.0/numpy.pi
+        currSolLabl = 'currentSol'
+        
+        # Plotting the curves
+        plt.subplots_adjust(**subPlotAdjs)
 
-    def plotTraj(self,mustSaveFig=True):
+        plt.subplot2grid((5,1),(0,0))
+        altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],mark='--',color='c',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("x [m]")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        titlStr = "Comparing solutions: " + currSolLabl + " and " + \
+                  altSolLabl
+        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+        plt.title(titlStr)
+        plt.xlabel("Time [s]")
+
+        plt.subplot2grid((5,1),(1,0))
+        altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("y [m]")
+        plt.xlabel("Time [s]")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.subplot2grid((5,1),(2,0))
+        altSol.plotCat(altSol.x[:,2,:],labl=altSolLabl)
+        self.plotCat(self.x[:,2,:],mark='--',color='r',\
+                     labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("V [m/s]")
+        plt.xlabel("Time [s]")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.subplot2grid((5,1),(3,0))
+        altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],mark='--',color='k',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("u1 [-]")
+        plt.xlabel("Time [s]")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.subplot2grid((5,1),(4,0))
+        altgama = 0.5*numpy.pi*numpy.tanh(altSol.u)
+        gama = 0.5*numpy.pi*numpy.tanh(self.u)
+        altSol.plotCat(r2d*altgama[:,0,:],labl=altSolLabl)
+        self.plotCat(r2d*gama[:,0,:],mark='--',color='k',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel('Inclination angle [deg]')
+        plt.xlabel("Time [s]")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+       
+        self.savefig(keyName='comp',fullName='comparisons')
+        self.log.printL("pi = "+str(pi)+"\n")
+
+    def plotTraj(self,compare=False,altSol=None,altSolLabl='altSol', \
+                 mustSaveFig=True):
         """Plot the trajectory of the sliding mass."""
 
         X = self.x[:,0,0]
         Y = self.x[:,1,0]
-
-        plt.plot(X,Y)
-        plt.plot(X[0],Y[0],'o')
-        plt.plot(X[-1],Y[-1],'s')
-        plt.axis('equal')
-        plt.grid(True)
-        plt.xlabel("X [m]")
-        plt.ylabel("Y [m]")
-
-        titlStr = "Trajectory "
-        titlStr += "(grad iter #" + str(self.NIterGrad) + ")\n"
-        plt.title(titlStr)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        currSolLabl = 'Current solution'
+        
+        if compare:
+            if altSol is None:
+                self.log.printL("plotTraj: comparing mode is set to True," + \
+                                " but no solution was given to which " + \
+                                "compare. Ignoring...")
+                compare=False
+            else:
+                X_alt = altSol.x[:,0,0]; 
+                Y_alt = altSol.x[:,1,0];
+                plt.plot(X_alt,Y_alt,'b',label=altSolLabl)
+                plt.plot(X_alt[0],Y_alt[0],'o')
+                plt.plot(X_alt[-1],Y_alt[-1],'s')
+                plt.plot(X,Y,'k--',label=currSolLabl)
+                plt.plot(X[0],Y[0],'o')
+                plt.plot(X[-1],Y[-1],'s')
+                plt.axis('equal')
+                plt.grid(True)                
+                titlStr = "Comparing trajectory solutions: " + currSolLabl + " and " + \
+                  altSolLabl
+                titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")\n"
+                plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        else:
+            plt.plot(X,Y)
+            plt.plot(X[0],Y[0],'o')
+            plt.plot(X[-1],Y[-1],'s')
+            plt.axis('equal')
+            plt.grid(True)
+            plt.xlabel("X [m]")
+            plt.ylabel("Y [m]")
+            titlStr = "Trajectory: " + currSolLabl
+            titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")\n"
+            
+        plt.title(titlStr)        
 
         if mustSaveFig:
             self.savefig(keyName='traj',fullName='trajectory')
         else:
             plt.show()
             plt.clf()
-
     #
 if __name__ == "__main__":
     print("\n\nRunning probBrac.py!\n")
