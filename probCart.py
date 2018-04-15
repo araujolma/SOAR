@@ -82,6 +82,7 @@ class prob(sgra):
             self.mu= mu
 
             solInit = self.copy()
+            self.compWith(solInit,'Initial Guess')
 
             self.log.printL("\nInitialization complete.\n")
             return solInit
@@ -110,6 +111,7 @@ class prob(sgra):
             self.mu= mu
 
             solInit = self.copy()
+            self.compWith(solInit,'Initial Guess')
 
             self.log.printL("\nInitialization complete.\n")
             return solInit
@@ -344,8 +346,57 @@ class prob(sgra):
 
         else:
             titlStr = opt['mode']
+            
+    def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
+        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                     'top':2.5,'wspace':0.2,'hspace':0.2}):
+        self.log.printL("\nComparing solutions...\n")
+        pi = self.pi
+        currSolLabl = 'currentSol'
+        
+        # Plotting the curves
+        plt.subplots_adjust(**subPlotAdjs)
 
+        plt.subplot2grid((4,1),(0,0))
+        altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],mark='--',color='r',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("Position")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        titlStr = "Comparing solutions: " + currSolLabl + " and " + \
+                  altSolLabl
+        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+        plt.title(titlStr)
+        plt.xlabel("Adimensional time")
 
+        plt.subplot2grid((4,1),(1,0))
+        altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("Speed")
+        plt.xlabel("Adimensional time")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.subplot2grid((4,1),(2,0))
+        altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],mark='--',color='k',\
+                     labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("u1 [-]")
+        plt.xlabel("Adimensional time")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.subplot2grid((4,1),(3,0))
+        altSol.plotCat(numpy.tanh(altSol.u[:,0,:]),labl=altSolLabl)
+        self.plotCat(numpy.tanh(self.u[:,0,:]),mark='--',color='k',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel('Acceleration')
+        plt.xlabel("Adimensional time")
+        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+    
+       
+        self.savefig(keyName='comp',fullName='comparisons')
+        self.log.printL("pi = "+str(pi)+"\n")
 
     #
 if __name__ == "__main__":

@@ -390,6 +390,8 @@ class ITman():
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
             sol.plotSol()
+            #input("\nOne more restoration complete.")
+        #
 
         sol.showHistP()
 
@@ -580,6 +582,7 @@ class ITman():
                 sol.plotTraj()
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')
+                    sol.plotTraj(True,altSol,'Initial guess')
 
             if self.gradRestPausCond(sol):
                 print("\a")
