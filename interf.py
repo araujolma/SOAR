@@ -455,7 +455,7 @@ class ITman():
         self.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
         evnt = 'init'
-
+        firstRound = True
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
@@ -470,12 +470,27 @@ class ITman():
             #self.prom()
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
-            sol.Q,_,_,_,_ = sol.calcQ()
+            sol.Q,Qx,Qu,Qp,Qt = sol.calcQ()
 
-            # TODO: ideia -- na primeira iteração esse Q é de fato Q0;
-            # ainda não foi dado um passo de grad pra frente.
-            # Ao custo de um condicional, pode colocar no histórico
+            if firstRound:
+                # These first values are only available at this part, that is,
+                # after calculating the grad correction (LMPBVP).
 
+                sol.histQ[0] = sol.Q
+                sol.histQx[0] = Qx
+                sol.histQu[0] = Qu
+                sol.histQp[0] = Qp
+                sol.histQt[0] = Qt
+                J, J_Lint, J_Lpsi, I, Iorig, Ipf = sol.calcJ()
+                sol.histI[0] = I
+                sol.histIorig[0] = Iorig
+                sol.histIpf[0] = Ipf
+                sol.histJ[0] = J
+                sol.histJLint[0] = J_Lint
+                sol.histJLpsi[0] = J_Lpsi
+
+                firstRound = False
+            #
 
             if sol.Q <= sol.tol['Q']:
                 self.log.printL("\nTerminate program. Solution is sol_r.")
@@ -507,7 +522,7 @@ class ITman():
                     self.log.printL(msg)
                     #self.prom()
 
-                    if I_new < I:
+                    if I_new < I or sol_new.Q < sol_new.tol['Q']:
                         sol = sol_new
                         evnt = 'gradOK'
                         keep_walking_grad = False
@@ -517,7 +532,9 @@ class ITman():
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
-                        self.log.printL("\nI was lowered, step given!")
+                        msg = "\nI was lowered (or maybe, even better, " + \
+                        "the Q condition has been met!), step given!"
+                        self.log.printL(msg)
 
                         #self.prom()
                     else:

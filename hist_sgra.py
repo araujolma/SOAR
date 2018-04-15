@@ -65,6 +65,8 @@ def updtEvntList(self,evnt):
         11: gradient step accepted, starting new GR cycle"""
 
     self.EvntIndx += 2
+    self.log.printL("\nhist_sgra: new event ("+str(int(self.EvntIndx/2)) + \
+                    ") -- " + evnt)
     if evnt == 'rest': #00
         # No alteration needed in the bits
         self.ContRest += 1
@@ -198,7 +200,7 @@ def showHistQ(self):
     """ Show the Q, Qx, Qu, Qp, Qt histories."""
 
     # Assemble the plotting array (x-axis)
-    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(0,self.NIterGrad+1,1)
 
     # Perform the plots
     if self.histQ[IterGrad].any() > 0:
@@ -261,12 +263,12 @@ def showHistQ(self):
     self.savefig(keyName='histQ',fullName='Q convergence history')
 
 def showHistI(self):
-    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(0,self.NIterGrad+1,1)
 
     plt.title("Convergence report on I")
-    plt.semilogy(IterGrad,self.histI[IterGrad],label='I')
-    plt.semilogy(IterGrad,self.histIorig[IterGrad],label='Iorig')
-    plt.semilogy(IterGrad,self.histIpf[IterGrad],label='Ipf')
+    plt.plot(IterGrad,self.histI[IterGrad],label='I')
+    plt.plot(IterGrad,self.histIorig[IterGrad],label='Iorig')
+    plt.plot(IterGrad,self.histIpf[IterGrad],label='Ipf')
     plt.grid(True)
     plt.xlabel("Grad iterations")
     plt.ylabel("I values")
@@ -284,23 +286,25 @@ def showHistGradStep(self):
     plt.ylabel("Step values")
 
     self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
-    self.log.printL("showHistGradStep: these are the gradSteps: " + \
-          str(self.histStepGrad[IterGrad]))
+#    self.log.printL("showHistGradStep: these are the gradSteps: " + \
+#          str(self.histStepGrad[IterGrad]))
 
 def showHistGRrate(self):
+    """Show the history of the GR rate (rests per grad).
+        It must begin at 1, there is no such thing as "initial GR rate". """
 
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
-    if self.histGRrate[IterGrad].any() > 0:
-        plt.title("Gradient-restoration rate history")
-        plt.semilogy(IterGrad,self.histGRrate[IterGrad])
-        plt.grid(True)
-        plt.xlabel("Grad iterations")
-        plt.ylabel("Restorations per grad")
+    #if self.histGRrate[IterGrad].any() > 0:
+    plt.title("Gradient-restoration rate history")
+    plt.plot(IterGrad,self.histGRrate[IterGrad])
+    plt.grid(True)
+    plt.xlabel("Grad iterations")
+    plt.ylabel("Restorations per grad")
 
-        self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
-    else:
-        self.log.printL("showHistGRrate: No positive values. Skipping...")
+    self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
+    #else:
+    #    self.log.printL("showHistGRrate: No positive values. Skipping...")
 
 def copyHistFrom(self,sol_from):
     self.EvntList = sol_from.EvntList
@@ -327,4 +331,5 @@ def copyHistFrom(self,sol_from):
     self.histJLpsi = sol_from.histJLpsi
 
     self.histGRrate = sol_from.histGRrate
+    self.histStepGrad = sol_from.histStepGrad
     self.NIterGrad = sol_from.NIterGrad
