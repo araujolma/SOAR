@@ -102,9 +102,9 @@ def updtHistRest(self,alfa):
         Currently only the restoration step is used."""
 
     NIterRest = self.NIterRest+1
-
-    self.histStepRest[NIterRest] = alfa
     self.NIterRest = NIterRest
+    self.histStepRest[NIterRest] = alfa
+
 
 def showHistP(self):
     """ Show the history of P, Pint and Ppsi."""
@@ -171,6 +171,7 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
         This includes the Qs, Is, Js and gradStep. """
 
     NIterGrad = self.NIterGrad+1
+    self.NIterGrad = NIterGrad
 
     Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
     self.Q = Q
@@ -193,7 +194,7 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.histIpf[NIterGrad] = Ipf
 
     self.ContRest = 0
-    self.NIterGrad = NIterGrad
+
 
 
 def showHistQ(self):
@@ -285,7 +286,7 @@ def showHistGradStep(self):
     plt.xlabel("Grad iterations")
     plt.ylabel("Step values")
 
-    self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
+    self.savefig(keyName='histGradStep',fullName='GradStep history')
 #    self.log.printL("showHistGradStep: these are the gradSteps: " + \
 #          str(self.histStepGrad[IterGrad]))
 

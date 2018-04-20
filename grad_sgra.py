@@ -119,7 +119,7 @@ def plotQRes(self,args):
     plt.ylabel("Integrand of Qx")
     titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
               "= {:.4E}".format(args['Qx'])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
     plt.title(titlStr)
     errQx = args['errQx']
     for i in range(self.n):
@@ -138,7 +138,7 @@ def plotQRes(self,args):
     plt.grid(True)
     plt.ylabel("Integrand of Qu")
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
     plt.title(titlStr)
     errQu = args['errQu']
     for i in range(self.m):
@@ -160,7 +160,7 @@ def plotQRes(self,args):
     titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
     for j in range(p):
         titlStr += "{:.4E}, ".format(resVecIntQp[j])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
+    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
     plt.title(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
@@ -298,6 +298,7 @@ def calcQ(self,mustPlotQs=False):
             Qu += normErrQu[k,arc] * coefList[k]
             auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
         #
+    #
 
     auxVecIntQp *= dt
     Qx *= dt
@@ -874,10 +875,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
-
-#    # update Gradient-Restoration event list
-#
-#    self.updtGRrate()
+    #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
     # Store corrections in solution
     self.lam = lam
@@ -891,16 +889,16 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 
-    self.plotSol(opt={'mode':'lambda'})
-    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    #input("@Grad: Waiting for lambda/corrections check...")
-
     # Apply correction, update histories in alternative solution
-    newsol = self.copy()
-    newsol.aplyCorr(alfa,corr)
-    newsol.updtEvntList(evnt)
-    newsol.updtHistGrad(alfa,mustPlotQs=True)
-    newsol.updtHistP()
+    newSol = self.copy()
+    newSol.aplyCorr(alfa,corr)
+    newSol.updtEvntList(evnt)
+    newSol.updtHistGrad(alfa,mustPlotQs=True)
+    newSol.updtHistP()
+
+    newSol.plotSol(opt={'mode':'lambda'})
+    newSol.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+    input("@Grad: Waiting for lambda/corrections check...")
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))
@@ -908,4 +906,4 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')
 
-    return alfa, newsol
+    return alfa, newSol

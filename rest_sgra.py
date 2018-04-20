@@ -11,34 +11,13 @@ import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
     N,s,dt = self.N,self.s,self.dt
-    #x = self.x
 
-    #phi = self.calcPhi()
     psi = self.calcPsi()
-    #dx = ddt(x,N)
+    func = self.calcErr()
 
-    func = self.calcErr()#dx-phi
-    #func[N-1,:,:] = numpy.zeros((self.n,s))
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
 
-#    for arc in range(s):
-#        P = .5*(func[0,:,arc].dot(func[0,:,arc].transpose()))
-#        vetP[0,arc] = P
-#        vetIP[0,arc] = P
-#
-#        for t in range(1,N-1):
-#            vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
-#            P += vetP[t,arc]
-#            vetIP[t,arc] = P
-#
-#        vetP[N-1,arc] = .5*(func[N-1,:,arc].dot(func[N-1,:,arc].transpose()))
-#        P += vetP[N-1,arc]
-#        vetIP[N-1,arc] = P
-#
-#    #P *= dt
-#
-#    vetIP *= dt
 
     for arc in range(s):
         for t in range(N):

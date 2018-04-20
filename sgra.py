@@ -292,7 +292,7 @@ class sgra():
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
 
-    def plotTraj(self):
+    def plotTraj(self,*args,**kwargs):
         self.log.printL("plotTraj: unimplemented method.")
         pass
 

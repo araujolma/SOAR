@@ -463,16 +463,20 @@ class ITman():
         next_grad = 0
         while do_GR_cycle:
 
-            sol.P,_,_ = sol.calcP()
+            # TODO: remover este comando (serve pra nada!), no máximo levá-lo
+            # pra antes deste "while"
             sol = self.restRnds(sol)
-            I, _, _ = sol.calcI()
-            msg = "\nStarting new cycle, I_base = {:.4E}".format(I) + \
+            sol.P,_,_ = sol.calcP()
+            I_base, _, _ = sol.calcI()
+            msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(sol.P)
             self.log.printL(msg)
             #self.prom()
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
-            sol.Q,Qx,Qu,Qp,Qt = sol.calcQ()
+            sol.lam = lam
+            sol.mu = mu
+            sol.Q,Qx,Qu,Qp,Qt = sol.calcQ(mustPlotQs=True)
 
             if firstRound:
                 # These first values are only available at this part, that is,
@@ -505,7 +509,7 @@ class ITman():
                 sol.plotSol()
                 sol.plotF()
                 sol.plotTraj()
-                #input("\nVamos tentar dar um passo de grad pra frente!")
+                input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
                 retry_grad = False
@@ -517,14 +521,17 @@ class ITman():
                     alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,\
                                                   A,B,C,lam,mu,evnt)
                     sol_new = self.restRnds(sol_new)
+                    # Up to this point, the solution is fully restored!
+                    sol_new.Q,_,_,_,_ = sol_new.calcQ(mustPlotQs=True)
                     I_new, _, _ = sol_new.calcI()
-                    msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
-                          ", I = {:.4E}".format(I_new) + \
-                          ", P = {:.4E}".format(sol_new.P)
+                    msg = "\nAfter applying = {:.4E}:".format(alfa_g_old) + \
+                          " I = {:.4E}".format(I_new) + \
+                          ", P = {:.4E}".format(sol_new.P) + \
+                          ", Q = {:.4E}".format(sol_new.Q)
                     self.log.printL(msg)
                     #self.prom()
 
-                    if I_new < I or sol_new.Q < sol_new.tol['Q']:
+                    if I_new < I_base or sol_new.Q < sol_new.tol['Q']:
                         sol = sol_new
                         evnt = 'gradOK'
                         keep_walking_grad = False
@@ -554,6 +561,7 @@ class ITman():
                         self.log.printL("\nI was not lowered... trying again!")
                         #self.prom()
                     #
+                    # TODO: isto deveria estar aqui mesmo??
                     sol.updtHistP(mustPlotPint=True)
                 #
             #

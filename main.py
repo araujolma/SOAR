@@ -109,6 +109,8 @@ if __name__ == "__main__":
         ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
               (time.time() - start_time))
 
+        ITman.log.printL("\nHistQ: "+str(sol.histQ[:(sol.NIterGrad+1)]))
+
         for k in range(3):
             print("\a")
             time.sleep(.1)
