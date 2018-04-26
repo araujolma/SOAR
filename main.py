@@ -21,17 +21,20 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
 
-    overrideWithProb = 'zer'#None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
+    # This is the default problem, for users who want to just run "main.py"
+    defaultProb = 'zer'#None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
-    if overrideWithProb is None and (len(sys.argv) == 1):
+    if defaultProb is None and (len(sys.argv) == 1):
         # Default of the default, rocket problem
         import probRock as prob
         confFile = 'defaults/probRock.its'
     else:
+        # if the user runs the program from the command line,
+        # check for the problem choice as an optional argument.
         if len(sys.argv) > 1:
             probName = sys.argv[1].lower()
         else:
-            probName = overrideWithProb
+            probName = defaultProb
 
         if 'cart' in probName:
             import probCart as prob
@@ -75,17 +78,24 @@ if __name__ == "__main__":
     sol.log = ITman.log
 
     try:
+        # Greet the user, confirm basic settings
         ITman.greet()
-
+        #input("main: Done greeting. I will set init sol now.\n")
         start_time = time.time()
+        # Set initial solution
         sol,solInit = ITman.setInitSol(sol)
-
+        # Perform the first restoration rounds
+        #input("main: Done setting init sol. I will restore sol now.\n")
         sol = ITman.frstRestRnds(sol)
-
+        # Proceed to the gradient-restoration cycles
+        #input("main: Done with first restorations. I will go to GR cycle now.\n")
         sol = ITman.gradRestCycl(sol,solInit)
-
+        # Final restorations
+        # TODO: NECESSÁRIO?
+        #input("main: Done with GR cycle. I will go to final restorations now.\n")
         sol = ITman.restRnds(sol)
 
+        # Display final messages, show solution and convergence reports
         line = "#"*66
         ITman.log.printL("\n\n")
         ITman.log.printL(line)
@@ -109,12 +119,15 @@ if __name__ == "__main__":
         ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
               (time.time() - start_time))
 
+        # TODO: [debug] retirar isso
         ITman.log.printL("\nHistQ: "+str(sol.histQ[:(sol.NIterGrad+1)]))
+        ITman.log.printL("\nHistI: "+str(sol.histI[:(sol.NIterGrad+1)]))
 
         for k in range(3):
             print("\a")
             time.sleep(.1)
 
+    # Manage the exceptions. Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
         ITman.log.printL("\n\n\nUser has stopped the program.")
         raise

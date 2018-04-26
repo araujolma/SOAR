@@ -110,6 +110,9 @@ def plotF(self,piIsTime=False):
 def plotQRes(self,args):
     "Generic plots of the Q residuals"
 
+    iterStr = "\n(grad iter #" + str(self.NIterGrad) + \
+                  ", rest iter #"+str(self.NIterRest) + \
+                  ", event #" + str(int((self.EvntIndx+1)/2)) + ")"
     # Qx error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
     nm1 = self.n+1
@@ -119,7 +122,7 @@ def plotQRes(self,args):
     plt.ylabel("Integrand of Qx")
     titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
               "= {:.4E}".format(args['Qx'])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+    titlStr += iterStr
     plt.title(titlStr)
     errQx = args['errQx']
     for i in range(self.n):
@@ -138,7 +141,7 @@ def plotQRes(self,args):
     plt.grid(True)
     plt.ylabel("Integrand of Qu")
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+    titlStr += iterStr
     plt.title(titlStr)
     errQu = args['errQu']
     for i in range(self.m):
@@ -160,7 +163,7 @@ def plotQRes(self,args):
     titlStr = "Qp = f_pi - phi_pi^T*lam\nresVecQp = "
     for j in range(p):
         titlStr += "{:.4E}, ".format(resVecIntQp[j])
-    titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+    titlStr += iterStr
     plt.title(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
@@ -222,7 +225,7 @@ def calcJ(self):
 def calcQ(self,mustPlotQs=False):
     # Q expression from (15).
     # FYI: Miele (2003) is wrong in oh so many ways...
-
+    self.log.printL("In calcQ.")
     N,n,m,p,s = self.N,self.n,self.m,self.p,self.s
     dt = 1.0/(N-1)
 
@@ -319,7 +322,7 @@ def calcQ(self,mustPlotQs=False):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
-    self.Q = Q
+    #self.Q = Q
 
 ###############################################################################
     if mustPlotQs:
@@ -620,6 +623,8 @@ def calcQ(self,mustPlotQs=False):
 
     if self.dbugOptGrad['pausCalcQ']:
         input("calcQ in debug mode. Press any key to continue...")
+
+    #input("Done calculating Q.\n")
     return Q,Qx,Qu,Qp,Qt
 
 def calcStepGrad(self,corr,alfa_0,retry_grad):
@@ -872,15 +877,11 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     return alfa
 
-def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
+def grad(self,corr,alfa_0,retry_grad):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-    # Store corrections in solution
-    self.lam = lam
-    self.mu = mu
-    corr = {'x':A,'u':B,'pi':C}
     #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
     #input("Olha lá a correção...")
 
@@ -889,16 +890,25 @@ def grad(self,alfa_0,retry_grad,A,B,C,lam,mu,evnt):
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
 
+    self.updtHistGrad(alfa)
+
+    self.plotSol(opt={'mode':'lambda'})
+    A, B, C = corr['x'], corr['u'], corr['pi']
+    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+    #input("@Grad: Waiting for lambda/corrections check...")
+
+
     # Apply correction, update histories in alternative solution
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
-    newSol.updtEvntList(evnt)
-    newSol.updtHistGrad(alfa,mustPlotQs=True)
     newSol.updtHistP()
 
-    newSol.plotSol(opt={'mode':'lambda'})
-    newSol.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    input("@Grad: Waiting for lambda/corrections check...")
+#    newSol.updtGradCont(alfa)
+#    newSol.updtHistP()
+#
+#    newSol.plotSol(opt={'mode':'lambda'})
+#    newSol.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+#    input("@Grad: Waiting for lambda/corrections check...")
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))

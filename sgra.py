@@ -388,6 +388,9 @@ class sgra():
     def showHistP(self,*args,**kwargs):
         return hist_sgra.showHistP(self,*args,**kwargs)
 
+    def updtGradCont(self,*args,**kwargs):
+        return hist_sgra.updtGradCont(self,*args,**kwargs)
+
     def updtHistGrad(self,*args,**kwargs):
         return hist_sgra.updtHistGrad(self,*args,**kwargs)
 

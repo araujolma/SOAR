@@ -329,7 +329,7 @@ class ITman():
         sol.histPpsi[sol.NIterRest] = Ppsi
 
         # Calculate Q values, just for show. They don't even mean anything.
-        Q,Qx,Qu,Qp,Qt = sol.calcQ()
+        sol.calcQ()
 
         # Plot trajectory
         sol.plotTraj()
@@ -383,6 +383,8 @@ class ITman():
             return False
 
     def restRnds(self,sol):
+        self.log.printL("\nStart of restoration rounds. " + \
+                        "P = {:.4E}".format(sol.P))
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
 
@@ -396,7 +398,7 @@ class ITman():
         sol.showHistP()
 
         self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
-                        "). Solution so far:")
+                        "), P = {:.4E}".format(sol.P) + ". Solution so far:")
         sol.plotSol()
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol
@@ -471,13 +473,16 @@ class ITman():
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(sol.P)
             self.log.printL(msg)
-            #self.prom()
+
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
             A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
-            sol.lam = lam
-            sol.mu = mu
+            sol.lam, sol.mu = lam, mu
+            # Store corrections in solution
+            corr = {'x':A,'u':B,'pi':C}
             sol.Q,Qx,Qu,Qp,Qt = sol.calcQ(mustPlotQs=True)
+            sol.updtEvntList(evnt)
 
+            # TODO: com a abordagem "shift forward", pode tirar isso daqui.
             if firstRound:
                 # These first values are only available at this part, that is,
                 # after calculating the grad correction (LMPBVP).
@@ -500,38 +505,45 @@ class ITman():
 
             if sol.Q <= sol.tol['Q']:
                 self.log.printL("\nTerminate program. Solution is sol_r.")
+                # This is just to make sure the final values of Q, I, J, etc
+                # get registered.
+                sol.updtHistGrad(0.0)
                 do_GR_cycle = False
 
             else:
-                msg = "\nOk, so Q = {:.4E}".format(sol.Q) + " > tolQ, "+\
-                      "let's keep improving the solution!\n"
+                msg = "\nOk, now Q = {:.4E}".format(sol.Q) + \
+                      " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
+                      "so let's keep improving the solution!\n"
                 self.log.printL(msg)
                 sol.plotSol()
                 sol.plotF()
                 sol.plotTraj()
-                input("\nVamos tentar dar um passo de grad pra frente!")
+                #input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
                 retry_grad = False
                 #alfa_g_0 = 1.0
-                alfa_g_0 = sol.histStepGrad[sol.NIterGrad]
+                alfa_base = sol.histStepGrad[sol.NIterGrad]
 
                 while keep_walking_grad:
                     #input("\nProcurando passo a partir de "+str(alfa_g_0))
-                    alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,\
-                                                  A,B,C,lam,mu,evnt)
+                    alfa, sol_new = sol.grad(corr, alfa_base, retry_grad)
                     sol_new = self.restRnds(sol_new)
                     # Up to this point, the solution is fully restored!
-                    sol_new.Q,_,_,_,_ = sol_new.calcQ(mustPlotQs=True)
-                    I_new, _, _ = sol_new.calcI()
-                    msg = "\nAfter applying = {:.4E}:".format(alfa_g_old) + \
-                          " I = {:.4E}".format(I_new) + \
-                          ", P = {:.4E}".format(sol_new.P) + \
-                          ", Q = {:.4E}".format(sol_new.Q)
-                    self.log.printL(msg)
-                    #self.prom()
 
-                    if I_new < I_base or sol_new.Q < sol_new.tol['Q']:
+                    sol_new.I,_,_ = sol_new.calcI()
+                    msg = "\nAfter applying " + \
+                          "alfa = {:.4E}:".format(alfa) + \
+                          " I = {:.4E}".format(sol_new.I) + \
+                          ", P = {:.4E}".format(sol_new.P)# + \
+#                          ", Q = {:.4E}".format(sol_new.Q)
+                    self.log.printL(msg)
+
+                    if sol_new.I < I_base:
+                        # Here, the I functional has been lowered!
+                        # The grad step is accepted:
+                        # rebase the solution and leave this loop.
+
                         sol = sol_new
                         evnt = 'gradOK'
                         keep_walking_grad = False
@@ -541,12 +553,11 @@ class ITman():
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
-                        msg = "\nI was lowered (or maybe, even better, " + \
-                        "the Q condition has been met!), step given!"
-                        self.log.printL(msg)
-
-                        #self.prom()
+                        self.log.printL("\nI was lowered, step given!")
                     else:
+                        # The conditions were not met. Discard this solution;
+                        # and try a new gradStep on the previous baseline
+
                         last_grad += 1
                         retry_grad = True
                         evnt = 'gradReject'
@@ -557,12 +568,9 @@ class ITman():
                                         str(next_grad))
                         self.log.printL("\nLast grad counter = " + \
                                         str(last_grad))
-                        alfa_g_0 = alfa_g_old
+                        alfa_base = alfa
                         self.log.printL("\nI was not lowered... trying again!")
-                        #self.prom()
                     #
-                    # TODO: isto deveria estar aqui mesmo??
-                    sol.updtHistP(mustPlotPint=True)
                 #
             #
 
@@ -604,8 +612,6 @@ class ITman():
                 self.log.printL(msg)
                 self.prom()
             #
-            #print("\nPronto.")
-            #self.prom()
         #
 
         return sol

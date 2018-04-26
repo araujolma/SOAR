@@ -283,7 +283,6 @@ def rest(self,parallelOpt={}):
     isParallel = parallelOpt.get('restLMPBVP',False)
     A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-
     corr = {'x':A,
             'u':B,
             'pi':C}

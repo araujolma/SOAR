@@ -163,15 +163,50 @@ def showHistP(self):
     plt.ylabel("P values")
     plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-    self.savefig(keyName='histP',fullName='P')
+    self.savefig(keyName='histP',fullName='P convergence history')
 
+
+#def updtGradCont(self,alfa):
+#    """ Updates the gradient counter, as well as gradStep."""
+#    self.log.printL("\nhist_sgra: Updating grad counters.")
+#    NIterGrad = self.NIterGrad+1
+#    self.NIterGrad = NIterGrad
+#
+#    self.histStepGrad[NIterGrad] = alfa
+#
+#    self.ContRest = 0
+#
+#def updtHistGrad(self,mustPlotQs=False):
+#    """ Updates the other gradient histories.
+#        This includes the Qs, Is and Js. """
+#
+#    self.log.printL("\nhist_sgra: Updating Q,I,J histories.")
+#    NIterGrad = self.NIterGrad
+#
+#    Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
+#    self.Q = Q
+#    self.histQ[NIterGrad] = Q
+#    self.histQx[NIterGrad] = Qx
+#    self.histQu[NIterGrad] = Qu
+#    self.histQp[NIterGrad] = Qp
+#    self.histQt[NIterGrad] = Qt
+#
+#    J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
+#    self.I = I
+#    self.J = J
+#    self.histJ[NIterGrad] = J
+#    self.histJLint[NIterGrad] = J_Lint
+#    self.histJLpsi[NIterGrad] = J_Lpsi
+#    self.histI[NIterGrad] = I
+#    self.histIorig[NIterGrad] = Iorig
+#    self.histIpf[NIterGrad] = Ipf
 
 def updtHistGrad(self,alfa,mustPlotQs=False):
     """ Updates the gradient histories.
         This includes the Qs, Is, Js and gradStep. """
 
     NIterGrad = self.NIterGrad+1
-    self.NIterGrad = NIterGrad
+    self.log.printL("\nhist_sgra: Updating histGrad.")
 
     Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
     self.Q = Q
@@ -180,8 +215,6 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.histQu[NIterGrad] = Qu
     self.histQp[NIterGrad] = Qp
     self.histQt[NIterGrad] = Qt
-
-    self.histStepGrad[NIterGrad] = alfa
 
     J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
     self.I = I
@@ -193,8 +226,9 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.histIorig[NIterGrad] = Iorig
     self.histIpf[NIterGrad] = Ipf
 
+    self.histStepGrad[NIterGrad] = alfa
+    self.NIterGrad = NIterGrad
     self.ContRest = 0
-
 
 
 def showHistQ(self):
