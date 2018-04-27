@@ -235,7 +235,7 @@ def showHistQ(self):
     """ Show the Q, Qx, Qu, Qp, Qt histories."""
 
     # Assemble the plotting array (x-axis)
-    IterGrad = numpy.arange(0,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
     # Perform the plots
     if self.histQ[IterGrad].any() > 0:
@@ -298,7 +298,7 @@ def showHistQ(self):
     self.savefig(keyName='histQ',fullName='Q convergence history')
 
 def showHistI(self):
-    IterGrad = numpy.arange(0,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
     plt.title("Convergence report on I")
     plt.plot(IterGrad,self.histI[IterGrad],label='I')

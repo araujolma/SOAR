@@ -293,7 +293,7 @@ def rest(self,parallelOpt={}):
     self.aplyCorr(alfa,corr)
 
     self.updtEvntList('rest')
-    self.updtHistP(mustPlotPint=True)
+    self.updtHistP()#mustPlotPint=True)
     self.updtHistRest(alfa)
 
     self.log.printL("Leaving rest with alfa = "+str(alfa))

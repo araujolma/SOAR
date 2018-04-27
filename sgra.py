@@ -288,6 +288,7 @@ class sgra():
         #
         plt.clf()
         plt.close('all')
+        #input("saveFig: Checa aí se os índices (grad, rest, event) estão certos...")
 
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
