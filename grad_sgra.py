@@ -19,7 +19,7 @@ class stepMngr():
     and P. The I value is most relevant, and the P value is secondary. The
     k parameter defines the importance of P with respect to I."""
 
-    def __init__(self,log, k=1e3, tolP=1e-4):
+    def __init__(self,log, k=1e3, tolP=1e-4, prntCond=False):
         self.cont = -1
         self.histStep = list()
         self.histI = list()
@@ -29,6 +29,7 @@ class stepMngr():
         self.k = k
         self.tolP = tolP
         self.log = log
+        self.mustPrnt = prntCond
 
 
     def calcObj(self,P,Q,I,J):
@@ -48,10 +49,10 @@ class stepMngr():
 
         return P,Q,I,Obj
 
-    def tryStep(self,sol,corr,alfa,mustPrnt=False):
+    def tryStep(self,sol,corr,alfa):
         self.cont += 1
 
-        if mustPrnt:
+        if self.mustPrnt:
             self.log.printL("\nTrying alfa = {:.4E}".format(alfa))
 
         newSol = sol.copy()
@@ -64,7 +65,7 @@ class stepMngr():
 
         Obj = self.calcObj(P,Q,I,J)
 
-        if mustPrnt:
+        if self.mustPrnt:
             self.log.printL("\nResults:\nalfa = {:.4E}".format(alfa)+\
                   " P = {:.4E}".format(P)+" Q = {:.4E}".format(Q)+\
                   " I = {:.4E}".format(I)+" J = {:.7E}".format(J)+\
@@ -87,14 +88,15 @@ def plotF(self,piIsTime=False):
     if isinstance(argout,tuple):
         if len(argout) == 3:
             f, fOrig, fPF = argout
-            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
-            self.plotCat(fOrig,piIsTime=piIsTime,color='k',labl='Orig cost')
-            self.plotCat(fPF,piIsTime=piIsTime,color='r',labl='Penalty function')
+            self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
+            self.plotCat(fOrig, piIsTime=piIsTime, color='k', labl='Orig cost')
+            self.plotCat(fPF, piIsTime=piIsTime, color='r', \
+                         labl='Penalty function')
         else:
             f = argout[0]
-            self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+            self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
     else:
-        self.plotCat(f,piIsTime=piIsTime,color='b',labl='Total cost')
+        self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
     #
     plt.title('Integrand of cost function (grad iter #' + \
               str(self.NIterGrad) + ')')
@@ -640,7 +642,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     P0,_,_ = self.calcP()
     J0,_,_,I0,_,_ = self.calcJ()
     k = self.constants['gradStepSrchCte'] * I0/self.tol['P']
-    stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'])
+    stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'], \
+                       prntCond = prntCond)
     #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
     # TODO: ideias
     # usar tolP ao inves de P0
@@ -651,19 +654,19 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     if retry_grad:
         if prntCond:
             self.log.printL("\n> Retrying alfa. Base value: {:.4E}".format(alfa_0))
-        Pbase,Qbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0,prntCond)
+        Pbase,Qbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0)
 
         # LOWER alfa!
         alfa = .9 * alfa_0
         if prntCond:
             self.log.printL("\n> Let's try alfa 10% lower.")
-        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa,prntCond)
+        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
 
         while Obj > Obj0:
             alfa *= .9
             if prntCond:
                 self.log.printL("\n> Let's try alfa 10% lower.")
-            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa,prntCond)
+            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
 
         if prntCond:
             self.log.printL("\n> Ok, this value should work.")
@@ -675,7 +678,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             if prntCond:
                 self.log.printL("\n> Trying alfa = 1.0 first, fingers crossed...")
             alfa = 1.0
-            P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa,prntCond)
+            P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa)
+
 
             # Search for a better starting point for alfa
             Obj = Obj1; keepLook = False; dAlfa = 1.0
@@ -687,7 +691,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
                 dAlfa = 0.1
                 cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
             # Or increase alfa, if the conditions seem Ok for it
-            elif Obj<Obj0:#se:#if Q<Q0:
+            elif Obj<Obj0:
                 if prntCond:
                     self.log.printL("\n> This seems boring. Going forward!\n")
                 keepLook = True
@@ -698,7 +702,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             while keepLook:
                 Obj = nObj.copy()
                 alfa *= dAlfa
-                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa)
                 keepLook = cond(nObj,Obj)
             #
             if dAlfa > 1.0:
@@ -711,17 +715,18 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
         else:
             alfa0 = alfa_0
             #alfa0 = self.histStepGrad[self.NIterGrad]
-            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0,prntCond)
+            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0)
+
 
         # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
         if prntCond:
             self.log.printL("\n> Starting bilateral analysis...\n")
 
         alfa = 1.1*alfa0
-        PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa,prntCond)
+        PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa)
 
         alfa = .9*alfa0
-        Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa,prntCond)
+        Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa)
 
         # Start refined search
         self.log.printL("\nObj = "+str(Obj))
@@ -733,7 +738,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             while keepSearch and alfa > 1.0e-15:
                 Obj = nObj.copy()
                 alfa *= .9
-                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
+                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa)
 
                 # TODO: use testAlgn to test alignment of points,
                 # and use it to improve calcStepGrad. E.G.:
@@ -772,34 +777,31 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
                 if prntCond:
                     self.log.printL("\n> Let's try alfa = " + str(alfa) + \
                                     " (very carefully!).")
+                #
+            #
+        #
+    #
 
-#            if Obj <= ObjM:
-#                if prntCond:
-#                    self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
-#                                    " is the best.")
-#                alfa = alfa0 # BRASIL
-#            else:
-#                if prntCond:
-#                    self.log.printL("\n> Beginning search for increasing alfa...")
-#                # There still seems to be a negative gradient here. Increase alfa!
-#                nObj = ObjM.copy()
-#                alfa = 1.1*alfa0; keepSearch = True#(nPint>Pint1M)
-#                while keepSearch:
-#                    Obj = nObj.copy()
-#                    alfa *= 1.1
-#                    nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa,prntCond)
-#
-#                    keepSearch = nObj<Obj
-#                    #if nPint < Pint0:
-#                alfa /= 1.1
+    # LOUCURA
+    self.log.printL("\n> Going for screening...")
+    mf = 10.0**(1.0/10.0)
+    alfaBase = alfa
+    for j in range(10):
+        alfa *= mf
+        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+    alfa = alfaBase
+    for j in range(10):
+        alfa /= mf
+        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+    alfa = alfaBase
+    #
 
-
-
-    # Get index for applied alfa
+    # Get histories from step manager object
     histAlfa = stepMan.histStep
     histP = stepMan.histP
     histQ = stepMan.histQ
     histI = stepMan.histI
+    # Get index for applied alfa
     for k in range(len(histAlfa)):
         if abs(histAlfa[k]-alfa)<1e-14:
             break

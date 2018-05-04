@@ -172,7 +172,7 @@ class prob(sgra):
         else:
             fp = numpy.zeros((N,1,s))
 
-        fu[:,0,0] = -2.0 * sin_u
+        fu[:,0,0] = 2.0 * sin_u
 
         Grads['phix'] = phix
         Grads['phiu'] = phiu
@@ -199,7 +199,7 @@ class prob(sgra):
         N = self.N
         s = self.s
         u = self.u
-        f =  2 * numpy.cos(u[:,0,:])
+        f =  -2 * numpy.cos(u[:,0,:])
 
         return f, f, numpy.zeros((N,s))
 
