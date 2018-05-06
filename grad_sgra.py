@@ -24,7 +24,6 @@ class stepMngr():
         self.histStep = list()
         self.histI = list()
         self.histP = list()
-        self.histQ = list()
         self.histObj = list()
         self.k = k
         self.tolP = tolP
@@ -32,7 +31,7 @@ class stepMngr():
         self.mustPrnt = prntCond
 
 
-    def calcObj(self,P,Q,I,J):
+    def calcObj(self,P,I,J):
         return J
 #        return (I + (self.k)*P)
 #        if P > self.tolP:
@@ -43,11 +42,10 @@ class stepMngr():
 
     def getLast(self):
         P = self.histP[self.cont]
-        Q = self.histQ[self.cont]
         I = self.histI[self.cont]
         Obj = self.histObj[self.cont]
 
-        return P,Q,I,Obj
+        return P,I,Obj
 
     def tryStep(self,sol,corr,alfa):
         self.cont += 1
@@ -59,21 +57,17 @@ class stepMngr():
         newSol.aplyCorr(alfa,corr)
 
         P,_,_ = newSol.calcP()
-        #Q,_,_,_,_ = newSol.calcQ()
-        Q = 1.0
         J,_,_,I,_,_ = newSol.calcJ()
 
-        Obj = self.calcObj(P,Q,I,J)
+        Obj = self.calcObj(P,I,J)
 
         if self.mustPrnt:
-            self.log.printL("\nResults:\nalfa = {:.4E}".format(alfa)+\
-                  " P = {:.4E}".format(P)+" Q = {:.4E}".format(Q)+\
-                  " I = {:.4E}".format(I)+" J = {:.7E}".format(J)+\
-                  " Obj = {:.7E}".format(Obj))
+            self.log.printL("\nResults:\nalfa = {:.4E}".format(alfa) + \
+                  " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
+                  " J = {:.7E}".format(J) + " Obj = {:.7E}".format(Obj))
 
         self.histStep.append(alfa)
         self.histP.append(P)
-        self.histQ.append(Q)
         self.histI.append(I)
         self.histObj.append(Obj)
 
@@ -638,7 +632,6 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     self.log.printL("\nalfa = 0.0")
     #Q0,_,_,_,_ = self.calcQ()
-    Q0 = 1.0
     P0,_,_ = self.calcP()
     J0,_,_,I0,_,_ = self.calcJ()
     k = self.constants['gradStepSrchCte'] * I0/self.tol['P']
@@ -648,25 +641,26 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     # TODO: ideias
     # usar tolP ao inves de P0
     # usar P-tolP ao inves de P
-    Obj0 = stepMan.calcObj(P0,Q0,I0,J0)
+    Obj0 = stepMan.calcObj(P0,I0,J0)
     self.log.printL("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
     if retry_grad:
         if prntCond:
-            self.log.printL("\n> Retrying alfa. Base value: {:.4E}".format(alfa_0))
-        Pbase,Qbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0)
+            self.log.printL("\n> Retrying alfa." + \
+                            " Base value: {:.4E}".format(alfa_0))
+        Pbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0)
 
         # LOWER alfa!
         alfa = .9 * alfa_0
         if prntCond:
             self.log.printL("\n> Let's try alfa 10% lower.")
-        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+        P,I,Obj = stepMan.tryStep(self,corr,alfa)
 
         while Obj > Obj0:
             alfa *= .9
             if prntCond:
                 self.log.printL("\n> Let's try alfa 10% lower.")
-            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+            P,I,Obj = stepMan.tryStep(self,corr,alfa)
 
         if prntCond:
             self.log.printL("\n> Ok, this value should work.")
@@ -676,17 +670,17 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
             # Get status associated with integral correction (alfa=1.0)
             if prntCond:
-                self.log.printL("\n> Trying alfa = 1.0 first, fingers crossed...")
+                self.log.printL("\n> Trying alfa = 1, fingers crossed...")
             alfa = 1.0
-            P1,Q1,I1,Obj1 = stepMan.tryStep(self,corr,alfa)
+            P1,I1,Obj1 = stepMan.tryStep(self,corr,alfa)
 
 
             # Search for a better starting point for alfa
             Obj = Obj1; keepLook = False; dAlfa = 1.0
             if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
                 if prntCond:
-                    self.log.printL("\n> Whoa! Going back to safe region of " + \
-                                    "alphas...\n")
+                    self.log.printL("\n> Whoa! Going back to safe " + \
+                                    "region of alphas...\n")
                 keepLook = True
                 dAlfa = 0.1
                 cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
@@ -702,7 +696,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             while keepLook:
                 Obj = nObj.copy()
                 alfa *= dAlfa
-                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa)
+                nP,nI,nObj = stepMan.tryStep(self,corr,alfa)
                 keepLook = cond(nObj,Obj)
             #
             if dAlfa > 1.0:
@@ -714,8 +708,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
         else:
             alfa0 = alfa_0
-            #alfa0 = self.histStepGrad[self.NIterGrad]
-            P,Q,I,Obj = stepMan.tryStep(self,corr,alfa0)
+            P,I,Obj = stepMan.tryStep(self,corr,alfa0)
 
 
         # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
@@ -723,10 +716,10 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             self.log.printL("\n> Starting bilateral analysis...\n")
 
         alfa = 1.1*alfa0
-        PM,QM,IM,ObjM = stepMan.tryStep(self,corr,alfa)
+        PM,IM,ObjM = stepMan.tryStep(self,corr,alfa)
 
         alfa = .9*alfa0
-        Pm,Qm,Im,Objm = stepMan.tryStep(self,corr,alfa)
+        Pm,Im,Objm = stepMan.tryStep(self,corr,alfa)
 
         # Start refined search
         self.log.printL("\nObj = "+str(Obj))
@@ -738,7 +731,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             while keepSearch and alfa > 1.0e-15:
                 Obj = nObj.copy()
                 alfa *= .9
-                nP,nQ,nI,nObj = stepMan.tryStep(self,corr,alfa)
+                nP,nI,nObj = stepMan.tryStep(self,corr,alfa)
 
                 # TODO: use testAlgn to test alignment of points,
                 # and use it to improve calcStepGrad. E.G.:
@@ -788,18 +781,17 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     alfaBase = alfa
     for j in range(10):
         alfa *= mf
-        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+        P, I, Obj = stepMan.tryStep(self,corr,alfa)
     alfa = alfaBase
     for j in range(10):
         alfa /= mf
-        P,Q,I,Obj = stepMan.tryStep(self,corr,alfa)
+        P, I, Obj = stepMan.tryStep(self,corr,alfa)
     alfa = alfaBase
     #
 
     # Get histories from step manager object
     histAlfa = stepMan.histStep
     histP = stepMan.histP
-    histQ = stepMan.histQ
     histI = stepMan.histI
     # Get index for applied alfa
     for k in range(len(histAlfa)):
@@ -807,7 +799,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             break
 
     # Get final values of Q and P
-    Q = histQ[k]; P = histP[k]; I = histI[k]
+    P, I = histP[k], histI[k]
 
     # after all this analysis, plot the history of the tried alfas, and
     # corresponding Q's
@@ -815,30 +807,16 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     if self.dbugOptGrad['plotCalcStepGrad']:
         histObj = stepMan.histObj
 
-        # Ax1: convergence history of Q
-        fig, ax1 = plt.subplots()
-        ax1.loglog(histAlfa, histQ, 'ob')
         linhAlfa = numpy.array([0.9*min(histAlfa),max(histAlfa)])
-        linQ0 = Q0 + 0.0*numpy.empty_like(linhAlfa)
-        ax1.loglog(linhAlfa,linQ0,'--b')
-        ax1.set_xlabel('alpha')
-        ax1.set_ylabel('Q', color='b')
-        ax1.tick_params('y', colors='b')
-        ax1.grid(True)
-
-        # Ax2: convergence history of P
-        ax2 = ax1.twinx()
-        ax2.loglog(histAlfa,histP,'or')
+        plt.loglog(histAlfa,histP,'o')
         linP0 = P0 + numpy.zeros(len(linhAlfa))
-        ax2.loglog(linhAlfa,linP0,'--r')
-        ax2.set_ylabel('P', color='r')
-        ax2.tick_params('y', colors='r')
-        ax2.grid(True)
-
+        plt.loglog(linhAlfa,linP0,'--')
+        plt.xlabel('alpha')
+        plt.ylabel('P')
+        plt.grid(True)
         # Plot final values of Q and P in squares
-        ax1.loglog(alfa,Q,'sb'); ax2.loglog(alfa,P,'sr')
-
-        plt.title("Q and P versus Grad Step for this grad run")
+        plt.loglog(alfa,P,'s')
+        plt.title("P versus Grad Step for this grad run")
         plt.show()
 
         # Plot history of I
@@ -865,8 +843,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     if prntCond:
         dIp = 100.0 * (I/I0 - 1.0)
-        self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
-                        ", Q = {:.4E}".format(Q))
+        self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa))
         self.log.printL("> I0 = {:.4E}".format(I0) + \
                         ", I = {:.4E}".format(I) + \
                         ", dI = {:.4E}".format(I-I0) + \
