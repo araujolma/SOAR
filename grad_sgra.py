@@ -19,7 +19,7 @@ class stepMngr():
     and P. The I value is most relevant, and the P value is secondary. The
     k parameter defines the importance of P with respect to I."""
 
-    def __init__(self,log, k=1e3, tolP=1e-4, prntCond=False):
+    def __init__(self,log, k=1e3, tolP=1e-4, corr = None, prntCond=False):
         self.cont = -1
         self.histStep = list()
         self.histI = list()
@@ -27,6 +27,7 @@ class stepMngr():
         self.histObj = list()
         self.k = k
         self.tolP = tolP
+        self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
 
@@ -47,14 +48,14 @@ class stepMngr():
 
         return P,I,Obj
 
-    def tryStep(self,sol,corr,alfa):
+    def tryStep(self,sol,alfa):
         self.cont += 1
 
         if self.mustPrnt:
             self.log.printL("\nTrying alfa = {:.4E}".format(alfa))
 
         newSol = sol.copy()
-        newSol.aplyCorr(alfa,corr)
+        newSol.aplyCorr(alfa,self.corr)
 
         P,_,_ = newSol.calcP()
         J,_,_,I,_,_ = newSol.calcJ()
@@ -72,6 +73,18 @@ class stepMngr():
         self.histObj.append(Obj)
 
         return self.getLast()
+
+    def fitQuad(self,alfaList,ObjList):
+        M = numpy.ones((3,3))
+        M[:,0] = alfaList ** 2
+        M[:,1] = alfaList
+        coefList = numpy.linalg.solve(M,ObjList)
+        alfaOpt = -coefList[1]/coefList[0]/2.0
+        self.log.printL("> Quadratic interpolation coefficients: " + \
+                        str(coefList))
+        self.log.printL("  According to this fit, best step value is " + \
+                        str(alfaOpt)+". Who knows?")
+        return alfaOpt
 
 def plotF(self,piIsTime=False):
     """Plot the cost function integrand."""
@@ -626,21 +639,18 @@ def calcQ(self,mustPlotQs=False):
 def calcStepGrad(self,corr,alfa_0,retry_grad):
 
     self.log.printL("\nIn calcStepGrad.\n")
-
     prntCond = self.dbugOptGrad['prntCalcStepGrad']
-    # Get initial status (Q0, no correction applied)
 
+    # Get initial status (no correction applied)
     self.log.printL("\nalfa = 0.0")
     #Q0,_,_,_,_ = self.calcQ()
     P0,_,_ = self.calcP()
     J0,_,_,I0,_,_ = self.calcJ()
     k = self.constants['gradStepSrchCte'] * I0/self.tol['P']
     stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'], \
-                       prntCond = prntCond)
+                       corr = corr, prntCond = prntCond)
     #stepMan = stepMngr(k = 1e-5*I0/P0)#stepMngr(k = 1e-5*I0/P0)#
-    # TODO: ideias
-    # usar tolP ao inves de P0
-    # usar P-tolP ao inves de P
+
     Obj0 = stepMan.calcObj(P0,I0,J0)
     self.log.printL("I0 = {:.4E}".format(I0)+" Obj0 = {:.4E}".format(Obj0))
 
@@ -648,19 +658,19 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
         if prntCond:
             self.log.printL("\n> Retrying alfa." + \
                             " Base value: {:.4E}".format(alfa_0))
-        Pbase,Ibase,Objbase = stepMan.tryStep(self,corr,alfa_0)
+        Pbase, Ibase, Objbase = stepMan.tryStep(self,alfa_0)
 
         # LOWER alfa!
         alfa = .9 * alfa_0
         if prntCond:
             self.log.printL("\n> Let's try alfa 10% lower.")
-        P,I,Obj = stepMan.tryStep(self,corr,alfa)
+        P, I, Obj = stepMan.tryStep(self,alfa)
 
         while Obj > Obj0:
             alfa *= .9
             if prntCond:
                 self.log.printL("\n> Let's try alfa 10% lower.")
-            P,I,Obj = stepMan.tryStep(self,corr,alfa)
+            P, I, Obj = stepMan.tryStep(self,alfa)
 
         if prntCond:
             self.log.printL("\n> Ok, this value should work.")
@@ -672,7 +682,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             if prntCond:
                 self.log.printL("\n> Trying alfa = 1, fingers crossed...")
             alfa = 1.0
-            P1,I1,Obj1 = stepMan.tryStep(self,corr,alfa)
+            P1, I1, Obj1 = stepMan.tryStep(self,alfa)
 
 
             # Search for a better starting point for alfa
@@ -696,7 +706,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             while keepLook:
                 Obj = nObj.copy()
                 alfa *= dAlfa
-                nP,nI,nObj = stepMan.tryStep(self,corr,alfa)
+                nP,nI,nObj = stepMan.tryStep(self,alfa)
                 keepLook = cond(nObj,Obj)
             #
             if dAlfa > 1.0:
@@ -708,71 +718,85 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
         else:
             alfa0 = alfa_0
-            P,I,Obj = stepMan.tryStep(self,corr,alfa0)
-
-
-        # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
-        if prntCond:
-            self.log.printL("\n> Starting bilateral analysis...\n")
-
-        alfa = 1.1*alfa0
-        PM,IM,ObjM = stepMan.tryStep(self,corr,alfa)
-
-        alfa = .9*alfa0
-        Pm,Im,Objm = stepMan.tryStep(self,corr,alfa)
-
-        # Start refined search
-        self.log.printL("\nObj = "+str(Obj))
-        if Objm < Obj:
-            if self.dbugOptGrad['prntCalcStepGrad']:
-                self.log.printL("\n> Beginning search for decreasing alfa...")
-            # if the tendency is to still decrease alfa, do it...
-            nObj = Obj.copy(); keepSearch = True
-            while keepSearch and alfa > 1.0e-15:
-                Obj = nObj.copy()
-                alfa *= .9
-                nP,nI,nObj = stepMan.tryStep(self,corr,alfa)
-
-                # TODO: use testAlgn to test alignment of points,
-                # and use it to improve calcStepGrad. E.G.:
-
-    #            isAlgn = (abs(testAlgn(histAlfa[(cont-4):(cont-1)],\
-    #                           histQ[(cont-4):(cont-1)])) < 1e-3)
-    #
-    #            if isAlgn:
-    #                m = (histQ[cont-2]-histQ[cont-3]) / \
-    #                    (histAlfa[cont-2]-histAlfa[cont-3])
-    #                b = histQ[cont-2] - m * histAlfa[cont-2]
-    #                self.log.printL("m =",m,"b =",b)
-
-                if nObj < Obj0:
-                    keepSearch = ((nObj-Obj)/Obj < -.1)#-.001)#nQ<Q#
-            alfa /= 0.9
-        else:
-
-#            # no overdrive!
-#            if prntCond:
-#                self.log.printL("\n> No overdrive! Let's stay with " + \
-#                                "alfa = {:.4E}.".format(alfa0))
-#            alfa = alfa0 # BRASIL
-
-            if Obj <= ObjM:
-                alfa = alfa0 # BRASIL
-
-                if prntCond:
-                    self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
-                                    " is the best.")
-
-            else:
-                # ObjM is the lowest. But increasing alfa is riskier...
-
-                alfa = 1.1 * alfa0
-                if prntCond:
-                    self.log.printL("\n> Let's try alfa = " + str(alfa) + \
-                                    " (very carefully!).")
-                #
-            #
+            P, I, Obj = stepMan.tryStep(self,alfa0)
         #
+
+#        # Now Obj is not so much bigger than Obj0. Start "bilateral analysis"
+#        if prntCond:
+#            self.log.printL("\n> Starting bilateral analysis...\n")
+
+        # Now Obj is not so much bigger than Obj0.
+        # Start search by quadratic interpolation
+        if prntCond:
+            self.log.printL("\n> Starting quadratic interpolation...\n")
+
+        # Quadratic interpolation: for each point candidate for best step
+        # value, its neighborhood (+1% and -1%) is also tested. With these 3
+        # points, a quadratic interpolant is obtained, resulting in a parabola
+        # whose minimum is the new candidate for optimal value.
+        # The stop criterion is based in small changes to step value (prof.
+        # Azevedo would hate this...), basically because it was easy to
+        # implement.
+
+        keepSrch = True
+        alfaRef = alfa0
+        while keepSrch:
+            PRef, IRef, ObjRef = stepMan.tryStep(self,alfaRef)
+
+            alfaM = 1.01 * alfaRef
+            PM, IM, ObjM = stepMan.tryStep(self,alfaM)
+
+            alfam = .99 * alfaRef
+            Pm, Im, Objm = stepMan.tryStep(self,alfam)
+
+            alfaList = numpy.array([alfam, alfaRef, alfaM])
+            ObjList = numpy.array([Objm, ObjRef, ObjM])
+            alfaOpt = stepMan.fitQuad(alfaList,ObjList)
+
+            POpt, IOpt, ObjOpt = stepMan.tryStep(self,alfaOpt)
+            self.log.printL("\n> With alfa = {:.4E}".format(alfaOpt) + \
+                            ", Obj = {:.4E}".format(ObjOpt))
+
+            alfaRef = alfaOpt
+            err = abs(ObjOpt/ObjRef-1.0)
+            if err < 0.01:
+                keepSrch = False
+            else:
+                input("\nErr = {:.4E}, vamos dar mais uma volta!".format(err))
+        #
+        alfa = alfaOpt
+
+#        # Start refined search
+#        self.log.printL("\nObj = "+str(Obj))
+#        if Objm < Obj:
+#            if self.dbugOptGrad['prntCalcStepGrad']:
+#                self.log.printL("\n> Beginning search for decreasing alfa...")
+#            # if the tendency is to still decrease alfa, do it...
+#            nObj = Obj.copy(); keepSearch = True
+#            while keepSearch and alfa > 1.0e-15:
+#                Obj = nObj.copy()
+#                alfa *= .9
+#                nP, nI, nObj = stepMan.tryStep(self,alfa)
+#
+#                if nObj < Obj0:
+#                    keepSearch = ((nObj-Obj)/Obj < -.1)#-.001)#nQ<Q#
+#            alfa /= 0.9
+#        else:
+#            if Obj <= ObjM:
+#                alfa = alfa0 # BRASIL
+#                if prntCond:
+#                    self.log.printL("\n> Apparently alfa = " + str(alfa0) + \
+#                                    " is the best.")
+#            else:
+#                # ObjM is the lowest. But increasing alfa is riskier...
+#
+#                alfa = 1.1 * alfa0
+#                if prntCond:
+#                    self.log.printL("\n> Let's try alfa = " + str(alfa) + \
+#                                    " (very carefully!).")
+#                #
+#            #
+#        #
     #
 
     # LOUCURA
@@ -781,13 +805,13 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
     alfaBase = alfa
     for j in range(10):
         alfa *= mf
-        P, I, Obj = stepMan.tryStep(self,corr,alfa)
+        P, I, Obj = stepMan.tryStep(self,alfa)
     alfa = alfaBase
     for j in range(10):
         alfa /= mf
-        P, I, Obj = stepMan.tryStep(self,corr,alfa)
+        P, I, Obj = stepMan.tryStep(self,alfa)
     alfa = alfaBase
-    #
+
 
     # Get histories from step manager object
     histAlfa = stepMan.histStep
