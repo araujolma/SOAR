@@ -476,11 +476,11 @@ class ITman():
             self.log.printL(msg)
 
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
-            A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
+            A, B, C, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
             # Store corrections in solution (even though it may not be needed)
-            corr = {'x':A,'u':B,'pi':C}
-            sol.Q,Qx,Qu,Qp,Qt = sol.calcQ(mustPlotQs=True)
+            corr = {'x':A, 'u':B, 'pi':C}
+            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=True)
 
 
             if sol.Q <= sol.tol['Q']:

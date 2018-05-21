@@ -199,7 +199,7 @@ class prob(sgra):
         N = self.N
         s = self.s
         u = self.u
-        f =  -2 * numpy.cos(u[:,0,:])
+        f =  2.0 - 2.0 * numpy.cos(u[:,0,:])
 
         return f, f, numpy.zeros((N,s))
 

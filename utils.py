@@ -46,12 +46,25 @@ def ddt(vec,N):
 def simp(vec,N):
     """ Simple integration of array according to Simpson's method. """
 
+#    coefList = numpy.ones(N)
+#    coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
+#    coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
+#    coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
+#    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
+#    coefList *= 1.0/(N-1)
+
+#    coefList = 4.0 * numpy.ones(N)
+#    coefList[0] = 1.0; coefList[N-1] = 1.0
+#    (coefList[k] = 2.0 for k in range(1,N-1) if k%2 == 0)
+
     coefList = numpy.ones(N)
-    coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
-    coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
-    coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
-    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
-    coefList *= 1.0/(N-1)
+    for k in range(1,N-1):
+        if k % 2 == 0:
+            coefList[k] = 2.0
+        else:
+            coefList[k] = 4.0
+    #
+    coefList /= (3.0 * (N-1))
     return coefList.dot(vec)
 
 def testAlgn(x,y):
