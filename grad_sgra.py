@@ -164,13 +164,12 @@ class stepMngr():
 
         # this corresponds to the vertex of the parabola
         alfaOpt = -coefList[1]/coefList[0]/2.0
-        self.log.printL("  According to this fit, best step value is " + \
+        self.log.printL("> According to this fit, best step value is " + \
                         str(alfaOpt))
 
         # The quadratic model is obviously wrong if the x^2 coefficient is
-        # negative, or if the  This case must be handled differently.
-        # The approach here is to simply reduce the step value and hope for the
-        # best...
+        # negative, or if the appointed step is negative.
+        # These cases must be handled differently.
 
         if coefList[0] < 0.0:
             # There seems to be a local maximum nearby.
@@ -201,10 +200,12 @@ class stepMngr():
                             "{:.4E}...".format(alfaOpt))
 
             if alfaOpt > self.minBadStep:
-                alfaOpt = .5 * (alfaOpt + self.minBadStep)
-                self.log.printL("> ...but since that would violate the max" + \
-                                " step condition, let's bisect to " + \
-                                "{:.4E}".format(alfaOpt) + " instead!")
+                while alfaOpt > self.minBadStep:
+                    alfaOpt = .5 * (alfaList[1] + self.minBadStep)
+                    self.log.printL("> ...but since that would violate" + \
+                                    " the max step condition,\n" + \
+                                    " let's bisect to " + \
+                                    "{:.4E}".format(alfaOpt) + " instead!")
             else:
                 self.log.printL("> ... seems legit!")
 
@@ -391,7 +392,7 @@ def calcJ(self):
     J_I = I
     J = L + J_I
     strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
-          ", J_Lpsi = {:.6E}.".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
+          ", J_Lpsi = {:.6E}".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
     self.log.printL(strJs)
 
     return J, J_Lint, J_Lpsi, I, Iorig, Ipf

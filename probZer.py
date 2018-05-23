@@ -12,6 +12,7 @@ relative to the stream.
 
 import numpy
 from sgra import sgra
+from utils import simp
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -95,19 +96,20 @@ class prob(sgra):
 
             N,m,n,p,q,s = self.N,self.m,self.n,self.p,self.q,self.s
             x = numpy.zeros((N,n,s))
-            u = numpy.arctanh(0.5*numpy.ones((N,m,s)))
+            gama = numpy.zeros((N,m,s))#.25 * numpy.pi * numpy.ones((N,m,s))
+            u = numpy.arctanh(gama / (numpy.pi))
 
-            x[:,0,0] = self.t.copy()
-            x[:,1,0] = x[:,0,0]
-            lam = 0.0*x.copy()
+            x[:,0,0] = 5.0 * self.t.copy()
+            #x[:,1,0] = x[:,0,0]
+            lam = 0.0 * x.copy()
             mu = numpy.zeros(q)
-            pi = numpy.array([1.0])
+            pi = numpy.array([2.5])
 
             self.x = x
             self.u = u
             self.pi = pi
             self.lam = lam
-            self.mu= mu
+            self.mu = mu
 
             solInit = self.copy()
 
@@ -123,9 +125,9 @@ class prob(sgra):
         phi = numpy.empty((N,n,s))
         u = self.u
         pi = self.pi
-        gama = 0.5 * numpy.pi * numpy.tanh(u)
+        gama = numpy.pi * numpy.tanh(u)
 
-        phi[:,0,0] = pi[0] * (numpy.cos(gama[:,0,0]) + 1)
+        phi[:,0,0] = pi[0] * (numpy.cos(gama[:,0,0]) + 1.0)
         phi[:,1,0] = pi[0] * numpy.sin(gama[:,0,0])
         return phi
 
@@ -150,18 +152,21 @@ class prob(sgra):
         Grads['dt'] = 1.0/(N-1)
 
         phix = numpy.zeros((N,n,n,s))
-        phiu = numpy.zeros((N,n,m,s))
+
         if p>0:
             phip = numpy.zeros((N,n,p,s))
         else:
             phip = numpy.zeros((N,n,1,s))
 
-        #phiu = numpy.ones((N,n,m,s))
-        #for index in range(N):
-            phiu[:,0,0,0] = -pi[0] * numpy.sin(gama[:,0,0]) * (1-numpy.tanh(u[:,0,0])**2)
-            phiu[:,1,0,0] = pi[0] * numpy.cos(gama[:,0,0]) * (1-numpy.tanh(u[:,0,0])**2)
-            phip[:,0,0,0] = numpy.cos(gama[:,0,0]) + 1
-            phip[:,1,0,0] = numpy.sin(gama[:,0,0])
+        phiu = numpy.zeros((N,n,m,s))
+
+        sinGama = numpy.sin(gama[:,0,0])
+        cosGama = numpy.cos(gama[:,0,0])
+        dGama_du = (1.0-numpy.tanh(u[:,0,0])**2) * numpy.pi
+        phiu[:,0,0,0] = - pi[0] * sinGama * dGama_du
+        phiu[:,1,0,0] = pi[0] * cosGama * dGama_du
+        phip[:,0,0,0] = cosGama + 1.0
+        phip[:,1,0,0] = sinGama
 
         psiy = numpy.zeros((q,2*n*s))
 
@@ -219,10 +224,8 @@ class prob(sgra):
 
         Ivec = numpy.empty(s)
         for arc in range(s):
-            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-            Ivec[arc] += f[1:(N-1),arc].sum()
+            Ivec[arc] += simp(f[:,arc],N)
 
-        Ivec *= 1.0/(N-1)
         I = Ivec.sum()
         return I, I, 0.0
 #%%
@@ -231,7 +234,7 @@ class prob(sgra):
         x = self.x
         u = self.u
         pi = self.pi
-        gama = 0.5 * numpy.pi * numpy.tanh(u)
+        gama = numpy.pi * numpy.tanh(u)
 
         if len(intv)==0:
             intv = numpy.arange(0,self.N,1,dtype='int')
@@ -308,8 +311,10 @@ class prob(sgra):
             titlStr = opt['mode']
     #
 
-    def plotTraj(self,mustSaveFig=True):
+    def plotTraj(self,mustSaveFig=True,altSol=None,name=None):
         """Plot the trajectory of the sliding mass."""
+
+        # TODO: these arguments altSol and "name" are not being used. Use them!
 
         X = self.x[:,0,0]
         Y = self.x[:,1,0]

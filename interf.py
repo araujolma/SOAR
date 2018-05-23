@@ -328,6 +328,13 @@ class ITman():
         sol.histPint[sol.NIterRest] = Pint
         sol.histPpsi[sol.NIterRest] = Ppsi
 
+        if sol.NIterGrad == 0:
+            # Properly record the initial value of I (it does make sense!)
+            sol.I,Iorig,Ipf = sol.calcI()
+            sol.histI[0] = sol.I
+            sol.histIorig[0] = Iorig
+            sol.histIpf[0] = Ipf
+
         # Calculate Q values, just for show. They don't even mean anything.
         sol.calcQ()
 

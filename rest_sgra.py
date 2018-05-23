@@ -286,10 +286,12 @@ def rest(self,parallelOpt={}):
     corr = {'x':A,
             'u':B,
             'pi':C}
+#    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+#    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
-    #self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    #input("rest_sgra: Olha lá a correção!")
+ #   self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+#    input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
 
     self.updtEvntList('rest')
