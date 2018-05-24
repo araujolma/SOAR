@@ -148,7 +148,7 @@ class stepMngr():
 
         return self.getLast()
 
-    def fitQuad(self,alfaList,ObjList):
+    def fitNewStep(self,alfaList,ObjList):
         """ Fit a quadratic curve through the points given; then use this model
         to find the optimum step value (to minimize objective function)."""
 
@@ -164,8 +164,8 @@ class stepMngr():
 
         # this corresponds to the vertex of the parabola
         alfaOpt = -coefList[1]/coefList[0]/2.0
-        self.log.printL("> According to this fit, best step value is " + \
-                        str(alfaOpt))
+        self.log.printL("> According to this quadratic fit, best step " + \
+                        " value is {:.4E}".format(alfaOpt))
 
         # The quadratic model is obviously wrong if the x^2 coefficient is
         # negative, or if the appointed step is negative.
@@ -200,18 +200,19 @@ class stepMngr():
                             "{:.4E}...".format(alfaOpt))
 
             if alfaOpt > self.minBadStep:
-                while alfaOpt > self.minBadStep:
-                    alfaOpt = .5 * (alfaList[1] + self.minBadStep)
-                    self.log.printL("> ...but since that would violate" + \
-                                    " the max step condition,\n" + \
-                                    " let's bisect to " + \
-                                    "{:.4E}".format(alfaOpt) + " instead!")
+                #while alfaOpt > self.minBadStep:
+                alfaOpt = .5 * (alfaList[1] + self.minBadStep)
+                self.log.printL("> ...but since that would violate" + \
+                                " the max step condition,\n" + \
+                                " let's bisect to " + \
+                                "{:.4E}".format(alfaOpt) + " instead!")
             else:
                 self.log.printL("> ... seems legit!")
 
         elif alfaOpt < 0.0:
-            alfaOpt = 0.9 * alfaList[1] #.5 * min(alfaList)
-            self.log.printL("  What to do here? I don't know. Let's stay with " + \
+            alfaOpt = .5 * min(alfaList)
+            self.log.printL(">  Quadratic fit suggested a negative step.\n" + \
+                            "What to do? I don't know. Let's stay with " + \
                             "{:.4E} instead.".format(alfaOpt))
             input("> ???")
         else:
@@ -931,7 +932,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
 
             alfaList = numpy.array([alfam, alfaRef, alfaM])
             ObjList = numpy.array([Objm, ObjRef, ObjM])
-            alfaRef = stepMan.fitQuad(alfaList,ObjList)
+            alfaRef = stepMan.fitNewStep(alfaList,ObjList)
             Ppos, Ipos, ObjPos = stepMan.tryStep(self,alfaRef)
             self.log.printL("\n> Now, With alfa = {:.4E}".format(alfaRef) + \
                             ", Obj = {:.4E}".format(ObjPos))
