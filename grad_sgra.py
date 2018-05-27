@@ -7,7 +7,7 @@ Created on Tue Jun 27 14:39:08 2017
 """
 
 import numpy
-#from utils import ddt, testAlgn
+#from utils import testAlgn
 import matplotlib.pyplot as plt
 
 class stepMngr():
@@ -26,14 +26,14 @@ class stepMngr():
         self.histObj = list()
         self.k = k
         self.tolP = tolP
-        self.limP = 1e-2#numpy.sqrt(tolP)
+        self.limP = 1e3 * tolP#numpy.sqrt(tolP)
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
         self.best = {'step':0.0,
                      'obj': None}
-        self.maxGoodStep = 1e100
-        self.minBadStep = 0.0
+        self.maxGoodStep = 0.0
+        self.minBadStep = 1e100
 
 
     def calcObj(self,P,I,J):
@@ -91,7 +91,7 @@ class stepMngr():
         self.I0 = I0
         self.J0 = J0
         self.Obj0 = Obj0
-
+        self.best['obj'] = Obj0
         return Obj0
 
     def tryStep(self,sol,alfa,plotSol=False,plotPint=False):
@@ -115,38 +115,68 @@ class stepMngr():
         Obj = self.calcObj(P,I,J)
         isOk, Obj = self.check(alfa,Obj,P)
 
-
         if isOk:
-            if self.mustPrnt:
-                self.log.printL("\n> Results:\nalfa = {:.4E}".format(alfa) + \
-                      " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                      " J = {:.7E}".format(J) + " Obj = {:.7E}".format(Obj))
-
             # Update best value (if it is the case)
-            if self.best['obj'] is not None:
-                if self.best['obj'] > Obj:
-                    self.best = {'step': alfa,
-                                 'obj': Obj}
+            if self.best['obj'] > Obj:
+                self.best = {'step': alfa,
+                             'obj': Obj}
+                if self.mustPrnt:
                     self.log.printL("\n> Updating best result: \n" + \
                                     "alfa = {:.4E}, ".format(alfa) + \
                                     "Obj = {:.4E}".format(Obj))
-            else:
-                self.best = {'step': alfa,
-                             'obj': Obj}
             #
 
+            if self.mustPrnt:
+                resStr = "\n- Results (good point):\n" + \
+                         "step = {:.4E}".format(alfa) + \
+                         " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
+                         " J = {:.7E}".format(J) + " Obj = {:.7E}".format(Obj)
         else:
             if self.mustPrnt:
-                self.log.printL("\nBad point:\nalfa = {:.4E}".format(alfa) + \
-                      " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                      " J = {:.7E}".format(J) + " CorrObj = {:.7E}".format(Obj))
+                resStr = "\n- Results (bad point):\n" + \
+                         "step = {:.4E}".format(alfa) + \
+                         " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
+                         " J = {:.7E}".format(J) + \
+                         " CorrObj = {:.7E}".format(Obj)
+        #
 
+        if self.mustPrnt:
+            resStr += "\n- Evaluation #" + str(self.cont) + ",\n" + \
+                      "- BestStep: {:.6E}, ".format(self.best['step']) + \
+                      "BestObj: {:.6E}".format(self.best['obj']) + \
+                      "\n- MaxGoodStep: {:.6E}".format(self.maxGoodStep) + \
+                      "\n- MinBadStep: {:.6E}".format(self.minBadStep)
+            self.log.printL(resStr)
+        #
         self.histStep.append(alfa)
         self.histP.append(P)
         self.histI.append(I)
         self.histObj.append(Obj)
 
         return self.getLast()
+
+    def tryStepSens(self,sol,alfa,plotSol=False,plotPint=False):
+        """ Try a given step and the sensitivity as well. """
+
+        stepArry = numpy.array([alfa*.99, alfa, alfa*1.01])
+        P, I, Obj = self.tryStep(sol, alfa, plotSol=plotSol, plotPint=plotPint)
+        Pm, Im, Objm = self.tryStep(sol, stepArry[0])
+        PM, IM, ObjM = self.tryStep(sol, stepArry[2])
+
+        dalfa = stepArry[2] - stepArry[0]
+        gradP = (PM-Pm) / dalfa
+        gradI = (IM-Im) / dalfa
+        gradObj = (ObjM-Objm) / dalfa
+
+        outp = {'P': numpy.array([Pm,P,PM]),
+                'I': numpy.array([Im,I,IM]),
+                'obj': numpy.array([Objm,Obj,ObjM]),
+                'step': stepArry,
+                'gradP': gradP,
+                'gradI': gradI,
+                'gradObj': gradObj}
+
+        return outp
 
     def fitNewStep(self,alfaList,ObjList):
         """ Fit a quadratic curve through the points given; then use this model
@@ -168,7 +198,7 @@ class stepMngr():
                         " value is {:.4E}".format(alfaOpt))
 
         # The quadratic model is obviously wrong if the x^2 coefficient is
-        # negative, or if the appointed step is negative.
+        # negative, or if the appointed step is negative, or invalid.
         # These cases must be handled differently.
 
         if coefList[0] < 0.0:
@@ -211,10 +241,15 @@ class stepMngr():
 
         elif alfaOpt < 0.0:
             alfaOpt = .5 * min(alfaList)
-            self.log.printL(">  Quadratic fit suggested a negative step.\n" + \
-                            "What to do? I don't know. Let's stay with " + \
+            self.log.printL("> Quadratic fit suggested a negative step.\n" + \
+                            "  What to do? I don't know. Let's stay with " + \
                             "{:.4E} instead.".format(alfaOpt))
             input("> ???")
+        elif alfaOpt > self.minBadStep:
+            alfaOpt = .5 * (self.maxGoodStep + self.minBadStep)
+            self.log.printL("> Quadratic fit suggested a bad step.\n" + \
+                            "  Bisecting into that region with alfa = " + \
+                            "{:.4E} instead.".format(alfaOpt))
         else:
             self.log.printL("  Let's do it!")
 
@@ -251,6 +286,45 @@ class stepMngr():
 
         else:
             return False
+
+    def findStepLim(self,sol):
+        """ Find the limit value for the step.
+        This means the minimum value so that P = limP, or Obj = Obj(0). """
+
+        self.log.printL("\n> This is findStepLim.")
+        self.log.printL("\n> I will try to find the step value for" + \
+                        " which Obj=Obj0.")
+        self.log.printL("\n> Trying first alfa = 1 and its neighborhood.")
+
+        IsGoodPnt = True
+        alfaHigh = .1
+        while IsGoodPnt:
+            alfaHigh *= 10.0
+            P, I, Obj = self.tryStep(sol,alfaHigh)
+            if Obj > self.Obj0:
+                IsGoodPnt = False
+
+        alfaLow = 0.0
+        StepSep = True
+        self.log.printL("\n> Going for simple bisection.")
+        while abs(Obj-self.Obj0) > 1e-6 and StepSep:
+            alfaMid = .5 * (alfaLow + alfaHigh)
+            P, I, Obj = self.tryStep(sol,alfaMid)
+
+            if Obj >= self.Obj0:
+                alfaHigh = alfaMid
+            else:
+                alfaLow = alfaMid
+            self.log.printL("- alfaLow = {:.4E}, ".format(alfaLow) + \
+                            "alfaHigh = {:.4E}".format(alfaHigh))
+            StepSep = (abs(1.0-alfaLow/alfaHigh) > 1e-2)
+        #
+
+        self.log.printL("\n> Found it! Leaving findStepLim now.")
+        return .5*(alfaLow+alfaHigh)
+    #
+#
+
 
 def plotF(self,piIsTime=False):
     """Plot the cost function integrand."""
@@ -841,50 +915,55 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             self.log.printL("\n> Ok, this value should work.")
 
     else:
-        if self.NIterGrad == 0:
 
-            # Get status associated with integral correction (alfa=1.0)
-            if prntCond:
-                self.log.printL("\n> Trying alfa = 1, fingers crossed...")
-            alfa = 1.0
-            P1, I1, Obj1 = stepMan.tryStep(self,alfa)
+# =============================================================================
+#         if self.NIterGrad == 0:
+#
+#             # Get status associated with integral correction (alfa=1.0)
+#             if prntCond:
+#                 self.log.printL("\n> Trying alfa = 1, fingers crossed...")
+#             alfa = 1.0
+#             P1, I1, Obj1 = stepMan.tryStep(self,alfa)
+#
+#
+#             # Search for a better starting point for alfa
+#             Obj = Obj1; keepLook = False; dAlfa = 1.0
+#             if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
+#                 if prntCond:
+#                     self.log.printL("\n> Whoa! Going back to safe " + \
+#                                     "region of alphas...\n")
+#                 keepLook = True
+#                 dAlfa = 0.1
+#                 cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
+#             # Or increase alfa, if the conditions seem Ok for it
+#             elif Obj<Obj0:
+#                 if prntCond:
+#                     self.log.printL("\n> This seems boring. Going forward!\n")
+#                 keepLook = True
+#                 dAlfa = 10.0
+#                 cond = lambda nObj,Obj: nObj<Obj
+#
+#             nObj = Obj.copy()
+#             while keepLook:
+#                 Obj = nObj.copy()
+#                 alfa *= dAlfa
+#                 nP,nI,nObj = stepMan.tryStep(self,alfa)
+#                 keepLook = cond(nObj,Obj)
+#             #
+#             if dAlfa > 1.0:
+#                 alfa /= dAlfa
+#             elif dAlfa < 1.0:
+#                 Obj = nObj.copy()
+#
+#             alfa0 = alfa
+#
+#         else:
+#             alfa0 = alfa_0
+#             P, I, Obj = stepMan.tryStep(self,alfa0)
+#         #
+# =============================================================================
 
-
-            # Search for a better starting point for alfa
-            Obj = Obj1; keepLook = False; dAlfa = 1.0
-            if Obj>1.1*Obj0:#Obj>Obj0:#I/I0 >= 10.0:#Q>Q0:#
-                if prntCond:
-                    self.log.printL("\n> Whoa! Going back to safe " + \
-                                    "region of alphas...\n")
-                keepLook = True
-                dAlfa = 0.1
-                cond = lambda nObj,Obj: nObj>Obj0 #nQ/Q0>1.1
-            # Or increase alfa, if the conditions seem Ok for it
-            elif Obj<Obj0:
-                if prntCond:
-                    self.log.printL("\n> This seems boring. Going forward!\n")
-                keepLook = True
-                dAlfa = 10.0
-                cond = lambda nObj,Obj: nObj<Obj
-
-            nObj = Obj.copy()
-            while keepLook:
-                Obj = nObj.copy()
-                alfa *= dAlfa
-                nP,nI,nObj = stepMan.tryStep(self,alfa)
-                keepLook = cond(nObj,Obj)
-            #
-            if dAlfa > 1.0:
-                alfa /= dAlfa
-            elif dAlfa < 1.0:
-                Obj = nObj.copy()
-
-            alfa0 = alfa
-
-        else:
-            alfa0 = alfa_0
-            P, I, Obj = stepMan.tryStep(self,alfa0)
-        #
+        alfaLim = stepMan.findStepLim(self)
 
         # Start search by quadratic interpolation
         if prntCond:
@@ -899,44 +978,28 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
         # implement.
 
         keepSrch = True
-        alfaRef = alfa0
+        alfaRef = alfaLim * .5
 
         while keepSrch:
-            PRef, IRef, ObjRef = stepMan.tryStep(self, alfaRef, \
-                                                 plotSol=True, plotPint=True)
+            outp = stepMan.tryStepSens(self,alfaRef,plotSol=True,plotPint=True)
+            alfaList, ObjList = outp['step'], outp['obj']
+            gradObj = outp['gradObj']
+            ObjRef = ObjList[1]
 
-            #if alfaRef >= stepMan.minBadStep:
-            #    alfaRef = .5 * (alfaRef + stepMan.maxGoodStep)
-            #    self.log.printL("> Reached a bad point in alfaRef. " + \
-            #                    "Bisecting back to {:.4E},".format(alfaRef) + \
-            #                    " based in {:.4E}".format(stepMan.histStep[stepMan.cont-1]))
-            #    continue
-
-            alfaM = 1.01 * alfaRef
-            PM, IM, ObjM = stepMan.tryStep(self,alfaM)
-            #if alfaM >= stepMan.maxStep:
-            #    alfaRef = .5 * (alfaM + stepMan.maxGoodStep)
-            #    self.log.printL("> Reached a bad point in alfaM. " + \
-            #                    "Bisecting back to {:.4E},".format(alfaRef) + \
-            #                    " based in {:.4E}".format(stepMan.histStep[stepMan.cont-1]))
-            #    continue
-
-            alfam = .99 * alfaRef
-            Pm, Im, Objm = stepMan.tryStep(self,alfam)
-
-            driv = (ObjM-Objm) / (alfaM-alfam)
             self.log.printL("\n> With alfa = {:.4E}".format(alfaRef) + \
                             ", Obj = {:.4E}".format(ObjRef) + \
-                            ", dObj/dAlfa = {:.4E}".format(driv))
+                            ", dObj/dAlfa = {:.4E}".format(gradObj))
             #input("> Oia!")
 
-            alfaList = numpy.array([alfam, alfaRef, alfaM])
-            ObjList = numpy.array([Objm, ObjRef, ObjM])
             alfaRef = stepMan.fitNewStep(alfaList,ObjList)
-            Ppos, Ipos, ObjPos = stepMan.tryStep(self,alfaRef)
-            self.log.printL("\n> Now, With alfa = {:.4E}".format(alfaRef) + \
-                            ", Obj = {:.4E}".format(ObjPos))
 
+            outp = stepMan.tryStepSens(self,alfaRef,plotSol=True,plotPint=True)
+            gradObj = outp['gradObj']
+            ObjPos = outp['obj'][1]
+
+            self.log.printL("\n> Now, with alfa = {:.4E}".format(alfaRef) + \
+                            ", Obj = {:.4E}".format(ObjPos) + \
+                            ", dObj/dAlfa = {:.4E}".format(gradObj))
 
             self.log.printL("\n> Type S for entering a step value, or Q to quit:")
             inp = input("> ")
@@ -949,31 +1012,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad):
             else:
                 self.log.printL("\n> Did not understand input. Going to next cycle.")
 
-
-            #isOk = stepMan.stopCond(alfaRef,driv)
-            #if isOk:
-            #    keepSrch = False
-            #else:
-            #    self.log.printL("\n> Stop condition was not met. " + \
-            #                    "Keep looking!")
-            #    alfaList = numpy.array([alfam, alfaRef, alfaM])
-            #    ObjList = numpy.array([Objm, ObjRef, ObjM])
-            #    alfaRef = stepMan.fitQuad(alfaList,ObjList)
             #
-
-
-
-#            err = abs(driv)#(ObjOpt/ObjRef-1.0)
-#            if err < tol:#0.01:
-#                keepSrch = False
-#            else:
-#                self.log.printL("\nErr = {:.4E}".format(err) + \
-#                      " > {:.4E}, vamos dar mais uma volta!".format(tol))
-#                input("> ")
-#                alfaList = numpy.array([alfam, alfaRef, alfaM])
-#                ObjList = numpy.array([Objm, ObjRef, ObjM])
-#                alfaRef = stepMan.fitQuad(alfaList,ObjList)
-#            #
         #
         alfa = stepMan.best['step']
     #

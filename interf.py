@@ -477,9 +477,10 @@ class ITman():
             # checking.
 
             sol.P,_,_ = sol.calcP()
+            P_base = sol.P
             I_base, _, _ = sol.calcI()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
-                  ", P_base = {:.4E}".format(sol.P)
+                  ", P_base = {:.4E}".format(P_base)
             self.log.printL(msg)
 
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
@@ -522,15 +523,26 @@ class ITman():
                     sol.updtEvntList(evnt)
 
                     alfa, sol_new = sol.grad(corr, alfa_base, retry_grad)
+                    # BEGIN_DEBUG:
+                    I_mid,_,_ = sol_new.calcI()
+                    P_mid,_,_ = sol_new.calcP()
+                    # END_DEBUG
                     sol_new = self.restRnds(sol_new)
                     # Up to this point, the solution is fully restored!
 
                     sol_new.I,_,_ = sol_new.calcI()
-                    msg = "\nAfter applying " + \
-                          "alfa = {:.4E}:".format(alfa) + \
-                          " I = {:.4E}".format(sol_new.I) + \
-                          ", P = {:.4E}".format(sol_new.P)# + \
-#                          ", Q = {:.4E}".format(sol_new.Q)
+                    msg = "\nBefore:\n" + \
+                          "    I = {:.6E}".format(I_base) + \
+                          ", P = {:.4E}".format(P_base) + \
+                          "\n... after grad with " + \
+                          "alfa = {:.4E}:\n".format(alfa) + \
+                          "    I = {:.6E}".format(I_mid) + \
+                          ", P = {:.4E}".format(P_mid) + \
+                          "\n... and after restoring:\n" + \
+                          "    I = {:.6E}".format(sol_new.I) + \
+                          ", P = {:.4E}".format(sol_new.P)
+                    msg += "\nVariation in I: " + \
+                            str(100.0*(sol_new.I/I_base-1.0) + "%")
                     self.log.printL(msg)
 
                     if sol_new.I < I_base:
@@ -549,7 +561,7 @@ class ITman():
                                         str(last_grad))
                         self.log.printL("\nI was lowered, step given!")
                     else:
-                        # The conditions were not met. Discard this solution;
+                        # The conditions were not met. Discard this solution
                         # and try a new gradStep on the previous baseline
 
                         last_grad += 1
@@ -565,6 +577,7 @@ class ITman():
                         alfa_base = alfa
                         self.log.printL("\nI was not lowered... trying again!")
                     #
+                    input("> ")
                 #
             #
 
