@@ -514,15 +514,15 @@ class ITman():
                 retry_grad = False
                 #alfa_g_0 = 1.0
                 alfa_base = sol.histStepGrad[sol.NIterGrad]
-
+                stepMan = None
                 while keep_walking_grad:
-                    #input("\nProcurando passo a partir de "+str(alfa_g_0))
 
                     # This stays here in order to properly register the
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
 
-                    alfa, sol_new = sol.grad(corr, alfa_base, retry_grad)
+                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
+                                                      retry_grad, stepMan)
                     # BEGIN_DEBUG:
                     I_mid,_,_ = sol_new.calcI()
                     P_mid,_,_ = sol_new.calcP()
@@ -540,9 +540,9 @@ class ITman():
                           ", P = {:.4E}".format(P_mid) + \
                           "\n... and after restoring:\n" + \
                           "    I = {:.6E}".format(sol_new.I) + \
-                          ", P = {:.4E}".format(sol_new.P)
-                    msg += "\nVariation in I: " + \
-                            str(100.0*(sol_new.I/I_base-1.0) + "%")
+                          ", P = {:.4E}".format(sol_new.P) + \
+                          "\nVariation in I: " + \
+                            str(100.0*(sol_new.I/I_base-1.0)) + "%"
                     self.log.printL(msg)
 
                     if sol_new.I < I_base:
@@ -556,8 +556,8 @@ class ITman():
                         next_grad += 1
 
                         self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad))
-                        self.log.printL("\nLast grad counter = " + \
+                                        str(next_grad) + \
+                                        "\nLast grad counter = " + \
                                         str(last_grad))
                         self.log.printL("\nI was lowered, step given!")
                     else:
@@ -572,12 +572,12 @@ class ITman():
                         sol.copyHistFrom(sol_new)
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
-                        self.log.printL("\nLast grad counter = " + \
+                        self.log.printL("Last grad counter = " + \
                                         str(last_grad))
                         alfa_base = alfa
                         self.log.printL("\nI was not lowered... trying again!")
                     #
-                    input("> ")
+                    input("Press any key to continue... ")
                 #
             #
 
