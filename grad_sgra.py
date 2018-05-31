@@ -8,6 +8,7 @@ Created on Tue Jun 27 14:39:08 2017
 
 import numpy
 #from utils import testAlgn
+from utils import simp
 import matplotlib.pyplot as plt
 
 class stepMngr():
@@ -26,7 +27,7 @@ class stepMngr():
         self.histObj = list()
         self.k = k
         self.tolP = tolP
-        self.limP = 1e1 * tolP#numpy.sqrt(tolP)
+        self.limP = 1e4 * tolP#numpy.sqrt(tolP)
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
@@ -65,8 +66,10 @@ class stepMngr():
         """ Perform a check in this step value, updating the limit values for
         searching step values if it is the case."""
 
-        if Obj >= self.Obj0 or Obj < 0.0 or P >= self.limP:
+        if Obj > self.Obj0 or Obj < 0.0 or P >= self.limP:
             # Bad point!
+            self.log.printL("In check. Got a bad point, with alfa = " + \
+                            str(alfa) + ", Obj = "+str(Obj))
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
             return False, 1.1 * self.Obj0
@@ -91,6 +94,7 @@ class stepMngr():
         self.I0 = I0
         self.J0 = J0
         self.Obj0 = Obj0
+        self.log.printL("\n> Setting Obj0 to "+str(Obj0))
         self.best['obj'] = Obj0
         return Obj0
 
@@ -230,12 +234,17 @@ class stepMngr():
                             "{:.4E}...".format(alfaOpt))
 
             if alfaOpt > self.minBadStep:
-                #while alfaOpt > self.minBadStep:
                 alfaOpt = .5 * (alfaList[1] + self.minBadStep)
                 self.log.printL("> ...but since that would violate" + \
                                 " the max step condition,\n" + \
                                 " let's bisect to " + \
                                 "{:.4E}".format(alfaOpt) + " instead!")
+            elif alfaOpt < 0.0:
+                alfaOpt = .5 * alfaList[1]
+                self.log.printL("> ...but since that would be " + \
+                                "negative,\nlet's bisect to " + \
+                                "{:.4E}".format(alfaOpt) + " instead!")
+
             else:
                 self.log.printL("> ... seems legit!")
 
@@ -337,7 +346,14 @@ class stepMngr():
         # plot the history of the tried alfas, and corresponding P/I/Obj's
 
         if mustPlot:
-            linhAlfa = numpy.array([0.9*min(self.histStep),max(self.histStep)])
+            a = min(self.histStep)
+            cont = 0
+            if a == 0:
+                newhistStep = sorted(self.histStep)
+            while a == 0.0:
+                cont += 1
+                a = newhistStep[cont]
+            linhAlfa = numpy.array([0.9*a,max(self.histStep)])
             plt.loglog(self.histStep,self.histP,'o',label='P(alfa)')
             linP0 = self.P0 + numpy.zeros(len(linhAlfa))
             plt.loglog(linhAlfa,linP0,'--',label='P(0)')
@@ -345,37 +361,74 @@ class stepMngr():
             plt.loglog(linhAlfa,linTolP,'--',label='tolP')
             linLimP = self.limP + 0.0 * linP0
             plt.loglog(linhAlfa,linLimP,'--',label='limP')
+            # Plot final values in squares
+            plt.loglog(alfa,P,'s',label='Chosen value')
             plt.xlabel('alpha')
             plt.ylabel('P')
             plt.grid(True)
-            # Plot final values in squares
-            plt.loglog(alfa,P,'s',label='Chosen value')
-
             plt.legend()
             plt.title("P versus grad step for this grad run")
             plt.show()
 
             # Plot history of I
-            plt.loglog(self.histStep,self.histI,'o',label='I(alfa)')
-            linI = self.I0 + numpy.zeros(len(linhAlfa))
-            plt.loglog(linhAlfa,linI,'--',label='I(0)')
-            plt.plot(alfa,I,'s',label='Chosen value')
-            plt.ylabel("I")
+#            plt.semilogx(self.histStep,self.histI,'o',label='I(alfa)')
+#            linI = self.I0 + numpy.zeros(len(linhAlfa))
+#            plt.semilogx(linhAlfa,linI,'--',label='I(0)')
+#            plt.plot(alfa,I,'s',label='Chosen value')
+#            plt.ylabel("I")
+#            plt.xlabel("alpha")
+#            plt.title("I versus grad step for this grad run")
+#            plt.legend()
+#            plt.grid(True)
+#            plt.show()
+            plt.semilogx(self.histStep,self.histI-self.I0,'o',label='I(alfa)')
+            plt.semilogx(alfa,I-self.I0,'s',label='Chosen value')
+            xlim = max([.99*self.maxGoodStep, 1.01*alfa])
+            plt.ylabel("I-I0")
             plt.xlabel("alpha")
-            plt.title("I versus grad step for this grad run")
+            plt.title("I variation versus grad step for this grad run")
             plt.legend()
             plt.grid(True)
+            Imin = min(self.histI)
+            if Imin < self.I0:
+                ymax = self.I0 - Imin
+                ymin = - 1.1 * ymax
+            else:
+                ymax = .5 * (Imin - self.I0)
+                ymin = - ymax
+            plt.xlim(right = xlim)
+            plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
 
             # Plot history of Obj
-            plt.loglog(self.histStep,self.histObj,'o',label='Obj(alfa)')
-            linObj = self.Obj0 + numpy.zeros(len(linhAlfa))
-            plt.loglog(linhAlfa,linObj,'--',label='Obj(0)')
-            plt.plot(alfa,Obj,'s',label='Chosen value')
-            plt.ylabel("Obj")
+#            plt.semilogx(self.histStep,self.histObj,'o',label='Obj(alfa)')
+#            linObj = self.Obj0 + numpy.zeros(len(linhAlfa))
+#            plt.semilogx(linhAlfa,linObj,'--',label='Obj(0)')
+#            plt.plot(alfa,Obj,'s',label='Chosen value')
+#            plt.ylabel("Obj")
+#            plt.xlabel("alpha")
+#            plt.title("Obj versus grad step for this grad run")
+#            plt.legend()
+#            plt.grid(True)
+#            plt.xlim(right=self.maxGoodStep)
+#            plt.show()
+            plt.semilogx(self.histStep,self.histObj-self.Obj0,'o',\
+                         label='Obj(alfa)')
+            plt.semilogx(alfa,Obj-self.Obj0,'s',label='Chosen value')
+            plt.ylabel("Obj - Obj0")
             plt.xlabel("alpha")
-            plt.title("Obj versus grad step for this grad run")
+            plt.title("Obj-Obj0 versus grad step for this grad run")
+            plt.legend()
             plt.grid(True)
+            Objmin = min(self.histObj)
+            if Objmin < self.Obj0:
+                ymax = self.Obj0 - Objmin
+                ymin = - 1.1 * ymax
+            else:
+                ymax = .5 * (Objmin - self.Obj0)
+                ymin = - ymax
+            plt.xlim(right = xlim)
+            plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
         #
 
@@ -504,28 +557,31 @@ def calcJ(self):
 
     func = self.calcErr()#dx-phi
     vetL = numpy.empty((N,s))
-    vetIL = numpy.empty((N,s))
-
+    #vetIL = numpy.empty((N,s))
 
     for arc in range(s):
         for t in range(N):
             vetL[t,arc] = lam[t,:,arc].transpose().dot(func[t,:,arc])
 
-    for arc in range(s):
-        vetIL[0,arc] = (17.0/48.0) * vetL[0,arc]
-        vetIL[1,arc] = vetIL[0,arc] + (59.0/48.0) * vetL[1,arc]
-        vetIL[2,arc] = vetIL[1,arc] + (43.0/48.0) * vetL[2,arc]
-        vetIL[3,arc] = vetIL[2,arc] + (49.0/48.0) * vetL[3,arc]
-        for t in range(4,N-4):
-            vetIL[t] = vetIL[t-1,arc] + vetL[t,arc]
-        vetIL[N-4,arc] = vetIL[N-5,arc] + (49.0/48.0) * vetL[N-4,arc]
-        vetIL[N-3,arc] = vetIL[N-4,arc] + (43.0/48.0) * vetL[N-3,arc]
-        vetIL[N-2,arc] = vetIL[N-3,arc] + (59.0/48.0) * vetL[N-2,arc]
-        vetIL[N-1,arc] = vetIL[N-2,arc] + (17.0/48.0) * vetL[N-1,arc]
+#    for arc in range(s):
+#        vetIL[0,arc] = (17.0/48.0) * vetL[0,arc]
+#        vetIL[1,arc] = vetIL[0,arc] + (59.0/48.0) * vetL[1,arc]
+#        vetIL[2,arc] = vetIL[1,arc] + (43.0/48.0) * vetL[2,arc]
+#        vetIL[3,arc] = vetIL[2,arc] + (49.0/48.0) * vetL[3,arc]
+#        for t in range(4,N-4):
+#            vetIL[t] = vetIL[t-1,arc] + vetL[t,arc]
+#        vetIL[N-4,arc] = vetIL[N-5,arc] + (49.0/48.0) * vetL[N-4,arc]
+#        vetIL[N-3,arc] = vetIL[N-4,arc] + (43.0/48.0) * vetL[N-3,arc]
+#        vetIL[N-2,arc] = vetIL[N-3,arc] + (59.0/48.0) * vetL[N-2,arc]
+#        vetIL[N-1,arc] = vetIL[N-2,arc] + (17.0/48.0) * vetL[N-1,arc]
+#
+#    vetIL *= dt
+    Lint = 0.0
 
-    vetIL *= dt
+    for arc in range(self.s):
+        Lint += simp(vetL[:,arc],N)
 
-    Lint = vetIL[N-1,:].sum()
+    #Lint = vetIL[N-1,:].sum()
     Lpsi = mu.transpose().dot(psi)
     L = Lint + Lpsi
 
@@ -954,15 +1010,15 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
             self.log.printL("\n> Retrying alfa." + \
                             " Base value: {:.4E}".format(alfa_0))
         # LOWER alfa!
-        alfa = .9 * alfa_0
+        alfa = .1 * alfa_0
         if prntCond:
-            self.log.printL("\n> Let's try alfa 10% lower.")
+            self.log.printL("\n> Let's try alfa 90% lower.")
         P, I, Obj = stepMan.tryStep(self,alfa)
 
         while Obj > stepMan.Obj0:
-            alfa *= .9
+            alfa *= .1
             if prntCond:
-                self.log.printL("\n> Let's try alfa 10% lower.")
+                self.log.printL("\n> Let's try alfa 90% lower.")
             P, I, Obj = stepMan.tryStep(self,alfa)
 
         if prntCond:
@@ -978,7 +1034,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         stepMan = stepMngr(self.log, k = k, tolP = self.tol['P'], \
                            corr = corr, prntCond = prntCond)
         # Set the base values
-        stepMan.calcBase(self,P0,J0,I0)
+        stepMan.calcBase(self,P0,I0,J0)
 
         alfaLim = stepMan.findStepLim(self)
 
@@ -1032,8 +1088,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         alfa = stepMan.best['step']
     #
 
-    # "Sanity checking": if P<tolP, make sure I<I0, otherwise there will be a
-    # guaranteed rejection later...
+    # "Assured rejection prevention": if P<tolP, make sure I<I0, otherwise
+    # there will be a guaranteed rejection later...
 
     # SCREENING:
     self.log.printL("\n> Going for screening...")
@@ -1048,8 +1104,20 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         P, I, Obj = stepMan.tryStep(self,alfa)
     alfa = alfaUsed
 
+    # "Sanity checking": Is P0 = P(0), or I0 = I(0), or Obj0 = Obj(0)?
+    P_de_0, I_de_0, Obj_de_0 = stepMan.tryStep(self,0.0)
+    self.log.printL("\n> Sanity checking: ")
+    self.log.printL("P0 = " + str(stepMan.P0) + ", P(0) = " + \
+                    str(P_de_0) + ", DeltaP0 = " + str(P_de_0-stepMan.P0))
+    self.log.printL("I0 = " + str(stepMan.I0) + ", I(0) = " + \
+                    str(I_de_0) + ", DeltaI0 = " + str(I_de_0-stepMan.I0))
+    self.log.printL("Obj0 = " + str(stepMan.Obj0) + ", Obj(0) = " + \
+                    str(Obj_de_0) + ", DeltaObj0 = " + str(Obj_de_0-stepMan.Obj0))
+
     # Final plots and prints
     stepMan.endPrntPlot(alfa,mustPlot=self.dbugOptGrad['plotCalcStepGrad'])
+
+#    input("> ")
 
     if self.dbugOptGrad['pausCalcStepGrad']:
         input("\n> Run of calcStepGrad terminated. Press any key to continue.")

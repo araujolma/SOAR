@@ -409,13 +409,13 @@ class ITman():
         self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
                         "), P = {:.4E}".format(sol.P))
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
-        return sol
+        return sol, contRest
 
     def frstRestRnds(self,sol):
         self.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP()
-        sol = self.restRnds(sol)
+        sol, contRest = self.restRnds(sol)
 
         self.saveSol(sol,self.log.folderName + os.sep + 'solInitRest.pkl')
 
@@ -527,25 +527,26 @@ class ITman():
                     I_mid,_,_ = sol_new.calcI()
                     P_mid,_,_ = sol_new.calcP()
                     # END_DEBUG
-                    sol_new = self.restRnds(sol_new)
+                    sol_new, contRest = self.restRnds(sol_new)
                     # Up to this point, the solution is fully restored!
 
                     sol_new.I,_,_ = sol_new.calcI()
                     msg = "\nBefore:\n" + \
-                          "    I = {:.6E}".format(I_base) + \
+                          "  I = {:.6E}".format(I_base) + \
                           ", P = {:.4E}".format(P_base) + \
                           "\n... after grad with " + \
                           "alfa = {:.4E}:\n".format(alfa) + \
-                          "    I = {:.6E}".format(I_mid) + \
+                          "  dI = {:.6E}".format(I_mid-I_base) + \
                           ", P = {:.4E}".format(P_mid) + \
-                          "\n... and after restoring:\n" + \
-                          "    I = {:.6E}".format(sol_new.I) + \
+                          "\n... and after restoring " + str(contRest) + \
+                          " times:\n" + \
+                          "  dI = {:.6E}".format(sol_new.I-I_base) + \
                           ", P = {:.4E}".format(sol_new.P) + \
                           "\nVariation in I: " + \
                             str(100.0*(sol_new.I/I_base-1.0)) + "%"
                     self.log.printL(msg)
 
-                    if sol_new.I < I_base:
+                    if sol_new.I <= I_base:
                         # Here, the I functional has been lowered!
                         # The grad step is accepted:
                         # rebase the solution and leave this loop.
@@ -578,6 +579,10 @@ class ITman():
                         self.log.printL("\nI was not lowered... trying again!")
                     #
                     input("Press any key to continue... ")
+                #
+
+                if retry_grad:
+                    sol.rest(parallelOpt=self.parallelOpt)
                 #
             #
 

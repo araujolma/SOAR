@@ -93,7 +93,7 @@ if __name__ == "__main__":
         # Final restorations
         # TODO: NECESSÁRIO?
         #input("main: Done with GR cycle. I will go to final restorations now.\n")
-        sol = ITman.restRnds(sol)
+        sol,_ = ITman.restRnds(sol)
 
         # Display final messages, show solution and convergence reports
         line = "#"*66
