@@ -313,15 +313,16 @@ class prob(sgra):
         return f, f, 0.0*f
 
     def calcI(self):
-        N,s = self.N,self.s
-        f, _, _ = self.calcF()
-
-        Ivec = numpy.empty(s)
-        for arc in range(s):
-            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-            Ivec[arc] += f[1:(N-1),arc].sum()
-
-        Ivec *= 1.0/(N-1)
+#        N,s = self.N,self.s
+#        f, _, _ = self.calcF()
+#
+#        Ivec = numpy.empty(s)
+#        for arc in range(s):
+#            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
+#            Ivec[arc] += f[1:(N-1),arc].sum()
+#
+#        Ivec *= 1.0/(N-1)
+        Ivec = self.pi
         I = Ivec.sum()
         return I, I, 0.0
 #%%
@@ -423,7 +424,7 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
 
-    def plotTraj(self,mustSaveFig=True):
+    def plotTraj(self,mustSaveFig=True,altSol=None,name=None):
         """Plot the trajectory on the state space."""
 
         X = self.x[:,0,0]

@@ -27,7 +27,7 @@ class stepMngr():
         self.histObj = list()
         self.k = k
         self.tolP = tolP
-        self.limP = 1e4 * tolP#numpy.sqrt(tolP)
+        self.limP = 1e10 * tolP#numpy.sqrt(tolP)
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
@@ -346,6 +346,8 @@ class stepMngr():
         # plot the history of the tried alfas, and corresponding P/I/Obj's
 
         if mustPlot:
+
+            # Plot history of P
             a = min(self.histStep)
             cont = 0
             if a == 0:
@@ -371,61 +373,45 @@ class stepMngr():
             plt.show()
 
             # Plot history of I
-#            plt.semilogx(self.histStep,self.histI,'o',label='I(alfa)')
-#            linI = self.I0 + numpy.zeros(len(linhAlfa))
-#            plt.semilogx(linhAlfa,linI,'--',label='I(0)')
-#            plt.plot(alfa,I,'s',label='Chosen value')
-#            plt.ylabel("I")
-#            plt.xlabel("alpha")
-#            plt.title("I versus grad step for this grad run")
-#            plt.legend()
-#            plt.grid(True)
-#            plt.show()
-            plt.semilogx(self.histStep,self.histI-self.I0,'o',label='I(alfa)')
-            plt.semilogx(alfa,I-self.I0,'s',label='Chosen value')
+            plt.semilogx(self.histStep, 100.0*(self.histI/self.I0-1.0), 'o',\
+                         label='I(alfa)')
+            plt.semilogx(alfa, 100.0*(I/self.I0-1.0), 's', \
+                         label='Chosen value')
             xlim = max([.99*self.maxGoodStep, 1.01*alfa])
-            plt.ylabel("I-I0")
+            plt.ylabel("I variation (%)")
             plt.xlabel("alpha")
-            plt.title("I variation versus grad step for this grad run")
+            plt.title("I variation versus grad step for this grad run." + \
+                      " I0 = {:.4E}".format(self.I0))
             plt.legend()
             plt.grid(True)
             Imin = min(self.histI)
             if Imin < self.I0:
-                ymax = self.I0 - Imin
+                ymax = 100.0*(1.0 - Imin/self.I0)
                 ymin = - 1.1 * ymax
             else:
-                ymax = .5 * (Imin - self.I0)
+                ymax = 50.0 * (Imin/self.I0 - 1.0)
                 ymin = - ymax
             plt.xlim(right = xlim)
             plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
 
             # Plot history of Obj
-#            plt.semilogx(self.histStep,self.histObj,'o',label='Obj(alfa)')
-#            linObj = self.Obj0 + numpy.zeros(len(linhAlfa))
-#            plt.semilogx(linhAlfa,linObj,'--',label='Obj(0)')
-#            plt.plot(alfa,Obj,'s',label='Chosen value')
-#            plt.ylabel("Obj")
-#            plt.xlabel("alpha")
-#            plt.title("Obj versus grad step for this grad run")
-#            plt.legend()
-#            plt.grid(True)
-#            plt.xlim(right=self.maxGoodStep)
-#            plt.show()
-            plt.semilogx(self.histStep,self.histObj-self.Obj0,'o',\
-                         label='Obj(alfa)')
-            plt.semilogx(alfa,Obj-self.Obj0,'s',label='Chosen value')
-            plt.ylabel("Obj - Obj0")
+            plt.semilogx(self.histStep, 100.0*(self.histObj/self.Obj0-1.0), \
+                         'o', label='Obj(alfa)')
+            plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's', \
+                         label='Chosen value')
+            plt.ylabel("Obj variation (%)")
             plt.xlabel("alpha")
-            plt.title("Obj-Obj0 versus grad step for this grad run")
+            plt.title("Obj variation versus grad step for this grad run." + \
+                      " Obj0 = {:.4E}".format(self.Obj0))
             plt.legend()
             plt.grid(True)
             Objmin = min(self.histObj)
             if Objmin < self.Obj0:
-                ymax = self.Obj0 - Objmin
+                ymax = 100.0*(1.0-Objmin/self.Obj0)
                 ymin = - 1.1 * ymax
             else:
-                ymax = .5 * (Objmin - self.Obj0)
+                ymax = 50.0 * (Objmin/self.Obj0 - 1.0)
                 ymin = - ymax
             plt.xlim(right = xlim)
             plt.ylim(ymax = ymax, ymin = ymin)
@@ -545,7 +531,7 @@ def plotQRes(self,args):
     self.savefig(keyName='Qp',fullName='Qp')
 
 def calcJ(self):
-    N,s,dt = self.N,self.s,self.dt
+    N, s = self.N, self.s
     #x = self.x
 
     #phi = self.calcPhi()
@@ -555,7 +541,7 @@ def calcJ(self):
     #dx = ddt(x,N)
     I,Iorig,Ipf = self.calcI()
 
-    func = self.calcErr()#dx-phi
+    func = -self.calcErr() #like this, it's dx-phi
     vetL = numpy.empty((N,s))
     #vetIL = numpy.empty((N,s))
 
@@ -1073,16 +1059,14 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                             ", Obj = {:.4E}".format(ObjPos) + \
                             ", dObj/dAlfa = {:.4E}".format(gradObj))
 
-            self.log.printL("\n> Type S for entering a step value, or Q to quit:")
+            self.log.printL("\n> Type S for entering a step value, or any other key to quit:")
             inp = input("> ")
             if inp == 's':
                 self.log.printL("\n> Type the step value.")
                 inp = input("> ")
                 alfaRef = float(inp)
-            elif inp == 'q':
-                keepSrch = False
             else:
-                self.log.printL("\n> Did not understand input. Going to next cycle.")
+                keepSrch = False
             #
         #
         alfa = stepMan.best['step']

@@ -411,7 +411,7 @@ class sgra():
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
-    def calcErr(self):
+    def calcErr(self):#,inRest=False):
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
 #        phi = self.calcPhi()
@@ -419,16 +419,22 @@ class sgra():
 
         # New method, adequate for trapezoidal intergration scheme
         phi = self.calcPhi()
-        err = numpy.empty((self.N,self.n,self.s))
-        #err[0,:,:] = numpy.zeros((self.n,self.s))
+        err = numpy.zeros((self.N,self.n,self.s))
+
+        #if inRest:
         m = .5*(phi[0,:,:] + phi[1,:,:]) + \
                 -(self.x[1,:,:]-self.x[0,:,:])/self.dt
         err[0,:,:] = m
         err[1,:,:] = m
         for k in range(2,self.N):
             err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
-                        -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
-                        -err[k-1,:,:]
+            -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
+            -err[k-1,:,:]
+        #else:
+        #    for k in range(2,self.N-1):
+        #        err[k,:,:] = phi[k,:,:] + \
+        #                    -(self.x[k+1,:,:]-self.x[k-1,:,:])/self.dt
+
 
         return err
 

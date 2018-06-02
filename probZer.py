@@ -219,13 +219,13 @@ class prob(sgra):
         return f, f, 0.0*f
 
     def calcI(self):
-        N,s = self.N,self.s
-        f, _, _ = self.calcF()
-
-        Ivec = numpy.empty(s)
-        for arc in range(s):
-            Ivec[arc] += simp(f[:,arc],N)
-
+#        N,s = self.N,self.s
+#        f, _, _ = self.calcF()
+#
+#        Ivec = numpy.empty(s)
+#        for arc in range(s):
+#            Ivec[arc] += simp(f[:,arc],N)
+        Ivec = self.pi
         I = Ivec.sum()
         return I, I, 0.0
 #%%
