@@ -43,8 +43,10 @@ def ddt(vec,N):
 #    dvec *= (1.0/dt)
     return dvec
 
-def simp(vec,N):
-    """ Simple integration of array according to Simpson's method. """
+def simp(vec, N, onlyCoef=False):
+    """ Simple integration of array according to Simpson's method.
+    It can also only yield the coefficients if one wants to do the integration
+    by oneself (maybe in an optimized loop)."""
 
 #    coefList = numpy.ones(N)
 #    coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
@@ -52,10 +54,6 @@ def simp(vec,N):
 #    coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
 #    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
 #    coefList *= 1.0/(N-1)
-
-#    coefList = 4.0 * numpy.ones(N)
-#    coefList[0] = 1.0; coefList[N-1] = 1.0
-#    (coefList[k] = 2.0 for k in range(1,N-1) if k%2 == 0)
 
     coefList = numpy.ones(N)
     for k in range(1,N-1):
@@ -65,9 +63,20 @@ def simp(vec,N):
             coefList[k] = 4.0
     #
     coefList /= (3.0 * (N-1))
-    return coefList.dot(vec)
+
+    if onlyCoef:
+        return coefList
+    else:
+        return coefList.dot(vec)
 
 def testAlgn(x,y):
+    """Test the alignment of three points on a plane. Returns the determinant
+    of the three points, which acutally proportional to the area of the trian-
+    gle determined by the points.
+
+    x: array with the x coordinates
+    y: array with the y coordinates"""
+
     A = numpy.ones((3,3))
     A[:,1] = x
     A[:,2] = y

@@ -15,7 +15,19 @@ tolQ = 1e-4
 # Number of divisions in time array [-]
 N = 51
 #
-# Gradient step search objective modulation constant (see grad_sgra.py) [-]
-gradStepSrchCte = 1.0e-2
+# Gradient Step Search: P limit constant (see grad_sgra.py) [-]
+GSS_PLimCte = 1.0e5
+#
+# Grad Step Search: step limit tolerance (see grad_sgra.py) [-]
+GSS_stopStepLimTol = 1.0e-4
+#
+# Grad Step Search: objective gradient tolerance (see grad_sgra.py) [-]
+GSS_stopObjDerTol = 1.0e-4
+#
+# Grad Step Search: max number of objective evaluations (see grad_sgra.py) [-]
+GSS_stopNEvalLim = 100
+#
+# Grad Step Search: step tolerance for finding limit (see grad_sgra.py) [-]
+GSS_findLimStepTol = 1.0e-2
 #
 ###############################################################################

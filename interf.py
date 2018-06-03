@@ -61,7 +61,7 @@ class ITman():
     """
 
     bscImpStr = "\n >> "
-    dashStr = '\n-------------------------------------------------------------'
+    dashStr = '\n'+'-'*88
 
     def __init__(self,confFile='',probName='prob'):
         self.probName = probName
@@ -90,9 +90,9 @@ class ITman():
 
         if os.sep != '/':
             # windows systems!
-            msg = "\n\n" + '-'*88 + \
-                  "\nOverriding the parallel settings to False!\n" + \
-                  '-'*88 + "\n\n"
+            msg = "\n" + self.dashStr + \
+                  "\nOverriding the parallel settings to False!" + \
+                  self.dashStr + "\n\n"
             self.log.printL(msg)
             self.parallelOpt = {'gradLMPBVP':False,
                                 'restLMPBVP':False}
@@ -341,7 +341,7 @@ class ITman():
         # Plot trajectory
         sol.plotTraj()
 
-        # Setting debugging options (rest and grad)
+        # Setting debugging options (rest and grad). Declaration is in sgra.py!
         sol.dbugOptRest.setAll(opt={'pausRest':False,
                            'pausCalcP':False,
                            'plotP_int':False,
@@ -357,6 +357,7 @@ class ITman():
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
                            'plotCalcStepGrad': True,#flag,#
+                           'manuInptStepGrad': flag,
                            'pausCalcStepGrad':flag,#True,#
                            'plotQx':flag,
                            'plotQu':flag,
@@ -476,9 +477,10 @@ class ITman():
             # in order to update lambda and mu, and therefore calculate Q for
             # checking.
 
-            sol.P,_,_ = sol.calcP()
+            sol.P,_,_ = sol.calcP(mustPlotPint=True)
             P_base = sol.P
             I_base, _, _ = sol.calcI()
+            self.prntDashStr()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(P_base)
             self.log.printL(msg)
@@ -497,7 +499,7 @@ class ITman():
                 # get registered.
                 sol.updtEvntList(evnt)
                 sol.updtHistGrad(0.0)
-                sol.updtHistP()
+                sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
 
             else:
@@ -578,7 +580,7 @@ class ITman():
                         alfa_base = alfa
                         self.log.printL("\nI was not lowered... trying again!")
                     #
-                    input("Press any key to continue... ")
+                    #input("Press any key to continue... ")
                 #
 
                 if retry_grad:
@@ -605,11 +607,11 @@ class ITman():
 
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
-                self.prntDashStr()
+                #self.prntDashStr()
                 self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
 
             if self.plotSolGradCond(sol):
-                self.prntDashStr()
+                #self.prntDashStr()
                 self.log.printL("\nSolution showing condition is met!")
                 self.log.printL("\nSolution so far:")
                 sol.plotSol()

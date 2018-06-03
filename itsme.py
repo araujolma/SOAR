@@ -216,12 +216,12 @@ class problemConfigurationSGRA(problemConfiguration):
         """ "Internal" settings for SGRA.
         This should not interfere with the itsme functioning at all."""
 
-        section = 'sgra'
-        self.con['tolP'] = self.config.getfloat(section, 'tolP')
-        self.con['tolQ'] = self.config.getfloat(section, 'tolQ')
-        self.con['N'] = self.config.getint(section, 'N')
-        self.con['gradStepSrchCte'] = self.config.getfloat(section,
-                                                           'gradStepSrchCte')
+        for key in ['tolP', 'tolQ', 'GSS_PLimCte', 'GSS_stopStepLimTol',\
+                    'GSS_stopObjDerTol', 'GSS_findLimStepTol']:
+            self.con[key] = self.config.getfloat('sgra',key)
+
+        for key in ['N', 'GSS_stopNEvalLim']:
+            self.con[key] = self.config.getint('sgra',key)
 
 
 class initializeSGRA(initialize):

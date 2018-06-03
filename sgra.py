@@ -46,12 +46,7 @@ class sgra():
         # they should change with the problem
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
-        self.N = N
-        self.n = n
-        self.m = m
-        self.p = p
-        self.q = q
-        self.s = s
+        self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
 
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
@@ -59,15 +54,8 @@ class sgra():
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
 
-        self.boundary = {}
-        self.constants = {}
-        self.restrictions = {}
-
-        self.P = 1.0
-        self.Q = 1.0
-        self.I = 1.0
-        self.J = 1.0
-
+        self.boundary, self.constants, self.restrictions = {}, {}, {}
+        self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
 
         # Histories
         self.declHist()
@@ -93,6 +81,7 @@ class sgra():
                             'prntCalcStepGrad':tf,
                             'plotCalcStepGrad': tf,
                             'pausCalcStepGrad':tf,
+                            'manuInptStepGrad': tf,
                             'plotQx':tf,
                             'plotQu':tf,
                             'plotLam':tf,
@@ -157,12 +146,13 @@ class sgra():
         N = pConf.con['N']
         tolP = pConf.con['tolP']
         tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
+
+        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',\
+                    'GSS_stopNEvalLim','GSS_findLimStepTol']:
+            self.constants[key] = pConf.con[key]
 
         self.tol = {'P': tolP,
                     'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
         self.N = N
 
         self.dt = 1.0/(N-1)
@@ -185,10 +175,8 @@ class sgra():
             considered, then the function must be rewritten.
         """
 
-        s = self.s
-        t = self.t
+        s, t, N = self.s, self.t, self.N
         pi = self.pi
-        N = self.N
         dt = 1.0/(N-1)
         dtd = dt
 
