@@ -8,7 +8,7 @@ Created on Tue Jun 27 14:39:08 2017
 
 import numpy
 #from utils import testAlgn
-from utils import simp
+from utils import simp, testAlgn
 import matplotlib.pyplot as plt
 
 class stepMngr():
@@ -34,7 +34,6 @@ class stepMngr():
         self.stopObjDerTol = ctes['stopObjDerTol'] # been using 1e-4
         self.stopNEvalLim = ctes['stopNEvalLim'] # been using 100
         # for findStepLim
-        self.findLimObjTol = ctes['findLimObjTol'] # been using 1e-2
         self.findLimStepTol = ctes['findLimStepTol'] # been using 1e-2
 
         self.corr = corr
@@ -170,20 +169,32 @@ class stepMngr():
 
     def tryStepSens(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try a given step and the sensitivity as well. """
-
-        stepArry = numpy.array([alfa*.99, alfa, alfa*1.01])
+        da = self.findLimStepTol * .1
+        NotAlgn = True
         P, I, Obj = self.tryStep(sol, alfa, plotSol=plotSol, plotPint=plotPint)
-        Pm, Im, Objm = self.tryStep(sol, stepArry[0])
-        PM, IM, ObjM = self.tryStep(sol, stepArry[2])
 
-        dalfa = stepArry[2] - stepArry[0]
-        gradP = (PM-Pm) / dalfa
-        gradI = (IM-Im) / dalfa
-        gradObj = (ObjM-Objm) / dalfa
+        while NotAlgn:
+            stepArry = numpy.array([alfa*(1.-da), alfa, alfa*(1.+da)])
+            Pm, Im, Objm = self.tryStep(sol, stepArry[0])
+            PM, IM, ObjM = self.tryStep(sol, stepArry[2])
 
-        outp = {'P': numpy.array([Pm,P,PM]), 'I': numpy.array([Im,I,IM]),
-                'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
-                'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
+            dalfa = stepArry[2] - stepArry[0]
+            gradP = (PM-Pm) / dalfa
+            gradI = (IM-Im) / dalfa
+            gradObj = (ObjM-Objm) / dalfa
+
+            outp = {'P': numpy.array([Pm,P,PM]), 'I': numpy.array([Im,I,IM]),
+                    'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
+                    'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
+
+            algnP = testAlgn(stepArry,outp['P'])
+            algnI = testAlgn(stepArry,outp['I'])
+            algnObj = testAlgn(stepArry,outp['obj'])
+            # Test alignment; if not aligned, keep lowering
+            if max([abs(algnP),abs(algnI),abs(algnObj)]) < 1.0e-10:
+                NotAlgn = False
+            da *= .1
+        #
 
         return outp
 
@@ -256,14 +267,16 @@ class stepMngr():
         elif alfaOpt < 0.0:
             alfaOpt = .5 * min(alfaList)
             self.log.printL("> Quadratic fit suggested a negative step.\n" + \
-                            "  What to do? I don't know. Let's stay with " + \
-                            "{:.4E} instead.".format(alfaOpt))
-            input("> ???")
+                           "  Bisecting back into that region with " + \
+                            "alfa = {:.4E} instead.".format(alfaOpt))
+#                            "  What to do? I don't know. Let's stay with " + \
+#                            "{:.4E} instead.".format(alfaOpt))
+#            input("> ???")
         elif alfaOpt > self.minBadStep:
-            alfaOpt = .5 * (self.maxGoodStep + self.minBadStep)
+            alfaOpt = .5 * (alfaList[1] + self.maxGoodStep)
             self.log.printL("> Quadratic fit suggested a bad step.\n" + \
-                            "  Bisecting into that region with alfa = " + \
-                            "{:.4E} instead.".format(alfaOpt))
+                            "  Bisecting forward into that region with " + \
+                            "alfa = {:.4E} instead.".format(alfaOpt))
         else:
             self.log.printL("  Let's do it!")
 
@@ -286,7 +299,7 @@ class stepMngr():
                                 " of objective function with step.\n" + \
                                 "(local minimum, perhaps?)")
             return True
-        elif (self.minBadStep/self.maxGoodStep - 1.0) < self.stopStepLimTol \
+        elif abs(alfa/self.maxGoodStep - 1.0) < self.stopStepLimTol \
                 and gradObj < 0.0:
             self.log.printL("\n> Stopping step search: high proximity" + \
                             " to the step limit value.")
@@ -337,7 +350,7 @@ class stepMngr():
             if self.mustPrnt:
                 self.log.printL("- alfaLow = {:.4E}, ".format(alfaLow) + \
                                 "alfaHigh = {:.4E}".format(alfaHigh))
-            ObjSep = (abs(Obj/self.Obj0 - 1.0) > self.findLimObjTol)
+            #ObjSep = (abs(Obj/self.Obj0 - 1.0) > self.findLimObjTol)
             StepSep = (abs(1.0-alfaLow/alfaHigh) > self.findLimStepTol)
         #
 
@@ -1002,7 +1015,6 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                 'stopStepLimTol': self.constants['GSS_stopStepLimTol'], # been using 1e-4
                 'stopObjDerTol': self.constants['GSS_stopObjDerTol'],  # been using 1e-4
                 'stopNEvalLim': self.constants['GSS_stopNEvalLim'], # been using 100
-                'findLimObjTol': 0.0,#self.constants['GSS_findLimObjTol'], # been using 1e-2
                 'findLimStepTol': self.constants['GSS_findLimStepTol']} # been using 1e-2
 
         # Create new stepManager object
@@ -1038,15 +1050,15 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                                 ", dObj/dAlfa = {:.4E}".format(gradObj))
 
             alfaRef = stepMan.fitNewStep(alfaList,ObjList)
-            outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
-            gradObj = outp['gradObj']
-            ObjPos = outp['obj'][1]
-            if prntCond:
+
+            if self.dbugOptGrad['manuInptStepGrad']:
+                outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
+                gradObj = outp['gradObj']
+                ObjPos = outp['obj'][1]
                 self.log.printL("\n> Now, with alfa = {:.4E}".format(alfaRef) + \
                                 ", Obj = {:.4E}".format(ObjPos) + \
                                 ", dObj/dAlfa = {:.4E}".format(gradObj))
 
-            if self.dbugOptGrad['manuInptStepGrad']:
                 self.log.printL("\n> Type S for entering a step value, or" + \
                                 " any other key to quit:")
                 inp = input("> ")

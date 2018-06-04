@@ -356,7 +356,7 @@ class ITman():
         sol.dbugOptGrad.setAll(opt={'pausGrad':flag,
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
-                           'plotCalcStepGrad': True,#flag,#
+                           'plotCalcStepGrad': flag,#True,#
                            'manuInptStepGrad': flag,
                            'pausCalcStepGrad':flag,#True,#
                            'plotQx':flag,

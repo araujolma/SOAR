@@ -18,8 +18,8 @@ N = 51
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
 GSS_PLimCte = 1.0e5
 #
-# Grad Step Search: step limit tolerance (see grad_sgra.py) [-]
-GSS_stopStepLimTol = 1.0e-4
+# Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
+GSS_stopStepLimTol = 1.0e-2
 #
 # Grad Step Search: objective gradient tolerance (see grad_sgra.py) [-]
 GSS_stopObjDerTol = 1.0e-4
