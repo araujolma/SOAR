@@ -11,6 +11,7 @@ A module for testing the MSGRA formulation with LQR problems.
 import numpy
 from sgra import sgra
 from itsme import problemConfigurationSGRA
+from utils import simp
 import matplotlib.pyplot as plt
 
 class problemConfigurationSGRA2(problemConfigurationSGRA):
@@ -39,21 +40,11 @@ class problemConfigurationSGRA2(problemConfigurationSGRA):
 class prob(sgra):
     probName = 'probLQR'
 
-    def loadParsFromFile(self,file):
+    def loadParsFromFile2(self,file):
         pConf = problemConfigurationSGRA2(fileAdress=file)
-        pConf.sgra()
         pConf.dyn()
         pConf.restr()
         pConf.cost()
-
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
-
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
 
         self.constants['a11'] = pConf.con['a11']
         self.constants['a12'] = pConf.con['a12']
@@ -65,10 +56,6 @@ class prob(sgra):
                              'start2': pConf.con['start2'],
                              'finish1':pConf.con['finish1'],
                              'finish2':pConf.con['finish2']}
-        self.N = N
-
-        self.dt = 1.0/(N-1)
-        self.t = numpy.linspace(0,1.0,N)
 
     def initGues(self,opt={}):
 
@@ -153,6 +140,7 @@ class prob(sgra):
             # Get parameters from file
 
             self.loadParsFromFile(file=inpFile)
+            self.loadParsFromFile2(file=inpFile)
 
             # The actual "initial guess"
 
@@ -165,7 +153,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([5.0])
+            pi = numpy.array([1.0])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -261,12 +249,14 @@ class prob(sgra):
             phiu[:,0,0,arc] = pi[arc]
             phiu[:,1,0,arc] = pi[arc]
 
-            phip[:,0,arc,arc] = numpy.zeros(N)#auto1 * self.x[:,0,arc] + self.u[:,0,arc]
-            phip[:,1,arc,arc] = numpy.zeros(N)#auto2 * self.x[:,1,arc] + self.u[:,0,arc]
+            phip[:,0,arc,arc] = a11 * self.x[:,0,arc] + \
+                                a12 * self.x[:,1,arc] + self.u[:,0,arc]
+            phip[:,1,arc,arc] = a21 * self.x[:,0,arc] + \
+                                a22 * self.x[:,1,arc] + self.u[:,0,arc]
 
-            #fp[:,arc,arc] = (self.x[:,0,arc] - finish1) ** 2 + \
-            #                (self.x[:,1,arc] - finish2) ** 2 + \
-            #                contCostWeig * self.u[:,0,arc]**2
+            fp[:,arc,arc] = (self.x[:,0,arc] - finish1) ** 2 + \
+                            (self.x[:,1,arc] - finish2) ** 2 + \
+                            contCostWeig * self.u[:,0,arc]**2
             fx[:,0,arc] = 2.0 * (self.x[:,0,arc] - finish1) * pi[arc]
             fx[:,1,arc] = 2.0 * (self.x[:,1,arc] - finish2) * pi[arc]
             fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc]
@@ -313,16 +303,13 @@ class prob(sgra):
         return f, f, 0.0*f
 
     def calcI(self):
-#        N,s = self.N,self.s
-#        f, _, _ = self.calcF()
-#
-#        Ivec = numpy.empty(s)
-#        for arc in range(s):
-#            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-#            Ivec[arc] += f[1:(N-1),arc].sum()
-#
-#        Ivec *= 1.0/(N-1)
-        Ivec = self.pi
+        N,s = self.N,self.s
+        f, _, _ = self.calcF()
+
+        Ivec = numpy.empty(s)
+        for arc in range(s):
+            Ivec[arc] = simp(f[:,arc],N)
+
         I = Ivec.sum()
         return I, I, 0.0
 #%%

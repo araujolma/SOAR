@@ -1050,9 +1050,9 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                                 ", dObj/dAlfa = {:.4E}".format(gradObj))
 
             alfaRef = stepMan.fitNewStep(alfaList,ObjList)
-
+            outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
             if self.dbugOptGrad['manuInptStepGrad']:
-                outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
+
                 gradObj = outp['gradObj']
                 ObjPos = outp['obj'][1]
                 self.log.printL("\n> Now, with alfa = {:.4E}".format(alfaRef) + \
@@ -1078,18 +1078,19 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     # "Assured rejection prevention": if P<tolP, make sure I<I0, otherwise
     # there will be a guaranteed rejection later...
 
-#    # SCREENING:
-#    self.log.printL("\n> Going for screening...")
-#    mf = 10.0**(1.0/10.0)
-#    alfaUsed = alfa
-#    for j in range(10):
-#        alfa *= mf
-#        P, I, Obj = stepMan.tryStep(self,alfa)
-#    alfa = alfaUsed
-#    for j in range(10):
-#        alfa /= mf
-#        P, I, Obj = stepMan.tryStep(self,alfa)
-#    alfa = alfaUsed
+    if self.dbugOptGrad['plotCalcStepGrad']:
+        # SCREENING:
+        self.log.printL("\n> Going for screening...")
+        mf = 10.0**(1.0/10.0)
+        alfaUsed = alfa
+        for j in range(10):
+            alfa *= mf
+            P, I, Obj = stepMan.tryStep(self,alfa)
+        alfa = alfaUsed
+        for j in range(10):
+            alfa /= mf
+            P, I, Obj = stepMan.tryStep(self,alfa)
+        alfa = alfaUsed
 #
 #    # "Sanity checking": Is P0 = P(0), or I0 = I(0), or Obj0 = Obj(0)?
 #    P_de_0, I_de_0, Obj_de_0 = stepMan.tryStep(self,0.0)
@@ -1115,7 +1116,7 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-    #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    #self.plotSol(opt={'mode':'var','x':corr['x'],'u':corr['u'],'pi':corr['pi']})
     #input("Olha lá a correção...")
 
     # Calculation of alfa
