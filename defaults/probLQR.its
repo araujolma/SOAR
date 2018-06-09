@@ -10,7 +10,7 @@
 tolP = 1e-8
 #
 # Tolerance for Q functional
-tolQ = 1e-8
+tolQ = 1e-6
 #
 # Number of divisions in time array [-]
 N = 501
@@ -41,15 +41,19 @@ a11 = 0.0
 # derivative of first state time derivative, with respect to second state
 a12 = -2.0
 #
-#
 # derivative of second state time derivative, with respect to first state
 a21 = 2.0
-#
 #
 # derivative of second state time derivative, with respect to second state
 a22 = 0.0
 #
+# derivative of first state time derivative, with respect to control
+b1 = 1.0
 #
+# derivative of second state time derivative, with respect to control
+b2 = 1.0
+#
+
 ###############################################################################
 
 ###############################################################################
@@ -71,6 +75,18 @@ finish2 = 0.0
 [cost] # Cost function parameters
 #
 # Control cost weight
-contCostWeig = 1.
+contCostWeig = 0.
+#
+# Time cost weight
+timeCostWeig = 1.
+#
+# State 1 quadratic cost weight (x1**2 term)
+sttCostWeig11 = 1.
+#
+# State 1 and state 2 cross cost weight (x1*x2 term)
+sttCostWeig12 = 0.
+#
+# State 2 quadratic cost weight (x2**2 term)
+sttCostWeig22 = 1.
 #
 ###############################################################################
