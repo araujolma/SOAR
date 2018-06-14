@@ -10,13 +10,13 @@
 tolP = 1e-8
 #
 # Tolerance for Q functional
-tolQ = 1e-6
+tolQ = 1e-4
 #
 # Number of divisions in time array [-]
-N = 501
+N = 10001
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e4
+GSS_PLimCte = 1.0e6
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
@@ -36,22 +36,22 @@ GSS_findLimStepTol = 1.0e-2
 [dyn] # Dynamics parameters
 #
 # derivative of first state time derivative, with respect to first state
-a11 = 0.0
+a11 = 10.0
 #
 # derivative of first state time derivative, with respect to second state
-a12 = -2.0
+a12 = 0.0
 #
 # derivative of second state time derivative, with respect to first state
-a21 = 2.0
+a21 = 0.1
 #
 # derivative of second state time derivative, with respect to second state
-a22 = 0.0
+a22 = -1.0
 #
 # derivative of first state time derivative, with respect to control
-b1 = 1.0
+b1 = -5.0
 #
 # derivative of second state time derivative, with respect to control
-b2 = 1.0
+b2 = 0.0
 #
 
 ###############################################################################
@@ -75,18 +75,18 @@ finish2 = 0.0
 [cost] # Cost function parameters
 #
 # Control cost weight
-contCostWeig = 0.
+contCostWeig = 1.
 #
 # Time cost weight
 timeCostWeig = 1.
 #
 # State 1 quadratic cost weight (x1**2 term)
-sttCostWeig11 = 1.
+sttCostWeig11 = 0.
 #
 # State 1 and state 2 cross cost weight (x1*x2 term)
 sttCostWeig12 = 0.
 #
 # State 2 quadratic cost weight (x2**2 term)
-sttCostWeig22 = 1.
+sttCostWeig22 = 0.
 #
 ###############################################################################

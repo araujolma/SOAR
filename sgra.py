@@ -193,7 +193,8 @@ class sgra():
 
         # Check consistency of requested time interval, override if necessary
         if intv[0] < lowrBnd or intv[1] > uperBnd:
-            self.log.printL("plotCat: inadequate time interval used! Ignoring...")
+            self.log.printL("plotCat: inadequate time interval used!" + \
+                            " Ignoring...")
             if intv[0] < lowrBnd:
                 intv[0] = lowrBnd
             if intv[1] > uperBnd:
@@ -244,7 +245,8 @@ class sgra():
 
                 #print("indEnd =",indEnd)
 
-                # Plot the function at each arc. Label only the first drawed arc
+                # Plot the function at each arc.
+                #Label only the first drawed arc
                 if mustLabl:
                     plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
                              func[indBgin:indEnd,arc],\
@@ -268,15 +270,16 @@ class sgra():
             try:
                 plt.savefig(fileName, bbox_inches='tight', pad_inches=0.1)
             except:
-                self.log.printL("Sorry, pdf saving failed... Are you using Windows?")
-                self.log.printL("Anyway, you can always load the object and use some "+ \
-                      "of its plotting methods later, I guess.")
+                self.log.printL("Sorry, pdf saving failed... " + \
+                                "Are you using Windows?\n" + \
+                                "Anyway, you can always load the object " + \
+                                "and use some of its plotting methods "+ \
+                                "later, I guess.")
         else:
             plt.show()
         #
         plt.clf()
         plt.close('all')
-        #input("saveFig: Checa aí se os índices (grad, rest, event) estão certos...")
 
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
@@ -296,7 +299,7 @@ class sgra():
         Np = self.n + self.m
 
 
-        # First state
+        # First state (just because of the "title"...)
         plt.subplot2grid((Np,1),(0,0))
         self.plotCat(self.x[:,0,:],piIsTime=False)
         plt.grid(True)
@@ -437,13 +440,23 @@ class sgra():
             pool.join()
         else:
             if rho>0.5:
-                self.log.printL("\nRunning GRAD in sequential (non-parallel) mode...\n")
+                self.log.printL("\nRunning GRAD in sequential " + \
+                                "(non-parallel) mode...\n")
             else:
-                self.log.printL("\nRunning REST in sequential (non-parallel) mode...\n")
+                self.log.printL("\nRunning REST in sequential " + \
+                                "(non-parallel) mode...\n")
             res = list()
             for j in range(self.Ns+1):
                 outp = helper.propagate(j)
                 res.append(outp)
+            #
+        #
+
+        # TODO: put also other conditions here to avoid calculating and
+        # plotting in every grad step
+        if rho > 0.5:
+            helper.showEig(self.N,self.n,self.s)#,mustShow=True)
+        self.savefig(keyName='eig',fullName='eigenvalues')
 
         A,B,C,lam,mu = helper.getCorr(res,self.log)
 
