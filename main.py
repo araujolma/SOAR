@@ -34,7 +34,7 @@ if __name__ == "__main__":
         if len(sys.argv) > 1:
             probName = sys.argv[1].lower()
         else:
-            probName = defaultProb
+            probName = defaultProb.lower()
 
         if 'cart' in probName:
             import probCart as prob

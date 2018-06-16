@@ -151,7 +151,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([2.])
+            pi = numpy.array([1.])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -165,6 +165,9 @@ class prob(sgra):
             self.pi = pi
             self.lam = lam
             self.mu = mu
+
+            self.Kpf = 1000.0
+            self.uLim = 1.0
 
             solInit = self.copy()
 
@@ -265,13 +268,23 @@ class prob(sgra):
             fp[:,arc,arc] = sttCostWeig11 * (ex1**2) + \
                             sttCostWeig22 * (ex2**2) + \
                             2. * sttCostWeig12 * ex1 * ex2 + \
-                            contCostWeig * (self.u[:,0,arc]**2) + timeCostWeig
+                            contCostWeig * (self.u[:,0,arc]**2) + \
+                            timeCostWeig + \
+                            self.Kpf * ((self.u[:,0,arc]>self.uLim) * \
+                            (self.u[:,0,arc]-self.uLim)**2 + \
+                                (self.u[:,0,arc]<-self.uLim) * \
+                                (self.u[:,0,arc]+self.uLim)**2 )
 
             fx[:,0,arc] = 2.0 * pi[arc] * \
                           (sttCostWeig11 * ex1 + sttCostWeig12 * ex2)
             fx[:,1,arc] = 2.0 * pi[arc] * \
                           (sttCostWeig12 * ex1 + sttCostWeig22 * ex2)
-            fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc]
+            fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc] +\
+                          2.0 * self.Kpf * pi[arc] * \
+                          ( (self.u[:,0,arc]-self.uLim) *  \
+                           (self.u[:,0,arc]>self.uLim) + \
+                           (self.u[:,0,arc]+self.uLim) *  \
+                           (self.u[:,0,arc]<-self.uLim) )
         #
 
         Grads['phix'] = phix
@@ -301,34 +314,43 @@ class prob(sgra):
 
     def calcF(self):
         N,s = self.N,self.s
-        f = numpy.empty((N,s))
+        fOrig = numpy.empty((N,s))
+        fPF = numpy.empty((N,s))
 
         sttEndP1 = self.restrictions['finish1']
         sttEndP2 = self.restrictions['finish2']
         contCostWeig = self.constants['contCostWeig']
-        timeCostWeig = self.constants['contCostWeig']
+        timeCostWeig = self.constants['timeCostWeig']
         sttCostWeig11 = self.constants['sttCostWeig11']
         sttCostWeig12 = self.constants['sttCostWeig12']
         sttCostWeig22 = self.constants['sttCostWeig22']
 
         for arc in range(s):
             ex1, ex2 = self.x[:,0,arc]-sttEndP1, self.x[:,1,arc]-sttEndP2
-            f[:,arc] = self.pi[arc] * ( contCostWeig * self.u[:,0,arc]**2 + \
+            fOrig[:,arc] = self.pi[arc] * \
+                        ( contCostWeig * self.u[:,0,arc]**2 + \
                         sttCostWeig11 * ex1**2 + sttCostWeig22 * ex2**2 + \
                         2. * sttCostWeig12 * ex1 * ex2 + timeCostWeig )
+            fPF[:,arc] = self.pi[arc] * self.Kpf * \
+                        ((self.u[:,0,arc]>self.uLim) * \
+                          (self.u[:,0,arc]- self.uLim)**2 + \
+                         (self.u[:,0,arc]<-self.uLim) * \
+                          (self.u[:,0,arc]+self.uLim)**2)
 
-        return f, f, 0.0*f
+        return fOrig+fPF, fOrig, fPF
 
     def calcI(self):
         N,s = self.N,self.s
-        f, _, _ = self.calcF()
+        _, fOrig, fPF = self.calcF()
 
-        Ivec = numpy.empty(s)
+        IvecOrig = numpy.empty(s)
+        IvecPF = numpy.empty(s)
         for arc in range(s):
-            Ivec[arc] = simp(f[:,arc],N)
+            IvecOrig[arc] = simp(fOrig[:,arc],N)
+            IvecPF[arc] = simp(fPF[:,arc],N)
 
-        I = Ivec.sum()
-        return I, I, 0.0
+        IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
+        return IOrig+IPF, IOrig, IPF
 #%%
 
     def plotSol(self,opt={},intv=[]):
