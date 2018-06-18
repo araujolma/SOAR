@@ -121,13 +121,14 @@ class LMPBVPhelp():
         #print("\nLá vem os autovalores!")
 
         #plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.subplot2grid((s,1),(0,0))
+        #plt.subplot2grid((s,1),(0,0))
 
         eigen = numpy.empty((N,n,s),dtype=complex)
 
         for arc in range(s):
             eigen[:,:,arc] = numpy.linalg.eigvals(self.DynMat[:,:n,:n,arc])
             for i in range(n):
+                plt.subplot2grid((s,1),(i,0))
                 plt.plot(eigen[:,i,arc].real,eigen[:,i,arc].imag,'o-',\
                          label='eig #' + str(i+1) + ", start @(" + \
                          str(eigen[0,i,arc])+")")

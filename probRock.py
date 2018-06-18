@@ -153,11 +153,11 @@ class prob(sgra):
                 tarc = numpy.zeros((arclen,s+1))
                 for k in range(s):
                     tarc[:,k] = t[k*arclen:(k+1)*arclen]
-                
+
                 remainder = len(t) % arclen
                 for r in range(remainder):
                     tarc[r,s] = t[s*arclen+r]
-                
+
                 for arc in range(s):
                     x[:,0,arc] = h_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
                     #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
@@ -175,7 +175,7 @@ class prob(sgra):
                         u[k,1,:] = (numpy.pi/2)
                     elif total_time*t[k]>600:
                         u[k,1,:] = (numpy.pi/2)*0.27
-                
+
                 pi = total_time*numpy.ones(p)
             else:
 ############### Naive
@@ -274,9 +274,6 @@ class prob(sgra):
                 self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
                 raise KeyError
 
-            # Gradient step search options
-            gradStepSrchCte = inputDict['gradStepSrchCte']
-
             # boundary conditions
             h_initial = inputDict['h_initial']
             V_initial = inputDict['V_initial']
@@ -312,8 +309,12 @@ class prob(sgra):
             constants['DampSlop'] = DampSlop
             constants['PFmode'] = PFmode
             constants['Kpf'] = Kpf
-            constants['gradStepSrchCte'] = gradStepSrchCte
+            #constants['gradStepSrchCte'] = gradStepSrchCte
             self.constants = constants
+
+            # Gradient step search options
+            #gradStepSrchCte = inputDict['gradStepSrchCte']
+            self.loadParsFromFile(file=inpFile)
 
             # restrictions
             alpha_min = -inputDict['AoAmax'] * d2r  # in rads
