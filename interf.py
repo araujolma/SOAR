@@ -77,6 +77,7 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
+        self.ShowEigRate = 10
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
 
@@ -443,6 +444,12 @@ class ITman():
     def showHistGRrateCond(self,sol):
         return True
 
+    def showEigCond(self,sol):
+        if sol.NIterGrad % self.ShowEigRate == 0:
+            return True
+        else:
+            return False
+
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
@@ -509,7 +516,7 @@ class ITman():
                 self.log.printL(msg)
                 sol.plotSol()
                 sol.plotF()
-                sol.plotTraj()
+                #sol.plotTraj()
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
@@ -604,6 +611,13 @@ class ITman():
             if self.showHistGRrateCond(sol):
                 self.log.printL("\nHistGRrate showing condition is met!")
                 sol.showHistGRrate()
+
+            if self.showEigCond(sol):
+                self.log.printL("\nEigenvalue showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['eig'] = True
+            else:
+                sol.save['eig'] = False
 
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")

@@ -104,7 +104,8 @@ class sgra():
                      'histI':True,
                      'histGradStep':True,
                      'traj':True,
-                     'comp':True},\
+                     'comp':True,
+                     'eig':True},\
                                 inpName='Plot saving options')
 
         # Paralellism options
@@ -454,9 +455,9 @@ class sgra():
 
         # TODO: put also other conditions here to avoid calculating and
         # plotting in every grad step
-        if rho > 0.5:
+        if self.save.get('eig',False) and rho > 0.5:
             helper.showEig(self.N,self.n,self.s)#,mustShow=True)
-        self.savefig(keyName='eig',fullName='eigenvalues')
+            self.savefig(keyName='eig',fullName='eigenvalues')
 
         A,B,C,lam,mu = helper.getCorr(res,self.log)
 

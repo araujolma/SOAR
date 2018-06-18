@@ -113,7 +113,7 @@ tolQ = 1e-4
 N = 501
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e5
+GSS_PLimCte = 1.0e6
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2

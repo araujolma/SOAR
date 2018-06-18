@@ -1562,6 +1562,7 @@ class prob(sgra):
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
 
+        # Curve 1: height
         plt.subplot2grid((11,1),(0,0))
         altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
         self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
@@ -1575,6 +1576,7 @@ class prob(sgra):
         plt.title(titlStr)
         plt.xlabel("t [s]")
 
+        # Curve 2: speed
         plt.subplot2grid((11,1),(1,0))
         altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
         self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
@@ -1583,6 +1585,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 3: flight path angle
         plt.subplot2grid((11,1),(2,0))
         altSol.plotCat(altSol.x[:,2,:]*r2d,labl=altSolLabl)
         self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
@@ -1592,6 +1595,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 4: Mass
         plt.subplot2grid((11,1),(3,0))
         altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
         self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
@@ -1600,6 +1604,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 5: Control #1 (angle of attack)
         plt.subplot2grid((11,1),(4,0))
         altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
         self.plotCat(self.u[:,0,:],mark='--',color='c',labl=currSolLabl)
@@ -1608,6 +1613,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 6: Control #2 (thrust)
         plt.subplot2grid((11,1),(5,0))
         altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
         self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
@@ -1617,13 +1623,12 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-        ######################################
+        # Curve 7: angle of attack
         alpha,beta = self.calcDimCtrl()
         alpha_alt,beta_alt = altSol.calcDimCtrl()
         plt.subplot2grid((11,1),(6,0))
         altSol.plotCat(alpha_alt*r2d,labl=altSolLabl)
         self.plotCat(alpha*r2d,mark='--',color='k',labl=currSolLabl)
-
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
         #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
@@ -1633,10 +1638,10 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 8: thrust level
         plt.subplot2grid((11,1),(7,0))
         altSol.plotCat(beta_alt,labl=altSolLabl)
         self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
-
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
         #plt.plot(t,beta*0+beta_min,'-.k')
@@ -1644,9 +1649,8 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.ylabel("beta [-]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-        ######################################
 
-        ######################################
+        # Curve 9: thrust
         plt.subplot2grid((11,1),(8,0))
         thrust = numpy.empty_like(beta)
         thrust_alt = numpy.empty_like(beta_alt)
@@ -1664,10 +1668,11 @@ class prob(sgra):
         plt.ylabel("Thrust [kN]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 10: acceleration
         plt.subplot2grid((11,1),(9,0))
         solAcc =  self.calcAcc()
         altSolAcc = altSol.calcAcc()
-        plt.plot([0.0,self.pi.sum()],\
+        plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
                   '--',label='accel. limit')
         altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
@@ -1677,7 +1682,7 @@ class prob(sgra):
         plt.ylabel("Tang. accel. [m/s²]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-        ######################################
+        # 'Curve' 11: pi's
         ax = plt.subplot2grid((11,1),(10,0))
         position = numpy.arange(s)
         position_alt = numpy.arange(s_alt)
@@ -1731,7 +1736,7 @@ class prob(sgra):
                                 "compare. Ignoring...")
                 compare=False
             else:
-                X_alt = X; Z_alt = Z;
+                X_alt = 0.0 * X; Z_alt = 0.0 * Z;
                 sigma_alt = 0.0
                 X_alt[0] = 0.0
                 Z_alt[0] = 0.0
@@ -1797,6 +1802,10 @@ class prob(sgra):
         # Remaining points are unused; it is best to repeat the final point
         X[iCont+1 :] = X[iCont]
         Z[iCont+1 :] = Z[iCont]
+
+        if compare:
+            X_alt[iCont+1 :] = X_alt[iCont]
+            Z_alt[iCont+1 :] = Z_alt[iCont]
 
         # Calculate dynamic pressure, get point of max pdyn
         pDyn = .5 * dens * (self.x[:,1,:]**2)
@@ -1910,8 +1919,7 @@ class prob(sgra):
 
         # Plot stage separation points in blue
         mustLabl = True
-        initMode = self.initMode
-        if initMode == 'extSol':
+        if self.initMode == 'extSol':
             for arc in range(s-1):
                 if self.isStagSep[arc]:
                     # this trick only labels the first segment, to avoid multiple
