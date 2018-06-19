@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:36:59 2017
 @author: levi
 """
 import numpy
-#from utils import ddt
+from utils import simp
 import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
@@ -22,18 +22,23 @@ def calcP(self,mustPlotPint=False):
     for arc in range(s):
         for t in range(N):
             vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
+    coefList = simp([],N,onlyCoef=True)
 
+#    for arc in range(s):
+#        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
+#        vetIP[1,arc] = vetIP[0,arc] + (59.0/48.0) * vetP[1,arc]
+#        vetIP[2,arc] = vetIP[1,arc] + (43.0/48.0) * vetP[2,arc]
+#        vetIP[3,arc] = vetIP[2,arc] + (49.0/48.0) * vetP[3,arc]
+#        for t in range(4,N-4):
+#            vetIP[t] = vetIP[t-1,arc] + vetP[t,arc]
+#        vetIP[N-4,arc] = vetIP[N-5,arc] + (49.0/48.0) * vetP[N-4,arc]
+#        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
+#        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
+#        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
     for arc in range(s):
-        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
-        vetIP[1,arc] = vetIP[0,arc] + (59.0/48.0) * vetP[1,arc]
-        vetIP[2,arc] = vetIP[1,arc] + (43.0/48.0) * vetP[2,arc]
-        vetIP[3,arc] = vetIP[2,arc] + (49.0/48.0) * vetP[3,arc]
-        for t in range(4,N-4):
-            vetIP[t] = vetIP[t-1,arc] + vetP[t,arc]
-        vetIP[N-4,arc] = vetIP[N-5,arc] + (49.0/48.0) * vetP[N-4,arc]
-        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
-        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
-        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
+        vetIP[0,arc] = coefList[0] * vetP[0,arc]
+        for t in range(1,N):
+            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
 
     vetIP *= dt
 
@@ -212,28 +217,27 @@ def calcStepRest(self,corr):
 
     #P0,_,_ = calcP(self)
     P0 = self.P
-
+    dalfa = 0.9
     newSol = self.copy()
-    newSol.aplyCorr(.8,corr)
+    newSol.aplyCorr(dalfa,corr)
     P1m,_,_ = newSol.calcP()
-
 
     if P1 >= P1m or P1 >= P0:
         self.log.printL("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
-        nP = P1m; alfa=.8#1.0
+        nP = P1m; alfa = dalfa#1.0
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
             P = nP
-            alfa *= .8
+            alfa *= dalfa
             newSol = self.copy()
             newSol.aplyCorr(alfa,corr)
             nP,_,_ = newSol.calcP()
-            if nP < P0:
+            if P < P0:
                 keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
         if cont>0:
-            alfa /= 0.8
+            alfa /= dalfa
     else:
         # no "overdrive!"
         self.log.printL("Leaving rest with alfa = 1.")
