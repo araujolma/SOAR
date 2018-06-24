@@ -216,13 +216,33 @@ class problemConfigurationSGRA(problemConfiguration):
         """ "Internal" settings for SGRA.
         This should not interfere with the itsme functioning at all."""
 
+        # Floating point parameters
         for key in ['tolP', 'tolQ', 'GSS_PLimCte', 'GSS_stopStepLimTol',\
                     'GSS_stopObjDerTol', 'GSS_findLimStepTol']:
             self.con[key] = self.config.getfloat('sgra',key)
 
+        # Integer parameters
         for key in ['N', 'GSS_stopNEvalLim']:
             self.con[key] = self.config.getint('sgra',key)
 
+        # Array-like parameters
+        PiLowStr = self.config.get('sgra', 'pi_min').split(', ')
+        PiLow = list()
+        for nStr in PiLowStr:
+            if nStr.lower() == 'none':
+                PiLow.append(None)
+            else:
+                PiLow.append(float(nStr))
+        self.con['pi_min'] = PiLow#numpy.array(PiLow)
+
+        PiHighStr = self.config.get('sgra', 'pi_max').split(', ')
+        PiHigh = list()
+        for nStr in PiHighStr:
+            if nStr.lower() == 'none':
+                PiHigh.append(None)
+            else:
+                PiHigh.append(float(nStr))
+        self.con['pi_max'] = PiHigh#numpy.array(PiHigh)
 
 class initializeSGRA(initialize):
 

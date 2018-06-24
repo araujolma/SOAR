@@ -152,6 +152,9 @@ class sgra():
                     'GSS_stopNEvalLim','GSS_findLimStepTol']:
             self.constants[key] = pConf.con[key]
 
+        for key in ['pi_min','pi_max']:
+            self.restrictions[key] = pConf.con[key]
+
         self.tol = {'P': tolP,
                     'Q': tolQ}
         self.N = N

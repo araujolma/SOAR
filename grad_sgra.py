@@ -19,7 +19,7 @@ class stepMngr():
     For now, the objective function looks only into J, the extended cost
     functional."""
 
-    def __init__(self, log, ctes, corr = None, prntCond=False):
+    def __init__(self, log, ctes, corr, prntCond=False):
         self.cont = -1
         self.histStep = list()
         self.histI = list()
@@ -35,6 +35,8 @@ class stepMngr():
         self.stopNEvalLim = ctes['stopNEvalLim'] # been using 100
         # for findStepLim
         self.findLimStepTol = ctes['findLimStepTol'] # been using 1e-2
+        self.piLowLim = ctes['piLowLim']
+        self.piHighLim = ctes['piHighLim']
 
         self.corr = corr
         self.log = log
@@ -70,21 +72,35 @@ class stepMngr():
 
         return P, I, Obj
 
-    def check(self,alfa,Obj,P):
-        """ Perform a check in this step value, updating the limit values for
-        searching step values if it is the case."""
+    def check(self,alfa,Obj,P,pi):
+        """ Perform a validity check in this step value, updating the limit
+        values for searching step values if it is the case."""
 
-        if Obj > self.Obj0 or Obj < 0.0 or P >= self.limP:
+        # Check for violations on the pi conditions.
+        # Again, some limit is 'None' when it is not active.
+        PiCondVio = False
+        for i in range(len(pi)):
+            # violated here in lower limit condition
+            if self.piLowLim[i] is not None and pi[i] < self.piLowLim[i]:
+                PiCondVio = True; break # already violated, no need to continue
+            # violated here in upper limit condition
+            if self.piHighLim[i] is not None and pi[i] > self.piHighLim[i]:
+                PiCondVio = True; break # already violated, no need to continue
+        #
+
+        # "Bad point" conditions:
+        if Obj > self.Obj0 or Obj < 0.0 or P >= self.limP or PiCondVio:
             # Bad point!
             self.log.printL("In check. Got a bad point, with alfa = " + \
                             str(alfa) + ", Obj = "+str(Obj))
+            # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
             return False, 1.1 * self.Obj0
         else:
+            # Good point; update maximum good step, if necessary
             if alfa > self.maxGoodStep:
                 self.maxGoodStep = alfa
-            # Good point
             return True, Obj
 
     def calcBase(self,sol,P0,I0,J0):
@@ -125,13 +141,12 @@ class stepMngr():
         P,_,_ = newSol.calcP(mustPlotPint=plotPint)
         J,_,_,I,_,_ = newSol.calcJ()
         Obj = self.calcObj(P,I,J)
-        isOk, Obj = self.check(alfa,Obj,P)
+        isOk, Obj = self.check(alfa,Obj,P,newSol.pi)#self.check(alfa,Obj,P)
 
         if isOk:
             # Update best value (if it is the case)
             if self.best['obj'] > Obj:
-                self.best = {'step': alfa,
-                             'obj': Obj}
+                self.best = {'step': alfa, 'obj': Obj}
                 if self.mustPrnt:
                     self.log.printL("\n> Updating best result: \n" + \
                                     "alfa = {:.4E}, ".format(alfa) + \
@@ -169,6 +184,7 @@ class stepMngr():
 
     def tryStepSens(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try a given step and the sensitivity as well. """
+
         da = self.findLimStepTol * .1
         NotAlgn = True
         P, I, Obj = self.tryStep(sol, alfa, plotSol=plotSol, plotPint=plotPint)
@@ -269,9 +285,6 @@ class stepMngr():
             self.log.printL("> Quadratic fit suggested a negative step.\n" + \
                            "  Bisecting back into that region with " + \
                             "alfa = {:.4E} instead.".format(alfaOpt))
-#                            "  What to do? I don't know. Let's stay with " + \
-#                            "{:.4E} instead.".format(alfaOpt))
-#            input("> ???")
         elif alfaOpt > self.minBadStep:
             alfaOpt = .5 * (alfaList[1] + self.maxGoodStep)
             self.log.printL("> Quadratic fit suggested a bad step.\n" + \
@@ -290,9 +303,6 @@ class stepMngr():
         #        'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
         #        'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
 
-        # TODO: include new stopping conditions
-#        if alfa > self.minBadStep:
-#            return False
         if abs(gradObj) < self.stopObjDerTol:
             if self.mustPrnt:
                 self.log.printL("\n> Stopping step search: low sensitivity" + \
@@ -1015,10 +1025,12 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                 'stopStepLimTol': self.constants['GSS_stopStepLimTol'], # been using 1e-4
                 'stopObjDerTol': self.constants['GSS_stopObjDerTol'],  # been using 1e-4
                 'stopNEvalLim': self.constants['GSS_stopNEvalLim'], # been using 100
-                'findLimStepTol': self.constants['GSS_findLimStepTol']} # been using 1e-2
+                'findLimStepTol': self.constants['GSS_findLimStepTol'],# been using 1e-2
+                'piLowLim': self.restrictions['pi_min'],
+                'piHighLim': self.restrictions['pi_max']}
 
         # Create new stepManager object
-        stepMan = stepMngr(self.log, ctes, corr = corr, prntCond = prntCond)
+        stepMan = stepMngr(self.log, ctes, corr, prntCond = prntCond)
         # Set the base values
         stepMan.calcBase(self,P0,I0,J0)
 
@@ -1135,13 +1147,6 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
     newSol.updtHistP()
-
-#    newSol.updtGradCont(alfa)
-#    newSol.updtHistP()
-#
-#    newSol.plotSol(opt={'mode':'lambda'})
-#    newSol.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-#    input("@Grad: Waiting for lambda/corrections check...")
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
     self.log.printL("Delta pi = "+str(alfa*C))

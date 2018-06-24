@@ -282,33 +282,30 @@ class prob(sgra):
             V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
             gamma_final = inputDict['gamma_final']
 
-            boundary = dict()
-            boundary['h_initial'] = h_initial
-            boundary['V_initial'] = V_initial
-            boundary['gamma_initial'] = gamma_initial
-            boundary['h_final'] = h_final
-            boundary['V_final'] = V_final
-            boundary['gamma_final'] = gamma_final
-            boundary['mission_dv'] = numpy.sqrt((GM/r_e)*\
-                    (2.0-r_e/(r_e+h_final)))
+            boundary = {'h_initial': h_initial,
+                        'V_initial': V_initial,
+                        'gamma_initial': gamma_initial,
+                        'h_final': h_final,
+                        'V_final': V_final,
+                        'gamma_final': gamma_final,
+                        'mission_dv': numpy.sqrt((GM/r_e)*(2.0-r_e/(r_e+h_final)))}
             self.boundary = boundary
 
-            constants = dict()
-            constants['grav_e'] = grav_e
-            constants['Thrust'] = Thrust
-            constants['Isp'] = Isp
-            constants['r_e'] = r_e
-            constants['GM'] = GM
-            constants['s_f'] = s_f
-            constants['CL0'] = CL0
-            constants['CL1'] = CL1
-            constants['CD0'] = CD0
-            constants['CD2'] = CD2
-            constants['s_ref'] = s_ref
-            constants['DampCent'] = DampCent
-            constants['DampSlop'] = DampSlop
-            constants['PFmode'] = PFmode
-            constants['Kpf'] = Kpf
+            constants = {'grav_e': grav_e,
+                         'Thrust': Thrust,
+                         'Isp': Isp,
+                         'r_e': r_e,
+                         'GM': GM,
+                         's_f': s_f,
+                         'CL0': CL0,
+                         'CL1': CL1,
+                         'CD0': CD0,
+                         'CD2': CD2,
+                         's_ref': s_ref,
+                         'DampCent': DampCent,
+                         'DampSlop': DampSlop,
+                         'PFmode': PFmode,
+                         'Kpf': Kpf}
             #constants['gradStepSrchCte'] = gradStepSrchCte
             self.constants = constants
 
@@ -321,12 +318,13 @@ class prob(sgra):
             alpha_max = -alpha_min                  # in rads
             beta_min = 0.0
             beta_max = 1.0
-            restrictions = dict()
-            restrictions['alpha_min'] = alpha_min
-            restrictions['alpha_max'] = alpha_max
-            restrictions['beta_min'] = beta_min
-            restrictions['beta_max'] = beta_max
-            restrictions['acc_max'] = acc_max
+            restrictions = {'alpha_min': alpha_min,
+                            'alpha_max': alpha_max,
+                            'beta_min': beta_min,
+                            'beta_max': beta_max,
+                            'acc_max': acc_max,
+                            'pi_min': inputDict['pi_min'],
+                            'pi_max': inputDict['pi_max']}
             self.restrictions = restrictions
 
             # Find indices for beginning of arc
@@ -961,7 +959,7 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        self.log.printL("In calcPsi.")
+        #self.log.printL("In calcPsi.")
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
@@ -991,6 +989,8 @@ class prob(sgra):
                                 (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
                 else:
                     psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            else:
+                self.log.printL("Sorry, this part of calcPsi is not implemented yet.")
             #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
@@ -998,7 +998,7 @@ class prob(sgra):
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
         #strPrnt += str(q-3)+","+str(q-2)+","+str(q-1)
 
-        self.log.printL("Psi = "+str(psi))
+        #self.log.printL("Psi = "+str(psi))
 
         return psi
 

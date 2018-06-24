@@ -12,6 +12,12 @@ tolP = 1e-8
 # Tolerance for Q functional
 tolQ = 1e-6
 #
+# Pi lower limits
+pi_min = 0.0, 0.0
+#
+# Pi upper limits
+pi_max = None, None
+#
 # Number of divisions in time array [-]
 N = 201
 #
