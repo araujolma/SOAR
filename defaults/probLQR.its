@@ -12,6 +12,12 @@ tolP = 1e-8
 # Tolerance for Q functional
 tolQ = 1e-4
 #
+# Pi lower limits
+pi_min = 0.0
+#
+# Pi upper limits
+pi_max = None
+#
 # Number of divisions in time array [-]
 N = 501
 #
@@ -75,10 +81,10 @@ finish2 = 0.0
 [cost] # Cost function parameters
 #
 # Control cost weight
-contCostWeig = 0.
+contCostWeig = 1.
 #
 # Time cost weight
-timeCostWeig = 1.
+timeCostWeig = 0.
 #
 # State 1 quadratic cost weight (x1**2 term)
 sttCostWeig11 = 0.

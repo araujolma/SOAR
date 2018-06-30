@@ -50,10 +50,8 @@ class prob(sgra):
                     'sttCostWeig11','sttCostWeig12', 'sttCostWeig22']:
             self.constants[key] = pConf.con[key]
 
-        self.restrictions = {'start1': pConf.con['start1'],
-                             'start2': pConf.con['start2'],
-                             'finish1':pConf.con['finish1'],
-                             'finish2':pConf.con['finish2']}
+        for key in ['start1','start2','finish1','finish2']:
+            self.restrictions[key] = pConf.con[key]
 
     def initGues(self,opt={}):
 
@@ -151,7 +149,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([1.])
+            pi = numpy.array([4.])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -166,7 +164,7 @@ class prob(sgra):
             self.lam = lam
             self.mu = mu
 
-            self.Kpf = 1000.0
+            self.Kpf = 100.0
             self.uLim = 1.0
 
             solInit = self.copy()
