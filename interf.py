@@ -245,6 +245,38 @@ class ITman():
             return
 
     def checkPars(self,sol):
+        """Performs a check in the parameters of a initial solution. """
+
+        pLimMin = len(sol.restrictions['pi_min'])
+        pLimMax = len(sol.restrictions['pi_max'])
+
+        msg = ''
+
+        Fail = False
+        if not(pLimMin == pLimMax):
+            msg += "\nPi max and min limitation arrays' dimensions mismatch. "
+            Fail = True
+        if not(pLimMin == sol.p):
+            msg += "\nPi limitation and pi arrays' dimensions mismatch. "
+            Fail = True
+
+        if not(Fail):
+            for i in range(sol.p):
+                thisPiMin = sol.restrictions['pi_min'][i]
+                if thisPiMin is not None:
+                    if sol.pi[i] < thisPiMin:
+                        msg += "\nPi[" + str(i) + "] < pi_min."
+                        Fail = True
+                thisPiMax = sol.restrictions['pi_max'][i]
+                if thisPiMax is not None:
+                    if sol.pi[i] > thisPiMax:
+                        msg += "\nPi[" + str(i) + "] > pi_max."
+                        Fail = True
+        if Fail:
+            msg += '\nExiting the program.'
+            self.log.printL(msg)
+            raise
+
         keepLoop = True
         while keepLoop:
             self.prntDashStr()
