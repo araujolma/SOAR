@@ -453,7 +453,7 @@ class prob(sgra):
 # =============================================================================
         self.u = u
 
-        self.compWith(solInit,'Initial Guess')
+        self.compWith(solInit,'Initial guess')
         self.plotSol()
         self.plotF()
 
@@ -1094,7 +1094,7 @@ class prob(sgra):
 
     def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
-                             'top':5.0,'wspace':0.2,'hspace':0.5}):
+                             'top':10.0,'wspace':0.2,'hspace':0.35}):
         # plt.subplots_adjust(left=0.0,right=1,bottom=0.0,top=5,\
         #                        wspace=0.2,hspace=0.5)
         self.log.printL("\nIn plotSol.")
@@ -1240,9 +1240,9 @@ class prob(sgra):
             stages = numpy.arange(1,s+1)
             width = 0.4
             ax.bar(position,pi,width,color='b')
-            ax.set_xticks(position + width/2)
+            ax.set_xticks(position)
             ax.set_xticklabels(stages)
-            plt.grid(True)
+            plt.grid(True,axis='y')
             plt.xlabel("Arcs")
             plt.ylabel("Duration [s]")
 
@@ -1547,10 +1547,10 @@ class prob(sgra):
 
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
                  subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
-                             'top':5.0,'wspace':0.2,'hspace':0.5}):
+                             'top':10.0,'wspace':0.2,'hspace':0.35}):
         self.log.printL("\nComparing solutions...\n")
         r2d = 180.0/numpy.pi
-        currSolLabl = 'currentSol'
+        currSolLabl = 'Final solution'
 
         # Comparing final mass:
         mPaySol = self.calcPsblPayl()
@@ -1563,70 +1563,77 @@ class prob(sgra):
         plt.subplots_adjust(**subPlotAdjs)
 
         # Curve 1: height
-        plt.subplot2grid((11,1),(0,0))
+        plt.subplot2grid((12,1),(0,0))
         altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
         self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
-        plt.ylabel("h [km]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.ylabel("h [km]")        
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         titlStr = "Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
                   "\nPayload mass gain: {:.4G}%".format(paylPercMassGain)
         titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+        titlStr += "\n\n"
         plt.title(titlStr)
         plt.xlabel("t [s]")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         # Curve 2: speed
-        plt.subplot2grid((11,1),(1,0))
+        plt.subplot2grid((12,1),(1,0))
         altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
         self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("V [km/s]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 3: flight path angle
-        plt.subplot2grid((11,1),(2,0))
+        plt.subplot2grid((12,1),(2,0))
         altSol.plotCat(altSol.x[:,2,:]*r2d,labl=altSolLabl)
         self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
                      labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("gamma [deg]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 4: Mass
-        plt.subplot2grid((11,1),(3,0))
+        plt.subplot2grid((12,1),(3,0))
         altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
         self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("m [kg]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 5: Control #1 (angle of attack)
-        plt.subplot2grid((11,1),(4,0))
+        plt.subplot2grid((12,1),(4,0))
         altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
         self.plotCat(self.u[:,0,:],mark='--',color='c',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("u1 [-]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 6: Control #2 (thrust)
-        plt.subplot2grid((11,1),(5,0))
+        plt.subplot2grid((12,1),(5,0))
         altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
         self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("u2 [-]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 7: angle of attack
         alpha,beta = self.calcDimCtrl()
         alpha_alt,beta_alt = altSol.calcDimCtrl()
-        plt.subplot2grid((11,1),(6,0))
+        plt.subplot2grid((12,1),(6,0))
         altSol.plotCat(alpha_alt*r2d,labl=altSolLabl)
         self.plotCat(alpha*r2d,mark='--',color='k',labl=currSolLabl)
         #plt.hold(True)
@@ -1636,10 +1643,11 @@ class prob(sgra):
         plt.xlabel("t")
         plt.ylabel("alpha [deg]")
         plt.xlabel("t [s]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 8: thrust level
-        plt.subplot2grid((11,1),(7,0))
+        plt.subplot2grid((12,1),(7,0))
         altSol.plotCat(beta_alt,labl=altSolLabl)
         self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
         #plt.hold(True)
@@ -1648,10 +1656,11 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("beta [-]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 9: thrust
-        plt.subplot2grid((11,1),(8,0))
+        plt.subplot2grid((12,1),(8,0))
         thrust = numpy.empty_like(beta)
         thrust_alt = numpy.empty_like(beta_alt)
         s = self.s
@@ -1666,36 +1675,68 @@ class prob(sgra):
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("Thrust [kN]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 10: acceleration
-        plt.subplot2grid((11,1),(9,0))
+        plt.subplot2grid((12,1),(9,0))
         solAcc =  self.calcAcc()
         altSolAcc = altSol.calcAcc()
         plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
-                  '--',label='accel. limit')
+                  '--',label='Acceleration limit')
         altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
         self.plotCat(1e3*solAcc,mark='--',color='y',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("Tang. accel. [m/s²]")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=3)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-        # 'Curve' 11: pi's
-        ax = plt.subplot2grid((11,1),(10,0))
+        # 'Curve' 11: pi's (arcs)
+        ax = plt.subplot2grid((12,1),(10,0))
         position = numpy.arange(s)
         position_alt = numpy.arange(s_alt)
-        stages = numpy.arange(1,s+1)
+        arcs = numpy.arange(1,s+1)
         width = 0.4
         current = ax.bar(position,self.pi,width,color='y')
         initial = ax.bar(position_alt + width,altSol.pi,width)
-        ax.set_xticks(position + width)
+        ax.set_xticks(position + width/2)
+        ax.set_xticklabels(arcs)
+        plt.grid(True,axis='y')
+        plt.xlabel("Arcs")
+        plt.ylabel("Duration [s]")
+        ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
+                  loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
+       
+        # 'Curve' 12: pi's (stages)
+        # TODO: Instead of using "addArcs=2" it's better to pick this 
+        # input from input file.
+        addArcs = 2  
+        ax = plt.subplot2grid((12,1),(11,0))
+        position = numpy.arange(s-addArcs)
+        position_alt = numpy.arange(s_alt-addArcs)
+        stages = numpy.arange(1,s+1-addArcs)
+        width = 0.4
+        pi_stages = numpy.zeros(s-addArcs)
+        altSol_pi_stages = numpy.zeros(s-addArcs)        
+        for k in range(len(pi_stages)):
+            if k==0:
+                for arc in range(addArcs+1):
+                    pi_stages[k] += self.pi[arc]
+                    altSol_pi_stages[k] += altSol.pi[arc]
+            else:
+                pi_stages[k] = self.pi[k+addArcs]
+                altSol_pi_stages[k] = altSol.pi[k+addArcs] 
+        current = ax.bar(position,pi_stages,width,color='y')
+        initial = ax.bar(position_alt + width,altSol_pi_stages,width)
+        ax.set_xticks(position + width/2)
         ax.set_xticklabels(stages)
+        plt.grid(True,axis='y')
         plt.xlabel("Stages")
         plt.ylabel("Duration [s]")
         ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
-                  loc="upper left", bbox_to_anchor=(1,1))
+                  loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
 
         if mustSaveFig:
             self.savefig(keyName='comp',fullName='comparisons')
@@ -1933,7 +1974,7 @@ class prob(sgra):
 
         # Plot altSol
         if compare:
-            plt.plot(X_alt,Z_alt,'k--',label='Initial Guess')
+            plt.plot(X_alt,Z_alt,'k--',label='Initial guess')
 
         # Final plotting commands
         plt.grid(True)
