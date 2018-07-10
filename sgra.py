@@ -6,12 +6,12 @@ Created on Tue Jun 27 13:07:35 2017
 @author: levi
 """
 
-import rest_sgra, grad_sgra, numpy, copy, os
+import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
-from utils import ddt
+#from utils import ddt
 
 
 class binFlagDict(dict):
@@ -46,12 +46,7 @@ class sgra():
         # they should change with the problem
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
-        self.N = N
-        self.n = n
-        self.m = m
-        self.p = p
-        self.q = q
-        self.s = s
+        self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
 
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
@@ -59,46 +54,13 @@ class sgra():
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
 
-        self.boundary = {}
-        self.constants = {}
-        self.restrictions = {}
+        self.boundary, self.constants, self.restrictions = {}, {}, {}
+        self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
 
-        self.P = 1.0
-        self.Q = 1.0
-        self.I = 1.0
-
-        # Basic maximum number of iterations for grad/rest.
-        # May be overriden in the problem definition
-        MaxIterRest = 100000
-        self.MaxIterRest = MaxIterRest
-        self.NIterRest = 0
-        self.histStepRest = numpy.zeros(MaxIterRest)
-        self.histP = numpy.zeros(MaxIterRest)
-        self.histPint = numpy.zeros(MaxIterRest)
-        self.histPpsi = numpy.zeros(MaxIterRest)
-
-        MaxIterGrad = 10000
-        self.MaxIterGrad = MaxIterGrad
-        self.NIterGrad = 0
-
-        self.histStepGrad = numpy.zeros(MaxIterGrad)
-        self.histQ = numpy.zeros(MaxIterGrad)
-        self.histQx = numpy.zeros(MaxIterGrad)
-        self.histQu = numpy.zeros(MaxIterGrad)
-        self.histQp = numpy.zeros(MaxIterGrad)
-        self.histQt = numpy.zeros(MaxIterGrad)
-
-        self.histI = numpy.zeros(MaxIterGrad)
-        self.histIorig = numpy.zeros(MaxIterGrad)
-        self.histIpf = numpy.zeros(MaxIterGrad)
-
-        self.histGRrate = numpy.zeros(MaxIterGrad)
+        # Histories
+        self.declHist()
 
         self.tol = {'P':1e-7,'Q':1e-7}
-
-        # Gradient-Restoration EVent List (1-grad, 0-rest)
-        self.GREvList = numpy.ones(MaxIterRest+MaxIterGrad,dtype='bool')
-        self.GREvIndx = -1
 
         # Debugging options
         tf = False
@@ -119,6 +81,7 @@ class sgra():
                             'prntCalcStepGrad':tf,
                             'plotCalcStepGrad': tf,
                             'pausCalcStepGrad':tf,
+                            'manuInptStepGrad': tf,
                             'plotQx':tf,
                             'plotQu':tf,
                             'plotLam':tf,
@@ -141,7 +104,8 @@ class sgra():
                      'histI':True,
                      'histGradStep':True,
                      'traj':True,
-                     'comp':True},\
+                     'comp':True,
+                     'eig':True},\
                                 inpName='Plot saving options')
 
         # Paralellism options
@@ -149,22 +113,6 @@ class sgra():
         self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False)
         self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
 
-
-    def updtGRrate(self):
-
-        # find last gradient step index in event list
-        LastGradIndx = self.GREvIndx - 1
-
-        while self.GREvList[LastGradIndx] == False and LastGradIndx > 0:
-            LastGradIndx -= 1
-
-        # number of restorations after last gradient step
-        if LastGradIndx == 0:
-            nRest = self.GREvIndx-1
-        else:
-            nRest = self.GREvIndx - 1 - LastGradIndx
-
-        self.histGRrate[self.NIterGrad] = nRest
 
     def copy(self):
         """Copy the solution. It is useful for applying corrections, generating
@@ -199,12 +147,16 @@ class sgra():
         N = pConf.con['N']
         tolP = pConf.con['tolP']
         tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
+
+        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',\
+                    'GSS_stopNEvalLim','GSS_findLimStepTol']:
+            self.constants[key] = pConf.con[key]
+
+        for key in ['pi_min','pi_max']:
+            self.restrictions[key] = pConf.con[key]
 
         self.tol = {'P': tolP,
                     'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
         self.N = N
 
         self.dt = 1.0/(N-1)
@@ -227,10 +179,8 @@ class sgra():
             considered, then the function must be rewritten.
         """
 
-        s = self.s
-        t = self.t
+        s, t, N = self.s, self.t, self.N
         pi = self.pi
-        N = self.N
         dt = 1.0/(N-1)
         dtd = dt
 
@@ -247,7 +197,8 @@ class sgra():
 
         # Check consistency of requested time interval, override if necessary
         if intv[0] < lowrBnd or intv[1] > uperBnd:
-            self.log.printL("plotCat: inadequate time interval used! Ignoring...")
+            self.log.printL("plotCat: inadequate time interval used!" + \
+                            " Ignoring...")
             if intv[0] < lowrBnd:
                 intv[0] = lowrBnd
             if intv[1] > uperBnd:
@@ -298,7 +249,8 @@ class sgra():
 
                 #print("indEnd =",indEnd)
 
-                # Plot the function at each arc. Label only the first drawed arc
+                # Plot the function at each arc.
+                #Label only the first drawed arc
                 if mustLabl:
                     plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
                              func[indBgin:indEnd,arc],\
@@ -322,9 +274,11 @@ class sgra():
             try:
                 plt.savefig(fileName, bbox_inches='tight', pad_inches=0.1)
             except:
-                self.log.printL("Sorry, pdf saving failed... Are you using Windows?")
-                self.log.printL("Anyway, you can always load the object and use some "+ \
-                      "of its plotting methods later, I guess.")
+                self.log.printL("Sorry, pdf saving failed... " + \
+                                "Are you using Windows?\n" + \
+                                "Anyway, you can always load the object " + \
+                                "and use some of its plotting methods "+ \
+                                "later, I guess.")
         else:
             plt.show()
         #
@@ -334,7 +288,7 @@ class sgra():
 #%% Just for avoiding compatibilization issues with other problems
     # These methods are all properly implemented in probRock class.
 
-    def plotTraj(self):
+    def plotTraj(self,*args,**kwargs):
         self.log.printL("plotTraj: unimplemented method.")
         pass
 
@@ -349,7 +303,7 @@ class sgra():
         Np = self.n + self.m
 
 
-        # First state
+        # First state (just because of the "title"...)
         plt.subplot2grid((Np,1),(0,0))
         self.plotCat(self.x[:,0,:],piIsTime=False)
         plt.grid(True)
@@ -391,39 +345,6 @@ class sgra():
     def calcP(self,*args,**kwargs):
         return rest_sgra.calcP(self,*args,**kwargs)
 
-    def updtHistP(self,alfa,mustPlotPint=False):
-
-        NIterRest = self.NIterRest+1
-
-        P,Pint,Ppsi = self.calcP(mustPlotPint=mustPlotPint)
-        self.P = P
-        self.histP[NIterRest] = P
-        self.histPint[NIterRest] = Pint
-        self.histPpsi[NIterRest] = Ppsi
-        self.histStepRest[NIterRest] = alfa
-        self.NIterRest = NIterRest
-
-    def showHistP(self):
-        IterRest = numpy.arange(0,self.NIterRest+1,1)
-
-        if self.histP[IterRest].any() > 0:
-            plt.semilogy(IterRest,self.histP[IterRest],'b',label='P')
-
-        if self.histPint[IterRest].any() > 0:
-            plt.semilogy(IterRest,self.histPint[IterRest],'k',label='P_int')
-
-        if self.histPpsi[IterRest].any() > 0:
-            plt.semilogy(IterRest,self.histPpsi[IterRest],'r',label='P_psi')
-
-        plt.plot(IterRest,self.tol['P']+0.0*IterRest,'-.b',label='tolP')
-        plt.title("Convergence report on P")
-        plt.grid(True)
-        plt.xlabel("Rest iterations")
-        plt.ylabel("P values")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-
-        self.savefig(keyName='histP',fullName='P')
-
 #%% GRADIENT-WISE METHODS
 
     def grad(self,*args,**kwargs):
@@ -444,97 +365,48 @@ class sgra():
     def plotF(self,*args,**kwargs):
         return grad_sgra.plotF(self,*args,**kwargs)
 
-    def updtHistQ(self,alfa,mustPlotQs=False):
-        """ Updates the history of Qs, Is and gradStep. """
+#%% HISTORY-RELATED METHODS (P, Q, step sizes, events)
+    def declHist(self,*args, **kwargs):
+        return hist_sgra.declHist(self, *args, **kwargs)
 
-        NIterGrad = self.NIterGrad+1
+    def updtEvntList(self,*args,**kwargs):
+        return hist_sgra.updtEvntList(self,*args,**kwargs)
 
-        Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
-        self.Q = Q
-        self.histQ[NIterGrad] = Q
-        self.histQx[NIterGrad] = Qx
-        self.histQu[NIterGrad] = Qu
-        self.histQp[NIterGrad] = Qp
-        self.histQt[NIterGrad] = Qt
-        self.histStepGrad[NIterGrad] = alfa
+#    def updtHistGRrate(self,*args,**kwargs):
+#        return hist_sgra.updtHistGRrate(self,*args,**kwargs)
 
-        I,Iorig,Ipf = self.calcI()
-        self.histI[NIterGrad] = I
-        self.histIorig[NIterGrad] = Iorig
-        self.histIpf[NIterGrad] = Ipf
-        self.I = I
+    def updtHistP(self,*args,**kwargs):
+        return hist_sgra.updtHistP(self,*args,**kwargs)
 
-        self.NIterGrad = NIterGrad
+    def updtHistRest(self,*args,**kwargs):
+        return hist_sgra.updtHistRest(self,*args,**kwargs)
 
+    def showHistP(self,*args,**kwargs):
+        return hist_sgra.showHistP(self,*args,**kwargs)
 
-    def showHistQ(self):
-        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    def updtGradCont(self,*args,**kwargs):
+        return hist_sgra.updtGradCont(self,*args,**kwargs)
 
-        if self.histQ[IterGrad].any() > 0:
-            plt.semilogy(IterGrad,self.histQ[IterGrad],'b',label='Q')
+    def updtHistGrad(self,*args,**kwargs):
+        return hist_sgra.updtHistGrad(self,*args,**kwargs)
 
-        if self.histQx[IterGrad].any() > 0:
-            plt.semilogy(IterGrad,self.histQx[IterGrad],'k',label='Qx')
+    def showHistQ(self,*args,**kwargs):
+        return hist_sgra.showHistQ(self,*args,**kwargs)
 
-        if self.histQu[IterGrad].any() > 0:
-            plt.semilogy(IterGrad,self.histQu[IterGrad],'r',label='Qu')
+    def showHistI(self,*args,**kwargs):
+        return hist_sgra.showHistI(self,*args,**kwargs)
 
-        if self.histQp[IterGrad].any() > 0:
-            plt.semilogy(IterGrad,self.histQp[IterGrad],'g',label='Qp')
+    def showHistGradStep(self,*args,**kwargs):
+        return hist_sgra.showHistGradStep(self,*args,**kwargs)
 
-        if self.histQt[IterGrad].any() > 0:
-            plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
+    def showHistGRrate(self,*args,**kwargs):
+        return hist_sgra.showHistGRrate(self,*args,**kwargs)
 
-        plt.plot(IterGrad,self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
-        plt.title("Convergence report on Q")
-        plt.grid(True)
-        plt.xlabel("Grad iterations")
-        plt.ylabel("Q values")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-
-        self.savefig(keyName='histQ',fullName='Q convergence history')
-
-    def showHistI(self):
-        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-
-        plt.title("Convergence report on I")
-        plt.semilogy(IterGrad,self.histI[IterGrad],label='I')
-        plt.semilogy(IterGrad,self.histIorig[IterGrad],label='Iorig')
-        plt.semilogy(IterGrad,self.histIpf[IterGrad],label='Ipf')
-        plt.grid(True)
-        plt.xlabel("Grad iterations")
-        plt.ylabel("I values")
-        plt.legend()
-
-        self.savefig(keyName='histI',fullName='I convergence history')
-
-    def showHistGradStep(self):
-        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-
-        plt.title("Gradient step history")
-        plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
-        plt.grid(True)
-        plt.xlabel("Grad iterations")
-        plt.ylabel("Step values")
-
-        self.savefig(keyName='histGradStep',fullName='GradStep convergence history')
-
-    def showHistGRrate(self):
-        IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-
-        if self.histGRrate[IterGrad].any() > 0:
-            plt.title("Gradient-restoration rate history")
-            plt.semilogy(IterGrad,self.histGRrate[IterGrad])
-            plt.grid(True)
-            plt.xlabel("Grad iterations")
-            plt.ylabel("Step values")
-
-            self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
-        else:
-            self.log.printL("showHistGRrate: No positive values. Skipping...")
+    def copyHistFrom(self,*args,**kwargs):
+        return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
-    def calcErr(self):
+    def calcErr(self):#,inRest=False):
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
 #        phi = self.calcPhi()
@@ -542,16 +414,22 @@ class sgra():
 
         # New method, adequate for trapezoidal intergration scheme
         phi = self.calcPhi()
-        err = numpy.empty((self.N,self.n,self.s))
-        #err[0,:,:] = numpy.zeros((self.n,self.s))
+        err = numpy.zeros((self.N,self.n,self.s))
+
+        #if inRest:
         m = .5*(phi[0,:,:] + phi[1,:,:]) + \
                 -(self.x[1,:,:]-self.x[0,:,:])/self.dt
         err[0,:,:] = m
         err[1,:,:] = m
         for k in range(2,self.N):
             err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
-                        -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
-                        -err[k-1,:,:]
+            -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
+            -err[k-1,:,:]
+        #else:
+        #    for k in range(2,self.N-1):
+        #        err[k,:,:] = phi[k,:,:] + \
+        #                    -(self.x[k+1,:,:]-self.x[k-1,:,:])/self.dt
+
 
         return err
 
@@ -566,13 +444,23 @@ class sgra():
             pool.join()
         else:
             if rho>0.5:
-                self.log.printL("\nRunning GRAD in sequential (non-parallel) mode...\n")
+                self.log.printL("\nRunning GRAD in sequential " + \
+                                "(non-parallel) mode...\n")
             else:
-                self.log.printL("\nRunning REST in sequential (non-parallel) mode...\n")
+                self.log.printL("\nRunning REST in sequential " + \
+                                "(non-parallel) mode...\n")
             res = list()
             for j in range(self.Ns+1):
                 outp = helper.propagate(j)
                 res.append(outp)
+            #
+        #
+
+        # TODO: put also other conditions here to avoid calculating and
+        # plotting in every grad step
+        if self.save.get('eig',False) and rho > 0.5:
+            helper.showEig(self.N,self.n,self.s)#,mustShow=True)
+            self.savefig(keyName='eig',fullName='eigenvalues')
 
         A,B,C,lam,mu = helper.getCorr(res,self.log)
 

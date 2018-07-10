@@ -61,7 +61,7 @@ class ITman():
     """
 
     bscImpStr = "\n >> "
-    dashStr = '\n-------------------------------------------------------------'
+    dashStr = '\n'+'-'*88
 
     def __init__(self,confFile='',probName='prob'):
         self.probName = probName
@@ -77,6 +77,7 @@ class ITman():
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
+        self.ShowEigRate = 10
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
 
@@ -90,9 +91,9 @@ class ITman():
 
         if os.sep != '/':
             # windows systems!
-            msg = "\n\n" + '-'*88 + \
-                  "\nOverriding the parallel settings to False!\n" + \
-                  '-'*88 + "\n\n"
+            msg = "\n" + self.dashStr + \
+                  "\nOverriding the parallel settings to False!" + \
+                  self.dashStr + "\n\n"
             self.log.printL(msg)
             self.parallelOpt = {'gradLMPBVP':False,
                                 'restLMPBVP':False}
@@ -244,6 +245,38 @@ class ITman():
             return
 
     def checkPars(self,sol):
+        """Performs a check in the parameters of a initial solution. """
+
+        pLimMin = len(sol.restrictions['pi_min'])
+        pLimMax = len(sol.restrictions['pi_max'])
+
+        msg = ''
+
+        Fail = False
+        if not(pLimMin == pLimMax):
+            msg += "\nPi max and min limitation arrays' dimensions mismatch. "
+            Fail = True
+        if not(pLimMin == sol.p):
+            msg += "\nPi limitation and pi arrays' dimensions mismatch. "
+            Fail = True
+
+        if not(Fail):
+            for i in range(sol.p):
+                thisPiMin = sol.restrictions['pi_min'][i]
+                if thisPiMin is not None:
+                    if sol.pi[i] < thisPiMin:
+                        msg += "\nPi[" + str(i) + "] < pi_min."
+                        Fail = True
+                thisPiMax = sol.restrictions['pi_max'][i]
+                if thisPiMax is not None:
+                    if sol.pi[i] > thisPiMax:
+                        msg += "\nPi[" + str(i) + "] > pi_max."
+                        Fail = True
+        if Fail:
+            msg += '\nExiting the program.'
+            self.log.printL(msg)
+            raise
+
         keepLoop = True
         while keepLoop:
             self.prntDashStr()
@@ -328,13 +361,20 @@ class ITman():
         sol.histPint[sol.NIterRest] = Pint
         sol.histPpsi[sol.NIterRest] = Ppsi
 
+        if sol.NIterGrad == 0:
+            # Properly record the initial value of I (it does make sense!)
+            sol.I,Iorig,Ipf = sol.calcI()
+            sol.histI[0] = sol.I
+            sol.histIorig[0] = Iorig
+            sol.histIpf[0] = Ipf
+
         # Calculate Q values, just for show. They don't even mean anything.
-        Q,Qx,Qu,Qp,Qt = sol.calcQ()
+        sol.calcQ()
 
         # Plot trajectory
         sol.plotTraj()
 
-        # Setting debugging options (rest and grad)
+        # Setting debugging options (rest and grad). Declaration is in sgra.py!
         sol.dbugOptRest.setAll(opt={'pausRest':False,
                            'pausCalcP':False,
                            'plotP_int':False,
@@ -349,8 +389,9 @@ class ITman():
         sol.dbugOptGrad.setAll(opt={'pausGrad':flag,
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
-                           'plotCalcStepGrad': flag,#True,
-                           'pausCalcStepGrad':flag,#True,
+                           'plotCalcStepGrad': flag,#True,#
+                           'manuInptStepGrad': flag,
+                           'pausCalcStepGrad':flag,#True,#
                            'plotQx':flag,
                            'plotQu':flag,
                            'plotLam':flag,
@@ -383,28 +424,32 @@ class ITman():
             return False
 
     def restRnds(self,sol):
+        self.log.printL("\nStart of restoration rounds. " + \
+                        "P = {:.4E}".format(sol.P))
         contRest = 0
         origDbugOptRest = sol.dbugOptRest.copy()
 
         while sol.P > sol.tol['P']:
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
-            sol.plotSol()
+            #sol.plotSol()
             #input("\nOne more restoration complete.")
+        #
 
         sol.showHistP()
-
+#        self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
+#                        "), P = {:.4E}".format(sol.P) + ". Solution so far:")
+#        sol.plotSol()
         self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
-                        "). Solution so far:")
-        sol.plotSol()
+                        "), P = {:.4E}".format(sol.P))
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
-        return sol
+        return sol, contRest
 
     def frstRestRnds(self,sol):
         self.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP()
-        sol = self.restRnds(sol)
+        sol, contRest = self.restRnds(sol)
 
         self.saveSol(sol,self.log.folderName + os.sep + 'solInitRest.pkl')
 
@@ -431,6 +476,12 @@ class ITman():
     def showHistGRrateCond(self,sol):
         return True
 
+    def showEigCond(self,sol):
+        if sol.NIterGrad % self.ShowEigRate == 0:
+            return True
+        else:
+            return False
+
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
@@ -455,106 +506,168 @@ class ITman():
 
         self.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
-
+        evnt = 'init'
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
         while do_GR_cycle:
 
-            sol.P,_,_ = sol.calcP()
-            sol = self.restRnds(sol)
-            I, _, _ = sol.calcI()
-            msg = "\nStarting new cycle, I_base = {:.4E}".format(I) + \
-                  ", P_base = {:.4E}".format(sol.P)
+            # Start of new cycle: calc P, I, as well as a new grad correction
+            # in order to update lambda and mu, and therefore calculate Q for
+            # checking.
+
+            sol.P,_,_ = sol.calcP(mustPlotPint=True)
+            P_base = sol.P
+            I_base, _, _ = sol.calcI()
+            self.prntDashStr()
+            msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
+                  ", P_base = {:.4E}".format(P_base)
             self.log.printL(msg)
-            #self.prom()
+
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
-            A,B,C,lam,mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
-            sol.Q,_,_,_,_ = sol.calcQ()
+            A, B, C, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
+            sol.lam, sol.mu = lam, mu
+            # Store corrections in solution (even though it may not be needed)
+            corr = {'x':A, 'u':B, 'pi':C}
+            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=True)
+
 
             if sol.Q <= sol.tol['Q']:
-                self.log.printL("Terminate program. Solution is sol_r.")
+                self.log.printL("\nTerminate program. Solution is sol_r.")
+                # This is just to make sure the final values of Q, I, J, etc
+                # get registered.
+                sol.updtEvntList(evnt)
+                sol.updtHistGrad(0.0)
+                sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
 
             else:
+                msg = "\nOk, now Q = {:.4E}".format(sol.Q) + \
+                      " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
+                      "so let's keep improving the solution!\n"
+                self.log.printL(msg)
                 sol.plotSol()
                 sol.plotF()
-                sol.plotTraj()
+                #sol.plotTraj()
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 
                 keep_walking_grad = True
                 retry_grad = False
                 #alfa_g_0 = 1.0
-                alfa_g_0 = sol.histStepGrad[sol.NIterGrad]
-
+                alfa_base = sol.histStepGrad[sol.NIterGrad]
+                stepMan = None
                 while keep_walking_grad:
-                    #input("\nProcurando passo a partir de "+str(alfa_g_0))
-                    alfa_g_old,sol_new = sol.grad(alfa_g_0,retry_grad,A,B,C,lam,mu)
-                    sol_new = self.restRnds(sol_new)
-                    I_new, _, _ = sol_new.calcI()
-                    msg = "\nWith alfa = {:.4E}".format(alfa_g_old) + \
-                          ", I = {:.4E}".format(I_new) + \
-                          ", P = {:.4E}".format(sol_new.P)
-                    self.log.printL(msg)
-                    #self.prom()
 
-                    if I_new < I:
-                        I = I_new # PARA QUE SERVE ESTE COMANDO?
+                    # This stays here in order to properly register the
+                    # gradAccepts and the gradRejects
+                    sol.updtEvntList(evnt)
+
+                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
+                                                      retry_grad, stepMan)
+                    # BEGIN_DEBUG:
+                    I_mid,_,_ = sol_new.calcI()
+                    P_mid,_,_ = sol_new.calcP()
+                    # END_DEBUG
+                    sol_new, contRest = self.restRnds(sol_new)
+                    # Up to this point, the solution is fully restored!
+
+                    sol_new.I,_,_ = sol_new.calcI()
+                    msg = "\nBefore:\n" + \
+                          "  I = {:.6E}".format(I_base) + \
+                          ", P = {:.4E}".format(P_base) + \
+                          "\n... after grad with " + \
+                          "alfa = {:.4E}:\n".format(alfa) + \
+                          "  dI = {:.6E}".format(I_mid-I_base) + \
+                          ", P = {:.4E}".format(P_mid) + \
+                          "\n... and after restoring " + str(contRest) + \
+                          " times:\n" + \
+                          "  dI = {:.6E}".format(sol_new.I-I_base) + \
+                          ", P = {:.4E}".format(sol_new.P) + \
+                          "\nVariation in I: " + \
+                            str(100.0*(sol_new.I/I_base-1.0)) + "%"
+                    self.log.printL(msg)
+
+                    if sol_new.I <= I_base:
+                        # Here, the I functional has been lowered!
+                        # The grad step is accepted:
+                        # rebase the solution and leave this loop.
+
                         sol = sol_new
+                        evnt = 'gradOK'
                         keep_walking_grad = False
                         next_grad += 1
-                        # update Gradient-Restoration event list
-                        sol.GREvIndx += 1
-                        sol.GREvList[sol.GREvIndx] = True
-                        sol.updtGRrate()
 
-                        sol.updtHistQ(alfa_g_old,mustPlotQs=True)
                         self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad))
-                        self.log.printL("\nLast grad counter = " + \
+                                        str(next_grad) + \
+                                        "\nLast grad counter = " + \
                                         str(last_grad))
                         self.log.printL("\nI was lowered, step given!")
-                        #self.prom()
                     else:
+                        # The conditions were not met. Discard this solution
+                        # and try a new gradStep on the previous baseline
+
                         last_grad += 1
                         retry_grad = True
+                        evnt = 'gradReject'
+                        # Save in 'sol' the histories from sol_new,
+                        # otherwise the last grad and the rests would be lost!
+                        sol.copyHistFrom(sol_new)
                         self.log.printL("\nNext grad counter = " + \
                                         str(next_grad))
-                        self.log.printL("\nLast grad counter = " + \
+                        self.log.printL("Last grad counter = " + \
                                         str(last_grad))
-                        alfa_g_0 = alfa_g_old
+                        alfa_base = alfa
                         self.log.printL("\nI was not lowered... trying again!")
-                        #self.prom()
                     #
+                    #input("Press any key to continue... ")
+                #
+
+                if retry_grad:
+                    sol.rest(parallelOpt=self.parallelOpt)
                 #
             #
 
+            # Check for histories/solution showing conditions, etc.
             if self.showHistQCond(sol):
+                self.log.printL("\nHistQ showing condition is met!")
                 sol.showHistQ()
 
             if self.showHistICond(sol):
+                self.log.printL("\nHistI showing condition is met!")
                 sol.showHistI()
 
-
             if self.showHistGradStepCond(sol):
+                self.log.printL("\nHistGradStep showing condition is met!")
                 sol.showHistGradStep()
 
             if self.showHistGRrateCond(sol):
+                self.log.printL("\nHistGRrate showing condition is met!")
                 sol.showHistGRrate()
 
+            if self.showEigCond(sol):
+                self.log.printL("\nEigenvalue showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['eig'] = True
+            else:
+                sol.save['eig'] = False
+
             if self.saveSolCond(sol):
-                self.prntDashStr()
+                self.log.printL("\nSolution saving condition is met!")
+                #self.prntDashStr()
                 self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
 
             if self.plotSolGradCond(sol):
-                self.prntDashStr()
+                #self.prntDashStr()
+                self.log.printL("\nSolution showing condition is met!")
                 self.log.printL("\nSolution so far:")
                 sol.plotSol()
                 sol.plotF()
-                sol.plotTraj()
+
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')
                     sol.plotTraj(True,altSol,'Initial guess')
+                else:
+                    sol.plotTraj()
 
             if self.gradRestPausCond(sol):
                 print("\a")
@@ -568,8 +681,6 @@ class ITman():
                 self.log.printL(msg)
                 self.prom()
             #
-            #print("\nPronto.")
-            #self.prom()
         #
 
         return sol

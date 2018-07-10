@@ -7,6 +7,7 @@ A module for the problem 9-1 from Miele (1970)
 
 import numpy
 from sgra import sgra
+from utils import simp
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -209,20 +210,15 @@ class prob(sgra):
 
         f =  1.0 + x[:,0,:]**2 + x[:,1,:]**2 + u[:,0,:]**2
 
-        return f,f,numpy.zeros((N,s))
+        return f, f, numpy.zeros((N,s))
 
     def calcI(self):
         f,_,_ = self.calcF()
         N = self.N
         I = 0.0
-        coefList = numpy.ones(N)
-        coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
-        coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
-        coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
-        coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
 
         for arc in range(self.s):
-            I += coefList.dot(f[:,arc])
+            I += simp(f[:,arc],N)
         return I, I, 0.0
 #%%
     def plotSol(self,opt={},intv=[]):
@@ -292,7 +288,7 @@ class prob(sgra):
             self.savefig(keyName='corr',fullName='corrections')
         elif opt['mode'] == 'lambda':
 
-            titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
+            titlStr = "Lambdas (grad iter #" + str(self.NIterGrad) + ")"
 
             plt.subplot2grid((3,1),(0,0))
             self.plotCat(self.lam[:,0,:],intv=intv)

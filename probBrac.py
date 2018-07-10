@@ -241,15 +241,14 @@ class prob(sgra):
         return f, f, 0.0*f
 
     def calcI(self):
-        N,s = self.N,self.s
-        f, _, _ = self.calcF()
+        #N,s = self.N,self.s
+        #f, _, _ = self.calcF()
 
-        Ivec = numpy.empty(s)
-        for arc in range(s):
-            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-            Ivec[arc] += f[1:(N-1),arc].sum()
-
-        Ivec *= 1.0/(N-1)
+        Ivec = self.pi#numpy.empty(s)
+#        for arc in range(s):
+#            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
+#            Ivec[arc] += f[1:(N-1),arc].sum()
+#        Ivec *= 1.0/(N-1)
         I = Ivec.sum()
         return I, I, 0.0
 #%%
@@ -382,7 +381,7 @@ class prob(sgra):
 
         else:
             titlStr = opt['mode']
-            
+
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
         subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                      'top':2.5,'wspace':0.2,'hspace':0.2}):
@@ -390,7 +389,7 @@ class prob(sgra):
         pi = self.pi
         r2d = 180.0/numpy.pi
         currSolLabl = 'currentSol'
-        
+
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
 
@@ -440,7 +439,7 @@ class prob(sgra):
         plt.ylabel('Inclination angle [deg]')
         plt.xlabel("Time [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-       
+
         self.savefig(keyName='comp',fullName='comparisons')
         self.log.printL("pi = "+str(pi)+"\n")
 
@@ -451,7 +450,7 @@ class prob(sgra):
         X = self.x[:,0,0]
         Y = self.x[:,1,0]
         currSolLabl = 'Current solution'
-        
+
         if compare:
             if altSol is None:
                 self.log.printL("plotTraj: comparing mode is set to True," + \
@@ -459,7 +458,7 @@ class prob(sgra):
                                 "compare. Ignoring...")
                 compare=False
             else:
-                X_alt = altSol.x[:,0,0]; 
+                X_alt = altSol.x[:,0,0];
                 Y_alt = altSol.x[:,1,0];
                 plt.plot(X_alt,Y_alt,'b',label=altSolLabl)
                 plt.plot(X_alt[0],Y_alt[0],'o')
@@ -468,7 +467,7 @@ class prob(sgra):
                 plt.plot(X[0],Y[0],'o')
                 plt.plot(X[-1],Y[-1],'s')
                 plt.axis('equal')
-                plt.grid(True)                
+                plt.grid(True)
                 titlStr = "Comparing trajectory solutions: " + currSolLabl + " and " + \
                   altSolLabl
                 titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")\n"
@@ -483,8 +482,8 @@ class prob(sgra):
             plt.ylabel("Y [m]")
             titlStr = "Trajectory: " + currSolLabl
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")\n"
-            
-        plt.title(titlStr)        
+
+        plt.title(titlStr)
 
         if mustSaveFig:
             self.savefig(keyName='traj',fullName='trajectory')

@@ -11,64 +11,47 @@ A module for testing the MSGRA formulation with LQR problems.
 import numpy
 from sgra import sgra
 from itsme import problemConfigurationSGRA
+from utils import simp
 import matplotlib.pyplot as plt
 
 class problemConfigurationSGRA2(problemConfigurationSGRA):
     def dyn(self):
         """Dynamics parameters."""
 
-        section = 'dyn'
-        self.con['a11'] = self.config.getfloat(section, 'a11')
-        self.con['a12'] = self.config.getfloat(section, 'a12')
-        self.con['a21'] = self.config.getfloat(section, 'a21')
-        self.con['a22'] = self.config.getfloat(section, 'a22')
+        for key in ['a11', 'a12', 'a21', 'a22', 'b1', 'b2']:
+            self.con[key] = self.config.getfloat('dyn', key)
+
     def restr(self):
         """Restriction parameters."""
-        section = 'restr'
-        self.con['start1'] = self.config.getfloat(section,'start1')
-        self.con['start2'] = self.config.getfloat(section,'start2')
-        self.con['finish1'] = self.config.getfloat(section,'finish1')
-        self.con['finish2'] = self.config.getfloat(section,'finish2')
+
+        for key in ['start1', 'start2', 'finish1', 'finish2']:
+            self.con[key] = self.config.getfloat('restr', key)
 
     def cost(self):
         """Cost function parameters."""
-        section = 'cost'
-        self.con['contCostWeig'] = self.config.getfloat(section,'contCostWeig')
+
+        for key in ['contCostWeig', 'timeCostWeig', \
+                    'sttCostWeig11','sttCostWeig12', 'sttCostWeig22']:
+            self.con[key] = self.config.getfloat('cost',key)
 
 
 class prob(sgra):
     probName = 'probLQR'
 
-    def loadParsFromFile(self,file):
+    def loadParsFromFile2(self,file):
         pConf = problemConfigurationSGRA2(fileAdress=file)
-        pConf.sgra()
         pConf.dyn()
         pConf.restr()
         pConf.cost()
 
-        N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
-        k = pConf.con['gradStepSrchCte']
+        for key in ['a11', 'a12', 'a21', 'a22', 'b1', 'b2', \
+                    'start1', 'start2', 'finish1', 'finish2', \
+                    'contCostWeig', 'timeCostWeig', \
+                    'sttCostWeig11','sttCostWeig12', 'sttCostWeig22']:
+            self.constants[key] = pConf.con[key]
 
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
-        self.constants['gradStepSrchCte'] = k
-
-        self.constants['a11'] = pConf.con['a11']
-        self.constants['a12'] = pConf.con['a12']
-        self.constants['a21'] = pConf.con['a21']
-        self.constants['a22'] = pConf.con['a22']
-        self.constants['contCostWeig'] = pConf.con['contCostWeig']
-
-        self.restrictions = {'start1': pConf.con['start1'],
-                             'start2': pConf.con['start2'],
-                             'finish1':pConf.con['finish1'],
-                             'finish2':pConf.con['finish2']}
-        self.N = N
-
-        self.dt = 1.0/(N-1)
-        self.t = numpy.linspace(0,1.0,N)
+        for key in ['start1','start2','finish1','finish2']:
+            self.restrictions[key] = pConf.con[key]
 
     def initGues(self,opt={}):
 
@@ -153,6 +136,7 @@ class prob(sgra):
             # Get parameters from file
 
             self.loadParsFromFile(file=inpFile)
+            self.loadParsFromFile2(file=inpFile)
 
             # The actual "initial guess"
 
@@ -165,7 +149,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([5.0])
+            pi = numpy.array([4.])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -180,6 +164,9 @@ class prob(sgra):
             self.lam = lam
             self.mu = mu
 
+            self.Kpf = 100.0
+            self.uLim = 1.0
+
             solInit = self.copy()
 
             self.log.printL("\nInitialization complete.\n")
@@ -192,20 +179,21 @@ class prob(sgra):
         n = self.n
         s = self.s
         phi = numpy.empty((N,n,s))
-        x = self.x
-        u = self.u
-        pi = self.pi
+
         a11 = self.constants['a11']
         a12 = self.constants['a12']
         a21 = self.constants['a21']
         a22 = self.constants['a22']
-
+        b1 = self.constants['b1']
+        b2 = self.constants['b2']
 
         for arc in range(s):
-            phi[:,0,arc] = pi[arc] * \
-                            (a11 * x[:,0,arc] + a12 * x[:,1,arc] + u[:,0,arc])
-            phi[:,1,arc] = pi[arc] * \
-                            (a21 * x[:,0,arc] + a22 * x[:,1,arc] + u[:,0,arc])
+            phi[:,0,arc] = self.pi[arc] * \
+                            (a11 * self.x[:,0,arc] + a12 * self.x[:,1,arc] + \
+                             b1 * self.u[:,0,arc])
+            phi[:,1,arc] = self.pi[arc] * \
+                            (a21 * self.x[:,0,arc] + a22 * self.x[:,1,arc] + \
+                             b2 * self.u[:,0,arc])
 
 
         return phi
@@ -222,8 +210,14 @@ class prob(sgra):
         a12 = self.constants['a12']
         a21 = self.constants['a21']
         a22 = self.constants['a22']
+        b1 = self.constants['b1']
+        b2 = self.constants['b2']
 
         contCostWeig = self.constants['contCostWeig']
+        timeCostWeig = self.constants['timeCostWeig']
+        sttCostWeig11 = self.constants['sttCostWeig11']
+        sttCostWeig12 = self.constants['sttCostWeig12']
+        sttCostWeig22 = self.constants['sttCostWeig22']
 
         finish1 = self.restrictions['finish1']
         finish2 = self.restrictions['finish2']
@@ -253,23 +247,42 @@ class prob(sgra):
         psip = numpy.zeros((q,p))
 
         for arc in range(s):
+            ex1 = self.x[:,0,arc] - finish1
+            ex2 = self.x[:,1,arc] - finish2
+
             phix[:,0,0,arc] = pi[arc] * a11
             phix[:,0,1,arc] = pi[arc] * a12
             phix[:,1,0,arc] = pi[arc] * a21
             phix[:,1,1,arc] = pi[arc] * a22
 
-            phiu[:,0,0,arc] = pi[arc]
-            phiu[:,1,0,arc] = pi[arc]
+            phiu[:,0,0,arc] = pi[arc] * b1
+            phiu[:,1,0,arc] = pi[arc] * b2
 
-            phip[:,0,arc,arc] = numpy.zeros(N)#auto1 * self.x[:,0,arc] + self.u[:,0,arc]
-            phip[:,1,arc,arc] = numpy.zeros(N)#auto2 * self.x[:,1,arc] + self.u[:,0,arc]
+            phip[:,0,arc,arc] = a11 * self.x[:,0,arc] + \
+                                a12 * self.x[:,1,arc] + b1 * self.u[:,0,arc]
+            phip[:,1,arc,arc] = a21 * self.x[:,0,arc] + \
+                                a22 * self.x[:,1,arc] + b2 * self.u[:,0,arc]
 
-            #fp[:,arc,arc] = (self.x[:,0,arc] - finish1) ** 2 + \
-            #                (self.x[:,1,arc] - finish2) ** 2 + \
-            #                contCostWeig * self.u[:,0,arc]**2
-            fx[:,0,arc] = 2.0 * (self.x[:,0,arc] - finish1) * pi[arc]
-            fx[:,1,arc] = 2.0 * (self.x[:,1,arc] - finish2) * pi[arc]
-            fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc]
+            fp[:,arc,arc] = sttCostWeig11 * (ex1**2) + \
+                            sttCostWeig22 * (ex2**2) + \
+                            2. * sttCostWeig12 * ex1 * ex2 + \
+                            contCostWeig * (self.u[:,0,arc]**2) + \
+                            timeCostWeig + \
+                            self.Kpf * ((self.u[:,0,arc]>self.uLim) * \
+                            (self.u[:,0,arc]-self.uLim)**2 + \
+                                (self.u[:,0,arc]<-self.uLim) * \
+                                (self.u[:,0,arc]+self.uLim)**2 )
+
+            fx[:,0,arc] = 2.0 * pi[arc] * \
+                          (sttCostWeig11 * ex1 + sttCostWeig12 * ex2)
+            fx[:,1,arc] = 2.0 * pi[arc] * \
+                          (sttCostWeig12 * ex1 + sttCostWeig22 * ex2)
+            fu[:,0,arc] = 2.0 * contCostWeig * self.u[:,0,arc] * pi[arc] +\
+                          2.0 * self.Kpf * pi[arc] * \
+                          ( (self.u[:,0,arc]-self.uLim) *  \
+                           (self.u[:,0,arc]>self.uLim) + \
+                           (self.u[:,0,arc]+self.uLim) *  \
+                           (self.u[:,0,arc]<-self.uLim) )
         #
 
         Grads['phix'] = phix
@@ -287,8 +300,7 @@ class prob(sgra):
 #%%
     def calcPsi(self):
         N = self.N
-#        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
-#                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
+
         sttStrtP1 = self.restrictions['start1']
         sttStrtP2 = self.restrictions['start2']
         sttEndP1 = self.restrictions['finish1']
@@ -300,30 +312,43 @@ class prob(sgra):
 
     def calcF(self):
         N,s = self.N,self.s
-        f = numpy.empty((N,s))
-        u = self.u
-        x = self.x
+        fOrig = numpy.empty((N,s))
+        fPF = numpy.empty((N,s))
+
         sttEndP1 = self.restrictions['finish1']
         sttEndP2 = self.restrictions['finish2']
         contCostWeig = self.constants['contCostWeig']
-        for arc in range(s):
-            f[:,arc] = self.pi[arc] * ( contCostWeig * u[:,0,arc]**2 + \
-                       (x[:,0,arc]-sttEndP1)**2 + (x[:,1,arc]-sttEndP2)**2 )
+        timeCostWeig = self.constants['timeCostWeig']
+        sttCostWeig11 = self.constants['sttCostWeig11']
+        sttCostWeig12 = self.constants['sttCostWeig12']
+        sttCostWeig22 = self.constants['sttCostWeig22']
 
-        return f, f, 0.0*f
+        for arc in range(s):
+            ex1, ex2 = self.x[:,0,arc]-sttEndP1, self.x[:,1,arc]-sttEndP2
+            fOrig[:,arc] = self.pi[arc] * \
+                        ( contCostWeig * self.u[:,0,arc]**2 + \
+                        sttCostWeig11 * ex1**2 + sttCostWeig22 * ex2**2 + \
+                        2. * sttCostWeig12 * ex1 * ex2 + timeCostWeig )
+            fPF[:,arc] = self.pi[arc] * self.Kpf * \
+                        ((self.u[:,0,arc]>self.uLim) * \
+                          (self.u[:,0,arc]- self.uLim)**2 + \
+                         (self.u[:,0,arc]<-self.uLim) * \
+                          (self.u[:,0,arc]+self.uLim)**2)
+
+        return fOrig+fPF, fOrig, fPF
 
     def calcI(self):
         N,s = self.N,self.s
-        f, _, _ = self.calcF()
+        _, fOrig, fPF = self.calcF()
 
-        Ivec = numpy.empty(s)
+        IvecOrig = numpy.empty(s)
+        IvecPF = numpy.empty(s)
         for arc in range(s):
-            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
-            Ivec[arc] += f[1:(N-1),arc].sum()
+            IvecOrig[arc] = simp(fOrig[:,arc],N)
+            IvecPF[arc] = simp(fPF[:,arc],N)
 
-        Ivec *= 1.0/(N-1)
-        I = Ivec.sum()
-        return I, I, 0.0
+        IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
+        return IOrig+IPF, IOrig, IPF
 #%%
 
     def plotSol(self,opt={},intv=[]):
@@ -336,7 +361,7 @@ class prob(sgra):
 #             intv = list(intv)
 
         if len(intv)>0:
-            self.log.printL("plotSol: Sorry, currently ignoring plotting range.")
+            self.log.printL("plotSol: Sorry, ignoring plotting range.")
 
 
         if opt.get('mode','sol') == 'sol':
@@ -423,7 +448,7 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
 
-    def plotTraj(self,mustSaveFig=True):
+    def plotTraj(self,mustSaveFig=True,altSol=None,name=None):
         """Plot the trajectory on the state space."""
 
         X = self.x[:,0,0]

@@ -153,11 +153,11 @@ class prob(sgra):
                 tarc = numpy.zeros((arclen,s+1))
                 for k in range(s):
                     tarc[:,k] = t[k*arclen:(k+1)*arclen]
-                
+
                 remainder = len(t) % arclen
                 for r in range(remainder):
                     tarc[r,s] = t[s*arclen+r]
-                
+
                 for arc in range(s):
                     x[:,0,arc] = h_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
                     #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
@@ -175,7 +175,7 @@ class prob(sgra):
                         u[k,1,:] = (numpy.pi/2)
                     elif total_time*t[k]>600:
                         u[k,1,:] = (numpy.pi/2)*0.27
-                
+
                 pi = total_time*numpy.ones(p)
             else:
 ############### Naive
@@ -274,9 +274,6 @@ class prob(sgra):
                 self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
                 raise KeyError
 
-            # Gradient step search options
-            gradStepSrchCte = inputDict['gradStepSrchCte']
-
             # boundary conditions
             h_initial = inputDict['h_initial']
             V_initial = inputDict['V_initial']
@@ -285,47 +282,49 @@ class prob(sgra):
             V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
             gamma_final = inputDict['gamma_final']
 
-            boundary = dict()
-            boundary['h_initial'] = h_initial
-            boundary['V_initial'] = V_initial
-            boundary['gamma_initial'] = gamma_initial
-            boundary['h_final'] = h_final
-            boundary['V_final'] = V_final
-            boundary['gamma_final'] = gamma_final
-            boundary['mission_dv'] = numpy.sqrt((GM/r_e)*\
-                    (2.0-r_e/(r_e+h_final)))
+            boundary = {'h_initial': h_initial,
+                        'V_initial': V_initial,
+                        'gamma_initial': gamma_initial,
+                        'h_final': h_final,
+                        'V_final': V_final,
+                        'gamma_final': gamma_final,
+                        'mission_dv': numpy.sqrt((GM/r_e)*(2.0-r_e/(r_e+h_final)))}
             self.boundary = boundary
 
-            constants = dict()
-            constants['grav_e'] = grav_e
-            constants['Thrust'] = Thrust
-            constants['Isp'] = Isp
-            constants['r_e'] = r_e
-            constants['GM'] = GM
-            constants['s_f'] = s_f
-            constants['CL0'] = CL0
-            constants['CL1'] = CL1
-            constants['CD0'] = CD0
-            constants['CD2'] = CD2
-            constants['s_ref'] = s_ref
-            constants['DampCent'] = DampCent
-            constants['DampSlop'] = DampSlop
-            constants['PFmode'] = PFmode
-            constants['Kpf'] = Kpf
-            constants['gradStepSrchCte'] = gradStepSrchCte
+            constants = {'grav_e': grav_e,
+                         'Thrust': Thrust,
+                         'Isp': Isp,
+                         'r_e': r_e,
+                         'GM': GM,
+                         's_f': s_f,
+                         'CL0': CL0,
+                         'CL1': CL1,
+                         'CD0': CD0,
+                         'CD2': CD2,
+                         's_ref': s_ref,
+                         'DampCent': DampCent,
+                         'DampSlop': DampSlop,
+                         'PFmode': PFmode,
+                         'Kpf': Kpf}
+            #constants['gradStepSrchCte'] = gradStepSrchCte
             self.constants = constants
+
+            # Gradient step search options
+            #gradStepSrchCte = inputDict['gradStepSrchCte']
+            self.loadParsFromFile(file=inpFile)
 
             # restrictions
             alpha_min = -inputDict['AoAmax'] * d2r  # in rads
             alpha_max = -alpha_min                  # in rads
             beta_min = 0.0
             beta_max = 1.0
-            restrictions = dict()
-            restrictions['alpha_min'] = alpha_min
-            restrictions['alpha_max'] = alpha_max
-            restrictions['beta_min'] = beta_min
-            restrictions['beta_max'] = beta_max
-            restrictions['acc_max'] = acc_max
+            restrictions = {'alpha_min': alpha_min,
+                            'alpha_max': alpha_max,
+                            'beta_min': beta_min,
+                            'beta_max': beta_max,
+                            'acc_max': acc_max,
+                            'pi_min': inputDict['pi_min'],
+                            'pi_max': inputDict['pi_max']}
             self.restrictions = restrictions
 
             # Find indices for beginning of arc
@@ -960,7 +959,7 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        self.log.printL("In calcPsi.")
+        #self.log.printL("In calcPsi.")
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
@@ -990,6 +989,8 @@ class prob(sgra):
                                 (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
                 else:
                     psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            else:
+                self.log.printL("Sorry, this part of calcPsi is not implemented yet.")
             #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
@@ -997,7 +998,7 @@ class prob(sgra):
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
         #strPrnt += str(q-3)+","+str(q-2)+","+str(q-1)
 
-        self.log.printL("Psi = "+str(psi))
+        #self.log.printL("Psi = "+str(psi))
 
         return psi
 
@@ -1561,6 +1562,7 @@ class prob(sgra):
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
 
+        # Curve 1: height
         plt.subplot2grid((11,1),(0,0))
         altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
         self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
@@ -1574,6 +1576,7 @@ class prob(sgra):
         plt.title(titlStr)
         plt.xlabel("t [s]")
 
+        # Curve 2: speed
         plt.subplot2grid((11,1),(1,0))
         altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
         self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
@@ -1582,6 +1585,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 3: flight path angle
         plt.subplot2grid((11,1),(2,0))
         altSol.plotCat(altSol.x[:,2,:]*r2d,labl=altSolLabl)
         self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
@@ -1591,6 +1595,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 4: Mass
         plt.subplot2grid((11,1),(3,0))
         altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
         self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
@@ -1599,6 +1604,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 5: Control #1 (angle of attack)
         plt.subplot2grid((11,1),(4,0))
         altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
         self.plotCat(self.u[:,0,:],mark='--',color='c',labl=currSolLabl)
@@ -1607,6 +1613,7 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 6: Control #2 (thrust)
         plt.subplot2grid((11,1),(5,0))
         altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
         self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
@@ -1616,13 +1623,12 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-        ######################################
+        # Curve 7: angle of attack
         alpha,beta = self.calcDimCtrl()
         alpha_alt,beta_alt = altSol.calcDimCtrl()
         plt.subplot2grid((11,1),(6,0))
         altSol.plotCat(alpha_alt*r2d,labl=altSolLabl)
         self.plotCat(alpha*r2d,mark='--',color='k',labl=currSolLabl)
-
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
         #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
@@ -1632,10 +1638,10 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 8: thrust level
         plt.subplot2grid((11,1),(7,0))
         altSol.plotCat(beta_alt,labl=altSolLabl)
         self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
-
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
         #plt.plot(t,beta*0+beta_min,'-.k')
@@ -1643,9 +1649,8 @@ class prob(sgra):
         plt.xlabel("t [s]")
         plt.ylabel("beta [-]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-        ######################################
 
-        ######################################
+        # Curve 9: thrust
         plt.subplot2grid((11,1),(8,0))
         thrust = numpy.empty_like(beta)
         thrust_alt = numpy.empty_like(beta_alt)
@@ -1663,10 +1668,11 @@ class prob(sgra):
         plt.ylabel("Thrust [kN]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
+        # Curve 10: acceleration
         plt.subplot2grid((11,1),(9,0))
         solAcc =  self.calcAcc()
         altSolAcc = altSol.calcAcc()
-        plt.plot([0.0,self.pi.sum()],\
+        plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
                   '--',label='accel. limit')
         altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
@@ -1676,7 +1682,7 @@ class prob(sgra):
         plt.ylabel("Tang. accel. [m/s²]")
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
-        ######################################
+        # 'Curve' 11: pi's
         ax = plt.subplot2grid((11,1),(10,0))
         position = numpy.arange(s)
         position_alt = numpy.arange(s_alt)
@@ -1730,7 +1736,7 @@ class prob(sgra):
                                 "compare. Ignoring...")
                 compare=False
             else:
-                X_alt = X; Z_alt = Z;
+                X_alt = 0.0 * X; Z_alt = 0.0 * Z;
                 sigma_alt = 0.0
                 X_alt[0] = 0.0
                 Z_alt[0] = 0.0
@@ -1796,6 +1802,10 @@ class prob(sgra):
         # Remaining points are unused; it is best to repeat the final point
         X[iCont+1 :] = X[iCont]
         Z[iCont+1 :] = Z[iCont]
+
+        if compare:
+            X_alt[iCont+1 :] = X_alt[iCont]
+            Z_alt[iCont+1 :] = Z_alt[iCont]
 
         # Calculate dynamic pressure, get point of max pdyn
         pDyn = .5 * dens * (self.x[:,1,:]**2)
@@ -1909,8 +1919,7 @@ class prob(sgra):
 
         # Plot stage separation points in blue
         mustLabl = True
-        initMode = self.initMode
-        if initMode == 'extSol':
+        if self.initMode == 'extSol':
             for arc in range(s-1):
                 if self.isStagSep[arc]:
                     # this trick only labels the first segment, to avoid multiple

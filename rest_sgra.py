@@ -6,55 +6,39 @@ Created on Tue Jun 27 14:36:59 2017
 @author: levi
 """
 import numpy
-#from utils import ddt
+from utils import simp
 import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
     N,s,dt = self.N,self.s,self.dt
-    #x = self.x
 
-    #phi = self.calcPhi()
     psi = self.calcPsi()
-    #dx = ddt(x,N)
+    func = self.calcErr()
 
-    func = self.calcErr()#dx-phi
-    #func[N-1,:,:] = numpy.zeros((self.n,s))
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
 
-#    for arc in range(s):
-#        P = .5*(func[0,:,arc].dot(func[0,:,arc].transpose()))
-#        vetP[0,arc] = P
-#        vetIP[0,arc] = P
-#
-#        for t in range(1,N-1):
-#            vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
-#            P += vetP[t,arc]
-#            vetIP[t,arc] = P
-#
-#        vetP[N-1,arc] = .5*(func[N-1,:,arc].dot(func[N-1,:,arc].transpose()))
-#        P += vetP[N-1,arc]
-#        vetIP[N-1,arc] = P
-#
-#    #P *= dt
-#
-#    vetIP *= dt
 
     for arc in range(s):
         for t in range(N):
             vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
+    coefList = simp([],N,onlyCoef=True)
 
+#    for arc in range(s):
+#        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
+#        vetIP[1,arc] = vetIP[0,arc] + (59.0/48.0) * vetP[1,arc]
+#        vetIP[2,arc] = vetIP[1,arc] + (43.0/48.0) * vetP[2,arc]
+#        vetIP[3,arc] = vetIP[2,arc] + (49.0/48.0) * vetP[3,arc]
+#        for t in range(4,N-4):
+#            vetIP[t] = vetIP[t-1,arc] + vetP[t,arc]
+#        vetIP[N-4,arc] = vetIP[N-5,arc] + (49.0/48.0) * vetP[N-4,arc]
+#        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
+#        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
+#        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
     for arc in range(s):
-        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
-        vetIP[1,arc] = vetIP[0,arc] + (59.0/48.0) * vetP[1,arc]
-        vetIP[2,arc] = vetIP[1,arc] + (43.0/48.0) * vetP[2,arc]
-        vetIP[3,arc] = vetIP[2,arc] + (49.0/48.0) * vetP[3,arc]
-        for t in range(4,N-4):
-            vetIP[t] = vetIP[t-1,arc] + vetP[t,arc]
-        vetIP[N-4,arc] = vetIP[N-5,arc] + (49.0/48.0) * vetP[N-4,arc]
-        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
-        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
-        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
+        vetIP[0,arc] = coefList[0] * vetP[0,arc]
+        for t in range(1,N):
+            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
 
     vetIP *= dt
 
@@ -198,7 +182,8 @@ def calcP(self,mustPlotPint=False):
                   "P = {:.4E}, ".format(P)+\
                   "P_int = {:.4E}, ".format(Pint)+\
                   "P_psi = {:.4E}".format(Ppsi)+\
-                  "\n(rest. iter. #"+str(self.NIterRest+1)+")\n")
+                  "\n(event #" + str(int((self.EvntIndx+1)/2)) + \
+                  ", rest. iter. #"+str(self.NIterRest+1)+")\n")
         plt.ylabel('Accum.')
 
         plt.subplot2grid((Np,1),(1,0))
@@ -232,28 +217,27 @@ def calcStepRest(self,corr):
 
     #P0,_,_ = calcP(self)
     P0 = self.P
-
+    dalfa = 0.9
     newSol = self.copy()
-    newSol.aplyCorr(.8,corr)
+    newSol.aplyCorr(dalfa,corr)
     P1m,_,_ = newSol.calcP()
-
 
     if P1 >= P1m or P1 >= P0:
         self.log.printL("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
-        nP = P1m; alfa=.8#1.0
+        nP = P1m; alfa = dalfa#1.0
         cont = 0; keepSearch = (nP>P0)
         while keepSearch and alfa > 1.0e-15:
             cont += 1
             P = nP
-            alfa *= .8
+            alfa *= dalfa
             newSol = self.copy()
             newSol.aplyCorr(alfa,corr)
             nP,_,_ = newSol.calcP()
-            if nP < P0:
+            if P < P0:
                 keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
         if cont>0:
-            alfa /= 0.8
+            alfa /= dalfa
     else:
         # no "overdrive!"
         self.log.printL("Leaving rest with alfa = 1.")
@@ -303,27 +287,22 @@ def rest(self,parallelOpt={}):
     isParallel = parallelOpt.get('restLMPBVP',False)
     A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-
     corr = {'x':A,
             'u':B,
             'pi':C}
+#    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+#    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
-    #self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    #input("rest_sgra: Olha lá a correção!")
+ #   self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+#    input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
-    self.updtHistP(alfa,mustPlotPint=True)
 
-    # update Gradient-Restoration event list
-    self.GREvIndx += 1
-    self.GREvList[self.GREvIndx] = False
-#    print("\nUpdating GREvList.")
-#    print("Writing False in position",self.GREvIndx)
-#    print("GREvList =",self.GREvList[:(self.GREvIndx+1)])
+    self.updtEvntList('rest')
+    self.updtHistP()#mustPlotPint=True)
+    self.updtHistRest(alfa)
 
     self.log.printL("Leaving rest with alfa = "+str(alfa))
-
-
     if self.dbugOptRest['pausRest']:
         self.plotSol()
         input('Rest in debug mode. Press any key to continue...')

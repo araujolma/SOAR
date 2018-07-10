@@ -117,21 +117,32 @@ class LMPBVPhelp():
 
         #self.showEig(N,n,s)
 
-    def showEig(self,N,n,s):
-        print("\nLá vem os autovalores!")
+    def showEig(self,N,n,s,mustShow=False):
+        #print("\nLá vem os autovalores!")
+
+        plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+        #plt.subplot2grid((s,1),(0,0))
+
         eigen = numpy.empty((N,n,s),dtype=complex)
+
         for arc in range(s):
             eigen[:,:,arc] = numpy.linalg.eigvals(self.DynMat[:,:n,:n,arc])
+            plt.subplot2grid((s,1),(arc,0))
             for i in range(n):
-                plt.plot(eigen[:,i,arc].real,eigen[:,i,arc].imag,\
-                         label='eig #' + str(i) + ", start @(" + \
+                plt.plot(eigen[:,i,arc].real,eigen[:,i,arc].imag,'o-',\
+                         label='eig #' + str(i+1) + ", start @(" + \
                          str(eigen[0,i,arc])+")")
+            #
             plt.grid(True)
             plt.legend()
             plt.xlabel('Real')
             plt.ylabel('Imag')
-            plt.title('Eigenvalues for Arc #'+str(arc))
+            if arc == 0:
+                plt.title('Eigenvalues for each arc')
+
+        if mustShow:
             plt.show()
+
 
     def propagate(self,j):
         """This method computes each solution, via propagation of the

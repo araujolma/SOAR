@@ -6,6 +6,7 @@ A module for the problem 9-2 from Miele (1970)
 
 import numpy
 from sgra import sgra
+from utils import simp
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -114,9 +115,8 @@ class prob(sgra):
         phi = numpy.empty((N,n,s))
         x = self.x
         u = self.u
-        sin = numpy.sin
 
-        phi[:,0,0] = 2*sin(u[:,0,0]) - numpy.array([1.0])
+        phi[:,0,0] = 2*numpy.sin(u[:,0,0]) - numpy.ones(N)
         phi[:,1,0] = x[:,0,0]
 
         return phi
@@ -132,8 +132,6 @@ class prob(sgra):
         p = self.p
         q = self.q
         s = self.s
-        #q = sizes['q']
-        #N0 = sizes['N0']
 
         u = self.u
 
@@ -153,8 +151,8 @@ class prob(sgra):
         else:
             phip = numpy.zeros((N,n,1,s))
 
-        phix[:,1,0,0] = -numpy.array([1.0])
-        phiu[:,0,0,0] = 2*cos_u
+        phix[:,1,0,0] = numpy.ones(N)
+        phiu[:,0,0,0] = 2.0 * cos_u
 
         psiy = numpy.zeros((q,2*n*s))
 
@@ -174,7 +172,7 @@ class prob(sgra):
         else:
             fp = numpy.zeros((N,1,s))
 
-        fu[:,0,0] = -2.0*sin_u
+        fu[:,0,0] = 2.0 * sin_u
 
         Grads['phix'] = phix
         Grads['phiu'] = phiu
@@ -201,13 +199,18 @@ class prob(sgra):
         N = self.N
         s = self.s
         u = self.u
-        f =  2*numpy.cos(u[:,0,:])
+        f =  2.0 - 2.0 * numpy.cos(u[:,0,:])
 
         return f, f, numpy.zeros((N,s))
 
     def calcI(self):
         f,_,_ = self.calcF()
-        I = f.sum()
+        N = self.N
+        I = 0.0
+
+        for arc in range(self.s):
+            I += simp(f[:,arc],N)
+
         return I, I, 0.0
 #%%
     def plotSol(self,opt={},intv=[]):
