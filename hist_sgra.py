@@ -291,7 +291,7 @@ def showHistQ(self):
     plt.plot(IterGrad,self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
     plt.title("Convergence report on Q")
     plt.grid(True)
-    plt.xlabel("Grad iterations")
+    plt.xlabel("Gradient iterations")
     plt.ylabel("Q values")
     plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
@@ -305,7 +305,7 @@ def showHistI(self):
     plt.plot(IterGrad,self.histIorig[IterGrad],label='Iorig')
     plt.plot(IterGrad,self.histIpf[IterGrad],label='Ipf')
     plt.grid(True)
-    plt.xlabel("Grad iterations")
+    plt.xlabel("Gradient iterations")
     plt.ylabel("I values")
     plt.legend()
 
@@ -317,7 +317,7 @@ def showHistGradStep(self):
     plt.title("Gradient step history")
     plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
     plt.grid(True)
-    plt.xlabel("Grad iterations")
+    plt.xlabel("Gradient iterations")
     plt.ylabel("Step values")
 
     self.savefig(keyName='histGradStep',fullName='GradStep history')
@@ -334,8 +334,8 @@ def showHistGRrate(self):
     plt.title("Gradient-restoration rate history")
     plt.plot(IterGrad,self.histGRrate[IterGrad])
     plt.grid(True)
-    plt.xlabel("Grad iterations")
-    plt.ylabel("Restorations per grad")
+    plt.xlabel("Gradient iterations")
+    plt.ylabel("Restorations per gradient")
 
     self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
     #else:
