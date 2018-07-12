@@ -1,0 +1,20 @@
+Mayavi install requirements for python3:
+
+sudo apt-get install python3-pyqt4
+
+sudo apt-get install python3-pip
+
+sudo pip3 install vtk
+
+sudo apt-get install python3-setuptools
+
+sudo apt-get install python3-numpy
+
+sudo apt-get install python3-configobj
+
+Clone mayavi folder on Github: https://github.com/enthought/mayavi
+
+Unzip mayavi-master.zip and inside mayavi-master folfer run:
+
+sudo python3 setup.py install
+

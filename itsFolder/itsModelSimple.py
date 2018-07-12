@@ -15,6 +15,7 @@ used in itsmeSimple.
 import numpy
 import sys
 from itsFolder.itsModelCommon import model as modelBase
+from itsFolder.itsModelCommon import orbitCalculation
 
 sys.path.append('/..')
 
@@ -42,30 +43,11 @@ class model(modelBase):
 
     def __orbitData(self)-> None:
 
-        GM = self.con['GM']
+        a, e, E, momAng, ph, ah, h = orbitCalculation(
+                numpy.transpose(self.traj.xx[-1, :]), self.earth)
+
         R = self.con['R']
-
-        h, v, gama, M = numpy.transpose(self.traj.xx[-1, :])
-        r = R + h
-
-        cosGama = numpy.cos(gama)
-        sinGama = numpy.sin(gama)
-        vt = v*cosGama + self.con['we']*r
-        vr = v*sinGama
-        v = numpy.sqrt(vt**2 + vr**2)
-        cosGama = vt/v
-        sinGama = vr/v
-
-        momAng = r * v * cosGama
-
-        en = 0.5 * v * v - GM/r
-
-        a = - 0.5*GM/en
-
-        aux = v * momAng / GM
-        e = numpy.sqrt((aux * cosGama - 1)**2 + (aux * sinGama)**2)
-
-        ah = a * (1.0 + e) - R
+        GM = self.con['GM']
 
         ve = self.con['we']*(R + ah)
 
