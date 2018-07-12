@@ -37,9 +37,46 @@ def ddt(vec,N):
     dvec[N-1] = (vec[N-1]-vec[N-2])/dt
     for k in range(1,N-1):
         dvec[k] = .5*(vec[k+1]-vec[k-1])/dt
+#    for k in range(N-1):
+#        dvec[k] = vec[k+1]-vec[k]
+#    dvec[N-1] = dvec[N-2]
+#    dvec *= (1.0/dt)
     return dvec
 
+def simp(vec, N, onlyCoef=False):
+    """ Simple integration of array according to Simpson's method.
+    It can also only yield the coefficients if one wants to do the integration
+    by oneself (maybe in an optimized loop)."""
+
+#    coefList = numpy.ones(N)
+#    coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
+#    coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
+#    coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
+#    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
+#    coefList *= 1.0/(N-1)
+
+    coefList = numpy.ones(N)
+    for k in range(1,N-1):
+        if k % 2 == 0:
+            coefList[k] = 2.0
+        else:
+            coefList[k] = 4.0
+    #
+    coefList /= (3.0 * (N-1))
+
+    if onlyCoef:
+        return coefList
+    else:
+        return coefList.dot(vec)
+
 def testAlgn(x,y):
+    """Test the alignment of three points on a plane. Returns the determinant
+    of the three points, which acutally proportional to the area of the trian-
+    gle determined by the points.
+
+    x: array with the x coordinates
+    y: array with the y coordinates"""
+
     A = numpy.ones((3,3))
     A[:,1] = x
     A[:,2] = y
@@ -49,7 +86,7 @@ def testAlgn(x,y):
 def getNowStr():
     """Returns a string with the current time, all non numeric characters
     switched to _'s. """
-    
+
     thisStr = str(datetime.datetime.now())
     thisStr = thisStr.replace(' ','_')
     thisStr = thisStr.replace('-','_')
@@ -60,10 +97,10 @@ def getNowStr():
 if __name__ == "__main__":
     print("In utils.py!")
     print("Testing testAlgn:")
-    
+
     x = numpy.array([1.0,2.0,3.0])
     y = 5.0*x
     print(testAlgn(x,y))
     x[0]=0.0
     print(testAlgn(x,y))
-    
+

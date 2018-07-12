@@ -1,7 +1,7 @@
 
 .spyderworkspace
 .DS_Store
-*.pkl
-*.pdf
-__pycache__/*
-*/__pycache__/*
+**/*.pkl
+**/*.pdf
+**/*.pyc
+**/__pycache__/*
