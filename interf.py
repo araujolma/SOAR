@@ -194,7 +194,8 @@ class ITman():
                         else:
                             self.log.printL('\nSorry, this is not a valid ' + \
                                             "solution path. Let's try again.")
-
+                        #
+                    #
                 #
                 self.log.printL("\nOk, proceeding with " + self.loadSolDir + \
                                 "...")
@@ -224,7 +225,8 @@ class ITman():
                 self.log.printL("\nOk, proceeding with\n" +
                                 self.loadAltSolDir + "\nas a comparing base!")
                 #
-
+            #
+        #
         elif self.defOpt == 'loadSol':
             msg = "\nDefault starting option (defOpt) is to load solution." + \
                   "\nThe default path to do it (loadSolDir) is: " + \
@@ -243,6 +245,12 @@ class ITman():
                 self.isNewSol = False
                 self.loadSolDir = inp
             return
+        else:
+            self.log.printL('\nUnknown starting option "' + self.defOpt + \
+                            '".\nLeaving now.')
+            raise
+        #
+    #
 
     def checkPars(self,sol):
         """Performs a check in the parameters of a initial solution. """
@@ -290,7 +298,8 @@ class ITman():
                   "and then press any other key to reload the " + \
                   "parameters from that file.\n" + \
                   "Please notice that this only reloads parameters, not " + \
-                  "necessarily\nregenerating the initial guess."
+                  "necessarily\nregenerating the initial guess.\n" + \
+                  "(See 'loadParsFromFile' method in 'sgra.py'.)"
             self.log.printL(msg)
 
             inp = self.prom()
