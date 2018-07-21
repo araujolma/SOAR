@@ -1068,7 +1068,7 @@ class prob(sgra):
 #        for arc in range(s):
 #            IorigSimp += simp(fOrig[:,arc],N)
 #            IpfSimp += simp(fPF[:,arc],N)
-
+#
 #        self.log.printL("\nIorig: {:.4E}".format(Iorig))
 #        self.log.printL("IorigSimp: {:.4E}".format(IorigSimp))
 #        self.log.printL("Difference in Iorig: {:.4E}".format(Iorig-IorigSimp))
