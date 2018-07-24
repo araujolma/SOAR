@@ -88,11 +88,33 @@ class stepMngr():
                 PiCondVio = True; break # already violated, no need to continue
         #
 
+
         # "Bad point" conditions:
-        if Obj > self.Obj0 or Obj < 0.0 or P >= self.limP or PiCondVio:
+        BadPntCode = False
+        BadPntMsg = ''
+        if Obj > self.Obj0:
+            BadPntCode = True
+            BadPntMsg += ("\n-  Obj = {:.4E}".format(Obj) + \
+                         " > {:.4E} = Obj0".format(self.Obj0))
+        if Obj < 0.0:
+            BadPntCode = True
+            BadPntMsg += ("\n-  Obj = {:.4E} < 0".format(Obj))
+        if P >= self.limP:
+            BadPntCode = True
+            BadPntMsg += ("\n-  P = {:.4E}".format(P) + \
+                         " > {:.4E} = limP".format(self.limP))
+        if PiCondVio:
+            BadPntCode = True
+            BadPntMsg += ("\n-   piLowLim: " + str(self.piLowLim) + \
+                          "\n          pi: " + str(pi) + \
+                          "\n   piHighLim: " + str(self.piHighLim))
+
+
+        if BadPntCode:
             # Bad point!
-            self.log.printL("In check. Got a bad point, with alfa = " + \
-                            str(alfa) + ", Obj = "+str(Obj))
+            self.log.printL("> In check. Got a bad point," + \
+                            BadPntMsg + "\nwith alfa = " + str(alfa) + \
+                            ", Obj = "+str(Obj))
             # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa

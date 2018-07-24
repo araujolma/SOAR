@@ -47,8 +47,6 @@ def its(*arg):
 
     solution2 = problem1.solveForFineTune()
 
-    solution2.basic.plotResultsAed()
-
     solution2.displayResults()
 
     if not solution2.converged():
@@ -161,6 +159,8 @@ class initialize():
         # using a quite simple estimate to start
         iniEst = initialEstimate(con)
         con = iniEst.result()
+
+        tol = con['tol']
 
         if con['NStag'] > 1:  # not con['homogeneous']:
 
