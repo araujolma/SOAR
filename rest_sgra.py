@@ -10,7 +10,7 @@ from utils import simp
 import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
-    N, s = self.N, self.s
+    N,s,dt = self.N,self.s,self.dt
 
     psi = self.calcPsi()
     func = self.calcErr()
@@ -18,35 +18,11 @@ def calcP(self,mustPlotPint=False):
     vetP = numpy.empty((N,s))
     vetIP = numpy.empty((N,s))
 
+
     for arc in range(s):
         for t in range(N):
             vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
-        #
-    #
-
     coefList = simp([],N,onlyCoef=True)
-    for arc in range(s):
-        vetIP[0,arc] = coefList[0] * vetP[0,arc]
-        for t in range(1,N):
-            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
-    #
-
-
-#    vetIP *= self.dt # THIS IS WRONG!! REMOVE IT!!
-
-#    PiCondVio = False
-#    piLowLim = self.restrictions['pi_min']
-#    piHighLim = self.restrictions['pi_max']
-#    for i in range(self.s):
-#        # violated here in lower limit condition
-#        if piLowLim[i] is not None and self.pi[i] < piLowLim[i]:
-#            PiCondVio = True; break # already violated, no need to continue
-#        # violated here in upper limit condition
-#        if piHighLim[i] is not None and self.pi[i] > piHighLim[i]:
-#            PiCondVio = True; break # already violated, no need to continue
-#    #
-#    if PiCondVio:
-#        vetIP *= 1e300
 
 #    for arc in range(s):
 #        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
@@ -59,10 +35,12 @@ def calcP(self,mustPlotPint=False):
 #        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
 #        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
 #        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
-#    #
-#    vetIP *= self.dt
+    for arc in range(s):
+        vetIP[0,arc] = coefList[0] * vetP[0,arc]
+        for t in range(1,N):
+            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
 
-
+    #vetIP *= dt
 
     # Look for some debug plot
 #    someDbugPlot = False
@@ -309,14 +287,15 @@ def rest(self,parallelOpt={}):
     isParallel = parallelOpt.get('restLMPBVP',False)
     A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-    corr = {'x':A, 'u':B, 'pi':C}
-#    self.plotSol()
+    corr = {'x':A,
+            'u':B,
+            'pi':C}
 #    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
 #    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
-#    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-#    input("rest_sgra: Olha lá a correção ponderada!")
+ #   self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+#    input("rest_sgra: Olha lá a correção!")
     self.aplyCorr(alfa,corr)
 
     self.updtEvntList('rest')

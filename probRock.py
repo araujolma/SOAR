@@ -8,7 +8,6 @@ Created on Tue Jun 27 13:25:28 2017
 import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
-from utils import simp
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -786,6 +785,7 @@ class prob(sgra):
 
         ## "common" expressions
 
+        # TODO: also compute d thrust d u2
         # Actual (dimensional) thrust:
         thrust = numpy.empty_like(beta)
         for arc in range(s):
@@ -814,21 +814,21 @@ class prob(sgra):
                           (1.0 - tanh(acc/acc_max-1.0)**2) * (1.0/acc_max)
 
             ## fx derivatives
-            # d f d h (incomplete -- misses pi):
+            # d f d h (incomplete):
             fx[:,0,:] = K2dAPen * (2.0 * GM * sinGama / r3 - \
               (0.5 * del_rho * V2 * CDsref)/m)
-            # d f d V (incomplete -- misses pi):
+            # d f d V (incomplete):
             fx[:,1,:] = - K2dAPen * CDsref * dens * V / m
-            # d f d gamma (incomplete -- misses pi):
+            # d f d gamma (incomplete):
             fx[:,2,:] = - K2dAPen * g * cosGama
-            # d f d m (incomplete -- misses pi):
+            # d f d m (incomplete):
             fx[:,3,:] = - K2dAPen * fVel / m2
             # fx still lacks pi!
 
             ## fu derivatives
-            # d f d u1 (incomplete -- misses pi and MaxThrs):
+            # d f d u1 (incomplete):
             fPF_u[:,0,:] = K2dAPen * (-bTm * sinAlpha * DAlfaDu1)
-            # d f d u2 (incomplete -- misses pi, MaxThrs, g0, Isp, 1-s_f):
+            # d f d u2 (incomplete):
             fOrig_u[:,1,:] = DBetaDu2
             fPF_u[:,1,:] = K2dAPen * cosAlpha * DBetaDu2 / m
             # fPF_u still lacks pi terms!
@@ -872,7 +872,7 @@ class prob(sgra):
         # d mdot d pi
             phip[:,3,arc,arc] = -thrust[:,arc] / g0Isp[arc]
 
-        ## phix derivatives (all lacking the pi term)
+        ## phix derivatives
 
         # d hdot d h: 0.0
         # d hdot d V:
@@ -906,7 +906,7 @@ class prob(sgra):
         # d mdot d gama: 0.0
         # d mdot d m: 0.0
 
-        ## phiu derivatives (all lacking the pi term)
+        ## phiu derivatives
         for arc in range(s):
         # d hdot d u1: 0.0
         # d hdot d u2: 0.0
@@ -1045,38 +1045,19 @@ class prob(sgra):
         N,s = self.N,self.s
         _,fOrig,fPF = self.calcF()
 
-        Iorig, Ipf = 0.0, 0.0
+        IvecOrig = numpy.empty(s)
+        IvecPF = numpy.empty(s)
+
         for arc in range(s):
-            Iorig += simp(fOrig[:,arc],N)
-            Ipf += simp(fPF[:,arc],N)
+            IvecOrig[arc] = .5 * ( fOrig[0,arc] + fOrig[N-1,arc] )
+            IvecOrig[arc] += fOrig[1:(N-1),arc].sum()
+            IvecPF[arc] = .5 * ( fPF[0,arc] + fPF[N-1,arc] )
+            IvecPF[arc] += fPF[1:(N-1),arc].sum()
 
-#        IvecOrig = numpy.empty(s)
-#        IvecPF = numpy.empty(s)
-#
-#        for arc in range(s):
-#            IvecOrig[arc] = .5 * ( fOrig[0,arc] + fOrig[N-1,arc] )
-#            IvecOrig[arc] += fOrig[1:(N-1),arc].sum()
-#            IvecPF[arc] = .5 * ( fPF[0,arc] + fPF[N-1,arc] )
-#            IvecPF[arc] += fPF[1:(N-1),arc].sum()
-#
-#        IvecOrig *= 1.0/(N-1)
-#        IvecPF *= 1.0/(N-1)
-#        Iorig = IvecOrig.sum()
-#        Ipf = IvecPF.sum()
-#
-#        IorigSimp, IpfSimp = 0.0, 0.0
-#        for arc in range(s):
-#            IorigSimp += simp(fOrig[:,arc],N)
-#            IpfSimp += simp(fPF[:,arc],N)
-#
-#        self.log.printL("\nIorig: {:.4E}".format(Iorig))
-#        self.log.printL("IorigSimp: {:.4E}".format(IorigSimp))
-#        self.log.printL("Difference in Iorig: {:.4E}".format(Iorig-IorigSimp))
-#        self.log.printL("\nIpf: {:.4E}".format(Ipf))
-#        self.log.printL("IpfSimp: {:.4E}".format(IpfSimp))
-#        self.log.printL("Difference in Ipf: {:.4E}".format(Ipf-IpfSimp))
-#        input("\n>> ")
-
+        IvecOrig *= 1.0/(N-1)
+        IvecPF *= 1.0/(N-1)
+        Iorig = IvecOrig.sum()
+        Ipf = IvecPF.sum()
         return Iorig+Ipf, Iorig, Ipf
 #%% Plotting commands and related functions
 
@@ -1583,10 +1564,10 @@ class prob(sgra):
 
         # Curve 1: height
         plt.subplot2grid((12,1),(0,0))
-        altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
-        self.plotCat(self.x[:,0,:],mark='--',color='y',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],color='y',labl=currSolLabl)
         plt.grid(True)
-        plt.ylabel("h [km]")
+        plt.ylabel("h [km]")        
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         titlStr = "Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
@@ -1599,8 +1580,8 @@ class prob(sgra):
 
         # Curve 2: speed
         plt.subplot2grid((12,1),(1,0))
-        altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
-        self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("V [km/s]")
         plt.xlabel("t [s]")
@@ -1609,8 +1590,8 @@ class prob(sgra):
 
         # Curve 3: flight path angle
         plt.subplot2grid((12,1),(2,0))
-        altSol.plotCat(altSol.x[:,2,:]*r2d,labl=altSolLabl)
-        self.plotCat(self.x[:,2,:]*180/numpy.pi,mark='--',color='r',\
+        altSol.plotCat(altSol.x[:,2,:]*r2d,mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,2,:]*180/numpy.pi,color='r',\
                      labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("gamma [deg]")
@@ -1620,8 +1601,8 @@ class prob(sgra):
 
         # Curve 4: Mass
         plt.subplot2grid((12,1),(3,0))
-        altSol.plotCat(altSol.x[:,3,:],labl=altSolLabl)
-        self.plotCat(self.x[:,3,:],mark='--',color='m',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,3,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,3,:],color='m',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("m [kg]")
         plt.xlabel("t [s]")
@@ -1630,8 +1611,8 @@ class prob(sgra):
 
         # Curve 5: Control #1 (angle of attack)
         plt.subplot2grid((12,1),(4,0))
-        altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
-        self.plotCat(self.u[:,0,:],mark='--',color='c',labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],color='c',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("u1 [-]")
         plt.xlabel("t [s]")
@@ -1640,8 +1621,8 @@ class prob(sgra):
 
         # Curve 6: Control #2 (thrust)
         plt.subplot2grid((12,1),(5,0))
-        altSol.plotCat(altSol.u[:,1,:],labl=altSolLabl)
-        self.plotCat(self.u[:,1,:],mark='--',color='c',labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,1,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.u[:,1,:],color='c',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("u2 [-]")
@@ -1653,8 +1634,8 @@ class prob(sgra):
         alpha,beta = self.calcDimCtrl()
         alpha_alt,beta_alt = altSol.calcDimCtrl()
         plt.subplot2grid((12,1),(6,0))
-        altSol.plotCat(alpha_alt*r2d,labl=altSolLabl)
-        self.plotCat(alpha*r2d,mark='--',color='k',labl=currSolLabl)
+        altSol.plotCat(alpha_alt*r2d,mark='--',labl=altSolLabl)
+        self.plotCat(alpha*r2d,color='k',labl=currSolLabl)
         #plt.hold(True)
         #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
         #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
@@ -1667,8 +1648,8 @@ class prob(sgra):
 
         # Curve 8: thrust level
         plt.subplot2grid((12,1),(7,0))
-        altSol.plotCat(beta_alt,labl=altSolLabl)
-        self.plotCat(beta,mark='--',color='k',labl=currSolLabl)
+        altSol.plotCat(beta_alt,mark='--',labl=altSolLabl)
+        self.plotCat(beta,color='k',labl=currSolLabl)
         #plt.hold(True)
         #plt.plot(t,beta*0+beta_max,'-.k')
         #plt.plot(t,beta*0+beta_min,'-.k')
@@ -1689,8 +1670,8 @@ class prob(sgra):
         for arc in range(s):
             thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
             thrust_alt[:,arc] = beta_alt[:,arc] * MaxThrs[arc]
-        altSol.plotCat(thrust_alt,labl=altSolLabl)
-        self.plotCat(thrust,mark='--',color='y',labl=currSolLabl)
+        altSol.plotCat(thrust_alt,mark='--',labl=altSolLabl)
+        self.plotCat(thrust,color='y',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("Thrust [kN]")
@@ -1704,8 +1685,8 @@ class prob(sgra):
         plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
                   '--',label='Acceleration limit')
-        altSol.plotCat(1e3*altSolAcc,labl=altSolLabl)
-        self.plotCat(1e3*solAcc,mark='--',color='y',labl=currSolLabl)
+        altSol.plotCat(1e3*altSolAcc,mark='--',labl=altSolLabl)
+        self.plotCat(1e3*solAcc,color='y',labl=currSolLabl)
         plt.grid(True)
         plt.xlabel("t [s]")
         plt.ylabel("Tang. accel. [m/s²]")
@@ -1727,18 +1708,18 @@ class prob(sgra):
         plt.ylabel("Duration [s]")
         ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
                   loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
-
+       
         # 'Curve' 12: pi's (stages)
-        # TODO: Instead of using "addArcs=2" it's better to pick this
+        # TODO: Instead of using "addArcs=2" it's better to pick this 
         # input from input file.
-        addArcs = 2
+        addArcs = 2  
         ax = plt.subplot2grid((12,1),(11,0))
         position = numpy.arange(s-addArcs)
         position_alt = numpy.arange(s_alt-addArcs)
         stages = numpy.arange(1,s+1-addArcs)
         width = 0.4
         pi_stages = numpy.zeros(s-addArcs)
-        altSol_pi_stages = numpy.zeros(s-addArcs)
+        altSol_pi_stages = numpy.zeros(s-addArcs)        
         for k in range(len(pi_stages)):
             if k==0:
                 for arc in range(addArcs+1):
@@ -1746,7 +1727,7 @@ class prob(sgra):
                     altSol_pi_stages[k] += altSol.pi[arc]
             else:
                 pi_stages[k] = self.pi[k+addArcs]
-                altSol_pi_stages[k] = altSol.pi[k+addArcs]
+                altSol_pi_stages[k] = altSol.pi[k+addArcs] 
         current = ax.bar(position,pi_stages,width,color='y')
         initial = ax.bar(position_alt + width,altSol_pi_stages,width)
         ax.set_xticks(position + width/2)
