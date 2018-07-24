@@ -1045,11 +1045,27 @@ class prob(sgra):
         N,s = self.N,self.s
         _,fOrig,fPF = self.calcF()
 
-        Iorig, Ipf = 0.0, 0.0
-        for arc in range(s):
-            Iorig += simp(fOrig[:,arc],N)
-            Ipf += simp(fPF[:,arc],N)
+#        # METHOD 1: simple simpson integration.
+#        Iorig, Ipf = 0.0, 0.0
+#        for arc in range(s):
+#            Iorig += simp(fOrig[:,arc],N)
+#            Ipf += simp(fPF[:,arc],N)
 
+        # METHOD 2: simpson integration, with prints
+        IorigVec, IpfVec = numpy.empty(s), numpy.empty(s)
+        for arc in range(s):
+            IorigVec[arc] = simp(fOrig[:,arc],N)
+            IpfVec[arc] = simp(fPF[:,arc],N)
+
+        Iorig = IorigVec.sum()
+        Ipf = IpfVec.sum()
+
+        self.log.printL("\nIorigVec: "+str(IorigVec))
+        self.log.printL("Iorig: "+str(Iorig))
+        self.log.printL("IpfVec: "+str(IpfVec))
+        self.log.printL("Ipf: "+str(Ipf))
+
+#        # METHOD 3: trapezoidal integration, comparing with simpson
 #        IvecOrig = numpy.empty(s)
 #        IvecPF = numpy.empty(s)
 #

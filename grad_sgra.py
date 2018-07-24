@@ -94,8 +94,8 @@ class stepMngr():
         BadPntMsg = ''
         if Obj > self.Obj0:
             BadPntCode = True
-            BadPntMsg += ("\n-  Obj = {:.4E}".format(Obj) + \
-                         " > {:.4E} = Obj0".format(self.Obj0))
+            BadPntMsg += ("\n-  Obj-Obj0 = {:.4E}".format(Obj-self.Obj0) + \
+                         " > 0")
         if Obj < 0.0:
             BadPntCode = True
             BadPntMsg += ("\n-  Obj = {:.4E} < 0".format(Obj))
@@ -1150,18 +1150,34 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-    #self.plotSol(opt={'mode':'var','x':corr['x'],'u':corr['u'],'pi':corr['pi']})
-    #input("Olha lá a correção...")
+#    if self.NIterGrad > 99:
+#        newConf = {'left':0.12,'right':0.9,'bottom':0.06,
+#                   'top':.88,'wspace':0.2,'hspace':0.55}
+#        self.log.printL("\nPlotting current sol in interactive mode...")
+#        self.plotSol(mustSaveFig=False, subPlotAdjs=newConf)
+#        self.log.printL("\nPlotting variations in interactive mode...")
+#        self.plotSol(opt={'mode':'var','x':corr['x'],
+#                          'u':corr['u'],'pi':corr['pi']},
+#                     mustSaveFig=False, subPlotAdjs=newConf)
 
     # Calculation of alfa
     alfa, stepMan = self.calcStepGrad(corr,alfa_0,retry_grad,stepMan)
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
-
     self.updtHistGrad(alfa)
 
     self.plotSol(opt={'mode':'lambda'})
     A, B, C = corr['x'], corr['u'], corr['pi']
+
+#    if self.NIterGrad > 99:
+#        self.log.printL("\nPlotting weighted variations in interactive mode...")
+#        newConf = {'left':0.12,'right':0.9,'bottom':0.06,
+#                   'top':.88,'wspace':0.2,'hspace':0.55}
+#        self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C},
+#                     mustSaveFig=False, subPlotAdjs=newConf)
+#    else:
+#        self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+
     self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
     #input("@Grad: Waiting for lambda/corrections check...")
 

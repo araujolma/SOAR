@@ -32,21 +32,22 @@ def calcP(self,mustPlotPint=False):
     #
 
 
-#    vetIP *= self.dt # THIS IS WRONG!! REMOVE IT!!
+    #vetIP *= self.dt # THIS IS WRONG!! REMOVE IT!!
 
-#    PiCondVio = False
-#    piLowLim = self.restrictions['pi_min']
-#    piHighLim = self.restrictions['pi_max']
-#    for i in range(self.s):
-#        # violated here in lower limit condition
-#        if piLowLim[i] is not None and self.pi[i] < piLowLim[i]:
-#            PiCondVio = True; break # already violated, no need to continue
-#        # violated here in upper limit condition
-#        if piHighLim[i] is not None and self.pi[i] > piHighLim[i]:
-#            PiCondVio = True; break # already violated, no need to continue
-#    #
-#    if PiCondVio:
-#        vetIP *= 1e300
+    # TEST FOR VIOLATIONS!
+    PiCondVio = False
+    piLowLim = self.restrictions['pi_min']
+    piHighLim = self.restrictions['pi_max']
+    for i in range(self.s):
+        # violated here in lower limit condition
+        if piLowLim[i] is not None and self.pi[i] < piLowLim[i]:
+            PiCondVio = True; break # already violated, no need to continue
+        # violated here in upper limit condition
+        if piHighLim[i] is not None and self.pi[i] > piHighLim[i]:
+            PiCondVio = True; break # already violated, no need to continue
+    #
+    if PiCondVio:
+        vetIP *= 1e300
 
 #    for arc in range(s):
 #        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
