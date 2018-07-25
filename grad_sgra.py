@@ -692,7 +692,7 @@ def calcQ(self,mustPlotQs=False):
         #
     #
 
-    auxVecIntQp *= dt; Qx *= dt; Qu *= dt
+    #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
 
     resVecIntQp = numpy.zeros(p)
     for arc in range(s):
