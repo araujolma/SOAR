@@ -9,6 +9,7 @@ import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
+from utils import simp
 
 class prob(sgra):
     probName = 'probRock'
@@ -1045,19 +1046,54 @@ class prob(sgra):
         N,s = self.N,self.s
         _,fOrig,fPF = self.calcF()
 
-        IvecOrig = numpy.empty(s)
-        IvecPF = numpy.empty(s)
+#        # METHOD 1: simple simpson integration.
+#        Iorig, Ipf = 0.0, 0.0
+#        for arc in range(s):
+#            Iorig += simp(fOrig[:,arc],N)
+#            Ipf += simp(fPF[:,arc],N)
 
+        # METHOD 2: simpson integration, with prints
+        IorigVec, IpfVec = numpy.empty(s), numpy.empty(s)
         for arc in range(s):
-            IvecOrig[arc] = .5 * ( fOrig[0,arc] + fOrig[N-1,arc] )
-            IvecOrig[arc] += fOrig[1:(N-1),arc].sum()
-            IvecPF[arc] = .5 * ( fPF[0,arc] + fPF[N-1,arc] )
-            IvecPF[arc] += fPF[1:(N-1),arc].sum()
+            IorigVec[arc] = simp(fOrig[:,arc],N)
+            IpfVec[arc] = simp(fPF[:,arc],N)
 
-        IvecOrig *= 1.0/(N-1)
-        IvecPF *= 1.0/(N-1)
-        Iorig = IvecOrig.sum()
-        Ipf = IvecPF.sum()
+        Iorig = IorigVec.sum()
+        Ipf = IpfVec.sum()
+
+        self.log.printL("\nIorigVec: "+str(IorigVec))
+        self.log.printL("Iorig: "+str(Iorig))
+        self.log.printL("IpfVec: "+str(IpfVec))
+        self.log.printL("Ipf: "+str(Ipf))
+
+#        # METHOD 3: trapezoidal integration, comparing with simpson
+#        IvecOrig = numpy.empty(s)
+#        IvecPF = numpy.empty(s)
+#
+#        for arc in range(s):
+#            IvecOrig[arc] = .5 * ( fOrig[0,arc] + fOrig[N-1,arc] )
+#            IvecOrig[arc] += fOrig[1:(N-1),arc].sum()
+#            IvecPF[arc] = .5 * ( fPF[0,arc] + fPF[N-1,arc] )
+#            IvecPF[arc] += fPF[1:(N-1),arc].sum()
+#
+#        IvecOrig *= 1.0/(N-1)
+#        IvecPF *= 1.0/(N-1)
+#        Iorig = IvecOrig.sum()
+#        Ipf = IvecPF.sum()
+#
+#        IorigSimp, IpfSimp = 0.0, 0.0
+#        for arc in range(s):
+#            IorigSimp += simp(fOrig[:,arc],N)
+#            IpfSimp += simp(fPF[:,arc],N)
+#
+#        self.log.printL("\nIorig: {:.4E}".format(Iorig))
+#        self.log.printL("IorigSimp: {:.4E}".format(IorigSimp))
+#        self.log.printL("Difference in Iorig: {:.4E}".format(Iorig-IorigSimp))
+#        self.log.printL("\nIpf: {:.4E}".format(Ipf))
+#        self.log.printL("IpfSimp: {:.4E}".format(IpfSimp))
+#        self.log.printL("Difference in Ipf: {:.4E}".format(Ipf-IpfSimp))
+#        input("\n>> ")
+
         return Iorig+Ipf, Iorig, Ipf
 #%% Plotting commands and related functions
 
