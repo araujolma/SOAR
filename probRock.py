@@ -27,7 +27,7 @@ class prob(sgra):
         initMode = opt.get('initMode','default')
         self.initMode = initMode
         if initMode == 'default' or initMode == 'naive':
-            N = 10000+1
+            N = 501+1
             self.N = N
 
             dt = 1.0/(N-1)
@@ -36,6 +36,7 @@ class prob(sgra):
             self.t = t
 
             s = 1
+            addArcs = 0
             p = s
             self.s = s
             self.p = p
@@ -127,12 +128,17 @@ class prob(sgra):
             beta_min = 0.0
             beta_max = 1.0
             acc_max = 3.0 * grav_e
+            pi_min = numpy.zeros(s)
+            #pi_max = numpy.empty_like(pi_min)
+            pi_max = numpy.array([None]) #Works only for s=1
             restrictions = dict()
             restrictions['alpha_min'] = alpha_min
             restrictions['alpha_max'] = alpha_max
             restrictions['beta_min'] = beta_min
             restrictions['beta_max'] = beta_max
             restrictions['acc_max'] = acc_max
+            restrictions['pi_min'] = pi_min
+            restrictions['pi_max'] = pi_max
             self.restrictions = restrictions
             PFtol = 1.0e-2
             acc_max_relTol = 0.1
@@ -180,9 +186,9 @@ class prob(sgra):
                 pi = total_time*numpy.ones(p)
             else:
 ############### Naive
-                x = numpy.ones((N,n,s))
+                x = (numpy.pi/2)*numpy.ones((N,n,s))
                 u = numpy.ones((N,m,s))
-                pi = numpy.ones(s)
+                pi = 100*numpy.ones(s)
 #
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
@@ -214,6 +220,7 @@ class prob(sgra):
             # Number of arcs:
             s = inputDict['NStag'] + addArcs
             self.s = s
+            self.addArcs = addArcs
 
             # TODO: increase flexibility in these conditions
 
@@ -1603,7 +1610,7 @@ class prob(sgra):
         altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
         self.plotCat(self.x[:,0,:],color='y',labl=currSolLabl)
         plt.grid(True)
-        plt.ylabel("h [km]")        
+        plt.ylabel("h [km]")
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         titlStr = "Comparing solutions: " + currSolLabl + " and " + \
                   altSolLabl+\
@@ -1744,36 +1751,34 @@ class prob(sgra):
         plt.ylabel("Duration [s]")
         ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
                   loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
-       
-        # 'Curve' 12: pi's (stages)
-        # TODO: Instead of using "addArcs=2" it's better to pick this 
-        # input from input file.
-        addArcs = 2  
-        ax = plt.subplot2grid((12,1),(11,0))
-        position = numpy.arange(s-addArcs)
-        position_alt = numpy.arange(s_alt-addArcs)
-        stages = numpy.arange(1,s+1-addArcs)
-        width = 0.4
-        pi_stages = numpy.zeros(s-addArcs)
-        altSol_pi_stages = numpy.zeros(s-addArcs)        
-        for k in range(len(pi_stages)):
-            if k==0:
-                for arc in range(addArcs+1):
-                    pi_stages[k] += self.pi[arc]
-                    altSol_pi_stages[k] += altSol.pi[arc]
-            else:
-                pi_stages[k] = self.pi[k+addArcs]
-                altSol_pi_stages[k] = altSol.pi[k+addArcs] 
-        current = ax.bar(position,pi_stages,width,color='y')
-        initial = ax.bar(position_alt + width,altSol_pi_stages,width)
-        ax.set_xticks(position + width/2)
-        ax.set_xticklabels(stages)
-        plt.grid(True,axis='y')
-        plt.xlabel("Stages")
-        plt.ylabel("Duration [s]")
-        ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
-                  loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
 
+        # 'Curve' 12: pi's (stages)
+        addArcs = self.addArcs
+        if s > addArcs:
+            ax = plt.subplot2grid((12,1),(11,0))
+            position = numpy.arange(s-addArcs)
+            position_alt = numpy.arange(s_alt-addArcs)
+            stages = numpy.arange(1,s+1-addArcs)
+            width = 0.4
+            pi_stages = numpy.zeros(s-addArcs)
+            altSol_pi_stages = numpy.zeros(s-addArcs)
+            for k in range(len(pi_stages)):
+                if k==0:
+                    for arc in range(addArcs+1):
+                        pi_stages[k] += self.pi[arc]
+                        altSol_pi_stages[k] += altSol.pi[arc]
+                else:
+                    pi_stages[k] = self.pi[k+addArcs]
+                    altSol_pi_stages[k] = altSol.pi[k+addArcs]
+            current = ax.bar(position,pi_stages,width,color='y')
+            initial = ax.bar(position_alt + width,altSol_pi_stages,width)
+            ax.set_xticks(position + width/2)
+            ax.set_xticklabels(stages)
+            plt.grid(True,axis='y')
+            plt.xlabel("Stages")
+            plt.ylabel("Duration [s]")
+            ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
+                      loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
         if mustSaveFig:
             self.savefig(keyName='comp',fullName='comparisons')
         else:
