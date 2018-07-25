@@ -73,7 +73,7 @@ class ITman():
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 1
         self.GRsaveSolRate = 5
-        self.GRpausRate = 1000#1000#10
+        self.GRpausRate = 3000#1000#10
         self.GradHistShowRate = 5
         self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
@@ -216,7 +216,7 @@ class ITman():
                         self.loadAltSolDir = self.loadSolDir
                     else:
                         if inp.lower().endswith('.pkl'):
-                            self.loadSolDir = inp
+                            self.loadAltSolDir = inp
                             keepAsk = False
                         else:
                             self.log.printL('\nSorry, this is not a valid ' + \
