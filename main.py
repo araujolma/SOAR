@@ -22,7 +22,7 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
 
     # This is the default problem, for users who want to just run "main.py"
-    defaultProb = 'zer'#None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
+    defaultProb = None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
     if defaultProb is None and (len(sys.argv) == 1):
         # Default of the default, rocket problem

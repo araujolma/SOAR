@@ -88,7 +88,6 @@ class stepMngr():
                 PiCondVio = True; break # already violated, no need to continue
         #
 
-
         # "Bad point" conditions:
         BadPntCode = False
         BadPntMsg = ''
@@ -109,12 +108,10 @@ class stepMngr():
                           "\n          pi: " + str(pi) + \
                           "\n   piHighLim: " + str(self.piHighLim))
 
-
         if BadPntCode:
             # Bad point!
-            self.log.printL("> In check. Got a bad point," + \
-                            BadPntMsg + "\nwith alfa = " + str(alfa) + \
-                            ", Obj = "+str(Obj))
+            self.log.printL("In check. Got a bad point, with alfa = " + \
+                            str(alfa) + ", Obj = "+str(Obj))
             # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
@@ -695,7 +692,7 @@ def calcQ(self,mustPlotQs=False):
         #
     #
 
-    auxVecIntQp *= dt; Qx *= dt; Qu *= dt
+    #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
 
     resVecIntQp = numpy.zeros(p)
     for arc in range(s):
