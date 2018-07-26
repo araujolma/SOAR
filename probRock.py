@@ -27,7 +27,7 @@ class prob(sgra):
         initMode = opt.get('initMode','default')
         self.initMode = initMode
         if initMode == 'default' or initMode == 'naive':
-            N = 501+1
+            N = 500+1
             self.N = N
 
             dt = 1.0/(N-1)
@@ -39,6 +39,7 @@ class prob(sgra):
             addArcs = 0
             p = s
             self.s = s
+            self.addArcs = addArcs
             self.p = p
             self.Ns = 2*n*s + p
 
@@ -65,7 +66,7 @@ class prob(sgra):
             self.mPayl = 100
 
             # rocket constants
-            Thrust = 40*numpy.ones(s)                 # kg km/s² [= kN] 1.3*m_initial # N
+            Thrust = 300*numpy.ones(s)                 # kg km/s² [= kN] 1.3*m_initial # N
 
             Kpf = 100.0  # First guess........
             DampCent = 0
@@ -73,7 +74,7 @@ class prob(sgra):
             PFmode = 'quad'
             gradStepSrchCte = 1.0e-4
 
-            Isp = 450.0*numpy.ones(s)                     # s
+            Isp = 300.0*numpy.ones(s)                     # s
             s_f = 0.05*numpy.ones(s)
             CL0 = 0.0*numpy.ones(s)                       # (B0 Miele 1998)
             CL1 = 0.8*numpy.ones(s)                       # (B1 Miele 1998)
@@ -85,7 +86,7 @@ class prob(sgra):
             h_initial = 0.0            # km
             V_initial = 1e-6           # km/s
             gamma_initial = numpy.pi/2 # rad
-            m_initial = 50000          # kg
+            m_initial = 20000          # kg
             h_final = 463.0            # km
             V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
             gamma_final = 0.0 # rad
@@ -186,9 +187,13 @@ class prob(sgra):
                 pi = total_time*numpy.ones(p)
             else:
 ############### Naive
-                x = (numpy.pi/2)*numpy.ones((N,n,s))
-                u = numpy.ones((N,m,s))
-                pi = 100*numpy.ones(s)
+                x[:,0,:] = (numpy.pi/4)*numpy.ones((N,s))
+                x[:,1,:] = V_final*numpy.ones((N,s))
+                x[:,2,:] = (numpy.pi/4)*(numpy.ones((N,s)))
+                x[:,3,:] = (m_initial)*numpy.ones((N,s))
+                u[:,0,:] = (0.005)*numpy.ones((N,s))
+                u[:,1,:] = (0.5)*numpy.ones((N,s))
+                pi = 500*numpy.ones(s)
 #
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
