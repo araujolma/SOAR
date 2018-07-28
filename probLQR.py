@@ -149,7 +149,7 @@ class prob(sgra):
             #for i in range(N):
             #    x[i,1,0] = x[N-i-1,0,0]
             #x[:,2,0] = numpy.sqrt(20.0*x[:,0,0])
-            pi = numpy.array([2.])
+            pi = numpy.array([4.])
 
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
@@ -164,7 +164,7 @@ class prob(sgra):
             self.lam = lam
             self.mu = mu
 
-            self.Kpf = 100.0
+            self.Kpf = 10.0
             self.uLim = 1.0
 
             solInit = self.copy()
