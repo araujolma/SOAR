@@ -447,10 +447,13 @@ class prob(sgra):
 
 # =============================================================================
 #        # Desaturation of the controls
+#        bat = 1.0#2.5
 #        for arc in range(s):
 #            for k in range(N):
-#                if u[k,1,arc] < -2.5:
-#                    u[k,1,arc] = -2.5
+#                if u[k,1,arc] < -bat:
+#                    u[k,1,arc] = -bat
+#                if u[k,1,arc] > bat:
+#                    u[k,1,arc] = bat
 # =============================================================================
         self.u = u
 
@@ -1841,11 +1844,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -2.4:#.999:
+                    if self.u[i,1,arc] < -3.:# 0.5% thrust
                         isBurn = False
                         indShut.append(iCont)
                 else: #not burning
-                    if self.u[i,1,arc] > -2.4:#-.999:
+                    if self.u[i,1,arc] > -3.:# 0.5% thrust
                         isBurn = True
                         indBurn.append(iCont)
 
