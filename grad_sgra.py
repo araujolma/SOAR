@@ -89,7 +89,6 @@ class stepMngr():
                 PiCondVio = True; break # already violated, no need to continue
         #
 
-
         # "Bad point" conditions:
         BadPntCode = False; BadPntMsg = ''
         ObjRtrn = 1.1 * self.Obj0
@@ -110,7 +109,6 @@ class stepMngr():
             BadPntMsg += ("\n-   piLowLim: " + str(self.piLowLim) + \
                           "\n          pi: " + str(pi) + \
                           "\n   piHighLim: " + str(self.piHighLim))
-
 
         if BadPntCode:
             # Bad point! Return saturated version of Obj (if necessary)
@@ -734,7 +732,7 @@ def calcQ(self,mustPlotQs=False):
         #
     #
 
-    # This is wrong! Remove it!
+    # Using this is wrong, unless the integration is being done by hand!
     #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
 
     resVecIntQp = numpy.zeros(p)

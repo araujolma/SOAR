@@ -269,3 +269,44 @@ class prob(sgra):
         else:
             titlStr = opt['mode']
     #
+
+    def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
+        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                     'top':2.1,'wspace':0.2,'hspace':0.4}):
+        self.log.printL("\nComparing solutions...\n")
+        pi = self.pi
+        currSolLabl = 'Final solution'
+
+        # Plotting the curves
+        plt.subplots_adjust(**subPlotAdjs)
+
+        plt.subplot2grid((3,1),(0,0))
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],color='c',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("x [-]")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        #titlStr = "Comparing solutions: " + currSolLabl + " and " + \
+        #          altSolLabl
+        #titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+#        plt.title(titlStr)
+        plt.xlabel("Adimensional time")
+
+        plt.subplot2grid((3,1),(1,0))
+        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("y [-]")
+        plt.xlabel("Adimensional time")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+
+        plt.subplot2grid((3,1),(2,0))
+        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],color='k',labl=currSolLabl)
+        plt.grid(True)
+        plt.ylabel("u [-]")
+        plt.xlabel("Adimensional time")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+
+        self.savefig(keyName='comp',fullName='comparisons')
+        self.log.printL("pi = "+str(pi)+"\n")
