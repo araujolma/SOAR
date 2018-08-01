@@ -164,7 +164,7 @@ class prob(sgra):
             self.lam = lam
             self.mu = mu
 
-            self.Kpf = 100.0
+            self.Kpf = 10.0
             self.uLim = 1.0
 
             solInit = self.copy()

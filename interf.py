@@ -571,6 +571,10 @@ class ITman():
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
 
+                    # DEBUG: start plotting
+                    #if sol.NIterGrad > 11:
+                    #     sol.dbugOptGrad['plotCalcStepGrad'] = True
+
                     alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
                                                       retry_grad, stepMan)
                     # BEGIN_DEBUG:
