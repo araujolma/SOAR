@@ -1,0 +1,155 @@
+###############################################################################
+# itsme configuration file (.its)
+#
+# author: Carlos Souza
+###############################################################################
+
+###############################################################################
+[vehicle] # Vehicle parameters
+# Payload mass [kg]
+Mu = 100
+#
+# Number of stages
+NStag = 3
+#
+# Specific impulse [s]
+Isp = 450
+#
+# Structural inefficiency (defined by Cornelisse as efficiency)
+efes = .05
+#
+# Thrust [kN]
+T = 40.0
+#
+# softness of the transions of propulsive curve
+softness = 0.5
+#
+# Aerodynamic coefficients
+#
+CL0 = 0.0
+#
+# (B1 Miele 1998)
+CL1 = 0.8
+#
+# (A0 Miele 1998)
+CD0 = 0.05
+#
+# (A2 Miele 1998)
+CD2 = 0.5
+#
+# Reference area in [km2]
+s_ref = 0.7853981633974482e-06
+#
+###############################################################################
+[initial] # Initial state constants
+#
+# Initial altitude[km]
+h = 0.0
+#
+# Initial velocity [km/s]
+V = 1.0e-6
+#
+# Initial flight path angle [°]
+gamma = 90.0
+#
+###############################################################################
+[final] # Final state constants
+#
+# Final orbital altitude [km]
+h = 463.0
+#
+# Final flight path angle [°]
+gamma = 0.0
+#
+###############################################################################
+[trajectory] # Trajectory parameters
+#
+# Maximal angle of attack for attitude maneuver [°]
+AoAmax = 2.0
+#
+# Initial time for attitude maneuver [s]
+tAoA1 = 3.7
+#
+# Duration of attitude maneuver [s]
+tAoA = 5.0
+#
+###############################################################################
+[trajmods] # Trajectory modifications
+#
+# Pitch-damping center [s]
+DampCent = 3.0
+#
+# Pitch-damping slope [-]
+DampSlop = 3.0
+#
+# Target heights for extra arcs (without stage separation) [km]
+TargHeig = 50.0e-3, 2.0
+#
+###############################################################################
+[accel] # Acceleration limitation parameters
+#
+# Maximum tangential acceleration [g]
+acc_max = 35.0
+#
+# Penalty function mode [‘lin’,’quad’,’tanh’]
+PFmode = quad
+#
+# Relative tolerance for maximum acceleration [-]
+acc_max_relTol = 0.1
+#
+# Penalty function value at tolerance acceleration [-]
+PFtol = 1.0e-2
+#
+###############################################################################
+[sgra] # Internal SGRA parameters
+#
+# Tolerance for P functional
+tolP = 1e-8
+#
+# Tolerance for Q functional
+tolQ = 1e-4
+#
+# Pi lower limits
+pi_min = 0.0, 0.0, 0.0, 0.0, 0.0
+#
+# Pi upper limits
+pi_max = None, None, None, None, None
+#
+# Number of divisions in time array [-]
+N = 501
+#
+# Gradient Step Search: P limit constant (see grad_sgra.py) [-]
+GSS_PLimCte = 1.0e9
+#
+# Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
+GSS_stopStepLimTol = 1.0e-2
+#
+# Grad Step Search: objective gradient tolerance (see grad_sgra.py) [-]
+GSS_stopObjDerTol = 1.0e-4
+#
+# Grad Step Search: max number of objective evaluations (see grad_sgra.py) [-]
+GSS_stopNEvalLim = 100
+#
+# Grad Step Search: step tolerance for finding limit (see grad_sgra.py) [-]
+GSS_findLimStepTol = 1.0e-2
+#
+###############################################################################
+[enviroment] # Enviroment constants
+#
+# Gravitational parameter [km3/s2]
+GM = 398600.4415
+#
+# Earth radius [km]
+R = 6371.0
+#
+# Earth angular velocity of rotation [rad/s]
+we = 0.0
+#
+###############################################################################
+[solver] # Solver parameters
+#
+guess = 1., 1.5, 1.
+#
+limit = 1.25, 0.4, 0.4
+#
+tol = 1e-8

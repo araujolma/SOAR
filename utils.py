@@ -104,15 +104,3 @@ if __name__ == "__main__":
     x[0]=0.0
     print(testAlgn(x,y))
 
-    N = 501
-    x = numpy.linspace(0,1,num=N) ** 3
-
-    Isimp = simp(x,N)
-    print("Isimp = "+str(Isimp))
-
-    Itrap = 0.0
-    Itrap = .5 * (x[0]+x[-1])
-    Itrap += x[1:(N-1)].sum()
-    Itrap *= 1.0/(N-1)
-    print("Itrap = "+str(Itrap))
-
