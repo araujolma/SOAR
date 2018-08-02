@@ -35,7 +35,7 @@ class prob(sgra):
             self.dt = dt
             self.t = t
 
-            s = 1
+            s = 2
             addArcs = 0
             p = s
             self.s = s
@@ -130,8 +130,10 @@ class prob(sgra):
             beta_max = 1.0
             acc_max = 3.0 * grav_e
             pi_min = numpy.zeros(s)
-            #pi_max = numpy.empty_like(pi_min)
-            pi_max = numpy.array([None]) #Works only for s=1
+            pi_max = numpy.empty_like(pi_min)
+            for k in range(s):
+                pi_max[k] = None
+            #pi_max = numpy.array([None])
             restrictions = dict()
             restrictions['alpha_min'] = alpha_min
             restrictions['alpha_max'] = alpha_max
@@ -158,39 +160,53 @@ class prob(sgra):
             if initMode == 'default':
 ############### Artesanal handicraft with L and D (Miele 2003)
                 arclen = numpy.floor(len(t)/s).astype(int)
+                remainder = len(t) % arclen
+
                 tarc = numpy.zeros((arclen,s+1))
                 for k in range(s):
                     tarc[:,k] = t[k*arclen:(k+1)*arclen]
-
-                remainder = len(t) % arclen
                 for r in range(remainder):
                     tarc[r,s] = t[s*arclen+r]
+                t_complete = numpy.zeros(((s+1)*arclen,s+1))
+                for k in range(s+1):
+                    t_complete[:,k] = numpy.pad(tarc[:,k],(k*arclen,(s-k)*arclen),'constant')
 
                 for arc in range(s):
-                    x[:,0,arc] = h_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
-                    #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
-                    x[:,1,arc] = V_final*numpy.sin(numpy.pi*tarc[:,arc]/2)
-                    #x[:,1,arc] = 1.0e3*(-0.4523*tarc[:,arc]**5 + 1.2353*tarc[:,arc]**4-1.1884*tarc[:,arc]**3+0.4527*tarc[:,arc]**2-0.0397*tarc[:,arc])
-                    x[:,2,arc] = (numpy.pi/2)*(numpy.exp(-(tarc[:,arc]**2)/0.017))#+0.06419
-                    x[:,3,arc] = m_initial*((0.7979* \
-                                 numpy.exp(-(tarc[:,arc]**2)/0.02))+ \
-                                 0.1901*numpy.cos(tarc[:,arc]))
-                    #x[:,3,arc] = m_initial*(1.0-0.89*tarc[:,arc])
-                    #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + 6.2*tarc[:,arc]**2 - 4.2*tarc[:,arc] + 1)
-                total_time = 1100
+                    for line in range(N):
+                        x[line,0,arc] = h_final*numpy.sin(0.5*numpy.pi*t_complete[line,arc])
+                        x[line,1,arc] = V_final*numpy.sin(numpy.pi*t_complete[line,arc]/2)
+                        x[line,2,arc] = (numpy.pi/2)*(numpy.exp(-(t_complete[line,arc]**2)/0.017))#+0.06419
+                        x[line,3,arc] = m_initial*((0.7979* \
+                                         numpy.exp(-(t_complete[line,arc]**2)/0.02))+ \
+                                         0.1901*numpy.cos(t_complete[line,arc]))
+                        #x[:,1,arc] = 1.0e3*(-0.4523*tarc[:,arc]**5 + 1.2353*tarc[:,arc]**4-1.1884*tarc[:,arc]**3+0.4527*tarc[:,arc]**2-0.0397*tarc[:,arc])
+                        #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
+                        #x[:,3,arc] = m_initial*(1.0-0.89*tarc[:,arc])
+                        #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + 6.2*tarc[:,arc]**2 - 4.2*tarc[:,arc] + 1)
+
+                pi_time = 200
+                total_time = pi_time*s
                 for k in range(N):
                     if total_time*t[k]<200:
                         u[k,1,:] = (numpy.pi/2)
                     elif total_time*t[k]>600:
                         u[k,1,:] = (numpy.pi/2)*0.27
 
-                pi = total_time*numpy.ones(p)
+                pi = pi_time*numpy.ones(p)
             else:
 ############### Naive
-                x[:,0,:] = (numpy.pi/4)*numpy.ones((N,s))
-                x[:,1,:] = V_final*numpy.ones((N,s))
-                x[:,2,:] = (numpy.pi/4)*(numpy.ones((N,s)))
-                x[:,3,:] = (m_initial)*numpy.ones((N,s))
+                t_shaped = numpy.reshape(t,(N,1))
+                t_matrix = t_shaped*numpy.ones((N,s))
+                t_flip_shaped = numpy.flipud(numpy.reshape(t,(N,1)))
+                t_flip_matrix = t_flip_shaped*numpy.ones((N,s))
+                x[:,0,:] = h_final*t_matrix
+                x[:,1,:] = V_final*t_matrix
+                x[:,2,:] = gamma_initial*t_flip_shaped
+                x[:,3,:] = (m_initial)*t_flip_shaped
+#                x[:,0,:] = (numpy.pi/4)*numpy.ones((N,s))
+#                x[:,1,:] = V_final*numpy.ones((N,s))
+#                x[:,2,:] = (numpy.pi/4)*(numpy.ones((N,s)))
+#                x[:,3,:] = (m_initial)*numpy.ones((N,s))
                 u[:,0,:] = (0.005)*numpy.ones((N,s))
                 u[:,1,:] = (0.5)*numpy.ones((N,s))
                 pi = 500*numpy.ones(s)
@@ -253,9 +269,19 @@ class prob(sgra):
             grav_e = GM/r_e/r_e
 
             # rocket constants
-            Thrust = inputDict['T']*numpy.ones(s)
-            Isp = inputDict['Isp']*numpy.ones(s)
-            s_f = inputDict['efes']*numpy.ones(s)
+            #self.log.printL(str(inputDict))
+            if 'Isplist' in inputDict.keys():
+                Isp = numpy.array(inputDict['Isplist'])
+                Isp = numpy.pad(Isp,(addArcs,0),'constant',constant_values=Isp[0])
+            else:
+                Isp = inputDict['Isp']*numpy.ones(s)
+            Thrust = numpy.array(inputDict['Tlist'])
+            Thrust = numpy.pad(Thrust,(addArcs,0),'constant',constant_values=Thrust[0])
+            s_f = numpy.array(inputDict['efflist'])
+            s_f = numpy.pad(s_f,(addArcs,0),'constant',constant_values=s_f[0])
+            #print("Isp = "+str(Isp))
+            #print("Thrust = "+str(Thrust))
+            #print("s_f = "+str(s_f))
             CL0 = inputDict['CL0']*numpy.ones(s)
             CL1 = inputDict['CL1']*numpy.ones(s)
             CD0 = inputDict['CD0']*numpy.ones(s)
@@ -458,7 +484,7 @@ class prob(sgra):
         solInit = self.copy()
 
 # =============================================================================
-#        # Desaturation of the controls
+#        #Desaturation of the controls
 #        bat = 1.0#2.5
 #        for arc in range(s):
 #            for k in range(N):
@@ -1411,7 +1437,7 @@ class prob(sgra):
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
-            titlStr += "\nDelta pi (%): "
+                titlStr += "\nDelta pi (%): "
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(100.0*dp[i]/self.pi[i])
 
@@ -1855,11 +1881,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -3.:# 0.5% thrust
+                    if self.u[i,1,arc] < -3: #0.5% thrust
                         isBurn = False
                         indShut.append(iCont)
                 else: #not burning
-                    if self.u[i,1,arc] > -3.:# 0.5% thrust
+                    if self.u[i,1,arc] > -3: #0.5% thrust
                         isBurn = True
                         indBurn.append(iCont)
 
@@ -2091,8 +2117,10 @@ def calcXdot(td,x,u,constants,arc):
     dx = numpy.empty(4)
 
     # example rocket single stage to orbit with Lift and Drag
+
     sinGama = sin(x[2])
     dx[0] = x[1] * sinGama
+    #print("In calcXDot, arc = "+str(arc)+" x = "+str(x)+" x(3) = "+str(x[3]))
     dx[1] = (beta * Thrust[arc] * cos(alpha) - D)/x[3] - grav * sinGama
     dx[2] = (beta * Thrust[arc] * sin(alpha) + L)/(x[3] * x[1]) + \
             cos(x[2]) * ( x[1]/r  -  grav/x[1] )

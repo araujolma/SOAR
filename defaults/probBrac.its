@@ -7,7 +7,7 @@
 [sgra] # Internal SGRA parameters
 #
 # Tolerance for P functional
-tolP = 1e-12
+tolP = 1e-8
 #
 # Tolerance for Q functional
 tolQ = 1e-6
@@ -22,7 +22,7 @@ pi_max = None
 N = 501
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e7
+GSS_PLimCte = 1.0e5
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
