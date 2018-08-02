@@ -484,11 +484,14 @@ class prob(sgra):
         solInit = self.copy()
 
 # =============================================================================
-#        # Desaturation of the controls
+#        #Desaturation of the controls
+#        bat = 1.0#2.5
 #        for arc in range(s):
 #            for k in range(N):
-#                if u[k,1,arc] < -2.5:
-#                    u[k,1,arc] = -2.5
+#                if u[k,1,arc] < -bat:
+#                    u[k,1,arc] = -bat
+#                if u[k,1,arc] > bat:
+#                    u[k,1,arc] = bat
 # =============================================================================
         self.u = u
 
@@ -1434,6 +1437,9 @@ class prob(sgra):
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
+                titlStr += "\nDelta pi (%): "
+            for i in range(self.p):
+                titlStr += "{:.4E}, ".format(100.0*dp[i]/self.pi[i])
 
             plt.subplots_adjust(**subPlotAdjs)
 
@@ -1875,11 +1881,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -2.4:#.999:
+                    if self.u[i,1,arc] < -3: #0.5% thrust
                         isBurn = False
                         indShut.append(iCont)
                 else: #not burning
-                    if self.u[i,1,arc] > -2.4:#-.999:
+                    if self.u[i,1,arc] > -3: #0.5% thrust
                         isBurn = True
                         indBurn.append(iCont)
 

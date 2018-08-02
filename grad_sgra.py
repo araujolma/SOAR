@@ -6,7 +6,7 @@ Created on Tue Jun 27 14:39:08 2017
 @author: levi
 """
 
-import numpy
+import numpy, time
 #from utils import testAlgn
 from utils import simp, testAlgn
 import matplotlib.pyplot as plt
@@ -37,7 +37,8 @@ class stepMngr():
         self.findLimStepTol = ctes['findLimStepTol'] # been using 1e-2
         self.piLowLim = ctes['piLowLim']
         self.piHighLim = ctes['piHighLim']
-
+        # New: dJ/dAlfa
+        self.dJdStepTheo = corr['dJdStepTheo']
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
@@ -89,12 +90,13 @@ class stepMngr():
         #
 
         # "Bad point" conditions:
-        BadPntCode = False
-        BadPntMsg = ''
+        BadPntCode = False; BadPntMsg = ''
+        ObjRtrn = 1.1 * self.Obj0
         if Obj > self.Obj0:
             BadPntCode = True
             BadPntMsg += ("\n-  Obj-Obj0 = {:.4E}".format(Obj-self.Obj0) + \
                          " > 0")
+            ObjRtrn = Obj
         if Obj < 0.0:
             BadPntCode = True
             BadPntMsg += ("\n-  Obj = {:.4E} < 0".format(Obj))
@@ -109,13 +111,14 @@ class stepMngr():
                           "\n   piHighLim: " + str(self.piHighLim))
 
         if BadPntCode:
-            # Bad point!
-            self.log.printL("In check. Got a bad point, with alfa = " + \
-                            str(alfa) + ", Obj = "+str(Obj))
+            # Bad point! Return saturated version of Obj (if necessary)
+            self.log.printL("> In check. Got a bad point," + \
+                            BadPntMsg + "\nwith alfa = " + str(alfa) + \
+                            ", Obj = "+str(Obj))
             # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
-            return False, 1.1 * self.Obj0
+            return False, ObjRtrn
         else:
             # Good point; update maximum good step, if necessary
             if alfa > self.maxGoodStep:
@@ -199,7 +202,7 @@ class stepMngr():
         self.histI.append(I)
         self.histObj.append(Obj)
 
-        return self.getLast()
+        return P, I, Obj#self.getLast()
 
     def tryStepSens(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try a given step and the sensitivity as well. """
@@ -455,6 +458,12 @@ class stepMngr():
                          'o', label='Obj(alfa)')
             plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's', \
                          label='Chosen value')
+            #minStep, maxStep = min(self.histStep), max(self.histStep)
+            #steps = numpy.linspace(minStep,maxStep,num=1000)
+            #dJTheoPerc = (100.0 * self.dJdStepTheo / self.Obj0) * steps
+            #plt.semilogx(steps, dJTheoPerc, label='TheoObj(alfa)')
+            dJTheoPerc = (100.0 * self.dJdStepTheo) * (self.histStep/self.Obj0)
+            plt.semilogx(self.histStep, dJTheoPerc,'o', label='TheoObj(alfa)')
             plt.ylabel("Obj variation (%)")
             plt.xlabel("alpha")
             plt.title("Obj variation versus grad step for this grad run." + \
@@ -471,6 +480,31 @@ class stepMngr():
             plt.xlim(right = xlim)
             plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
+
+            # Plot history of Objective NonLinearity
+#            plt.semilogx(self.histStep, \
+#                         100.0*(self.histNonLinErr/abs(self.dJdStepTheo)), \
+#                         'o', label='NL(alfa)')
+#            plt.semilogx(alfa, 100. * NonLinErr/abs(self.dJdStepTheo), 's', \
+#                         label='Chosen value')
+#            plt.ylabel("Obj Non-linearity (%)")
+#            plt.xlabel("alpha")
+#            Adim_dJdStep = 100. * self.dJdStepTheo / self.Obj0
+#            plt.title("Relative objective sensitivity." + \
+#                      " dJ/dStep|_0 / J0 = {:.1F}%".format(Adim_dJdStep))
+#            plt.legend()
+#            plt.grid(True)
+##            NLmin = max(abs(self.histNonLinErr/abs(self.dJdStepTheo))
+##            self.log.printL("NLmin = " + str(NLmin))
+##            if NLmin < 0.0:
+##                ymax = 100.0 * NLmin
+##                ymin = - 1.1 * ymax
+##            else:
+##                ymax = 50.0 * NLmin
+##                ymin = - ymax
+#            plt.xlim(right = xlim)
+##            plt.ylim(ymax = ymax, ymin = ymin)
+#            plt.show()
         #
 
         if self.mustPrnt:
@@ -488,6 +522,12 @@ class stepMngr():
 
             self.log.printL("> Number of objective evaluations: " + \
                             str(self.cont))
+
+            # NEW STUFF:
+            self.log.printL("  HistStep = " + str(self.histStep))
+            self.log.printL("  HistI = " + str(self.histI))
+            self.log.printL("  HistObj = " + str(self.histObj))
+            self.log.printL("  HistP = " + str(self.histP))
         #
     #
 #
@@ -665,8 +705,8 @@ def calcQ(self,mustPlotQs=False):
         # calculate Qx separately. In this way, the derivative avaliation is
         # adequate with the trapezoidal integration method
         med = (lam[1,:,arc]-lam[0,:,arc])/dt -.5*(fx[0,:,arc]+fx[1,:,arc]) + \
-                .5 * phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) + \
-                .5 * phix[1,:,:,arc].transpose().dot(lam[1,:,arc])
+                .5 * (phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) +  \
+                      phix[1,:,:,arc].transpose().dot(lam[1,:,arc])    )
 
         errQx[0,:,arc] = med
         errQx[1,:,arc] = med
@@ -692,6 +732,7 @@ def calcQ(self,mustPlotQs=False):
         #
     #
 
+    # Using this is wrong, unless the integration is being done by hand!
     #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
 
     resVecIntQp = numpy.zeros(p)
@@ -1014,19 +1055,22 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     prntCond = self.dbugOptGrad['prntCalcStepGrad']
 
     if retry_grad:
+        stepFact = 0.1#0.9 #
         if prntCond:
             self.log.printL("\n> Retrying alfa." + \
                             " Base value: {:.4E}".format(alfa_0))
         # LOWER alfa!
-        alfa = .1 * alfa_0
+        alfa = stepFact * alfa_0
         if prntCond:
-            self.log.printL("\n> Let's try alfa 90% lower.")
+            self.log.printL("\n> Let's try alfa" + \
+                            " {:.1F}% lower.".format(100.*(1.-stepFact)))
         P, I, Obj = stepMan.tryStep(self,alfa)
 
         while Obj > stepMan.Obj0:
-            alfa *= .1
+            alfa *= stepFact
             if prntCond:
-                self.log.printL("\n> Let's try alfa 90% lower.")
+                self.log.printL("\n> Let's try alfa" + \
+                                " {:.1F}% lower.".format(100.*(1.-stepFact)))
             P, I, Obj = stepMan.tryStep(self,alfa)
 
         if prntCond:
@@ -1157,14 +1201,34 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
 #                          'u':corr['u'],'pi':corr['pi']},
 #                     mustSaveFig=False, subPlotAdjs=newConf)
 
+    self.plotSol(opt={'mode':'lambda'})
+    A, B, C = corr['x'], corr['u'], corr['pi']
+    BBvec = numpy.empty((self.N,self.s))
+    BB = 0.0
+    for arc in range(self.s):
+        for k in range(self.N):
+            BBvec[k,arc] = B[k,:,arc].transpose().dot(B[k,:,arc])
+        #
+        BB += simp(BBvec[:,arc],self.N)
+    #
+
+    CC = C.transpose().dot(C)
+    dJdStep = -BB-CC; corr['dJdStepTheo'] = dJdStep
+
+    self.log.printL("\nBB = {:.4E}".format(BB) + \
+                    ", CC = {:.4E},".format(CC) + \
+                    " dJ/dAlfa = {:.4E}".format(dJdStep))
+    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+#    self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
+#    time.sleep(5.0)
+    #input("\n@Grad: Waiting for lambda/corrections check...")
+
     # Calculation of alfa
     alfa, stepMan = self.calcStepGrad(corr,alfa_0,retry_grad,stepMan)
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
     self.updtHistGrad(alfa)
 
-    self.plotSol(opt={'mode':'lambda'})
-    A, B, C = corr['x'], corr['u'], corr['pi']
 
 #    if self.NIterGrad > 99:
 #        self.log.printL("\nPlotting weighted variations in interactive mode...")

@@ -75,7 +75,7 @@ class ITman():
         self.GRsaveSolRate = 5
         self.GRpausRate = 3000#1000#10
         self.GradHistShowRate = 5
-        self.RestPlotSolRate = 1
+        self.RestPlotSolRate = 5
         self.RestHistShowRate = 5
         self.ShowEigRate = 10
         self.parallelOpt = {'gradLMPBVP': True,
@@ -570,6 +570,10 @@ class ITman():
                     # This stays here in order to properly register the
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
+
+                    # DEBUG: start plotting
+                    #if sol.NIterGrad > 11:
+                    #     sol.dbugOptGrad['plotCalcStepGrad'] = True
 
                     alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
                                                       retry_grad, stepMan)
