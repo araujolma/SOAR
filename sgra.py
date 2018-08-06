@@ -168,7 +168,8 @@ class sgra():
         self.log.printL("These are the attributes for the current solution:\n")
         self.log.pprint(dPars)
 
-    def plotCat(self,func,mark='',color='b',labl='',piIsTime=True,intv=[]):
+    def plotCat(self,func,mark='',markSize=1.,color='b',labl='',\
+                piIsTime=True,intv=[]):
         """Plot a given function with several subarcs.
             Since this function should serve all the SGRA instances, the pi
             parameters (if exist!) are not necessarily the times for each
@@ -230,22 +231,25 @@ class sgra():
                     indBgin = int((intv[0] - accTime)/dtd)
                     isBgin = False
                     if intv[0] <= accTime:
-                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
+                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,\
+                                 ms=markSize)
                 else:
                     indBgin = 0
                     # arc beginning with circle
-                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
+                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,\
+                             ms=markSize)
 
                 #print("indBgin =",indBgin)
                 if accTime + TimeDur > intv[1]:
                     indEnd = int((intv[1] - accTime)/dtd)
                     if indEnd == (N-1):
                         plt.plot(accTime + TimeDur*t[-1], \
-                         func[-1,arc],'s'+color)
+                         func[-1,arc],'s'+color,ms=markSize)
                 else:
                     indEnd = N-1
                     # arc end with square
-                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color)
+                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color,\
+                             ms=markSize)
 
                 #print("indEnd =",indEnd)
 

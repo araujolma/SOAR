@@ -237,7 +237,7 @@ class prob(sgra):
 
             p = s
             self.p = p
-            q = n * (s+1) - 1  #s=1,q=7; s=2,q=11; s=3,q=15
+            q = n * (s+1) - 1 +2 #s=1,q=7; s=2,q=11; s=3,q=15
             self.q = q
 
             x = numpy.zeros((N,n,s))
@@ -380,7 +380,10 @@ class prob(sgra):
                             # get the next time for proper initial conditions
                             j += 1
                             arcBginIndx[arc] = j
+                        #
                         j += 1
+                    #
+                #
             #
             #self.log.printL(arcBginIndx)
 
@@ -434,13 +437,13 @@ class prob(sgra):
         mu = numpy.zeros(q)
 
 #        # TODO: This hardcoded bypass MUST be corrected in later versions.
-#        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
-#        self.log.printL("Control limits are being switched;")
-#        self.log.printL("Controls themselves are being 'desaturated'.")
-#        self.log.printL("Check code for the values, and be careful!\n")
-#
-#        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
-#        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
+        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
+        self.log.printL("Control limits are being switched;")
+        self.log.printL("Controls themselves are being 'desaturated'.")
+        self.log.printL("Check code for the values, and be careful!\n")
+
+        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
+        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
 #        ThrustFactor = 2.0#500.0/40.0
 #        self.constants['Thrust'] *= ThrustFactor
 #        # Re-calculate the Kpf, since it scales with the Thrust...
@@ -458,14 +461,14 @@ class prob(sgra):
         solInit = self.copy()
 
 # =============================================================================
-#        # Desaturation of the controls
-#        bat = 1.0#2.5
-#        for arc in range(s):
-#            for k in range(N):
-#                if u[k,1,arc] < -bat:
-#                    u[k,1,arc] = -bat
-#                if u[k,1,arc] > bat:
-#                    u[k,1,arc] = bat
+        # Desaturation of the controls
+        bat = 1.0#2.5
+        for arc in range(s):
+            for k in range(N):
+                if u[k,1,arc] < -bat:
+                    u[k,1,arc] = -bat
+                if u[k,1,arc] > bat:
+                    u[k,1,arc] = bat
 # =============================================================================
         self.u = u
 
@@ -696,6 +699,46 @@ class prob(sgra):
         #       ...,\
         #      x[0,:,s-1],
         #      x[N-1,:,s-1]]
+
+        # first arc - second arc
+        #psi[4] = x[N-1,0,0] - 50.0e-3
+        #psi[5] = x[0,0,1] - 50.0e-3
+        #psi[6] = x[0,1,1] - x[N-1,1,0]
+        #psi[7] = x[0,2,1] - x[N-1,2,0]
+        #psi[8] = x[0,3,1] - x[N-1,3,0]
+
+        # second arc - third arc
+        #psi[9] = x[N-1,0,1] - 2.
+        #psi[10] = x[0,0,2] - 2.
+        #psi[11] = x[0,1,2] - x[N-1,1,1]
+        #psi[12] = x[0,2,2] - x[N-1,2,1]
+        #psi[13] = x[0,3,2] - x[N-1,3,1]
+
+        # y = [h(t=0,s=0), 0
+        #      v(t=0,s=0), 1
+        #      g(t=0,s=0), 2
+        #      m(t=0,s=0), 3
+        #      h(t=1,s=0), 4
+        #      v(t=1,s=0), 5
+        #      g(t=1,s=0), 6
+        #      m(t=1,s=0), 7
+        #      h(t=0,s=1), 8
+        #      v(t=0,s=1), 9
+        #      g(t=0,s=1), 10
+        #      m(t=0,s=1), 11
+        #      h(t=1,s=1), 12
+        #      v(t=1,s=1), 13
+        #      g(t=1,s=1), 14
+        #      m(t=1,s=1), 15
+        #      h(t=0,s=2), 16
+        #      v(t=0,s=2), 17
+        #      g(t=0,s=2), 18
+        #      m(t=0,s=2), 19
+        #      h(t=1,s=2), 20
+        #      v(t=1,s=2), 21
+        #      g(t=1,s=2), 22
+        #      m(t=1,s=2)] 23
+
         psiy = numpy.zeros((q,2*n*s))
         s_f = self.constants['s_f']
 
@@ -708,35 +751,54 @@ class prob(sgra):
             psiy[q-1-ind,2*n*s-2-ind] = 1.0
 
         # Intermediate conditions
-        i0 = n; j0 = 0
-        for arc in range(s-1):
-            # This loop sets the interfacing conditions between all states
-            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
+        psiy[4,4] = 1.0 # h
+        psiy[5,8] = 1.0 # h
+        psiy[6,5] = -1.0 # v
+        psiy[6,9] = 1.0 # v
+        psiy[7,6] = -1.0 #gama
+        psiy[7,10] = 1.0 #gama
+        psiy[8,7] = -1.0 #m
+        psiy[8,11] = 1.0 #m
 
-            # For height, speed and angle:
-            for stt in range(n-1):
-                ind = i0 + stt
-                psiy[ind,j0+ind] = -1.0  # this state, this arc  (end cond)
-                psiy[ind,j0+ind+n] = 1.0 # this state, next arc (init cond)
+        psiy[9,12] = 1.0 # h
+        psiy[10,16] = 1.0 # h
+        psiy[11,13] = -1.0 # v
+        psiy[11,17] = 1.0 # v
+        psiy[12,14] = -1.0 #gama
+        psiy[12,18] = 1.0 #gama
+        psiy[13,15] = -1.0 #m
+        psiy[13,19] = 1.0 #m
 
-            # For mass:
-            stt = n-1; ind = i0 + stt
-            initMode = self.initMode
-            if initMode == 'extSol':
-                if self.isStagSep[arc]:
-                    # mass, next arc (init cond)
-                    psiy[ind,j0+ind+n] = 1.0
-                    # mass, this arc (end cond):
-                    psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc])
-                    # mass, this arc (init cond):
-                    psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
-                else:
-                    psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
-                    psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
-
-            i0 = ind + 1
-            j0 += n
-        #
+#        # Intermediate conditions
+#        i0 = n; j0 = 0
+#        for arc in range(s-1):
+#            # This loop sets the interfacing conditions between all states
+#            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
+#
+#            # For height, speed and angle:
+#            for stt in range(n-1):
+#                ind = i0 + stt
+#                psiy[ind,j0+ind] = -1.0  # this state, this arc  (end cond)
+#                psiy[ind,j0+ind+n] = 1.0 # this state, next arc (init cond)
+#
+#            # For mass:
+#            stt = n-1; ind = i0 + stt
+#            initMode = self.initMode
+#            if initMode == 'extSol':
+#                if self.isStagSep[arc]:
+#                    # mass, next arc (init cond)
+#                    psiy[ind,j0+ind+n] = 1.0
+#                    # mass, this arc (end cond):
+#                    psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc])
+#                    # mass, this arc (init cond):
+#                    psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
+#                else:
+#                    psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
+#                    psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
+#
+#            i0 = ind + 1
+#            j0 += n
+#        #
 
         psip = numpy.zeros((q,p))
 
@@ -988,26 +1050,41 @@ class prob(sgra):
         psi[2] = x[0,2,0] - boundary['gamma_initial']
         psi[3] = x[0,3,0] - boundary['m_initial']
 
-        # interstage conditions between arc and arc+1
-        # (that's why the loop only goes up to s-1)
-        #strPrnt = "0,1,2,3,"
-        for arc in range(s-1):
-            i0 = 4 * (arc+1)
+#        # interstage conditions between arc and arc+1
+#        # (that's why the loop only goes up to s-1)
+#        #strPrnt = "0,1,2,3,"
+#        for arc in range(s-1):
+#            i0 = 4 * (arc+1)
+#
+#            # four states in order: position, speed, flight angle and mass
+#            psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc]
+#            psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
+#            psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
+#            initMode = self.initMode
+#            if initMode == 'extSol':
+#                if self.isStagSep[arc]:
+#                    psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
+#                                (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
+#                else:
+#                    psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
+#            else:
+#                self.log.printL("Sorry, this part of calcPsi is not implemented yet.")
+#            #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
 
-            # four states in order: position, speed, flight angle and mass
-            psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc]
-            psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
-            psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
-            initMode = self.initMode
-            if initMode == 'extSol':
-                if self.isStagSep[arc]:
-                    psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
-                                (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
-                else:
-                    psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
-            else:
-                self.log.printL("Sorry, this part of calcPsi is not implemented yet.")
-            #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
+        # first arc - second arc
+        psi[4] = x[N-1,0,0] - 50.0e-3
+        psi[5] = x[0,0,1] - 50.0e-3
+        psi[6] = x[0,1,1] - x[N-1,1,0]
+        psi[7] = x[0,2,1] - x[N-1,2,0]
+        psi[8] = x[0,3,1] - x[N-1,3,0]
+
+        # second arc - third arc
+        psi[9] = x[N-1,0,1] - 2.
+        psi[10] = x[0,0,2] - 2.
+        psi[11] = x[0,1,2] - x[N-1,1,1]
+        psi[12] = x[0,2,2] - x[N-1,2,1]
+        psi[13] = x[0,3,2] - x[N-1,3,1]
+
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
         psi[q-2] = x[N-1,1,s-1] - boundary['V_final']
@@ -1154,6 +1231,10 @@ class prob(sgra):
         pi = self.pi
         r2d = 180.0/numpy.pi
 
+        if piIsTime:
+            timeLabl = 't [s]'
+        else:
+            timeLabl = 'adim. t [-]'
 
         if opt.get('mode','sol') == 'sol':
             I,Iorig,Ipf = self.calcI()
@@ -1190,67 +1271,52 @@ class prob(sgra):
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(1,0))
             self.plotCat(x[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("V [km/s]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(2,0))
             self.plotCat(x[:,2,:]*r2d,color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("gamma [deg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(3,0))
             self.plotCat(x[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("m [kg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(4,0))
             self.plotCat(u[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(5,0))
             self.plotCat(u[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u2 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             ######################################
             alpha,beta = self.calcDimCtrl()
             alpha *= r2d
             plt.subplot2grid((11,1),(6,0))
             self.plotCat(alpha,piIsTime=piIsTime,intv=intv,color='k')
-            #plt.hold(True)
-            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
-            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            #plt.xlabel("t")
             plt.ylabel("alpha [deg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((11,1),(7,0))
             self.plotCat(beta,piIsTime=piIsTime,intv=intv,color='k')
-            #plt.hold(True)
-            #plt.plot(t,beta*0+beta_max,'-.k')
-            #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
             plt.ylabel("beta [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             ######################################
 
             ######################################
@@ -1263,8 +1329,7 @@ class prob(sgra):
                 thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
             self.plotCat(thrust,color='y',piIsTime=piIsTime)
             plt.grid(True)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             plt.ylabel("Thrust [kN]")
 
             ######################################
@@ -1281,8 +1346,7 @@ class prob(sgra):
                           numpy.array([1.0,1.0]),'--')
 
             plt.grid(True)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             plt.ylabel("Tang. accel. [m/s²]")
 
             ######################################
@@ -1296,12 +1360,6 @@ class prob(sgra):
             plt.grid(True,axis='y')
             plt.xlabel("Arcs")
             plt.ylabel("Duration [s]")
-
-#            xlabl = "t [s]\n"+"pi = ["
-#            for i in range(self.p):
-#                xlabl += "{:.4E}, ".format(pi[i])
-#            xlabl += "]"
-#            plt.xlabel(xlabl)
 
             if mustSaveFig:
                 self.savefig(keyName='currSol',fullName='solution')
@@ -1329,67 +1387,53 @@ class prob(sgra):
             self.plotCat(self.lam[:,0,:],piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("lam - h")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             plt.title(titlStr)
 
             plt.subplot2grid((8,1),(1,0))
             self.plotCat(self.lam[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("lam - V")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(2,0))
             self.plotCat(self.lam[:,2,:],color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("lam - gamma")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(3,0))
             self.plotCat(self.lam[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("lam - m")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(4,0))
             self.plotCat(u[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(5,0))
             self.plotCat(u[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             #plt.xlabel("t")
             plt.ylabel("u2 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             ######################################
             alpha,beta = self.calcDimCtrl()
             alpha *= r2d
             plt.subplot2grid((8,1),(6,0))
             self.plotCat(alpha,piIsTime=piIsTime,intv=intv)
-            #plt.hold(True)
-            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
-            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             plt.ylabel("alpha [deg]")
 
             plt.subplot2grid((8,1),(7,0))
             self.plotCat(beta,piIsTime=piIsTime,intv=intv)
-            #plt.hold(True)
-            #plt.plot(t,beta*0+beta_max,'-.k')
-            #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
             plt.ylabel("beta [-]")
             ######################################
 
@@ -1413,7 +1457,7 @@ class prob(sgra):
                 #titlStr += str(dp[i])+", "
             titlStr += "\nDelta pi (%): "
             for i in range(self.p):
-                titlStr += "{:.4E}, ".format(100.0*dp[i]/self.pi[i])
+                titlStr += "{:.1F}, ".format(100.0*dp[i]/self.pi[i])
 
             plt.subplots_adjust(**subPlotAdjs)
 
@@ -1422,44 +1466,37 @@ class prob(sgra):
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(1,0))
             self.plotCat(dx[:,1,:],color='g',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("V [km/s]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(2,0))
             self.plotCat(dx[:,2,:]*r2d,color='r',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("gamma [deg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(3,0))
             self.plotCat(dx[:,3,:],color='m',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("m [kg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(4,0))
             self.plotCat(du[:,0,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(5,0))
             self.plotCat(du[:,1,:],color='c',piIsTime=piIsTime,intv=intv)
             plt.grid(True)
-            #plt.xlabel("t")
             plt.ylabel("u2 [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             ######################################
             new_u = self.u + du
@@ -1469,28 +1506,17 @@ class prob(sgra):
             new_alpha *= r2d
             plt.subplot2grid((8,1),(6,0))
             self.plotCat(new_alpha-alpha,color='k',piIsTime=piIsTime,intv=intv)
-            #plt.hold(True)
-            #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
-            #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
             plt.grid(True)
-            #plt.xlabel("t")
             plt.ylabel("alpha [deg]")
-            if piIsTime:
-                plt.xlabel("t [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplot2grid((8,1),(7,0))
             self.plotCat(new_beta-beta,color='k',piIsTime=piIsTime,intv=intv)
-            #plt.hold(True)
-            #plt.plot(t,beta*0+beta_max,'-.k')
-            #plt.plot(t,beta*0+beta_min,'-.k')
             plt.grid(True)
             plt.ylabel("beta [-]")
-            if piIsTime:
-                plt.xlabel("t [s]")
-
+            plt.xlabel(timeLabl)
             ######################################
 
-            # TODO: include a plot for visualization of pi!
             if mustSaveFig:
                 self.savefig(keyName='corr',fullName='corrections')
             else:
@@ -1600,11 +1626,16 @@ class prob(sgra):
 
 
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
+                 piIsTime=True,\
                  subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                              'top':10.0,'wspace':0.2,'hspace':0.35}):
         self.log.printL("\nComparing solutions...\n")
         r2d = 180.0/numpy.pi
         currSolLabl = 'Final solution'
+        if piIsTime:
+            timeLabl = 't [s]'
+        else:
+            timeLabl = 'adim. t [-]'
 
         # Comparing final mass:
         mPaySol = self.calcPsblPayl()
@@ -1618,8 +1649,10 @@ class prob(sgra):
 
         # Curve 1: height
         plt.subplot2grid((12,1),(0,0))
-        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.x[:,0,:],color='y',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.x[:,0,:],color='y',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("h [km]")
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
@@ -1629,58 +1662,66 @@ class prob(sgra):
         titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
         titlStr += "\n\n"
         plt.title(titlStr)
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         # Curve 2: speed
         plt.subplot2grid((12,1),(1,0))
-        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("V [km/s]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 3: flight path angle
         plt.subplot2grid((12,1),(2,0))
-        altSol.plotCat(altSol.x[:,2,:]*r2d,mark='--',labl=altSolLabl)
+        altSol.plotCat(altSol.x[:,2,:]*r2d,mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
         self.plotCat(self.x[:,2,:]*180/numpy.pi,color='r',\
-                     labl=currSolLabl)
+                     labl=currSolLabl,piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("gamma [deg]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 4: Mass
         plt.subplot2grid((12,1),(3,0))
-        altSol.plotCat(altSol.x[:,3,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.x[:,3,:],color='m',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,3,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.x[:,3,:],color='m',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("m [kg]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 5: Control #1 (angle of attack)
         plt.subplot2grid((12,1),(4,0))
-        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.u[:,0,:],color='c',labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.u[:,0,:],color='c',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("u1 [-]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 6: Control #2 (thrust)
         plt.subplot2grid((12,1),(5,0))
-        altSol.plotCat(altSol.u[:,1,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.u[:,1,:],color='c',labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,1,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.u[:,1,:],color='c',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
-        plt.xlabel("t")
         plt.ylabel("u2 [-]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
@@ -1688,27 +1729,25 @@ class prob(sgra):
         alpha,beta = self.calcDimCtrl()
         alpha_alt,beta_alt = altSol.calcDimCtrl()
         plt.subplot2grid((12,1),(6,0))
-        altSol.plotCat(alpha_alt*r2d,mark='--',labl=altSolLabl)
-        self.plotCat(alpha*r2d,color='k',labl=currSolLabl)
-        #plt.hold(True)
-        #plt.plot(t,alpha*0+alpha_max*180/numpy.pi,'-.k')
-        #plt.plot(t,alpha*0+alpha_min*180/numpy.pi,'-.k')
+        altSol.plotCat(alpha_alt*r2d,mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(alpha*r2d,color='k',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
         plt.xlabel("t")
         plt.ylabel("alpha [deg]")
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 8: thrust level
         plt.subplot2grid((12,1),(7,0))
-        altSol.plotCat(beta_alt,mark='--',labl=altSolLabl)
-        self.plotCat(beta,color='k',labl=currSolLabl)
-        #plt.hold(True)
-        #plt.plot(t,beta*0+beta_max,'-.k')
-        #plt.plot(t,beta*0+beta_min,'-.k')
+        altSol.plotCat(beta_alt,mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(beta,color='k',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.ylabel("beta [-]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
@@ -1724,10 +1763,12 @@ class prob(sgra):
         for arc in range(s):
             thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
             thrust_alt[:,arc] = beta_alt[:,arc] * MaxThrs[arc]
-        altSol.plotCat(thrust_alt,mark='--',labl=altSolLabl)
-        self.plotCat(thrust,color='y',labl=currSolLabl)
+        altSol.plotCat(thrust_alt,mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(thrust,color='y',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.ylabel("Thrust [kN]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
@@ -1736,13 +1777,21 @@ class prob(sgra):
         plt.subplot2grid((12,1),(9,0))
         solAcc =  self.calcAcc()
         altSolAcc = altSol.calcAcc()
-        plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
+        if piIsTime:
+            plt.plot([0.0,max(self.pi.sum(),altSol.pi.sum())],\
                   1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
                   '--',label='Acceleration limit')
-        altSol.plotCat(1e3*altSolAcc,mark='--',labl=altSolLabl)
-        self.plotCat(1e3*solAcc,color='y',labl=currSolLabl)
+        else:
+            plt.plot([0.0,float(self.s)],\
+                  1e3*self.restrictions['acc_max']*numpy.array([1.0,1.0]),\
+                  '--',label='Acceleration limit')
+
+        altSol.plotCat(1e3*altSolAcc,mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(1e3*solAcc,color='y',labl=currSolLabl,\
+                       piIsTime=piIsTime)
         plt.grid(True)
-        plt.xlabel("t [s]")
+        plt.xlabel(timeLabl)
         plt.ylabel("Tang. accel. [m/s²]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=3)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
@@ -1791,7 +1840,11 @@ class prob(sgra):
             ax.legend((current[0], initial[0]), (currSolLabl,altSolLabl), \
                       loc="lower center", bbox_to_anchor=(0.5,1),ncol=2)
         if mustSaveFig:
-            self.savefig(keyName='comp',fullName='comparisons')
+            if piIsTime:
+                self.savefig(keyName='comp',fullName='comparisons')
+            else:
+                self.savefig(keyName='comp-adimTime',\
+                             fullName='comparisons (adim. time)')
         else:
             plt.show()
             plt.clf()
@@ -1855,11 +1908,11 @@ class prob(sgra):
                 iCont += 1
 
                 if isBurn:
-                    if self.u[i,1,arc] < -3.:# 0.5% thrust
+                    if self.u[i,1,arc] < -3.:# <0.3% thrust
                         isBurn = False
                         indShut.append(iCont)
                 else: #not burning
-                    if self.u[i,1,arc] > -3.:# 0.5% thrust
+                    if self.u[i,1,arc] > -3.:# <0.3% thrust
                         isBurn = True
                         indBurn.append(iCont)
 
