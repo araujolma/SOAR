@@ -81,10 +81,10 @@ finish2 = 0.0
 [cost] # Cost function parameters
 #
 # Control cost weight
-contCostWeig = 0.
+contCostWeig = 1.
 #
 # Time cost weight
-timeCostWeig = 1.
+timeCostWeig = 0.
 #
 # State 1 quadratic cost weight (x1**2 term)
 sttCostWeig11 = 0.
