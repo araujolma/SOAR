@@ -253,10 +253,15 @@ class prob(sgra):
         return I, I, 0.0
 #%%
 
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True):
 
         pi = self.pi
         r2d = 180.0/numpy.pi
+
+        if piIsTime:
+            timeLabl = 'Time [s]'
+        else:
+            timeLabl = 'Adim. time [-]'
 
 #        if len(intv)==0:
 #            intv = numpy.arange(0,self.N,1,dtype='int')
@@ -294,7 +299,7 @@ class prob(sgra):
             self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')
-            plt.xlabel("Time [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
@@ -372,7 +377,7 @@ class prob(sgra):
             self.plotCat(r2d*gama[:,0,:],color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')
-            plt.xlabel("Time [s]")
+            plt.xlabel(timeLabl)
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='currLamb',fullName='lambdas')
@@ -383,61 +388,76 @@ class prob(sgra):
             titlStr = opt['mode']
 
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
-        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
-                     'top':3.2,'wspace':0.2,'hspace':0.45}):
+                 piIsTime=True,\
+                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                              'top':3.2,'wspace':0.2,'hspace':0.45}):
         self.log.printL("\nComparing solutions...\n")
         pi = self.pi
         r2d = 180.0/numpy.pi
         currSolLabl = 'Final solution'
+        if piIsTime:
+            timeLabl = 't [s]'
+        else:
+            timeLabl = 'adim. t [-]'
+
 
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
 
         plt.subplot2grid((5,1),(0,0))
-        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.x[:,0,:],color='c',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.x[:,0,:],color='c',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("x [m]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #titlStr = "Comparing solutions: " + currSolLabl + " and " + \
-        #          altSolLabl
-        #titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
-        #plt.title(titlStr)
-        plt.xlabel("Time [s]")
+        titlStr = "Comparing solutions: " + currSolLabl + " and " + \
+                  altSolLabl
+        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+        plt.title(titlStr)
+        plt.xlabel(timeLabl)
 
         plt.subplot2grid((5,1),(1,0))
-        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("y [m]")
-        plt.xlabel("Time [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((5,1),(2,0))
-        altSol.plotCat(altSol.x[:,2,:],mark='--',labl=altSolLabl)
+        altSol.plotCat(altSol.x[:,2,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
         self.plotCat(self.x[:,2,:],color='r',\
-                     labl=currSolLabl)
+                     labl=currSolLabl,piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("V [m/s]")
-        plt.xlabel("Time [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((5,1),(3,0))
-        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl)
-        self.plotCat(self.u[:,0,:],color='k',labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(self.u[:,0,:],color='k',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel("u1 [-]")
-        plt.xlabel("Time [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((5,1),(4,0))
         altgama = 0.5*numpy.pi*numpy.tanh(altSol.u)
         gama = 0.5*numpy.pi*numpy.tanh(self.u)
-        altSol.plotCat(r2d*altgama[:,0,:],mark='--',labl=altSolLabl)
-        self.plotCat(r2d*gama[:,0,:],color='k',labl=currSolLabl)
+        altSol.plotCat(r2d*altgama[:,0,:],mark='--',labl=altSolLabl,\
+                       piIsTime=piIsTime)
+        self.plotCat(r2d*gama[:,0,:],color='k',labl=currSolLabl,\
+                     piIsTime=piIsTime)
         plt.grid(True)
         plt.ylabel('Inclination angle [deg]')
-        plt.xlabel("Time [s]")
+        plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         self.savefig(keyName='comp',fullName='comparisons')

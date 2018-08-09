@@ -564,7 +564,7 @@ def plotF(self,piIsTime=False):
     plt.legend()
     self.savefig(keyName='F',fullName='F')
 
-def plotQRes(self,args):
+def plotQRes(self,args,mustSaveFig=True,addName=''):
     "Generic plots of the Q residuals"
 
     iterStr = "\n(grad iter #" + str(self.NIterGrad) + \
@@ -572,42 +572,60 @@ def plotQRes(self,args):
                   ", event #" + str(int((self.EvntIndx+1)/2)) + ")"
     # Qx error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-    nm1 = self.n+1
-    plt.subplot2grid((nm1,1),(0,0))
-    self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+    nm2 = self.n+2
+    plt.subplot2grid((nm2,1),(0,0))
+    self.plotCat(args['accQx'],color='b',piIsTime=False)
     plt.grid(True)
-    plt.ylabel("Integrand of Qx")
+    plt.ylabel("Accumulated int.")
     titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
               "= {:.4E}".format(args['Qx'])
     titlStr += iterStr
     plt.title(titlStr)
+    plt.subplot2grid((nm2,1),(1,0))
+    self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand of Qx")
     errQx = args['errQx']
     for i in range(self.n):
-        plt.subplot2grid((nm1,1),(i+1,0))
+        plt.subplot2grid((nm2,1),(i+1,0))
         self.plotCat(errQx[:,i,:],piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_"+str(i))
-    plt.xlabel("t [s]")
-    self.savefig(keyName='Qx',fullName='Qx')
+    plt.xlabel("t [-]")
+
+    if mustSaveFig:
+        self.savefig(keyName=('Qx'+addName),fullName='Qx')
+    else:
+        plt.show()
+        plt.clf()
 
     # Qu error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-    mm1 = self.m+1
-    plt.subplot2grid((mm1,1),(0,0))
-    self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+    mm2 = self.m+2
+    plt.subplot2grid((mm2,1),(0,0))
+    self.plotCat(args['accQu'],color='b',piIsTime=False)
     plt.grid(True)
-    plt.ylabel("Integrand of Qu")
+    plt.ylabel("Accumulated int.")
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
     titlStr += iterStr
     plt.title(titlStr)
+    plt.subplot2grid((mm2,1),(1,0))
+    self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand")
     errQu = args['errQu']
     for i in range(self.m):
-        plt.subplot2grid((mm1,1),(i+1,0))
+        plt.subplot2grid((mm2,1),(i+2,0))
         self.plotCat(errQu[:,i,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_"+str(i))
-    plt.xlabel("t")
-    self.savefig(keyName='Qu',fullName='Qu')
+    plt.xlabel("t [-]")
+    if mustSaveFig:
+        self.savefig(keyName=('Qu'+addName),fullName='Qu')
+    else:
+        plt.show()
+        plt.clf()
+
 
     # Qp error plot
     errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
@@ -627,9 +645,13 @@ def plotQRes(self,args):
         self.plotCat(errQp[:,j,:],color='k')
         plt.grid(True)
         plt.ylabel("ErrQp, j ="+str(j))
-    plt.xlabel("t [s]")
+    plt.xlabel("t [-]")
+    if mustSaveFig:
+        self.savefig(keyName=('Qp'+addName),fullName='Qp')
+    else:
+        plt.show()
+        plt.clf()
 
-    self.savefig(keyName='Qp',fullName='Qp')
 
 def calcJ(self):
     N, s = self.N, self.s
@@ -669,7 +691,7 @@ def calcJ(self):
 
     return J, J_Lint, J_Lpsi, I, Iorig, Ipf
 
-def calcQ(self,mustPlotQs=False):
+def calcQ(self,mustPlotQs=False,addName=''):
     # Q expression from (15).
     # FYI: Miele (2003) is wrong in oh so many ways...
     self.log.printL("In calcQ.")
@@ -692,7 +714,9 @@ def calcQ(self,mustPlotQs=False):
     auxVecIntQp = numpy.zeros((p,s))
 
     errQx = numpy.empty((N,n,s)); normErrQx = numpy.empty((N,s))
+    accQx = numpy.empty((N,s))
     errQu = numpy.empty((N,m,s)); normErrQu = numpy.empty((N,s))
+    accQu = numpy.empty((N,s))
     errQp = numpy.empty((N,p,s)); #normErrQp = numpy.empty(N)
 
     coefList = simp([],N,onlyCoef=True)
@@ -717,7 +741,16 @@ def calcQ(self,mustPlotQs=False):
                         phix[k-1,:,:,arc].transpose().dot(lam[k-1,:,arc]) + \
                         -errQx[k-1,:,arc]
 
-        for k in range(N):
+        errQu[0,:,arc] = fu[0,:,arc] +  \
+                            - phiu[0,:,:,arc].transpose().dot(lam[0,:,arc])
+        errQp[0,:,arc] = fp[0,:,arc] + \
+                            - phip[0,:,:,arc].transpose().dot(lam[0,:,arc])
+        normErrQx[0,arc] = errQx[0,:,arc].transpose().dot(errQx[0,:,arc])
+        normErrQu[0,arc] = errQu[0,:,arc].transpose().dot(errQu[0,:,arc])
+        accQx[0,arc] = normErrQx[0,arc] * coefList[0]
+        accQu[0,arc] = normErrQu[0,arc] * coefList[0]
+        auxVecIntQp[:,arc] += errQp[0,:,arc] * coefList[0]
+        for k in range(1,N):
             errQu[k,:,arc] = fu[k,:,arc] +  \
                             - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
             errQp[k,:,arc] = fp[k,:,arc] + \
@@ -725,12 +758,18 @@ def calcQ(self,mustPlotQs=False):
 
             normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
             normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
-
-            Qx += normErrQx[k,arc] * coefList[k]
-            Qu += normErrQu[k,arc] * coefList[k]
+            accQx[k,arc] = accQx[k-1,arc] + normErrQx[k,arc] * coefList[k]
+            accQu[k,arc] = accQu[k-1,arc] + normErrQu[k,arc] * coefList[k]
             auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
         #
+        Qx += accQx[N-1,arc]; Qu += accQu[N-1,arc]
+
     #
+
+    # Correct the accumulation
+    for arc in range(1,s):
+        accQx[:,arc] += accQx[-1,arc-1]
+        accQu[:,arc] += accQu[-1,arc-1]
 
     # Using this is wrong, unless the integration is being done by hand!
     #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
@@ -750,14 +789,12 @@ def calcQ(self,mustPlotQs=False):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
-    #self.Q = Q
-
 ###############################################################################
     if mustPlotQs:
         args = {'errQx':errQx, 'errQu':errQu, 'errQp':errQp, 'Qx':Qx, 'Qu':Qu,
                 'normErrQx':normErrQx, 'normErrQu':normErrQu,
-                'resVecIntQp':resVecIntQp}
-        self.plotQRes(args)
+                'resVecIntQp':resVecIntQp, 'accQx':accQx, 'accQu':accQu}
+        self.plotQRes(args,addName=addName)
 
 ###############################################################################
 
@@ -849,200 +886,6 @@ def calcQ(self,mustPlotQs=False):
                     plt.title("Lambda_m")
                     plt.show()
 
-    # TODO: break these plots into more conditions
-
-#    if numpy.array(self.dbugOptGrad.values()).any:
-#        print("\nDebug plots for this calcQ run:")
-#
-#        if self.dbugOptGrad['plotQx']:
-#            plt.plot(self.t,normErrQx)
-#            plt.grid(True)
-#            plt.title("Integrand of Qx")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotQu']:
-#            plt.plot(self.t,normErrQu)
-#            plt.grid(True)
-#            plt.title("Integrand of Qu")
-#            plt.show()
-#
-#        # for zoomed version:
-#        indMaxQx = normErrQx.argmax()
-#        ind1 = numpy.array([indMaxQx-20,0]).max()
-#        ind2 = numpy.array([indMaxQx+20,N-1]).min()
-#
-#        if self.dbugOptGrad['plotQxZoom']:
-#            plt.plot(self.t[ind1:ind2],normErrQx[ind1:ind2],'o')
-#            plt.grid(True)
-#            plt.title("Integrand of Qx (zoom)")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotSolQxMax']:
-#            print("\nSolution on the region of MaxQx:")
-#            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-#
-#        # for zoomed version:
-#        indMaxQu = normErrQu.argmax()
-#        ind1 = numpy.array([indMaxQu-20,0]).max()
-#        ind2 = numpy.array([indMaxQu+20,N-1]).min()
-#
-#        if self.dbugOptGrad['plotQuZoom']:
-#            plt.plot(self.t[ind1:ind2],normErrQu[ind1:ind2],'o')
-#            plt.grid(True)
-#            plt.title("Integrand of Qu (zoom)")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotSolQuMax']:
-#            print("\nSolution on the region of MaxQu:")
-#            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-#
-#
-##        if n==4 and m==2:
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("Qx_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("Qx_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,2],'r')
-##            plt.grid(True)
-##            plt.ylabel("Qx_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("Qx_m")
-##            plt.show()
-##
-##            print("\nStates, controls, lambda on the region of maxQx:")
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("h [km]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("V [km/s]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-##            plt.grid(True)
-##            plt.ylabel("gamma [deg]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("m [kg]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-##            plt.grid(True)
-##            plt.ylabel("u1 [-]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-##            plt.grid(True)
-##            plt.xlabel("t")
-##            plt.ylabel("u2 [-]")
-##            plt.show()
-##
-##            print("Lambda:")
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("lam_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("lam_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,2],'r')
-##            plt.grid(True)
-##            plt.ylabel("lam_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("lam_m")
-##            plt.show()
-##
-###            print("dLambda/dt:")
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
-###            plt.grid(True)
-###            plt.ylabel("dlam_h")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
-###            plt.grid(True)
-###            plt.ylabel("dlam_V")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2],'r')
-###            plt.grid(True)
-###            plt.ylabel("dlam_gamma")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3],'m')
-###            plt.grid(True)
-###            plt.ylabel("dlam_m")
-###            plt.show()
-###
-###            print("-phix*lambda:")
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0])
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_h")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'g')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_V")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'r')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_gamma")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'m')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_m")
-###            plt.show()
-##
-##            print("\nBlue: dLambda/dt; Black: -phix*lam")
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_m")
-##            plt.show()
 
     if self.dbugOptGrad['pausCalcQ']:
         input("calcQ in debug mode. Press any key to continue...")
@@ -1191,18 +1034,15 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-#    if self.NIterGrad > 99:
-#        newConf = {'left':0.12,'right':0.9,'bottom':0.06,
-#                   'top':.88,'wspace':0.2,'hspace':0.55}
-#        self.log.printL("\nPlotting current sol in interactive mode...")
-#        self.plotSol(mustSaveFig=False, subPlotAdjs=newConf)
-#        self.log.printL("\nPlotting variations in interactive mode...")
-#        self.plotSol(opt={'mode':'var','x':corr['x'],
-#                          'u':corr['u'],'pi':corr['pi']},
-#                     mustSaveFig=False, subPlotAdjs=newConf)
+
+    # TODO: move this segment to lmpbvb.
+    # Tn the case of a rejction, this will be unnecessarily run again,
+    # so it should really not be here.
 
     self.plotSol(opt={'mode':'lambda'})
+    self.plotSol(opt={'mode':'lambda'},piIsTime=False)
     A, B, C = corr['x'], corr['u'], corr['pi']
+
     BBvec = numpy.empty((self.N,self.s))
     BB = 0.0
     for arc in range(self.s):
@@ -1219,6 +1059,7 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
                     ", CC = {:.4E},".format(CC) + \
                     " dJ/dAlfa = {:.4E}".format(dJdStep))
     self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},piIsTime=False)
 #    self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
 #    time.sleep(5.0)
     #input("\n@Grad: Waiting for lambda/corrections check...")
@@ -1229,22 +1070,16 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
     self.updtHistGrad(alfa)
 
-
-#    if self.NIterGrad > 99:
-#        self.log.printL("\nPlotting weighted variations in interactive mode...")
-#        newConf = {'left':0.12,'right':0.9,'bottom':0.06,
-#                   'top':.88,'wspace':0.2,'hspace':0.55}
-#        self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C},
-#                     mustSaveFig=False, subPlotAdjs=newConf)
-#    else:
-#        self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-
-    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
     #input("@Grad: Waiting for lambda/corrections check...")
 
     # Apply correction, update histories in alternative solution
+#    dummySol = self.copy()
+#    dummySol.aplyCorr(1.0,corr)
+#    dummySol.calcQ(mustPlotQs=True,addName='-FullCorr')
+
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
+#    newSol.calcQ(mustPlotQs=True,addName='-PartCorr')
     newSol.updtHistP()
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))

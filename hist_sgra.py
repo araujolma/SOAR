@@ -231,7 +231,7 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.ContRest = 0
 
 
-def showHistQ(self):
+def showHistQ(self,tolZoom=True):
     """ Show the Q, Qx, Qu, Qp, Qt histories."""
 
     # Assemble the plotting array (x-axis)
@@ -290,6 +290,9 @@ def showHistQ(self):
 
     plt.plot(IterGrad,self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
     plt.title("Convergence report on Q")
+    # If applicable, remove from the plot everything that is way too small
+    if tolZoom:
+        plt.ylim(ymin=(self.tol['Q'])**2)
     plt.grid(True)
     plt.xlabel("Gradient iterations")
     plt.ylabel("Q values")

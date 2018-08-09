@@ -462,13 +462,25 @@ class prob(sgra):
 
 # =============================================================================
         # Desaturation of the controls
-        bat = 1.0#2.5
-        for arc in range(s):
+#        bat = 0.5#1.0#2.5
+#        for arc in range(s):
+#            for k in range(N):
+#                if u[k,1,arc] < -bat:
+#                    u[k,1,arc] = -bat
+#                if u[k,1,arc] > bat:
+#                    u[k,1,arc] = bat
+
+        # This was a test for a "super honest" desaturation, so that the
+        # program would not know when to do the coasting a priori.
+        # It turns out this does not actually happen because the "coasting
+        # information" is already "encoded" in the states (h,v,gama,m); so
+        # probably the restoration simply puts the coasting back. Hence,
+        # there is this...
+        # TODO: Try to put this before the RK4 re-integration. If this works,
+        # it would be a great candidate to a less-naive method.
+        for arc in range(1,s):
             for k in range(N):
-                if u[k,1,arc] < -bat:
-                    u[k,1,arc] = -bat
-                if u[k,1,arc] > bat:
-                    u[k,1,arc] = bat
+                u[k,1,arc] = -0.1
 # =============================================================================
         self.u = u
 
@@ -1145,18 +1157,18 @@ class prob(sgra):
 #            Ipf += simp(fPF[:,arc],N)
 
         # METHOD 2: simpson integration, with prints
-        IorigVec, IpfVec = numpy.empty(s), numpy.empty(s)
-        for arc in range(s):
-            IorigVec[arc] = simp(fOrig[:,arc],N)
-            IpfVec[arc] = simp(fPF[:,arc],N)
-
-        Iorig = IorigVec.sum()
-        Ipf = IpfVec.sum()
-
-        self.log.printL("\nIorigVec: "+str(IorigVec))
-        self.log.printL("Iorig: "+str(Iorig))
-        self.log.printL("IpfVec: "+str(IpfVec))
-        self.log.printL("Ipf: "+str(Ipf))
+#        IorigVec, IpfVec = numpy.empty(s), numpy.empty(s)
+#        for arc in range(s):
+#            IorigVec[arc] = simp(fOrig[:,arc],N)
+#            IpfVec[arc] = simp(fPF[:,arc],N)
+#
+#        Iorig = IorigVec.sum()
+#        Ipf = IpfVec.sum()
+#
+#        self.log.printL("\nIorigVec: "+str(IorigVec))
+#        self.log.printL("Iorig: "+str(Iorig))
+#        self.log.printL("IpfVec: "+str(IpfVec))
+#        self.log.printL("Ipf: "+str(Ipf))
 
 #        # METHOD 3: trapezoidal integration, comparing with simpson
 #        IvecOrig = numpy.empty(s)
@@ -1185,6 +1197,22 @@ class prob(sgra):
 #        self.log.printL("IpfSimp: {:.4E}".format(IpfSimp))
 #        self.log.printL("Difference in Ipf: {:.4E}".format(Ipf-IpfSimp))
 #        input("\n>> ")
+
+        # METHOD 4: simpson on Ipf, cheating on Iorig
+        IorigVec, IpfVec = numpy.empty(s), numpy.empty(s)
+        s_f = self.constants['s_f']
+        for arc in range(s):
+            IorigVec[arc] = (self.x[0,3,arc]-self.x[-1,3,arc])/(1.-s_f[arc])
+            IpfVec[arc] = simp(fPF[:,arc],N)
+
+        Iorig = IorigVec.sum()
+        Ipf = IpfVec.sum()
+
+        self.log.printL("\nIorigVec: "+str(IorigVec))
+        self.log.printL("Iorig: "+str(Iorig))
+        self.log.printL("IpfVec: "+str(IpfVec))
+        self.log.printL("Ipf: "+str(Ipf))
+
 
         return Iorig+Ipf, Iorig, Ipf
 #%% Plotting commands and related functions
@@ -1362,7 +1390,11 @@ class prob(sgra):
             plt.ylabel("Duration [s]")
 
             if mustSaveFig:
-                self.savefig(keyName='currSol',fullName='solution')
+                if piIsTime:
+                    self.savefig(keyName='currSol',fullName='solution')
+                else:
+                    self.savefig(keyName='currSol-adimTime',\
+                                 fullName='solution (adim. Time)')
             else:
                 plt.show()
                 plt.clf()
@@ -1438,7 +1470,11 @@ class prob(sgra):
             ######################################
 
             if mustSaveFig:
-                self.savefig(keyName='currLamb',fullName='lambdas')
+                if piIsTime:
+                    self.savefig(keyName='currLamb',fullName='lambdas')
+                else:
+                    self.savefig(keyName='currLamb-adimTime',\
+                                 fullName='lambdas (adim. Time)')
             else:
                 plt.show()
                 plt.clf()
@@ -1518,7 +1554,11 @@ class prob(sgra):
             ######################################
 
             if mustSaveFig:
-                self.savefig(keyName='corr',fullName='corrections')
+                if piIsTime:
+                    self.savefig(keyName='corr',fullName='corrections')
+                else:
+                    self.savefig(keyName='corr-adimTime',\
+                                 fullName='corrections (adim. time)')
             else:
                 plt.show()
                 plt.clf()
@@ -1528,72 +1568,81 @@ class prob(sgra):
 
     #
 
-    def plotQRes(self,args,mustSaveFig=True):
+    def plotQRes(self,args,mustSaveFig=True,addName=''):
         "Plots of the Q residuals, specifically for the probRock case."
 
         # Qx error plot
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.subplot2grid((5,1),(0,0))
-        self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+        plt.subplot2grid((6,1),(0,0))
+        self.plotCat(args['accQx'],color='b',piIsTime=False)
         plt.grid(True)
-        plt.ylabel("Integrand of Qx")
+        plt.ylabel("Accumulated int.")
         titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
                   "= {:.4E}".format(args['Qx'])
         titlStr += "\n(grad iter #" + str(self.NIterGrad+1) + ")"
         plt.title(titlStr)
+
+        plt.subplot2grid((6,1),(1,0))
+        self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Integrand of Qx")
         errQx = args['errQx']
 
-        plt.subplot2grid((5,1),(1,0))
+        plt.subplot2grid((6,1),(2,0))
         self.plotCat(errQx[:,0,:],piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_h")
 
-        plt.subplot2grid((5,1),(2,0))
+        plt.subplot2grid((6,1),(3,0))
         self.plotCat(errQx[:,1,:],color='g',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_v")
 
-        plt.subplot2grid((5,1),(3,0))
+        plt.subplot2grid((6,1),(4,0))
         self.plotCat(errQx[:,2,:],color='r',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_gama")
 
-        plt.subplot2grid((5,1),(4,0))
+        plt.subplot2grid((6,1),(5,0))
         self.plotCat(errQx[:,3,:],color='m',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_m")
 
-        plt.xlabel("t [s]")
+        plt.xlabel("t [-]")
         if mustSaveFig:
-            self.savefig(keyName='Qx',fullName='Qx')
+            self.savefig(keyName=('Qx'+addName),fullName='Qx')
         else:
             plt.show()
             plt.clf()
 
         # Qu error plot
         plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-        plt.subplot2grid((3,1),(0,0))
-        self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+        plt.subplot2grid((4,1),(0,0))
+        self.plotCat(args['accQu'],color='b',piIsTime=False)
         plt.grid(True)
-        plt.ylabel("Integrand of Qu")
+        plt.ylabel("Accumulated int.")
         titlStr = "Qu = int || f_u - phi_u^T*lam || = " + \
                   "{:.4E}".format(args['Qu']) + \
                   "\n(grad iter #" + str(self.NIterGrad+1) + ")"
         plt.title(titlStr)
+        plt.subplot2grid((4,1),(1,0))
+        self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+        plt.grid(True)
+        plt.ylabel("Integrand of Qu")
 
         errQu = args['errQu']
-        plt.subplot2grid((3,1),(1,0))
+        plt.subplot2grid((4,1),(2,0))
         self.plotCat(errQu[:,0,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_alpha")
-        plt.subplot2grid((3,1),(2,0))
+        plt.subplot2grid((4,1),(3,0))
         self.plotCat(errQu[:,1,:],color='r',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_beta")
 
-        plt.xlabel("t")
+        plt.xlabel("t [-]")
         if mustSaveFig:
-            self.savefig(keyName='Qu',fullName='Qu')
+            self.savefig(keyName=('Qu'+addName),fullName='Qu')
         else:
             plt.show()
             plt.clf()
@@ -1617,9 +1666,9 @@ class prob(sgra):
             self.plotCat(errQp[:,j,:],color='k',piIsTime=False)
             plt.grid(True)
             plt.ylabel("ErrQp, j ="+str(j))
-        plt.xlabel("t [s]")
+        plt.xlabel("t [-]")
         if mustSaveFig:
-            self.savefig(keyName='Qp',fullName='Qp')
+            self.savefig(keyName=('Qp'+addName),fullName='Qp')
         else:
             plt.show()
             plt.clf()

@@ -395,7 +395,7 @@ class ITman():
                            'plotCorr':False,
                            'plotCorrFin':False})
         flag = False#True#
-        sol.dbugOptGrad.setAll(opt={'pausGrad':flag,
+        sol.dbugOptGrad.setAll(opt={'pausGrad':flag,#True,#
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,
                            'plotCalcStepGrad': flag,#True,#
