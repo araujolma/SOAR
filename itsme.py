@@ -98,7 +98,7 @@ def itsTester():
     con = initialize(folder + '/caseMu150h500NStag4.its').result()
     problem(con, model).solveForFineTune()
 
-    sgra('teste.its')
+    #sgra('teste.its')
 
 
 class initialize():
