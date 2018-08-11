@@ -71,13 +71,14 @@ class ITman():
         self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.GRplotSolRate = 1
-        self.GRsaveSolRate = 5
+        self.GRplotSolRate = 10
+        self.GRsaveSolRate = 50
         self.GRpausRate = 3000#1000#10
-        self.GradHistShowRate = 5
-        self.RestPlotSolRate = 5
-        self.RestHistShowRate = 5
-        self.ShowEigRate = 10
+        self.GradHistShowRate = 10
+        self.RestPlotSolRate = 10
+        self.RestHistShowRate = 10
+        self.ShowEigRate = 50
+        self.ShowGRrateRate = 10
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
 
@@ -397,7 +398,7 @@ class ITman():
         flag = False#True#
         sol.dbugOptGrad.setAll(opt={'pausGrad':flag,#True,#
                            'pausCalcQ':flag,
-                           'prntCalcStepGrad':True,
+                           'prntCalcStepGrad':flag,#True,
                            'plotCalcStepGrad': flag,#True,#
                            'manuInptStepGrad': flag,
                            'pausCalcStepGrad':flag,#True,#
@@ -483,7 +484,10 @@ class ITman():
             return False
 
     def showHistGRrateCond(self,sol):
-        return True
+        if sol.NIterGrad % self.ShowGRrateRate == 0:
+            return True
+        else:
+            return False
 
     def showEigCond(self,sol):
         if sol.NIterGrad % self.ShowEigRate == 0:
@@ -524,8 +528,9 @@ class ITman():
             # Start of new cycle: calc P, I, as well as a new grad correction
             # in order to update lambda and mu, and therefore calculate Q for
             # checking.
+            plotResPQ = sol.NIterGrad % 10 == 0
+            sol.P,_,_ = sol.calcP(mustPlotPint=plotResPQ)
 
-            sol.P,_,_ = sol.calcP(mustPlotPint=True)
             P_base = sol.P
             I_base, _, _ = sol.calcI()
             self.prntDashStr()
@@ -534,11 +539,10 @@ class ITman():
             self.log.printL(msg)
 
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
-            A, B, C, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
+            corr, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
-            # Store corrections in solution (even though it may not be needed)
-            corr = {'x':A, 'u':B, 'pi':C}
-            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=True)
+
+            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResPQ)
 
 
             if sol.Q <= sol.tol['Q']:
@@ -555,8 +559,8 @@ class ITman():
                       " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
                       "so let's keep improving the solution!\n"
                 self.log.printL(msg)
-                sol.plotSol()
-                sol.plotF()
+                #sol.plotSol()
+                #sol.plotF()
                 #sol.plotTraj()
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 

@@ -309,11 +309,8 @@ def rest(self,parallelOpt={}):
     self.log.printL("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     isParallel = parallelOpt.get('restLMPBVP',False)
-    A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
+    corr,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-    corr = {'x':A,
-            'u':B,
-            'pi':C}
 #    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
 #    input("rest_sgra: Olha lá a correção!")
 

@@ -9,6 +9,7 @@ Created on Tue Jun 27 13:07:35 2017
 import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
+from utils import simp
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
 #from utils import ddt
@@ -460,12 +461,43 @@ class sgra():
             #
         #
 
-        # TODO: put also other conditions here to avoid calculating and
-        # plotting in every grad step
-        if self.save.get('eig',False) and rho > 0.5:
-            helper.showEig(self.N,self.n,self.s)#,mustShow=True)
-            self.savefig(keyName='eig',fullName='eigenvalues')
-
         A,B,C,lam,mu = helper.getCorr(res,self.log)
+        corr = {'x':A, 'u':B, 'pi':C}
 
-        return A,B,C,lam,mu
+        if rho > 0.5:
+            if self.save.get('eig',False):
+                helper.showEig(self.N,self.n,self.s)#,mustShow=True)
+                self.savefig(keyName='eig',fullName='eigenvalues')
+
+            # TODO: Use the 'self.save' dictionary here as well...
+            if self.NIterGrad % 10 == 0:
+                self.plotSol(opt={'mode':'lambda'})
+                self.plotSol(opt={'mode':'lambda'},piIsTime=False)
+
+            BBvec = numpy.empty((self.N,self.s))
+            BB = 0.0
+            for arc in range(self.s):
+                for k in range(self.N):
+                    BBvec[k,arc] = B[k,:,arc].transpose().dot(B[k,:,arc])
+                #
+                BB += simp(BBvec[:,arc],self.N)
+            #
+
+            CC = C.transpose().dot(C)
+            dJdStep = -BB-CC; corr['dJdStepTheo'] = dJdStep
+
+            self.log.printL("\nBB = {:.4E}".format(BB) + \
+                            ", CC = {:.4E},".format(CC) + \
+                            " dJ/dAlfa = {:.4E}".format(dJdStep))
+            # TODO: Use the 'self.save' dictionary here as well...
+            if self.NIterGrad % 10 == 0:
+                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},\
+                             piIsTime=False)
+
+            #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
+            #time.sleep(5.0)
+            #input("\n@Grad: Waiting for lambda/corrections check...")
+        #
+
+        return corr,lam,mu

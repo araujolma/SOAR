@@ -112,9 +112,10 @@ class stepMngr():
 
         if BadPntCode:
             # Bad point! Return saturated version of Obj (if necessary)
-            self.log.printL("> In check. Got a bad point," + \
-                            BadPntMsg + "\nwith alfa = " + str(alfa) + \
-                            ", Obj = "+str(Obj))
+            if self.mustPrnt:
+                self.log.printL("> In check. Got a bad point," + \
+                                BadPntMsg + "\nwith alfa = " + str(alfa) + \
+                                ", Obj = "+str(Obj))
             # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
@@ -134,13 +135,15 @@ class stepMngr():
         these guys twice. """
 
         Obj0 = self.calcObj(P0,I0,J0)
-        self.log.printL("> I0 = {:.4E}, ".format(I0) + \
-                        "Obj0 = {:.4E}".format(Obj0))
+        if self.mustPrnt:
+            self.log.printL("> I0 = {:.4E}, ".format(I0) + \
+                            "Obj0 = {:.4E}".format(Obj0))
+            self.log.printL("\n> Setting Obj0 to "+str(Obj0))
         self.P0 = P0
         self.I0 = I0
         self.J0 = J0
         self.Obj0 = Obj0
-        self.log.printL("\n> Setting Obj0 to "+str(Obj0))
+
         self.best['obj'] = Obj0
         return Obj0
 
@@ -245,15 +248,17 @@ class stepMngr():
         M[:,1] = alfaList
         # find the quadratic coefficients
         coefList = numpy.linalg.solve(M,ObjList)
-        self.log.printL("\n> Objective list: "+str(ObjList))
-        self.log.printL("\n> Step value list: "+str(alfaList))
-        self.log.printL("\n> Quadratic interpolation coefficients: " + \
-                        str(coefList))
+        if self.mustPrnt:
+            self.log.printL("\n> Objective list: "+str(ObjList))
+            self.log.printL("\n> Step value list: "+str(alfaList))
+            self.log.printL("\n> Quadratic interpolation coefficients: " + \
+                            str(coefList))
 
         # this corresponds to the vertex of the parabola
         alfaOpt = -coefList[1]/coefList[0]/2.0
-        self.log.printL("> According to this quadratic fit, best step " + \
-                        "value is {:.4E}.".format(alfaOpt))
+        if self.mustPrnt:
+            self.log.printL("> According to this quadratic fit, best step " + \
+                            "value is {:.4E}.".format(alfaOpt))
 
         # The quadratic model is obviously wrong if the x^2 coefficient is
         # negative, or if the appointed step is negative, or invalid.
@@ -264,56 +269,67 @@ class stepMngr():
             # Check direction of max decrease in objective
             gradLeft = (ObjList[1]-ObjList[0])/(alfaList[1]-alfaList[0])
             gradRight = (ObjList[2]-ObjList[1])/(alfaList[2]-alfaList[1])
-            self.log.printL("\n> Inverted parabola detected.\n" + \
-                            "Slopes: left = {:.4E}".format(gradLeft) + \
-                            ", right = {:.4E}".format(gradRight))
+            if self.mustPrnt:
+                self.log.printL("\n> Inverted parabola detected.\n" + \
+                                "Slopes: left = {:.4E}".format(gradLeft) + \
+                                ", right = {:.4E}".format(gradRight))
 
             if gradLeft * gradRight > 0.0:
                 # Both sides have the same tendency; use medium gradient
                 grad = (ObjList[2]-ObjList[0])/(alfaList[2]-alfaList[0])
-                print("> Using medium slope: {:.4E}".format(grad))
+                if self.mustPrnt:
+                    self.log.printL("> Using medium slope: {:.4E}".format(grad))
             else:
                 if abs(gradLeft) > abs(gradRight):
                     grad = gradLeft
-                    print("> Using left slope.")
+                    if self.mustPrnt:
+                        self.log.printL("> Using left slope.")
                 else:
                     grad = gradRight
-                    print("> Using right slope.")
+                    if self.mustPrnt:
+                        self.log.printL("> Using right slope.")
                 #
             #
 
             alfaOpt = alfaList[1] - 0.5 * ObjList[1]/grad
-            self.log.printL("\n> Using the slope in a Newton-Raphson-ish" + \
-                            " iteration, next step value is " + \
-                            "{:.4E}...".format(alfaOpt))
+            if self.mustPrnt:
+                self.log.printL("\n> Using the slope in a Newton-Raphson-ish" + \
+                                " iteration, next step value is " + \
+                                "{:.4E}...".format(alfaOpt))
 
             if alfaOpt > self.minBadStep:
                 alfaOpt = .5 * (alfaList[1] + self.minBadStep)
-                self.log.printL("> ...but since that would violate" + \
-                                " the max step condition,\n" + \
-                                " let's bisect forward to " + \
-                                "{:.4E}".format(alfaOpt) + " instead!")
+                if self.mustPrnt:
+                    self.log.printL("> ...but since that would violate" + \
+                                    " the max step condition,\n" + \
+                                    " let's bisect forward to " + \
+                                    "{:.4E}".format(alfaOpt) + " instead!")
             elif alfaOpt < 0.0:
                 alfaOpt = .5 * alfaList[1]
-                self.log.printL("> ...but since that would be " + \
-                                "negative,\nlet's bisect back to " + \
-                                "{:.4E}".format(alfaOpt) + " instead!")
+                if self.mustPrnt:
+                    self.log.printL("> ...but since that would be " + \
+                                    "negative,\nlet's bisect back to " + \
+                                    "{:.4E}".format(alfaOpt) + " instead!")
 
             else:
-                self.log.printL("> ... seems legit!")
+                if self.mustPrnt:
+                    self.log.printL("> ... seems legit!")
 
         elif alfaOpt < 0.0:
             alfaOpt = .5 * min(alfaList)
-            self.log.printL("> Quadratic fit suggested a negative step.\n" + \
-                           "  Bisecting back into that region with " + \
-                            "alfa = {:.4E} instead.".format(alfaOpt))
+            if self.mustPrnt:
+                self.log.printL("> Quadratic fit suggested a negative step.\n" + \
+                                "  Bisecting back into that region with " + \
+                                "alfa = {:.4E} instead.".format(alfaOpt))
         elif alfaOpt > self.minBadStep:
             alfaOpt = .5 * (alfaList[1] + self.maxGoodStep)
-            self.log.printL("> Quadratic fit suggested a bad step.\n" + \
-                            "  Bisecting forward into that region with " + \
-                            "alfa = {:.4E} instead.".format(alfaOpt))
+            if self.mustPrnt:
+                self.log.printL("> Quadratic fit suggested a bad step.\n" + \
+                                "  Bisecting forward into that region with " + \
+                                "alfa = {:.4E} instead.".format(alfaOpt))
         else:
-            self.log.printL("  Let's do it!")
+            if self.mustPrnt:
+                self.log.printL("  Let's do it!")
 
         return alfaOpt
 
@@ -326,8 +342,8 @@ class stepMngr():
         #        'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
 
         if abs(gradObj) < self.stopObjDerTol:
-            if self.mustPrnt:
-                self.log.printL("\n> Stopping step search: low sensitivity" + \
+            #if self.mustPrnt:
+            self.log.printL("\n> Stopping step search: low sensitivity" + \
                                 " of objective function with step.\n" + \
                                 "(local minimum, perhaps?)")
             return True
@@ -386,7 +402,8 @@ class stepMngr():
             StepSep = (abs(1.0-alfaLow/alfaHigh) > self.findLimStepTol)
         #
 
-        self.log.printL("\n> Found it! Leaving findStepLim now.")
+        if self.mustPrnt:
+            self.log.printL("\n> Found it! Leaving findStepLim now.")
         return .5*(alfaLow+alfaHigh)
     #
 
@@ -510,24 +527,26 @@ class stepMngr():
         if self.mustPrnt:
             dIp = 100.0 * (I/self.I0 - 1.0)
             dObjp = 100.0 * (Obj/self.Obj0 - 1.0)
-            self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
-                            "\n> I0 = {:.4E}".format(self.I0) + \
-                            ", I = {:.4E}".format(I) + \
-                            ", dI = {:.4E}".format(I-self.I0) + \
-                            " ({:.4E})%".format(dIp) + \
-                            "\n> Obj0 = {:.4E}".format(self.Obj0) + \
-                            ", Obj = {:.4E}".format(Obj) + \
-                            ", dObj = {:.4E}".format(Obj-self.Obj0) + \
-                            " ({:.4E})%".format(dObjp))
+            if self.mustPrnt:
+                self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
+                                "\n> I0 = {:.4E}".format(self.I0) + \
+                                ", I = {:.4E}".format(I) + \
+                                ", dI = {:.4E}".format(I-self.I0) + \
+                                " ({:.4E})%".format(dIp) + \
+                                "\n> Obj0 = {:.4E}".format(self.Obj0) + \
+                                ", Obj = {:.4E}".format(Obj) + \
+                                ", dObj = {:.4E}".format(Obj-self.Obj0) + \
+                                " ({:.4E})%".format(dObjp))
 
-            self.log.printL("> Number of objective evaluations: " + \
-                            str(self.cont))
+                self.log.printL(">  Number of objective evaluations: " + \
+                                str(self.cont))
 
             # NEW STUFF:
-            self.log.printL("  HistStep = " + str(self.histStep))
-            self.log.printL("  HistI = " + str(self.histI))
-            self.log.printL("  HistObj = " + str(self.histObj))
-            self.log.printL("  HistP = " + str(self.histP))
+            if self.mustPrnt:
+                self.log.printL("  HistStep = " + str(self.histStep))
+                self.log.printL("  HistI = " + str(self.histI))
+                self.log.printL("  HistObj = " + str(self.histObj))
+                self.log.printL("  HistP = " + str(self.histP))
         #
     #
 #
@@ -1034,43 +1053,11 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-
-    # TODO: move this segment to lmpbvb.
-    # Tn the case of a rejction, this will be unnecessarily run again,
-    # so it should really not be here.
-
-    self.plotSol(opt={'mode':'lambda'})
-    self.plotSol(opt={'mode':'lambda'},piIsTime=False)
-    A, B, C = corr['x'], corr['u'], corr['pi']
-
-    BBvec = numpy.empty((self.N,self.s))
-    BB = 0.0
-    for arc in range(self.s):
-        for k in range(self.N):
-            BBvec[k,arc] = B[k,:,arc].transpose().dot(B[k,:,arc])
-        #
-        BB += simp(BBvec[:,arc],self.N)
-    #
-
-    CC = C.transpose().dot(C)
-    dJdStep = -BB-CC; corr['dJdStepTheo'] = dJdStep
-
-    self.log.printL("\nBB = {:.4E}".format(BB) + \
-                    ", CC = {:.4E},".format(CC) + \
-                    " dJ/dAlfa = {:.4E}".format(dJdStep))
-    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
-    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},piIsTime=False)
-#    self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
-#    time.sleep(5.0)
-    #input("\n@Grad: Waiting for lambda/corrections check...")
-
     # Calculation of alfa
     alfa, stepMan = self.calcStepGrad(corr,alfa_0,retry_grad,stepMan)
     #alfa = 0.1
     #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
     self.updtHistGrad(alfa)
-
-    #input("@Grad: Waiting for lambda/corrections check...")
 
     # Apply correction, update histories in alternative solution
 #    dummySol = self.copy()
@@ -1083,7 +1070,7 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     newSol.updtHistP()
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
-    self.log.printL("Delta pi = "+str(alfa*C))
+    self.log.printL("Delta pi = "+str(alfa*corr['pi']))
 
     if self.dbugOptGrad['pausGrad']:
         input('Grad in debug mode. Press any key to continue...')

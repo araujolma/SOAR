@@ -269,16 +269,23 @@ class prob(sgra):
             grav_e = GM/r_e/r_e
 
             # rocket constants
-            #self.log.printL(str(inputDict))
             if 'Isplist' in inputDict.keys():
                 Isp = numpy.array(inputDict['Isplist'])
                 Isp = numpy.pad(Isp,(addArcs,0),'constant',constant_values=Isp[0])
             else:
                 Isp = inputDict['Isp']*numpy.ones(s)
+
+            if inputDict['NStag'] == 1:
+                addArcsGamb = addArcs-1
+            else:
+                addArcsGamb = addArcs
+
             Thrust = numpy.array(inputDict['Tlist'])
-            Thrust = numpy.pad(Thrust,(addArcs,0),'constant',constant_values=Thrust[0])
+            Thrust = numpy.pad(Thrust,(addArcsGamb,0),\
+                               'constant', constant_values=Thrust[0])
             s_f = numpy.array(inputDict['efflist'])
-            s_f = numpy.pad(s_f,(addArcs,0),'constant',constant_values=s_f[0])
+            s_f = numpy.pad(s_f,(addArcsGamb,0),\
+                            'constant',constant_values=s_f[0])
             #print("Isp = "+str(Isp))
             #print("Thrust = "+str(Thrust))
             #print("s_f = "+str(s_f))
@@ -1235,10 +1242,10 @@ class prob(sgra):
         Iorig = IorigVec.sum()
         Ipf = IpfVec.sum()
 
-        self.log.printL("\nIorigVec: "+str(IorigVec))
-        self.log.printL("Iorig: "+str(Iorig))
-        self.log.printL("IpfVec: "+str(IpfVec))
-        self.log.printL("Ipf: "+str(Ipf))
+        #self.log.printL("\nIorigVec: "+str(IorigVec))
+        #self.log.printL("Iorig: "+str(Iorig))
+        #self.log.printL("IpfVec: "+str(IpfVec))
+        #self.log.printL("Ipf: "+str(Ipf))
 
 
         return Iorig+Ipf, Iorig, Ipf

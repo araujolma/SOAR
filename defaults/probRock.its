@@ -116,7 +116,7 @@ pi_min = 0.0, 0.0, 0.0
 pi_max = None, None, None
 #
 # Number of divisions in time array [-]
-N = 501
+N = 201
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
 GSS_PLimCte = 1.0e15
