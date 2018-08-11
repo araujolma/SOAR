@@ -53,10 +53,10 @@ class modelConfiguration():
         if nT != nEff or nT != nIsp:
             raise Exception('itsme saying: problems in vehicle configuration!')
 
-        if nT > 1:
+        if nT > 0:
             self.con['homogeneous'] = False
 
-        if (not self.con['homogeneous']) and nT != NStag:
+        if nT > 1 and nT != NStag:
             raise Exception('itsme saying: NStag not coherent')
 
     def __getVehicleHomogeneous(self, config):
