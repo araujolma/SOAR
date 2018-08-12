@@ -15,7 +15,8 @@ class initialEstimate():
 
         self.con = con
 
-        if con['NStag'] < 2:
+        if con['NStag'] < 1:
+            print(con['NStag'])
             iniEst = modelInitialEstimateHomogeneous(con)
         else:
             iniEst = modelInitialEstimateSimple2(con)

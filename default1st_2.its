@@ -7,22 +7,22 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 100
+Mu =100
 #
 # Number of stages
-NStag = 1
+NStag = 2
 #
 # Specific impulse [s]
-Isp = 450
+Isp = 450, 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .1
+efes = 0.00001, 0.1
 #
 # Thrust [kN]
-T = 75.0
+T = 40.0, 40.0
 #
 # softness of the transions of propulsive curve
-softness = 0.5
+#softness = 0.5
 #
 # Aerodynamic coefficients
 #
@@ -65,10 +65,10 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.0
+tAoA1 = 3.7
 #
 # Duration of attitude maneuver [°]
 tAoA = 5.0
@@ -88,8 +88,8 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1, 1, 1
+guess = 1.0, 1.0, 1.0
 #
-limit = 1, 1, 1
+limit = 1.0, 1.0, 1.0
 #
-tol = 1e-6
+tol = 1e-7
