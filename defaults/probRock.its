@@ -7,7 +7,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 100
+Mu = 120
 #
 # Number of stages
 NStag = 1
@@ -16,10 +16,10 @@ NStag = 1
 Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+efes = .1
 #
 # Thrust [kN]
-T = 40.0
+T = 70.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -68,7 +68,7 @@ gamma = 0.0
 AoAmax = 2.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 3.0
 #
 # Duration of attitude maneuver [s]
 tAoA = 5.0
@@ -89,7 +89,7 @@ TargHeig = 50.0e-3, 2.0
 [accel] # Acceleration limitation parameters
 #
 # Maximum tangential acceleration [g]
-acc_max = 35.0
+acc_max = 30.0
 #
 # Penalty function mode [‘lin’,’quad’,’tanh’]
 PFmode = quad
@@ -148,8 +148,8 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1., 1.5, 1.
+guess = 1., 1., 1.
 #
-limit = 1.25, 0.4, 0.4
+limit = 1., 1., 1.
 #
-tol = 1e-8
+tol = 1e-6

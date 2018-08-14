@@ -268,17 +268,22 @@ class prob(sgra):
             GM = inputDict['GM']
             grav_e = GM/r_e/r_e
 
+            #TODO: this is starting to get confusing.
+            # It is better to solve the problem adequately...
+
+#            if inputDict['NStag'] == 1:
+#                addArcsGamb = addArcs-1
+#            else:
+#                addArcsGamb = addArcs
+            addArcsGamb = addArcs
+
             # rocket constants
             if 'Isplist' in inputDict.keys():
                 Isp = numpy.array(inputDict['Isplist'])
-                Isp = numpy.pad(Isp,(addArcs,0),'constant',constant_values=Isp[0])
+                Isp = numpy.pad(Isp,(addArcsGamb,0),\
+                                'constant',constant_values=Isp[0])
             else:
                 Isp = inputDict['Isp']*numpy.ones(s)
-
-            if inputDict['NStag'] == 1:
-                addArcsGamb = addArcs-1
-            else:
-                addArcsGamb = addArcs
 
             Thrust = numpy.array(inputDict['Tlist'])
             Thrust = numpy.pad(Thrust,(addArcsGamb,0),\
@@ -496,13 +501,13 @@ class prob(sgra):
 # =============================================================================
 #        # Basic desaturation:
 #
-#        bat = 0.5
-#        for arc in range(s):
-#            for k in range(N):
-#                if u[k,1,arc] < -bat:
-#                    u[k,1,arc] = -bat
-#                if u[k,1,arc] > bat:
-#                    u[k,1,arc] = bat
+        bat = 1.5#0.5
+        for arc in range(s):
+            for k in range(N):
+                if u[k,1,arc] < -bat:
+                    u[k,1,arc] = -bat
+                if u[k,1,arc] > bat:
+                    u[k,1,arc] = bat
 
         # This was a test for a "super honest" desaturation, so that the
         # program would not know when to do the coasting a priori.
@@ -512,9 +517,9 @@ class prob(sgra):
         # there is this...
         # TODO: Try to put this before the RK4 re-integration. If this works,
         # it would be a great candidate to a less-naive method.
-        for arc in range(1,s):
-            for k in range(N):
-                u[k,1,arc] = -0.1
+#        for arc in range(1,s):
+#            for k in range(N):
+#                u[k,1,arc] = -0.1
 # =============================================================================
         self.u = u
 
@@ -1251,22 +1256,75 @@ class prob(sgra):
         return Iorig+Ipf, Iorig, Ipf
 #%% Plotting commands and related functions
 
-    def calcPsblPayl(self):
-        """Calculate the possible ammount of payload for a given configuration.
+    def printPars(self):
+        dPars = self.__dict__
+#        keyList = dPars.keys()
+        self.log.printL("These are the attributes for the current solution:\n")
+        self.log.pprint(dPars)
+
+        msg = "\n" + '-'*88
+        msg += "\nMiele-comparing parameters:\n"
+        msg += '-'*88
+        w0 = self.boundary['m_initial'] * self.constants['grav_e'] #kN
+        twr = self.constants['Thrust'][0] / w0
+        msg += "\nThrust to weight ratio (at take-off)[-]: {:.2F}".format(twr)
+        wld = w0 * 1e3 / (self.constants['s_ref'][0] * 1e6) / 9.80665 #kgf/m²
+        msg += "\nWing loading (at take-off)[kgf/m²]: {:.1F}".format(wld)
+        msg += "\nEngine specific impulse [s]: "+str(self.constants['Isp'])
+        msg += "\nStructural factors [-]: "+str(self.constants['s_f'])
+        r2d = 180./numpy.pi
+        msg += "\nAngle of attack bounds: alpha_min = "
+        msg += "{:.1F}".format(r2d*self.restrictions['alpha_min'])
+        msg += " deg, alpha_max ="
+        msg += " {:.1F} deg".format(r2d*self.restrictions['alpha_max'])
+        msg += "\nTangential acc. bound [m/s²]: "
+        msg += "{:.1F}\n".format(self.restrictions['acc_max']*1000.)
+        msg += '-'*88
+        self.log.printL(msg)
+    #
 
 
-        This ammount equals the total rocket mass at liftoff, minus all the
-        used propellant mass and the associated structural mass. All the
-        remaining mass could be replaced by payload at liftoff!"""
+    def calcMassDist(self):
+        """Calculate the mass distributions for a given configuration.
 
-        MTot = self.x[0,3,0] # rocket mass at liftoff
-        s_f = self.constants['s_f']
+        Calculates, for each stage (not arc) and for the complete rocket, the
+        initial mass, propellant mass, structural mass and payload mass."""
+        NStag = self.s - self.addArcs
+        MInit = numpy.zeros(NStag+1)
+        MProp = numpy.zeros(NStag+1)
+        MStru = numpy.zeros(NStag+1)
+        MPayl = numpy.zeros(NStag+1)
+
+        stg = 0; MRem = self.x[0,3,0]; MInit[0] = MRem
         for arc in range(self.s):
-            M0 = self.x[0,3,arc]
-            Mf = self.x[-1,3,arc]
-            MTot -= (M0-Mf) / (1.0 - s_f[arc])
+            # Propellant mass for this arc:
+            MProp[stg] += self.x[0,3,arc] - self.x[-1,3,arc]
 
-        return MTot
+            if self.isStagSep[arc]:
+                sf = self.constants['s_f'][arc]
+                # In case of stage separation, end of the spent propellant
+                # accumulation.
+                # The corresponding structural mass for the propellant mass is:
+                MStru[stg] = MProp[stg] * sf/(1.-sf)
+                # The payload for the stage is the rest of the "rocket" above:
+                MPayl[stg] = MRem - MProp[stg] - MStru[stg]
+                MRem = MPayl[stg]
+
+                stg += 1
+                # Initial mass for the next stage.
+                # Calculate only if there is a next stage, of course...
+                if arc < self.s-1:
+                    MInit[stg] = self.x[0,3,arc+1]
+            #
+        #
+        # Last entry corresponds to the "sum" of the rocket
+        MInit[NStag] = MInit[0]
+        MProp[NStag] = MProp[0:NStag].sum()
+        MStru[NStag] = MStru[0:NStag].sum()
+        MPayl[NStag] = MPayl[NStag-1]
+
+        massDist = {'i':MInit,'p':MProp,'s':MStru,'u':MPayl}
+        return massDist
 
     def calcIdDv(self):
         """Calculate ideal Delta v provided by all the stages of the rocket as
@@ -1304,8 +1362,9 @@ class prob(sgra):
             self.log.printL("Initial mass: " + str(x[0,3,0]))
             self.log.printL("I: "+ str(I))
             self.log.printL("Design payload mass: " + str(self.mPayl))
-            #mFinl = x[0,3,0] - I/self.constants['costScalingFactor']
-            mFinl = self.calcPsblPayl()
+            #mFinl = self.calcPsblPayl()
+            massDist = self.calcMassDist()
+            mFinl = massDist['u'][-1]
             self.log.printL('"Possible" payload mass: ' + str(mFinl))
             paylPercMassGain = 100.0*(mFinl-self.mPayl)/self.mPayl
             DvId = self.calcIdDv()
@@ -1324,7 +1383,21 @@ class prob(sgra):
                        ", Q = {:.4E}\n".format(self.Q)
             titlStr += "Payload mass gain: {:.4G}%\n".format(paylPercMassGain)
             titlStr += "Losses (w.r.t. ideal Delta v): "+ \
-                       "{:.4G}%".format(dvLossPerc)
+                       "{:.4G}%\n".format(dvLossPerc)
+            titlStr += "       Init. mass   Prop. mass   " + \
+                       "Stru. mass   Payl. mass"
+            M0 = self.x[0,3,0]
+            for i in range(self.s-self.addArcs):
+                titlStr += "\nStg. " + str(i+1) + "   "\
+                            "{:.4F}       ".format(massDist['i'][i]/M0) + \
+                            "{:.4F}       ".format(massDist['p'][i]/M0) + \
+                            "{:.4F}       ".format(massDist['s'][i]/M0) + \
+                            "{:.4F}".format(massDist['u'][i]/M0)
+            titlStr += "\nTotal    1.0000       "+ \
+                       "{:.4F}       ".format(massDist['p'][-1]/M0) + \
+                       "{:.4F}       ".format(massDist['s'][-1]/M0) + \
+                       "{:.4F}".format(massDist['u'][-1]/M0)
+            #self.log.printL("\ndebug:\n"+titlStr)
 
             plt.subplots_adjust(**subPlotAdjs)
 
@@ -1721,8 +1794,8 @@ class prob(sgra):
             timeLabl = 'adim. t [-]'
 
         # Comparing final mass:
-        mPaySol = self.calcPsblPayl()
-        mPayAlt = altSol.calcPsblPayl()
+        mPaySol = self.calcMassDist()['u'][-1]#self.calcPsblPayl()
+        mPayAlt = altSol.calcMassDist()['u'][-1]#altSol.calcPsblPayl()
 
         paylMassGain = mPaySol - mPayAlt
         paylPercMassGain = 100.0*paylMassGain/mPayAlt
