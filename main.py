@@ -135,5 +135,5 @@ if __name__ == "__main__":
         ITman.log.printL("\n\n\nI'm sorry, something bad happened.")
         raise
     finally:
-        ITman.log.printL("Terminating now.")
+        ITman.log.printL("Terminating now.\n")
         ITman.log.close()

@@ -260,32 +260,63 @@ class ITman():
         pLimMax = len(sol.restrictions['pi_max'])
 
         msg = ''
-
-        Fail = False
         if not(pLimMin == pLimMax):
             msg += "\nPi max and min limitation arrays' dimensions mismatch. "
-            Fail = True
-        if not(pLimMin == sol.p):
+            if pLimMin < pLimMax:
+                msg += "\nExtending Pi min limitation array..."
+                pi_min = sol.restrictions['pi_min']; val_min = pi_min[-1]
+                for i in range(pLimMax-pLimMin):
+                    pi_min.append(val_min)
+                sol.restrictions['pi_min'] = pi_min
+            else:
+                msg += "\nExtending Pi max limitation array..."
+                pi_max = sol.restrictions['pi_max']; val_max = pi_max[-1]
+                for i in range(pLimMin-pLimMax):
+                    pi_max.append(val_max)
+                sol.restrictions['pi_max'] = pi_max
+            #
+            pLimMin = len(sol.restrictions['pi_min'])
+            pLimMax = len(sol.restrictions['pi_max'])
+        #
+        # now the limitation arrays are all equal. Check compatbility with p
+        if pLimMin < sol.p:
             msg += "\nPi limitation and pi arrays' dimensions mismatch. "
-            Fail = True
+            pi_min = sol.restrictions['pi_min']; val_min = pi_min[-1]
+            pi_max = sol.restrictions['pi_max']; val_max = pi_max[-1]
+            msg += "\nExtending Pi min and Pi max limitation arrays..."
+            for i in range(sol.p-pLimMin):
+                pi_min.append(val_min)
+                pi_max.append(val_max)
+            sol.restrictions['pi_min'] = pi_min
+            sol.restrictions['pi_max'] = pi_max
 
-        if not(Fail):
-            for i in range(sol.p):
-                thisPiMin = sol.restrictions['pi_min'][i]
-                if thisPiMin is not None:
-                    if sol.pi[i] < thisPiMin:
-                        msg += "\nPi[" + str(i) + "] < pi_min."
-                        Fail = True
-                thisPiMax = sol.restrictions['pi_max'][i]
-                if thisPiMax is not None:
-                    if sol.pi[i] > thisPiMax:
-                        msg += "\nPi[" + str(i) + "] > pi_max."
-                        Fail = True
+        if len(msg) > 0:
+            msg += "\nPress any key to continue...\n"
+            self.log.printL(msg)
+            self.prom()
+
+        # Ok, now check if the given pi's respect the limitations. If some of
+        # them does not, then it's pretty much game over...
+
+        msg = ''
+        Fail = False
+        for i in range(sol.p):
+            thisPiMin = sol.restrictions['pi_min'][i]
+            if thisPiMin is not None:
+                if sol.pi[i] < thisPiMin:
+                    msg += "\nPi[" + str(i) + "] < pi_min."
+                    Fail = True
+            thisPiMax = sol.restrictions['pi_max'][i]
+            if thisPiMax is not None:
+                if sol.pi[i] > thisPiMax:
+                    msg += "\nPi[" + str(i) + "] > pi_max."
+                    Fail = True
         if Fail:
             msg += '\nExiting the program.'
             self.log.printL(msg)
-            raise
+            raise Exception(msg)
 
+        # All tests ok! Let's proceed to the usual parameter checking.
         keepLoop = True
         while keepLoop:
             self.prntDashStr()
@@ -310,6 +341,8 @@ class ITman():
             else:
                 self.log.printL("\nGreat! Moving on then...\n")
                 keepLoop = False
+            #
+        #
 
 
     def loadSol(self,path=''):
