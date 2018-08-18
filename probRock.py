@@ -24,8 +24,8 @@ class prob(sgra):
 
         d2r = numpy.pi / 180.0
         # Get initialization mode
-        initMode = opt.get('initMode','default')
-        self.initMode = initMode
+        initMode = opt.get('initMode','default'); self.initMode = initMode
+
         if initMode == 'default' or initMode == 'naive':
             N = 500+1
             self.N = N
@@ -66,7 +66,7 @@ class prob(sgra):
             self.mPayl = 100
 
             # rocket constants
-            Thrust = 300*numpy.ones(s)                 # kg km/s² [= kN] 1.3*m_initial # N
+            Thrust = 300*numpy.ones(s)                 # kg km/s² [= kN]
 
             Kpf = 100.0  # First guess........
             DampCent = 0
@@ -169,20 +169,34 @@ class prob(sgra):
                     tarc[r,s] = t[s*arclen+r]
                 t_complete = numpy.zeros(((s+1)*arclen,s+1))
                 for k in range(s+1):
-                    t_complete[:,k] = numpy.pad(tarc[:,k],(k*arclen,(s-k)*arclen),'constant')
+                    t_complete[:,k] = numpy.pad(tarc[:,k],\
+                              (k*arclen,(s-k)*arclen),'constant')
 
                 for arc in range(s):
                     for line in range(N):
-                        x[line,0,arc] = h_final*numpy.sin(0.5*numpy.pi*t_complete[line,arc])
-                        x[line,1,arc] = V_final*numpy.sin(numpy.pi*t_complete[line,arc]/2)
-                        x[line,2,arc] = (numpy.pi/2)*(numpy.exp(-(t_complete[line,arc]**2)/0.017))#+0.06419
-                        x[line,3,arc] = m_initial*((0.7979* \
-                                         numpy.exp(-(t_complete[line,arc]**2)/0.02))+ \
-                                         0.1901*numpy.cos(t_complete[line,arc]))
-                        #x[:,1,arc] = 1.0e3*(-0.4523*tarc[:,arc]**5 + 1.2353*tarc[:,arc]**4-1.1884*tarc[:,arc]**3+0.4527*tarc[:,arc]**2-0.0397*tarc[:,arc])
-                        #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) -1.585 -3.661*numpy.cos(3.785*tarc[:,arc]+0.9552)
+                        x[line,0,arc] = h_final * \
+                                numpy.sin(0.5*numpy.pi*t_complete[line,arc])
+                        x[line,1,arc] = V_final * \
+                                numpy.sin(numpy.pi*t_complete[line,arc]/2)
+                        x[line,2,arc] = (numpy.pi/2) * \
+                                (numpy.exp(-(t_complete[line,arc]**2)/0.017))+\
+                                0.0#+0.06419
+                        expt = numpy.exp(-(t_complete[line,arc]**2)/0.02)
+                        x[line,3,arc] = m_initial*((0.7979* expt) + \
+                                        0.1901*numpy.cos(t_complete[line,arc]))
+                        #x[:,1,arc] = 1.0e3*(-0.4523*tarc[:,arc]**5 + \
+                                    #1.2353*tarc[:,arc]**4 + \
+                                    #-1.1884*tarc[:,arc]**3 + \
+                                    #0.4527*tarc[:,arc]**2 + \
+                                    #-0.0397*tarc[:,arc])
+                        #x[:,1,arc] = 3.793*numpy.exp(0.7256*tarc[:,arc]) + \
+                                     #-1.585 + \
+                                     #-3.661*numpy.cos(3.785*tarc[:,arc]+ \
+                                     #0.9552)
                         #x[:,3,arc] = m_initial*(1.0-0.89*tarc[:,arc])
-                        #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + 6.2*tarc[:,arc]**2 - 4.2*tarc[:,arc] + 1)
+                        #x[:,3,arc] = m_initial*(-2.9*tarc[:,arc]**3 + \
+                                        #6.2*tarc[:,arc]**2 + \
+                                        #- 4.2*tarc[:,arc] + 1)
 
                 pi_time = 200
                 total_time = pi_time*s
@@ -212,6 +226,9 @@ class prob(sgra):
                 pi = 500*numpy.ones(s)
 #
         elif initMode == 'extSol':
+
+            ###################################################################
+            # STEP 1: run itsme
             inpFile = opt.get('confFile','')
             self.log.printL("Starting ITSME with input = " + inpFile)
 
@@ -222,75 +239,40 @@ class prob(sgra):
             self.log.printL("\nITSME was run sucessfully, " + \
                             "proceding adaptations...")
 
-            #prepare tolerances
-            tol = {'P': inputDict['tolP'],
-                   'Q': inputDict['tolP']}
-            self.tol = tol
+            ###################################################################
+            # STEP 2: Load constants from file (actually, via inputDict)
 
-            # Time array
-            N = inputDict['N']
-            self.N = N
-            dt = 1.0/(N-1)
-            t = numpy.arange(0,1.0+dt,dt)
-            self.dt = dt
-            self.t = t
-
-            TargHeig = numpy.array(inputDict['TargHeig'])
-            # Additional arcs:
-            addArcs = len(TargHeig)
-            # Number of arcs:
-            s = inputDict['NStag'] + addArcs
-            self.s = s
-            self.addArcs = addArcs
-
-            # TODO: increase flexibility in these conditions
-
-            isStagSep = numpy.ones(s,dtype='bool')
-            for i in range(addArcs):
-                isStagSep[i] = False
-
-            self.isStagSep = isStagSep
-
-            p = s
-            self.p = p
-            q = n * (s+1) - 1 +2 #s=1,q=7; s=2,q=11; s=3,q=15
-            self.q = q
-
-            x = numpy.zeros((N,n,s))
-            u = numpy.zeros((N,m,s))
-
-            self.Ns = 2*n*s + p
             # Payload mass
             self.mPayl = inputDict['Mu']
 
             # Earth constants
-            r_e = inputDict['R']
-            GM = inputDict['GM']
+            r_e = inputDict['R']; GM = inputDict['GM']
             grav_e = GM/r_e/r_e
 
-            #TODO: this is starting to get confusing.
-            # It is better to solve the problem adequately...
-
-#            if inputDict['NStag'] == 1:
-#                addArcsGamb = addArcs-1
-#            else:
-#                addArcsGamb = addArcs
-            addArcsGamb = addArcs
+            # Target heights for separation.
+            # This is only here because the Isp, Thrust and s_f arrays must be
+            # padded to put the extra arcs there.
+            TargHeig = numpy.array(inputDict['TargHeig'])
+            # Number of additional arcs:
+            addArcs = len(TargHeig); self.addArcs = addArcs
+            # Number of arcs:
+            s = inputDict['NStag'] + addArcs; self.s = s
 
             # rocket constants
             if 'Isplist' in inputDict.keys():
                 Isp = numpy.array(inputDict['Isplist'])
-                Isp = numpy.pad(Isp,(addArcsGamb,0),\
+                Isp = numpy.pad(Isp,(addArcs,0),\
                                 'constant',constant_values=Isp[0])
             else:
                 Isp = inputDict['Isp']*numpy.ones(s)
 
             Thrust = numpy.array(inputDict['Tlist'])
-            Thrust = numpy.pad(Thrust,(addArcsGamb,0),\
+            Thrust = numpy.pad(Thrust,(addArcs,0),\
                                'constant', constant_values=Thrust[0])
             s_f = numpy.array(inputDict['efflist'])
-            s_f = numpy.pad(s_f,(addArcsGamb,0),\
+            s_f = numpy.pad(s_f,(addArcs,0),\
                             'constant',constant_values=s_f[0])
+            # DEBUG
             #print("Isp = "+str(Isp))
             #print("Thrust = "+str(Thrust))
             #print("s_f = "+str(s_f))
@@ -301,7 +283,7 @@ class prob(sgra):
             s_ref = inputDict['s_ref']*numpy.ones(s)
             DampCent = inputDict['DampCent']
             DampSlop = inputDict['DampSlop']
-            acc_max = inputDict['acc_max'] * grav_e
+            acc_max = inputDict['acc_max'] * grav_e # in km/s²
 
             # Penalty function settings
 
@@ -325,67 +307,80 @@ class prob(sgra):
                 self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
                 raise KeyError
 
-            # boundary conditions
-            h_initial = inputDict['h_initial']
-            V_initial = inputDict['V_initial']
-            gamma_initial = inputDict['gamma_initial']
-            h_final = inputDict['h_final']
-            V_final = numpy.sqrt(GM/(r_e+h_final))#7.633   # km/s
-            gamma_final = inputDict['gamma_final']
-
-            boundary = {'h_initial': h_initial,
-                        'V_initial': V_initial,
-                        'gamma_initial': gamma_initial,
-                        'h_final': h_final,
-                        'V_final': V_final,
-                        'gamma_final': gamma_final,
-                        'mission_dv': numpy.sqrt((GM/r_e)*(2.0-r_e/(r_e+h_final)))}
-            self.boundary = boundary
-
-            constants = {'grav_e': grav_e,
-                         'Thrust': Thrust,
-                         'Isp': Isp,
-                         'r_e': r_e,
-                         'GM': GM,
-                         's_f': s_f,
-                         'CL0': CL0,
-                         'CL1': CL1,
-                         'CD0': CD0,
-                         'CD2': CD2,
+            constants = {'grav_e': grav_e, 'Thrust': Thrust,
+                         'Isp': Isp, 's_f': s_f,
+                         'r_e': r_e, 'GM': GM,
+                         'CL0': CL0, 'CL1': CL1, 'CD0': CD0, 'CD2': CD2,
                          's_ref': s_ref,
-                         'DampCent': DampCent,
-                         'DampSlop': DampSlop,
-                         'PFmode': PFmode,
-                         'Kpf': Kpf}
-            #constants['gradStepSrchCte'] = gradStepSrchCte
+                         'DampCent': DampCent, 'DampSlop': DampSlop,
+                         'PFmode': PFmode, 'Kpf': Kpf}
             self.constants = constants
 
-            # Gradient step search options
-            #gradStepSrchCte = inputDict['gradStepSrchCte']
-            self.loadParsFromFile(file=inpFile)
+            # boundary conditions
+            h_final = inputDict['h_final']
+            V_final = numpy.sqrt(GM/(r_e+h_final))   # km/s
+            missDv = numpy.sqrt((GM/r_e)*(2.0-r_e/(r_e+h_final)))
+
+            self.boundary = {'h_initial': inputDict['h_initial'],
+                             'V_initial': inputDict['V_initial'],
+                             'gamma_initial': inputDict['gamma_initial'],
+                             'm_initial': x_its[0,3],
+                             'h_final': h_final,
+                             'V_final': V_final,
+                             'gamma_final': inputDict['gamma_final'],
+                             'mission_dv': missDv}
 
             # restrictions
-            alpha_min = -inputDict['AoAmax'] * d2r  # in rads
-            alpha_max = -alpha_min                  # in rads
-            beta_min = 0.0
-            beta_max = 1.0
-            restrictions = {'alpha_min': alpha_min,
-                            'alpha_max': alpha_max,
-                            'beta_min': beta_min,
-                            'beta_max': beta_max,
-                            'acc_max': acc_max,
-                            'pi_min': inputDict['pi_min'],
-                            'pi_max': inputDict['pi_max']}
-            self.restrictions = restrictions
+            alpha_max = inputDict['AoAmax'] * d2r  # in rads
+            alpha_min = -alpha_max                 # in rads
+            self.restrictions = {'alpha_min': alpha_min,
+                                 'alpha_max': alpha_max,
+                                 'beta_min': 0.0, 'beta_max': 1.0,
+                                 'acc_max': acc_max}
+
+            # Load remaining parameters:
+            # - Time discretization,
+            # - P and Q tolerances,
+            # - Gradient step search options [constants]
+            # - Time (pi) limitations [restrictions]
+            self.loadParsFromFile(file=inpFile)
+            N = self.N
+
+            ###################################################################
+            # STEP 3: Set up the arcs, handle stage separation points
 
             # Find indices for beginning of arc
             arcBginIndx = numpy.empty(s+1,dtype='int')
             arc = 0; arcBginIndx[arc] = 0
             nt = len(t_its)
 
-            # target heights for separation
+            # Extra arcs go in the beginning only.
+            isStagSep = numpy.ones(s,dtype='bool')
+            for i in range(addArcs):
+                isStagSep[i] = False
+            self.isStagSep = isStagSep
 
+            # There are always as many pi's as there are arcs
+            p = s; self.p = p
 
+            #q = n * (s+1) - 1 +2 #s=1,q=7; s=2,q=11; s=3,q=15
+            #self.log.printL("\nOld q = "+str(q))
+
+            # n + n-1: beginning and end conditions (free final mass);
+            # n*(s-addArcs-1) are for "normal" arc  interfaces
+            #  [hf=hi,vf=vi,gf=gi,mf=mi or mf=mi+jettisoned mass];
+            # (n+1)* addArcs are for additional arc interfaces
+            #  [hf=hTarg,hi=hTarg,vf=vi,gf=gi,mf=mi]
+            q = (n+n-1) + n * (s-addArcs-1) + (n+1) * addArcs
+            #self.log.printL("New q = "+str(q))
+            #input(">> ")
+            self.q = q
+            # This is the 'N' variable in Miele (2003)
+            self.Ns = 2*n*s + p
+
+            # The goal here is to find the indexes in the x_its array that
+            # correspond to where the arcs begin.
+            # First, find the times for the targeted heights:
             j = 0
             for hTarg in TargHeig:
                 # search for target height
@@ -393,31 +388,23 @@ class prob(sgra):
                 while (keepLook and (j < nt)):
                     if x_its[j,0] > hTarg:
                         # Found the index!
-                        arc += 1
-                        arcBginIndx[arc] = j
-                        keepLook = False
+                        arc += 1; arcBginIndx[arc] = j; keepLook = False
+                    #
                     j+=1
-
-            # now, search for jettisoned masses
+                #
+            #
+            # Second, search for the times with jettisoned masses:
             nmj = len(massJet)
             for i in range(nmj):
-
                 if massJet[i] > 0.0:
                     # Jettisoned mass found!
-                    arc += 1
-                    tTarg = tphases[i]
-
-                    keepLook = True
+                    arc += 1; tTarg = tphases[i]; keepLook = True
                     while (keepLook and (j < nt)):
                         if abs(t_its[j]-tTarg) < 1e-10:
                             #TODO: this hardcoded 1e-10 may cause problems...
-
                             # Found the proper time!
-                            keepLook = False
-
                             # get the next time for proper initial conditions
-                            j += 1
-                            arcBginIndx[arc] = j
+                            j += 1; arcBginIndx[arc] = j; keepLook = False
                         #
                         j += 1
                     #
@@ -425,18 +412,20 @@ class prob(sgra):
             #
             #self.log.printL(arcBginIndx)
 
-            # Set the array of interval lengths
+            # Finally, set the array of interval lengths
             pi = numpy.empty(s)
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
 
-            # get proper initial mass condition
-            self.boundary['m_initial'] = x_its[0,3]
+
+            ###################################################################
+            # STEP 4: Re-integrate the differential equation with a fixed step
 
             self.log.printL("Re-integrating ITSME solution with fixed " + \
                             "step scheme...")
             # Re-integration of proposed solution (RK4)
             # Only the controls are used, not the integrated state itself
+            x = numpy.zeros((N,n,s)); u = numpy.zeros((N,m,s))
             for arc in range(s):
                 # dtd: dimensional time step
                 dtd = pi[arc]/(N-1); dtd6 = dtd/6.0
@@ -468,7 +457,7 @@ class prob(sgra):
                     f4 = calcXdot(td+dtd,x4,uip1,constants,arc)
                     x[i+1,:,arc] = x[i,:,arc] + dtd6 * (f1+f2+f2+f3+f3+f4)
                 #
-                u[N-1,:,arc] = u[N-2,:,arc]#numpy.array([tabAlpha.value(pi[0]),tabBeta.value(pi[0])])
+                u[N-1,:,arc] = u[N-2,:,arc]
             #
 
         lam = numpy.zeros((N,n,s))
@@ -1119,7 +1108,8 @@ class prob(sgra):
 #                else:
 #                    psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
 #            else:
-#                self.log.printL("Sorry, this part of calcPsi is not implemented yet.")
+#                self.log.printL("Sorry, this part of calcPsi "+\
+#                                "is not implemented yet.")
 #            #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
 
         # first arc - second arc
@@ -2117,7 +2107,8 @@ class prob(sgra):
 
         #pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
         #self.log.printL(indPdynMax)
-        #self.log.printL("t @ max q (relative to arc):",self.t[pairIndPdynMax[0]])
+        #self.log.printL("t @ max q (relative to arc):",\
+        #self.t[pairIndPdynMax[0]])
         #self.log.printL("State @ max q:")
         #self.log.printL(self.x[pairIndPdynMax[0],:,pairIndPdynMax[1]])
 
@@ -2224,14 +2215,16 @@ class prob(sgra):
         if self.initMode == 'extSol':
             for arc in range(s-1):
                 if self.isStagSep[arc]:
-                    # this trick only labels the first segment, to avoid multiple
-                    # labels afterwards
+                    # this trick only labels the first segment,
+                    # to avoid multiple labels afterwards
                     if mustLabl:
-                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o',\
-                                 color='blue',label='Stage separation point')
+                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],\
+                                 marker='o', color='blue',\
+                                 label='Stage separation point')
                         mustLabl = False
                     else:
-                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],marker='o')
+                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],\
+                                 marker='o')
 
         # Plot altSol
         if compare:

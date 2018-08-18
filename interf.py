@@ -7,7 +7,7 @@ Created on Wed Jun 28 09:35:29 2017
 """
 
 import dill, datetime, pprint, os, shutil
-from utils import getNowStr#, logPrint
+from utils import getNowStr
 
 class logger():
     """ Class for the handler of log messages."""

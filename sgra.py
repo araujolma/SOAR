@@ -146,8 +146,6 @@ class sgra():
         pConf.sgra()
 
         N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
 
         for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',\
                     'GSS_stopNEvalLim','GSS_findLimStepTol']:
@@ -156,10 +154,8 @@ class sgra():
         for key in ['pi_min','pi_max']:
             self.restrictions[key] = pConf.con[key]
 
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
+        self.tol = {'P': pConf.con['tolP'], 'Q': pConf.con['tolQ']}
         self.N = N
-
         self.dt = 1.0/(N-1)
         self.t = numpy.linspace(0,1.0,N)
 
