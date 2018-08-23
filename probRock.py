@@ -212,7 +212,7 @@ class prob(sgra):
                 t_shaped = numpy.reshape(t,(N,1))
                 t_matrix = t_shaped*numpy.ones((N,s))
                 t_flip_shaped = numpy.flipud(numpy.reshape(t,(N,1)))
-                t_flip_matrix = t_flip_shaped*numpy.ones((N,s))
+                #t_flip_matrix = t_flip_shaped*numpy.ones((N,s))
                 x[:,0,:] = h_final*t_matrix
                 x[:,1,:] = V_final*t_matrix
                 x[:,2,:] = gamma_initial*t_flip_shaped
@@ -328,7 +328,8 @@ class prob(sgra):
                              'h_final': h_final,
                              'V_final': V_final,
                              'gamma_final': inputDict['gamma_final'],
-                             'mission_dv': missDv}
+                             'mission_dv': missDv,
+                             'TargHeig': TargHeig}
 
             # restrictions
             alpha_max = inputDict['AoAmax'] * d2r  # in rads
@@ -671,33 +672,23 @@ class prob(sgra):
 #%%
 
     def calcGrads(self,calcCostTerm=True):
-        Grads = dict()
-
         # Pre-assign functions
-        sin = numpy.sin
-        cos = numpy.cos
-        tanh = numpy.tanh
+        sin = numpy.sin; cos = numpy.cos; tanh = numpy.tanh
 
         # Load constants
-        N,n,m,p,q,s = self.N,self.n,self.m,self.p,self.q,self.s
+        N, n, m, p, q, s = self.N, self.n, self.m, self.p, self.q, self.s
+        addArcs = self.addArcs
         constants = self.constants
 
-        grav_e = constants['grav_e']
-        MaxThrs = constants['Thrust']
-        Isp = constants['Isp']
-        g0Isp = Isp * grav_e
-        r_e = constants['r_e']
-        GM = constants['GM']
+        grav_e = constants['grav_e']; MaxThrs = constants['Thrust']
+        Isp = constants['Isp']; g0Isp = Isp * grav_e
+        r_e = constants['r_e']; GM = constants['GM']
         s_f = constants['s_f']
-        CL0 = constants['CL0']
-        CL1 = constants['CL1']
-        CD0 = constants['CD0']
-        CD2 = constants['CD2']
+        CL0 = constants['CL0']; CL1 = constants['CL1']
+        CD0 = constants['CD0']; CD2 = constants['CD2']
         s_ref = constants['s_ref']
-        DampCent = constants['DampCent']
-        DampSlop = constants['DampSlop']
-        Kpf = constants['Kpf']
-        PFmode = constants['PFmode']
+        DampCent = constants['DampCent']; DampSlop = constants['DampSlop']
+        Kpf = constants['Kpf']; PFmode = constants['PFmode']
 
         restrictions = self.restrictions
         alpha_min = restrictions['alpha_min']
@@ -707,27 +698,22 @@ class prob(sgra):
         acc_max = restrictions['acc_max']
 
         # Load states, controls
-        u1 = self.u[:,0,:]
-        u2 = self.u[:,1,:]
-        tanhU1 = tanh(u1)
-        tanhU2 = tanh(u2)
+        u1 = self.u[:,0,:]; u2 = self.u[:,1,:]
+        tanhU1 = tanh(u1); tanhU2 = tanh(u2)
 
         pi = self.pi
         acc = self.calcAcc()
 
-        phix = numpy.zeros((N,n,n,s))
-        phiu = numpy.zeros((N,n,m,s))
+        phix = numpy.zeros((N,n,n,s)); phiu = numpy.zeros((N,n,m,s))
 
         if p>0:
             phip = numpy.zeros((N,n,p,s))
         else:
             phip = numpy.zeros((N,n,1,s))
 
-        fx = numpy.zeros((N,n,s))
-        fu = numpy.zeros((N,m,s))
-        fOrig_u = numpy.zeros((N,m,s))
-        fPF_u = numpy.empty_like(fu)
+        fx = numpy.zeros((N,n,s)); fu = numpy.zeros((N,m,s))
         fp = numpy.zeros((N,p,s))
+        fOrig_u = numpy.zeros((N,m,s)); fPF_u = numpy.empty_like(fu)
 
         ## Psi derivatives
 
@@ -786,28 +772,93 @@ class prob(sgra):
         for ind in range(n):
             psiy[ind,ind] = 1.0
 
+        # Intermediate conditions: extra arcs
+        i0 = n; j0 = n
+        for arc in range(addArcs):
+            # This loop sets the interfacing conditions between all states
+            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
+            #self.log.printL("arc = "+str(arc))
+            # For height:
+            psiy[i0,j0] = 1.0 # height, this arc
+            #self.log.printL("Writing on ["+str(i0)+","+str(j0)+"] : 1.0")
+            psiy[i0+1,j0+n] = 1.0 # height, next arc
+            #self.log.printL("Writing on ["+str(i0+1)+","+str(j0+n)+"] : 1.0")
+            # For speed, angle and mass:
+            for stt in range(1,n):
+                psiy[i0+stt+1,j0+stt] = -1.0 #this state, this arc  (end cond)
+                #self.log.printL("Writing on ["+str(i0+stt+1)+","+\
+                #str(j0+stt)+"] : -1.0")
+                psiy[i0+stt+1,j0+stt+n] = 1.0 #this state, next arc (init cond)
+                #self.log.printL("Writing on ["+str(i0+stt+1)+","+\
+                #str(j0+stt+n)+"] : 1.0")
+            i0 += n + 1
+            j0 += 2*n
+        #
+        # Intermediate conditions
+        #self.log.printL("End of first for, i0 = "+str(i0)+", j0 = "+str(j0))
+        for arc in range(addArcs,s-1):
+            # This loop sets the interfacing conditions between all states
+            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
+
+            # For height, speed and angle:
+            for stt in range(n-1):
+                psiy[i0+stt,j0+stt] = -1.0  # this state, this arc  (end cond)
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt)+"] : -1.0")
+                psiy[i0+stt,j0+stt+n] = 1.0 # this state, next arc (init cond)
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt+n)+"] : 1.0")
+            # For mass:
+            stt = n-1
+            initMode = self.initMode
+            if initMode == 'extSol':
+                if self.isStagSep[arc]:
+                    # mass, next arc (init cond)
+                    psiy[i0+stt,j0+stt+n] = 1.0
+                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                    #str(j0+stt+n)+"] : 1.0")
+                    # mass, this arc (end cond):
+                    psiy[i0+stt,j0+stt] = -1.0/(1.0-s_f[arc])
+                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                    #str(j0+stt)+"] : -1/(1-e)...")
+                    # mass, this arc (init cond):
+                    psiy[i0+stt,j0+stt-n] = s_f[arc]/(1.0-s_f[arc])
+                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                    #str(j0+stt-n)+"] : +e/(1-e)...")
+                else:
+                    psiy[i0+stt,j0+stt] = -1.0  # mass, this arc  (end cond)
+                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                    #str(j0+stt)+"] : -1.0")
+                    psiy[i0+stt,j0+stt+n] = 1.0 # mass, next arc (init cond)
+                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                    #str(j0+stt+n)+"] : 1.0")
+
+            i0 += n
+            j0 += 2*n
+        #
+        #input("IAE?")
         # Last n-1 rows (no mass eq for end condition of final arc):
         for ind in range(n-1):
             psiy[q-1-ind,2*n*s-2-ind] = 1.0
 
         # Intermediate conditions
-        psiy[4,4] = 1.0 # h
-        psiy[5,8] = 1.0 # h
-        psiy[6,5] = -1.0 # v
-        psiy[6,9] = 1.0 # v
-        psiy[7,6] = -1.0 #gama
-        psiy[7,10] = 1.0 #gama
-        psiy[8,7] = -1.0 #m
-        psiy[8,11] = 1.0 #m
-
-        psiy[9,12] = 1.0 # h
-        psiy[10,16] = 1.0 # h
-        psiy[11,13] = -1.0 # v
-        psiy[11,17] = 1.0 # v
-        psiy[12,14] = -1.0 #gama
-        psiy[12,18] = 1.0 #gama
-        psiy[13,15] = -1.0 #m
-        psiy[13,19] = 1.0 #m
+#        psiy[4,4] = 1.0 # h
+#        psiy[5,8] = 1.0 # h
+#        psiy[6,5] = -1.0 # v
+#        psiy[6,9] = 1.0 # v
+#        psiy[7,6] = -1.0 #gama
+#        psiy[7,10] = 1.0 #gama
+#        psiy[8,7] = -1.0 #m
+#        psiy[8,11] = 1.0 #m
+#
+#        psiy[9,12] = 1.0 # h
+#        psiy[10,16] = 1.0 # h
+#        psiy[11,13] = -1.0 # v
+#        psiy[11,17] = 1.0 # v
+#        psiy[12,14] = -1.0 #gama
+#        psiy[12,18] = 1.0 #gama
+#        psiy[13,15] = -1.0 #m
+#        psiy[13,19] = 1.0 #m
 
 #        # Intermediate conditions
 #        i0 = n; j0 = 0
@@ -843,18 +894,15 @@ class prob(sgra):
         psip = numpy.zeros((q,p))
 
         # calculate r, V, etc
-        r = r_e + self.x[:,0,:]
-        r2 = r * r
-        r3 = r2 * r
-        V = self.x[:,1,:]
-        V2 = V * V
+        r = r_e + self.x[:,0,:]; r2 = r * r; r3 = r2 * r
+        V = self.x[:,1,:]; V2 = V * V
         # GAMMA FACTOR (fdg)
         fdg = numpy.empty_like(r)
-        t0 = 0.0
+        td0 = 0.0
         for arc in range(s):
-            t = t0 + self.t * pi[arc]
-            fdg[:,arc] = .5*(1.0+tanh(DampSlop*(t-DampCent)))
-            t0 += pi[arc]
+            td = td0 + self.t * pi[arc] # dimensional time
+            fdg[:,arc] = .5*(1.0+tanh(DampSlop*(td-DampCent)))
+            td0 += pi[arc]
 
         m = self.x[:,3,:]
         m2 = m * m
@@ -1063,16 +1111,11 @@ class prob(sgra):
             phiu[:,:,:,arc] *= pi[arc]
 #==============================================================================
 
-        Grads['phix'] = phix
-        Grads['phiu'] = phiu
-        Grads['phip'] = phip
-        Grads['fx'] = fx
-        Grads['fu'] = fu
-        Grads['fp'] = fp
-    #    Grads['gx'] = gx
-    #    Grads['gp'] = gp
-        Grads['psiy'] = psiy
-        Grads['psip'] = psip
+        Grads = {'phix': phix, 'phiu': phiu, 'phip': phip,
+                 'fx': fx, 'fu': fu,  'fp': fp,
+                 'psiy': psiy, 'psip': psip}
+    #    Grads['gx'] = gx; Grads['gp'] = gp
+
         return Grads
 
 #%%
@@ -1081,57 +1124,62 @@ class prob(sgra):
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
-        N,q,s = self.N,self.q,self.s
+        N, q, s, addArcs = self.N, self.q, self.s, self.addArcs
+        TargHeig = self.boundary['TargHeig']
         psi = numpy.empty(q)
 
         # Beginning of first subarc
+        #strPrnt = "0,1,2,3,"
         psi[0] = x[0,0,0] - boundary['h_initial']
         psi[1] = x[0,1,0] - boundary['V_initial']
         psi[2] = x[0,2,0] - boundary['gamma_initial']
         psi[3] = x[0,3,0] - boundary['m_initial']
 
-#        # interstage conditions between arc and arc+1
-#        # (that's why the loop only goes up to s-1)
-#        #strPrnt = "0,1,2,3,"
-#        for arc in range(s-1):
-#            i0 = 4 * (arc+1)
-#
-#            # four states in order: position, speed, flight angle and mass
-#            psi[i0]   = x[0,0,arc+1] - x[N-1,0,arc]
-#            psi[i0+1] = x[0,1,arc+1] - x[N-1,1,arc]
-#            psi[i0+2] = x[0,2,arc+1] - x[N-1,2,arc]
-#            initMode = self.initMode
-#            if initMode == 'extSol':
-#                if self.isStagSep[arc]:
-#                    psi[i0+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc-1])) * \
-#                                (x[N-1,3,arc] - s_f[arc-1] * x[0,3,arc])
-#                else:
-#                    psi[i0+3] = x[0,3,arc+1] - x[N-1,3,arc]
-#            else:
-#                self.log.printL("Sorry, this part of calcPsi "+\
-#                                "is not implemented yet.")
-#            #strPrnt += str(i0)+","+str(i0+1)+","+str(i0+2)+","+str(i0+3)+","
-
-        # first arc - second arc
-        psi[4] = x[N-1,0,0] - 50.0e-3
-        psi[5] = x[0,0,1] - 50.0e-3
-        psi[6] = x[0,1,1] - x[N-1,1,0]
-        psi[7] = x[0,2,1] - x[N-1,2,0]
-        psi[8] = x[0,3,1] - x[N-1,3,0]
-
-        # second arc - third arc
-        psi[9] = x[N-1,0,1] - 2.
-        psi[10] = x[0,0,2] - 2.
-        psi[11] = x[0,1,2] - x[N-1,1,1]
-        psi[12] = x[0,2,2] - x[N-1,2,1]
-        psi[13] = x[0,3,2] - x[N-1,3,1]
+        # inter-arc conditions for the extra arcs (if any)
+        for arc in range(addArcs):
+            i = 4 + 5 * (arc)
+            # states in order: height (2x), speed, flight angle and mass
+            psi[i]   = x[N-1,0,arc] - TargHeig[arc]
+            psi[i+1] = x[0,0,arc+1] - TargHeig[arc]
+            psi[i+2] = x[0,1,arc+1] - x[N-1,1,arc]
+            psi[i+3] = x[0,2,arc+1] - x[N-1,2,arc]
+            psi[i+4] = x[0,3,arc+1] - x[N-1,3,arc]
+            #strPrnt += str(i) + "," + str(i+1) + "," + str(i+2) + \
+            #            "," + str(i+3) + "," + str(i+4) + ","
+        #
+        # inter-arc conditions for between arc and arc+1 for "natural" arcs
+        # (that's why the loop only goes up to s-1)
+        i0 = i + 5
+        for arc in range(addArcs,s-1):
+            #self.log.printL("arc = "+str(arc))
+            i = i0 + 4 * (arc-addArcs)
+            # four states in order: height, speed, flight angle and mass
+            psi[i]   = x[0,0,arc+1] - x[N-1,0,arc]
+            psi[i+1] = x[0,1,arc+1] - x[N-1,1,arc]
+            psi[i+2] = x[0,2,arc+1] - x[N-1,2,arc]
+            initMode = self.initMode
+            if initMode == 'extSol':
+                # This if...else is basically a safety net for the case of an
+                # undefined self.isStagSep.
+                if self.isStagSep[arc]:
+                    psi[i+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc])) * \
+                                (x[N-1,3,arc] - s_f[arc] * x[0,3,arc])
+                else:
+                    psi[i+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            else:
+                self.log.printL("Sorry, this part of calcPsi "+\
+                                "is not implemented yet.")
+                raise
+            #strPrnt += str(i)+","+str(i+1)+","+str(i+2)+","+str(i+3)+","
+        #
 
         # End of final subarc
         psi[q-3] = x[N-1,0,s-1] - boundary['h_final']
         psi[q-2] = x[N-1,1,s-1] - boundary['V_final']
         psi[q-1] = x[N-1,2,s-1] - boundary['gamma_final']
         #strPrnt += str(q-3)+","+str(q-2)+","+str(q-1)
-
+        #self.log.printL("Psi eval check:\nq = "+str(q))
+        #self.log.printL(strPrnt)
         #self.log.printL("Psi = "+str(psi))
 
         return psi
@@ -1165,9 +1213,8 @@ class prob(sgra):
             elif PFmode == 'tanh':
                 fPF[:,arc] = self.pi[arc] * Kpf * \
                              numpy.tanh(acc[:,arc]/acc_max-1.0)
-#            fPF[:,arc] = self.pi[arc] * Kpf * \
-#                .5 * (1.0 + numpy.tanh(500.0*(acc[:,arc]/acc_max-1.001)) )
-#0.5*(1.0+numpy.tanh((a-1- 0.001)*500.0 ))
+            #
+        #
 
         # Apply penalty only when acc > acc_max
         fPF *= (acc > acc_max)
@@ -1176,8 +1223,8 @@ class prob(sgra):
         return f,fOrig,fPF
 
     def calcI(self):
-        N,s = self.N,self.s
-        _,fOrig,fPF = self.calcF()
+        N, s = self.N, self.s
+        _, fOrig, fPF = self.calcF()
 
 #        # METHOD 1: simple simpson integration.
 #        Iorig, Ipf = 0.0, 0.0
@@ -2249,28 +2296,19 @@ class prob(sgra):
 
 #%%
 def calcXdot(td,x,u,constants,arc):
-    grav_e = constants['grav_e']
-    Thrust = constants['Thrust']
-    Isp = constants['Isp']
-    r_e = constants['r_e']
-    GM = constants['GM']
-    CL0 = constants['CL0']
-    CL1 = constants['CL1']
-    CD0 = constants['CD0']
-    CD2 = constants['CD2']
-    s_ref = constants['s_ref']
-    DampCent = constants['DampCent']
-    DampSlop = constants['DampSlop']
+    grav_e = constants['grav_e']; Thrust = constants['Thrust'];
+    Isp = constants['Isp']; s_ref = constants['s_ref']
+    r_e = constants['r_e']; GM = constants['GM']
+    CL0 = constants['CL0']; CL1 = constants['CL1']
+    CD0 = constants['CD0']; CD2 = constants['CD2']
+    DampCent = constants['DampCent']; DampSlop = constants['DampSlop']
 
-    sin = numpy.sin
-    cos = numpy.cos
+    sin = numpy.sin; cos = numpy.cos
 
-    u1 = u[0]
-    u2 = u[1]
+    u1 = u[0]; u2 = u[1]
 
     # calculate variables alpha and beta
-    alpha = u1
-    beta = u2
+    alpha = u1; beta = u2
 
     # calculate variables CL and CD
     CL = CL0[arc] + CL1[arc]*alpha
@@ -2280,8 +2318,7 @@ def calcXdot(td,x,u,constants,arc):
 
     dens = rho(x[0])
     pDynTimesSref = .5 * dens * (x[1]**2) * s_ref[arc]
-    L = CL * pDynTimesSref
-    D = CD * pDynTimesSref
+    L = CL * pDynTimesSref; D = CD * pDynTimesSref
 
     # calculate r
     r = r_e + x[0]
@@ -2296,7 +2333,6 @@ def calcXdot(td,x,u,constants,arc):
 
     sinGama = sin(x[2])
     dx[0] = x[1] * sinGama
-    #print("In calcXDot, arc = "+str(arc)+" x = "+str(x)+" x(3) = "+str(x[3]))
     dx[1] = (beta * Thrust[arc] * cos(alpha) - D)/x[3] - grav * sinGama
     dx[2] = (beta * Thrust[arc] * sin(alpha) + L)/(x[3] * x[1]) + \
             cos(x[2]) * ( x[1]/r  -  grav/x[1] )
@@ -2304,4 +2340,3 @@ def calcXdot(td,x,u,constants,arc):
     dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
     dx[3] = -(beta * Thrust[arc])/(grav_e * Isp[arc])
     return dx
-
