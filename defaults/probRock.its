@@ -10,16 +10,16 @@
 Mu = 100
 #
 # Number of stages
-NStag = 2
+NStag = 1
 #
 # Specific impulse [s]
 Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+efes = .1
 #
 # Thrust [kN]
-T = 40.0
+T = 70.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5

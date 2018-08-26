@@ -716,7 +716,9 @@ class ITman():
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')
                     sol.compWith(altSol,'Initial guess',piIsTime=False)
-                    sol.plotTraj(True,altSol,'Initial guess')#,mustSaveFig=False)
+#                    sol.plotTraj(True,altSol,'Initial guess',\
+#                                 mustSaveFig=False)
+                    sol.plotTraj(True,altSol,'Initial guess')
                 else:
                     sol.plotTraj()
 

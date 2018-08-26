@@ -1527,6 +1527,10 @@ class prob(sgra):
             stages = numpy.arange(1,s+1)
             width = 0.4
             ax.bar(position,pi,width,color='b')
+            # Put the values of the arc lenghts on the bars...
+            for arc in range(s):
+                coord = (float(arc)-.25*width,pi[arc]+10.)
+                ax.annotate("{:.1F}".format(pi[arc]),xy=coord,xytext=coord)
             ax.set_xticks(position)
             ax.set_xticklabels(stages)
             plt.grid(True,axis='y')
@@ -1997,6 +2001,13 @@ class prob(sgra):
         width = 0.4
         current = ax.bar(position,self.pi,width,color='y')
         initial = ax.bar(position_alt + width,altSol.pi,width)
+        # Put the values of the arc lenghts on the bars...
+        for arc in range(s):
+            coord = (float(position[arc])-.25*width,self.pi[arc]+10.)
+            ax.annotate("{:.1F}".format(self.pi[arc]),xy=coord,xytext=coord)
+        for arc in range(s):
+            coord = (float(position_alt[arc])+.75*width,altSol.pi[arc]+10.)
+            ax.annotate("{:.1F}".format(altSol.pi[arc]),xy=coord,xytext=coord)
         ax.set_xticks(position + width/2)
         ax.set_xticklabels(arcs)
         plt.grid(True,axis='y')
@@ -2025,6 +2036,16 @@ class prob(sgra):
                     altSol_pi_stages[k] = altSol.pi[k+addArcs]
             current = ax.bar(position,pi_stages,width,color='y')
             initial = ax.bar(position_alt + width,altSol_pi_stages,width)
+            # Put the values of the arc lenghts on the bars...
+            for st in range(s-addArcs):
+                coord = (float(position[st])-.25*width,pi_stages[st]+10.)
+                ax.annotate("{:.1F}".format(pi_stages[st]),xy=coord,\
+                            xytext=coord)
+            for st in range(s-addArcs):
+                coord = (float(position_alt[st])+.75*width,\
+                         altSol_pi_stages[st]+10.)
+                ax.annotate("{:.1F}".format(altSol_pi_stages[st]),xy=coord,\
+                            xytext=coord)
             ax.set_xticks(position + width/2)
             ax.set_xticklabels(stages)
             plt.grid(True,axis='y')
