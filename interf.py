@@ -24,7 +24,7 @@ class logger():
             self.fhand = open(self.folderName + os.sep + 'log.txt','w+')
         except:
             print("Sorry, could not open/create the file!")
-            exit()
+            raise
 
     def printL(self,msg,mode=''):
         if mode in '':

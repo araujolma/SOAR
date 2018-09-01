@@ -122,7 +122,7 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
     if p1.mtot[0]*con['g0'] > Tlist[0]:
         print('T = ', Tlist[0])
         print('P = ', p1.mtot[0]*con['g0'])
-        raise Exception('itsme saying: weight greater than thrust!')
+        #raise Exception('itsme saying: weight greater than thrust!')
 
     return p1, p2
 

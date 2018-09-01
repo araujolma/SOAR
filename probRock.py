@@ -1418,7 +1418,8 @@ class prob(sgra):
             titlStr += "I = {:.4E}".format(I) + \
                        ", P = {:.4E} ".format(self.P) + \
                        ", Q = {:.4E}\n".format(self.Q)
-            titlStr += "Payload mass gain: {:.4G}%\n".format(paylPercMassGain)
+            titlStr += "Payload mass: {:.1F} kg".format(mFinl) + \
+                       ", gain = {:.4G}%\n".format(paylPercMassGain)
             titlStr += "Losses (w.r.t. ideal Delta v): "+ \
                        "{:.4G}%\n".format(dvLossPerc)
             titlStr += "       Init. mass   Prop. mass   " + \

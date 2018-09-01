@@ -7,7 +7,7 @@
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 100
+Mu = 100.0
 #
 # Number of stages
 NStag = 1
@@ -19,7 +19,7 @@ Isp = 450
 efes = .1
 #
 # Thrust [kN]
-T = 70.0
+T = 30.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -71,7 +71,7 @@ AoAmax = 2.0
 tAoA1 = 4.0
 #
 # Duration of attitude maneuver [s]
-tAoA = 5.0
+tAoA = 10.0
 #
 ###############################################################################
 [trajmods] # Trajectory modifications
