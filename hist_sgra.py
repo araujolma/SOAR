@@ -8,6 +8,7 @@ Created on Wed Apr 11 18:24:24 2018
 
 import numpy
 import matplotlib.pyplot as plt
+#import matplotlib.ticker as ticker
 
 def declHist(self):
     """A method for declaring all the histories. """
@@ -18,7 +19,7 @@ def declHist(self):
     # Gradient-Restoration EVent List
     # (00-rest, 10-denied grad, 11-accepted grad)
     self.MaxEvnt = MaxEvnt
-    self.EvntList = numpy.zeros(MaxEvnt,dtype='bool')
+    self.EvntList = numpy.zeros(MaxEvnt,dtype=numpy.bool_)#'bool')
     self.EvntIndx = 0
     self.ContRest = 0
     #self.GREvIndx = -1
@@ -38,6 +39,7 @@ def declHist(self):
     self.NIterGrad = 0
 
     self.histStepGrad = numpy.zeros(MaxIterGrad)
+    self.histGSSstopMotv = numpy.zeros(MaxIterGrad,dtype=numpy.int8)
     self.histQ = numpy.zeros(MaxIterGrad)
     self.histQx = numpy.zeros(MaxIterGrad)
     self.histQu = numpy.zeros(MaxIterGrad)
@@ -176,32 +178,8 @@ def showHistP(self):
 #
 #    self.ContRest = 0
 #
-#def updtHistGrad(self,mustPlotQs=False):
-#    """ Updates the other gradient histories.
-#        This includes the Qs, Is and Js. """
-#
-#    self.log.printL("\nhist_sgra: Updating Q,I,J histories.")
-#    NIterGrad = self.NIterGrad
-#
-#    Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
-#    self.Q = Q
-#    self.histQ[NIterGrad] = Q
-#    self.histQx[NIterGrad] = Qx
-#    self.histQu[NIterGrad] = Qu
-#    self.histQp[NIterGrad] = Qp
-#    self.histQt[NIterGrad] = Qt
-#
-#    J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
-#    self.I = I
-#    self.J = J
-#    self.histJ[NIterGrad] = J
-#    self.histJLint[NIterGrad] = J_Lint
-#    self.histJLpsi[NIterGrad] = J_Lpsi
-#    self.histI[NIterGrad] = I
-#    self.histIorig[NIterGrad] = Iorig
-#    self.histIpf[NIterGrad] = Ipf
 
-def updtHistGrad(self,alfa,mustPlotQs=False):
+def updtHistGrad(self,alfa,GSSstopMotv,mustPlotQs=False):
     """ Updates the gradient histories.
         This includes the Qs, Is, Js and gradStep. """
 
@@ -209,24 +187,21 @@ def updtHistGrad(self,alfa,mustPlotQs=False):
     self.log.printL("\nhist_sgra: Updating histGrad.")
 
     Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
-    self.Q = Q
-    self.histQ[NIterGrad] = Q
-    self.histQx[NIterGrad] = Qx
-    self.histQu[NIterGrad] = Qu
-    self.histQp[NIterGrad] = Qp
-    self.histQt[NIterGrad] = Qt
+    self.Q = Q; self.histQ[NIterGrad] = Q
+    self.histQx[NIterGrad] = Qx; self.histQu[NIterGrad] = Qu
+    self.histQp[NIterGrad] = Qp; self.histQt[NIterGrad] = Qt
 
     J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
-    self.I = I
-    self.J = J
-    self.histJ[NIterGrad] = J
+
+    self.J = J; self.histJ[NIterGrad] = J
     self.histJLint[NIterGrad] = J_Lint
     self.histJLpsi[NIterGrad] = J_Lpsi
-    self.histI[NIterGrad] = I
+    self.I = I; self.histI[NIterGrad] = I
     self.histIorig[NIterGrad] = Iorig
     self.histIpf[NIterGrad] = Ipf
 
     self.histStepGrad[NIterGrad] = alfa
+    self.histGSSstopMotv[NIterGrad] = GSSstopMotv
     self.NIterGrad = NIterGrad
     self.ContRest = 0
 
@@ -314,22 +289,53 @@ def showHistI(self):
 
     self.savefig(keyName='histI',fullName='I convergence history')
 
+#def showHistGradStep(self):
+#    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+#
+#    plt.title("Gradient step history")
+#    plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
+#    plt.grid(True)
+#    plt.xlabel("Gradient iterations")
+#    plt.ylabel("Step values")
+#
+#    self.savefig(keyName='histGradStep',fullName='GradStep history')
+
 def showHistGradStep(self):
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
-    plt.title("Gradient step history")
-    plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
-    plt.grid(True)
-    plt.xlabel("Gradient iterations")
-    plt.ylabel("Step values")
+    fig, ax1 = plt.subplots()
+    color = 'tab:blue'
+    ax1.set_xlabel("Gradient iterations")
+    ax1.set_ylabel('Step values',color=color)
+    ax1.semilogy(IterGrad,self.histStepGrad[IterGrad],color=color,\
+                 label='Step values')
+    ax1.tick_params(axis='y',labelcolor=color)
+    ax1.grid(True)
+    ax1.set_title("Gradient step history")
+
+    ax2 = ax1.twinx()
+    color = 'tab:red'
+    ax2.set_ylabel('Step search stop motive',color=color)
+    labl = '"Stop motive" codes:\n' + \
+           '0 - step rejected\n' + \
+           '1 - local min found\n' + \
+           '2 - step limit hit\n' + \
+           '3 - too many evals'
+    ax2.plot(IterGrad,self.histGSSstopMotv[IterGrad],color=color,\
+                 label=labl)
+    ax2.tick_params(axis='y',labelcolor=color)
+    #ax2.yaxis.set_major_locator(ticker.IndexLocator(base=1., offset=1.))
+    ax2.grid(True)
+    ax2.legend(loc="upper left", bbox_to_anchor=(1.1,1))
+
+    fig.tight_layout()
 
     self.savefig(keyName='histGradStep',fullName='GradStep history')
-#    self.log.printL("showHistGradStep: these are the gradSteps: " + \
-#          str(self.histStepGrad[IterGrad]))
+
 
 def showHistGRrate(self):
     """Show the history of the GR rate (rests per grad).
-        It must begin at 1, there is no such thing as "initial GR rate". """
+        It must begin at 1, there is no such thing as an "initial GR rate". """
 
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
@@ -370,4 +376,5 @@ def copyHistFrom(self,sol_from):
 
     self.histGRrate = sol_from.histGRrate
     self.histStepGrad = sol_from.histStepGrad
+    self.histGSSstopMotv = sol_from.histGSSstopMotv
     self.NIterGrad = sol_from.NIterGrad

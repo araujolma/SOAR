@@ -19,7 +19,7 @@ Isp = 450
 efes = .1
 #
 # Thrust [kN]
-T = 30.0
+T = 40.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -128,7 +128,7 @@ GSS_stopStepLimTol = 1.0e-2
 GSS_stopObjDerTol = 1.0e-4
 #
 # Grad Step Search: max number of objective evaluations (see grad_sgra.py) [-]
-GSS_stopNEvalLim = 100
+GSS_stopNEvalLim = 500
 #
 # Grad Step Search: step tolerance for finding limit (see grad_sgra.py) [-]
 GSS_findLimStepTol = 1.0e-2

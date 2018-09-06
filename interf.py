@@ -583,7 +583,7 @@ class ITman():
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.
                 sol.updtEvntList(evnt)
-                sol.updtHistGrad(0.0)
+                sol.updtHistGrad(0.,1)
                 sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
 

@@ -1640,7 +1640,7 @@ class prob(sgra):
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
-                titlStr += "\nDelta pi (%): "
+            titlStr += "\nDelta pi (%): "
             for i in range(self.p):
                 titlStr += "{:.1F}, ".format(100.0*dp[i]/self.pi[i])
 
