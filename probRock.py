@@ -9,7 +9,7 @@ import numpy, itsme
 from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
-from utils import simp
+from utils import simp#, getNowStr
 
 class prob(sgra):
     probName = 'probRock'
@@ -1619,11 +1619,16 @@ class prob(sgra):
             ######################################
 
             if mustSaveFig:
+#                nowStr = getNowStr()
                 if piIsTime:
                     self.savefig(keyName='currLamb',fullName='lambdas')
+#                    self.savefig(keyName='currLamb-'+nowStr,\
+#                                 fullName='lambdas')
                 else:
                     self.savefig(keyName='currLamb-adimTime',\
                                  fullName='lambdas (adim. Time)')
+#                    self.savefig(keyName='currLamb-adimTime-'+nowStr,\
+#                                 fullName='lambdas (adim. Time)')
             else:
                 plt.show()
                 plt.clf()

@@ -9,7 +9,7 @@ Created on Tue Jun 27 13:07:35 2017
 import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
-from utils import simp
+from utils import simp, getNowStr
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
 #from utils import ddt
@@ -269,7 +269,8 @@ class sgra():
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            fileName = self.log.folderName + os.sep + keyName + '.pdf'
+            now = getNowStr()
+            fileName = self.log.folderName + os.sep + keyName + now + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
             try:
