@@ -10,6 +10,7 @@ Created to be fast and simple
 """
 
 from math import sqrt
+
     
 class vector():
         
@@ -51,7 +52,7 @@ class vector():
     
     def module4(self)-> float:
         
-        return self.dot(self)*2
+        return self.dot(self)**2
 
     def __add__(self, vec2):
         
@@ -93,6 +94,28 @@ class vector():
     def __repr__(self):
         
         return 'v(%f, %f, %f)' % (self.x, self.y, self.z)
+    
+    def reset(self, x: float, y: float, z: float)-> None:
+        
+        self.x = x
+        self.y = y
+        self.z = z
+        
+        return None
+
+    def versor(self):
+        
+        return self/self.module()
+
+
+class vector0(vector):
+        
+    def __init__(self):
+        
+        self.x = 0.0
+        self.y = 0.0
+        self.z = 0.0
+        
 
 if __name__=='__main__':
 
@@ -104,6 +127,10 @@ if __name__=='__main__':
     x = vector(1, 0, 0)
     y = vector(0, 1, 0)
     
+    z = vector0()
+    
+    print('vector0 :', z)
+    print('vector0 + a:', z+a)
     print('dot: ', a.dot(b))
     print('cross: ', x.cross(y))
     print('sum:', a+b)
@@ -111,4 +138,5 @@ if __name__=='__main__':
     print('scalar div. and neg.:',-b/2)
     a -= b
     print('-= :', a)
-    print('positive :', +a)
+    print('positive :', +b)
+    print('versor:', b.versor())
