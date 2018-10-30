@@ -269,7 +269,7 @@ class sgra():
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            now = getNowStr()
+            now = '_' + getNowStr()
             fileName = self.log.folderName + os.sep + keyName + now + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
@@ -361,8 +361,8 @@ class sgra():
     def calcQ(self,*args,**kwargs):
         return grad_sgra.calcQ(self,*args,**kwargs)
 
-    def plotQRes(self,args):
-        return grad_sgra.plotQRes(self,args)
+    def plotQRes(self,*args,**kwargs):
+        return grad_sgra.plotQRes(self,*args,**kwargs)
 
     def plotF(self,*args,**kwargs):
         return grad_sgra.plotF(self,*args,**kwargs)

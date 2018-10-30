@@ -350,8 +350,8 @@ class prob(sgra):
         IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
         return IOrig+IPF, IOrig, IPF
 #%%
-
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
 
         pi = self.pi
 

@@ -252,8 +252,8 @@ class prob(sgra):
         I = Ivec.sum()
         return I, I, 0.0
 #%%
-
-    def plotSol(self,opt={},intv=[],piIsTime=True):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
 
         pi = self.pi
         r2d = 180.0/numpy.pi

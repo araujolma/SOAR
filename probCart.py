@@ -232,7 +232,8 @@ class prob(sgra):
         return I, I, 0.0
 #%%
 
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
 
         x = self.x
         u = self.u
@@ -277,9 +278,7 @@ class prob(sgra):
 
             self.log.printL("pi = "+str(pi))
         elif opt['mode'] == 'var':
-            dx = opt['x']
-            du = opt['u']
-            dp = opt['pi']
+            dx, du, dp = opt['x'], opt['u'], opt['pi']
 
             titlStr = "Proposed variations (grad iter #" + \
                       str(self.NIterGrad+1) + ")\n"+"Delta pi: "
@@ -347,8 +346,9 @@ class prob(sgra):
             titlStr = opt['mode']
 
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
-        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
-                     'top':2.8,'wspace':0.2,'hspace':0.5}):
+                 piIsTime=True,
+                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                              'top':2.8,'wspace':0.2,'hspace':0.5}):
         self.log.printL("\nComparing solutions...\n")
         pi = self.pi
         currSolLabl = 'Final solution'

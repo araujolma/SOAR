@@ -200,7 +200,8 @@ class prob(sgra):
     def calcI(self):
         return self.pi[0],self.pi[0],0.0
 #%%
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
         t = self.t
         x = self.x
         u = self.u

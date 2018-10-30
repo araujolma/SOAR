@@ -221,7 +221,8 @@ class prob(sgra):
             I += simp(f[:,arc],N)
         return I, I, 0.0
 #%%
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
         t = self.t
         x = self.x
         u = self.u
