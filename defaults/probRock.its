@@ -10,7 +10,7 @@
 Mu = 100.0
 #
 # Number of stages
-NStag = 1
+NStag = 2
 #
 # Specific impulse [s]
 Isp = 450
@@ -19,7 +19,7 @@ Isp = 450
 efes = .1
 #
 # Thrust [kN]
-T = 40.0
+T = 38.
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -119,7 +119,7 @@ pi_max = None, None, None, None, None
 N = 201
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e15
+GSS_PLimCte = 1.0e9
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2

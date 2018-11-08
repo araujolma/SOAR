@@ -36,12 +36,15 @@ if __name__ == "__main__":
         else:
             probName = defaultProb.lower()
 
-        if 'cart' in probName:
-            import probCart as prob
-            confFile = 'defaults'+ os.sep + 'probCart.its'
-        elif 'brac' in probName:
+        if 'brac' in probName:
             import probBrac as prob
             confFile = 'defaults'+ os.sep + 'probBrac.its'
+        elif 'cart' in probName:
+            import probCart as prob
+            confFile = 'defaults'+ os.sep + 'probCart.its'
+        elif 'land' in probName:
+            import probLand as prob
+            confFile = 'defaults' + os.sep + 'probLand.its'
         elif 'lqr' in probName:
             import probLQR as prob
             confFile = 'defaults'+ os.sep + 'probLQR.its'
