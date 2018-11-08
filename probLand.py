@@ -167,6 +167,7 @@ class prob(sgra):
 
             psi0 = T / M0 / self.constants['g']
             phi0 = Mp / M0
+            self.constants['phi0'] = phi0
 
             self.log.printL("Initial mass = {:.4E} kg".format(M0))
             self.log.printL("Propellant mass = {:.4E} kg".format(Mp) + \
@@ -536,81 +537,83 @@ class prob(sgra):
 #            plt.show()
 #            plt.clf()
 
-    def lander(self,opt=None):
-        dt = 1e-3
-        tf = 400.
-        N = int(tf/dt)
-        xl, ul = numpy.empty((N,self.n)), numpy.empty((N,1))
-        h, V, M = self.restrictions['h'], self.restrictions['V'], \
-                    self.restrictions['M']
-        xl[0,0:3] = h, V, M
-        g0Isp = self.constants['g0'] * self.constants['Isp']
-        g = self.constants['g']
-        #kp = 2000.
-        Tmax = self.constants['T']
-        psi = .5 * Tmax / M / g
-        vs = .05
-        tStop = vs / g / (psi-1.)
-        print("ts = {:.4E}s".format(tStop))
-        inThr = False
-        ts = 0.
-        for k in range(1,N):
-
-#            if h < 1. or V < -.1:
-#                ul[k,0] = -6. -kp * V
-#                Thr = .5 * self.constants['T'] * \
-#                    (1. + numpy.tanh(ul[k,0]))
+# OLD VERSION
+#    def lander(self,opt=None):
+#        dt = 1e-3
+#        tf = 400.
+#        N = int(tf/dt)
+#        xl, ul = numpy.empty((N,self.n)), numpy.empty((N,1))
+#        h, V, M = self.restrictions['h'], self.restrictions['V'], \
+#                    self.restrictions['M']
+#        xl[0,0:3] = h, V, M
+#        g0Isp = self.constants['g0'] * self.constants['Isp']
+#        g = self.constants['g']
+#        #kp = 2000.
+#        Tmax = self.constants['T']
+#        psi = .5 * Tmax / M / g
+#        vs = .05
+#        tStop = vs / g / (psi-1.)
+#        print("ts = {:.4E}s".format(tStop))
+#        inThr = False
+#        ts = 0.
+#        for k in range(1,N):
+#
+##            if h < 1. or V < -.1:
+##                ul[k,0] = -6. -kp * V
+##                Thr = .5 * self.constants['T'] * \
+##                    (1. + numpy.tanh(ul[k,0]))
+##            else:
+##                ul[k,0] = -10.
+##                Thr = 0.
+#            #
+#
+#            if inThr:
+#                ts += dt
+#                Thr = psi * M * g
+#                if ts >= tStop:
+#                    self.log.printL("\nLeaving thrust phase! ")
+#                    inThr = False
+#                    input("\n>> ")
 #            else:
-#                ul[k,0] = -10.
 #                Thr = 0.
-            #
-
-            if inThr:
-                ts += dt
-                Thr = psi * M * g
-                if ts >= tStop:
-                    self.log.printL("\nLeaving thrust phase! ")
-                    inThr = False
-                    input("\n>> ")
-            else:
-                Thr = 0.
-                if V < -vs:
-                    self.log.printL("\nGoing to thrust phase!")
-                    dh = V*V/2./g/(psi-1.)
-                    if dh > h:
-                        psi = 1. + V * V / 2. / g / h
-                        self.log.printL("Resetting psi = {:.4E}".format(psi))
-                    else:
-                        self.log.printL("Psi = {:.4E}".format(psi))
-                    tStop = -V / g / (psi-1.)
-                    inThr = True
-                    ts = 0.
-                    input("\n>> ")
-                #
-            #
-
-            # The dynamics
-            dh = V * dt
-            dM = - (Thr / g0Isp) * dt
-            dV = (- g + Thr/M) * dt
-
-            h += dh; V += dV; M += dM
-            xl[k,0:3] = h, V, M
-            ul[k,0] = numpy.arctanh(Thr / .5 / Tmax - 1.)
-            self.log.printL("t = {:.4E}".format(k*dt) + \
-                            ", h = {:.4E}".format(h) + \
-                            ", V = {:.4E}".format(V) + \
-                            ", Thr = {:.4E}".format(Thr))
-            if h < 0.:
-                break
-        #
-        self.log.printL("ts = {:.4E}".format(ts) + \
-                        "s, tStop = {:.4E}s".format(tStop))
-        tf = k * dt
-
-        return xl[:k,:], ul[:k,:], tf
+#                if V < -vs:
+#                    self.log.printL("\nGoing to thrust phase!")
+#                    dh = V*V/2./g/(psi-1.)
+#                    if dh > h:
+#                        psi = 1. + V * V / 2. / g / h
+#                        self.log.printL("Resetting psi = {:.4E}".format(psi))
+#                    else:
+#                        self.log.printL("Psi = {:.4E}".format(psi))
+#                    tStop = -V / g / (psi-1.)
+#                    inThr = True
+#                    ts = 0.
+#                    input("\n>> ")
+#                #
+#            #
+#
+#            # The dynamics
+#            dh = V * dt
+#            dM = - (Thr / g0Isp) * dt
+#            dV = (- g + Thr/M) * dt
+#
+#            h += dh; V += dV; M += dM
+#            xl[k,0:3] = h, V, M
+#            ul[k,0] = numpy.arctanh(Thr / .5 / Tmax - 1.)
+#            self.log.printL("t = {:.4E}".format(k*dt) + \
+#                            ", h = {:.4E}".format(h) + \
+#                            ", V = {:.4E}".format(V) + \
+#                            ", Thr = {:.4E}".format(Thr))
+#            if h < 0.:
+#                break
+#        #
+#        self.log.printL("ts = {:.4E}".format(ts) + \
+#                        "s, tStop = {:.4E}s".format(tStop))
+#        tf = k * dt
+#
+#        return xl[:k,:], ul[:k,:], tf
 
 
+# FUTURE VERSION
 #    def lander(self,opt=None):
 #
 #        vLim = .05
@@ -676,6 +679,131 @@ class prob(sgra):
 #        tf = k * dt
 #
 #        return xl[:k,:], ul[:k,:], tf
+
+    def lander(self,opt=None):
+
+        g0Isp = self.constants['g0'] * self.constants['Isp']
+        g = self.constants['g']
+        Tmax = self.constants['T']
+        phi0 = self.constants['phi0']
+
+        hVec, vVec, mVec = [], [], []
+
+        h, V, M = self.restrictions['h'], self.restrictions['V'], \
+                    self.restrictions['M']
+
+#        psi = .75 * Tmax / M / g
+#        vLim = g * 100.
+
+        psi = 1. * Tmax / M / g
+        vLim = (1.-1./psi) * g0Isp * abs(numpy.log(1.-phi0))
+        self.log.printL("Spacecraft-based vLim = {:.4E} km/s".format(vLim))
+        dh = vLim * vLim / 2. / g / (psi-1.)
+        if dh > h:
+            hLim = (V*V + 2. * g * h) / 2. / g / psi
+            vLim = numpy.sqrt(V*V + 2. * g * (h - hLim))
+            self.log.printL("Since the spacecraft crashes before reaching" + \
+                            " that speed, recalculating...\n" + \
+                            " vLim = {:.4E} km/s".format(vLim))
+
+        tStop = vLim / g / (psi-1.)
+#        print("ts = {:.4E}s".format(tStop))
+
+        dt = 1e-4; t = 0.; ts = 0.; dtp = 1e-3; k = -1
+        inThr = False
+        input("Final check before integration... ")
+
+        while h > 0.:
+            k += 1
+
+            if inThr:
+                ts += dt
+                Thr = psi * M * g
+                if ts >= tStop:
+                    self.log.printL("\nLeaving thrust phase! ")
+                    inThr = False
+                    input("\n>> ")
+            else:
+                Thr = 0.
+                if V < -vLim:
+                    self.log.printL("\nGoing to thrust phase!")
+#                    dh = V*V/2./g/(psi-1.)
+#                    self.log.printL("Expected dh during phase" + \
+#                                    ": {:.4E} km".format(dh))
+#                    if dh > h:
+#                        psi = 1. + V * V / 2. / g / h
+#                        self.log.printL("Ok, so dh>h. " + \
+#                                        "Resetting psi = {:.4E}".format(psi))
+#                        if psi * M * g > Tmax:
+#                            psi = Tmax/M/g
+#                            self.log.printL("Oops, saturated at " + \
+#                                            "psi = {:.4E}".format(psi))
+#                            self.log.printL("It seems I will crash...")
+#                    else:
+#                        self.log.printL("Psi = {:.4E}".format(psi))
+#                    tStop = -V / g / (psi-1.)
+#                    inThr = True
+#                    ts = 0.
+#                    input("\n>> ")
+
+                    psi = 1. + V * V / 2. / g / h
+                    strp = "Resetting psi = {:.4E} for full stop.".format(psi)
+                    self.log.printL(strp)
+                    if psi * M * g > Tmax:
+                        psi = Tmax/M/g
+                        self.log.printL("Oops, saturated at " + \
+                                        "psi = {:.4E}".format(psi))
+                        self.log.printL("It seems I will crash...")
+                    #
+                    tStop = -V / g / (psi-1.)
+                    strp = "Expected duration for powered descent: " + \
+                            "ts = {:.1F} s.".format(tStop)
+                    self.log.printL(strp)
+                    inThr = True
+                    ts = 0.
+                    input("\n>> ")
+                #
+            #
+
+            # The dynamics
+            dh = V * dt
+            dM = - (Thr / g0Isp) * dt
+            dV = (- g + Thr/M) * dt
+
+            h += dh; V += dV; M += dM
+            #xl[k,0:3] = h, V, M
+            #ul[k,0] = numpy.arctanh(Thr / .5 / Tmax - 1.)
+            t += dt
+            hVec.append(h); vVec.append(V); mVec.append(M)
+
+            if k % int(dtp/dt) == 0:
+                self.log.printL("t = {:.4E}".format(t) + \
+                                ", h = {:.4E}".format(h) + \
+                                ", V = {:.4E}".format(V) + \
+                                ", Thr = {:.4E}".format(Thr))
+
+        self.log.printL("\nFinal speed = {:.4E} m/s".format(V*1e3))
+        self.log.printL("Final mass = {:.1F} kg.".format(M))
+        tVec = numpy.linspace(0.,t,num=len(hVec))
+        plt.subplot(3,1,1)
+        plt.plot(tVec,hVec)
+        plt.grid(True)
+        plt.ylabel('h [km/s]')
+
+        plt.subplot(3,1,2)
+        plt.plot(tVec,vVec)
+        plt.grid(True)
+        plt.ylabel('V [km/s]')
+
+        plt.subplot(3,1,3)
+        plt.plot(tVec,mVec)
+        plt.grid(True)
+        plt.ylabel('M [kg]')
+        plt.xlabel('t [s]')
+
+        plt.show()
+
+        return None#xl[:k,:], ul[:k,:], tf
 
 if __name__ == "__main__":
     print("\n\nRunning probLand.py!\n")
