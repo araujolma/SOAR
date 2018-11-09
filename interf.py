@@ -491,7 +491,7 @@ class ITman():
     def frstRestRnds(self,sol):
         self.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
-        sol.P,_,_ = sol.calcP()
+        sol.P,_,_ = sol.calcP(mustPlotPint=True)
         sol, contRest = self.restRnds(sol)
 
         self.saveSol(sol,self.log.folderName + os.sep + 'solInitRest.pkl')
