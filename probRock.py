@@ -1169,7 +1169,8 @@ class prob(sgra):
             else:
                 self.log.printL("Sorry, this part of calcPsi "+\
                                 "is not implemented yet.")
-                raise
+                raise Exception("Broken compatibility with init methods " +
+                                "other than 'extSol'.")
             #strPrnt += str(i)+","+str(i+1)+","+str(i+2)+","+str(i+3)+","
         #
 
@@ -1319,8 +1320,6 @@ class prob(sgra):
         msg += '-'*88
         self.log.printL(msg)
     #
-
-
     def calcMassDist(self):
         """Calculate the mass distributions for a given configuration.
 
