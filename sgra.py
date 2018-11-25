@@ -31,7 +31,7 @@ class binFlagDict(dict):
 #        self.log.printL("\nSetting '"+self.name+"' as follows:")
 #        self.log.pprint(self)
 
-class sgra():
+class sgra:
     """Class for a general instance of the SGRA problem.
 
     Here are all the methods and variables that are independent of a specific
@@ -48,6 +48,10 @@ class sgra():
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
+        # TODO: since this formula actually does not change, this should be a method here...
+        self.Ns = 2*n*s + p
+        self.dt = 1.0/(N-1)
+        self.t = numpy.linspace(0,1.0,N)
 
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
@@ -60,6 +64,7 @@ class sgra():
 
         # Histories
         self.declHist()
+        self.NIterGrad = 0
 
         self.tol = {'P':1e-7,'Q':1e-7}
 
@@ -74,7 +79,7 @@ class sgra():
                             'plotRsidMaxP':tf,
                             'plotErr':tf,
                             'plotCorr':tf,
-                            'plotCorrFin':tf},\
+                            'plotCorrFin':tf},
                                         inpName='Debug options for Rest')
         tf = False#True#
         self.dbugOptGrad = binFlagDict(inpDict={'pausGrad':tf,
@@ -95,7 +100,7 @@ class sgra():
                             'plotCorr':tf,
                             'plotCorrFin':tf,
                             'plotF':tf,
-                            'plotFint':tf},\
+                            'plotFint':tf},
                                         inpName='Debug options for Grad')
 
         # Solution plot saving status:
@@ -106,7 +111,7 @@ class sgra():
                      'histGradStep':True,
                      'traj':True,
                      'comp':True,
-                     'eig':True},\
+                     'eig':True},
                                 inpName='Plot saving options')
 
         # Parallelism options
@@ -147,7 +152,7 @@ class sgra():
 
         N = pConf.con['N']
 
-        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',\
+        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',
                     'GSS_stopNEvalLim','GSS_findLimStepTol']:
             self.constants[key] = pConf.con[key]
 
@@ -165,7 +170,7 @@ class sgra():
         self.log.printL("These are the attributes for the current solution:\n")
         self.log.pprint(dPars)
 
-    def plotCat(self,func,mark='',markSize=1.,color='b',labl='',\
+    def plotCat(self,func,mark='',markSize=1.,color='b',labl='',
                 piIsTime=True,intv=[]):
         """Plot a given function with several subarcs.
             Since this function should serve all the SGRA instances, the pi
@@ -210,6 +215,8 @@ class sgra():
             if piIsTime:
                 TimeDur = pi[arc]
                 dtd = dt * TimeDur
+            else:
+                TimeDur = t[-1]
 
             # check if this arc gets plotted at all
             #print("\narc =",arc)
@@ -228,38 +235,38 @@ class sgra():
                     indBgin = int((intv[0] - accTime)/dtd)
                     isBgin = False
                     if intv[0] <= accTime:
-                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,\
+                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,
                                  ms=markSize)
                 else:
                     indBgin = 0
                     # arc beginning with circle
-                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,\
+                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,
                              ms=markSize)
 
                 #print("indBgin =",indBgin)
                 if accTime + TimeDur > intv[1]:
                     indEnd = int((intv[1] - accTime)/dtd)
                     if indEnd == (N-1):
-                        plt.plot(accTime + TimeDur*t[-1], \
+                        plt.plot(accTime + TimeDur*t[-1],
                          func[-1,arc],'s'+color,ms=markSize)
                 else:
                     indEnd = N-1
                     # arc end with square
-                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color,\
+                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color,
                              ms=markSize)
 
                 #print("indEnd =",indEnd)
 
                 # Plot the function at each arc.
-                #Label only the first drawed arc
+                #Label only the first drawn arc
                 if mustLabl:
-                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
-                             func[indBgin:indEnd,arc],\
+                    plt.plot(accTime + TimeDur * t[indBgin:indEnd],
+                             func[indBgin:indEnd,arc],
                              mark+color,label=labl)
                     mustLabl = False
                 else:
-                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
-                             func[indBgin:indEnd,arc],\
+                    plt.plot(accTime + TimeDur * t[indBgin:indEnd],
+                             func[indBgin:indEnd,arc],
                              mark+color)
                 #
             #
@@ -287,8 +294,8 @@ class sgra():
         plt.clf()
         plt.close('all')
 
-#%% Just for avoiding compatibilization issues with other problems
-    # These methods are all properly implemented in probRock class.
+#%% Just for avoiding compatibility issues with other problems
+    # These methods SHOULD all be properly implemented in each problem class.
 
     def plotTraj(self,*args,**kwargs):
         self.log.printL("plotTraj: unimplemented method.")
@@ -330,10 +337,15 @@ class sgra():
 
         self.savefig(keyName='currSol',fullName='solution')
 
+    # These methods MUST all be properly implemented in each problem class.
+
     def calcI(self,*args,**kwargs):
         pass
 
     def calcF(self,*args,**kwargs):
+        pass
+
+    def calcPhi(self,*args,**kwargs):
         pass
 
 #%% RESTORATION-WISE METHODS
@@ -489,7 +501,7 @@ class sgra():
             # TODO: Use the 'self.save' dictionary here as well...
             if self.NIterGrad % 10 == 0:
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
-                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},\
+                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)
 
             #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")

@@ -6,12 +6,12 @@ Created on Tue Jun 27 14:39:08 2017
 @author: levi
 """
 
-import numpy, time
+import numpy #, time
 #from utils import testAlgn
 from utils import simp, testAlgn
 import matplotlib.pyplot as plt
 
-class stepMngr():
+class stepMngr:
     """ Class for the step manager, the object used to calculate the step
     value for the gradient phase. The step is chosen through (rudimentary)
     minimization of an objective function "Obj".
@@ -48,14 +48,16 @@ class stepMngr():
         self.minBadStep = 1e100
 
         self.stopMotv = -1
+        self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1.
 
 
-    def calcObj(self,P,I,J):
+    @staticmethod
+    def calcObj(P, I, J):
         """This is the function which defines the objective function."""
 
-        # TODO: Find a way to properly parameterize this so that the user can
-        # set the objective function by setting numerical (or enumerative)
-        # parameters in the .its file.
+        # TODO: Find a way to properly parametrize this so that the user can
+        # TODO: set the objective function by setting numerical (or enumerable)
+        # TODO: parameters in the .its file.
 
         return J
 
@@ -67,7 +69,7 @@ class stepMngr():
 
 
     def getLast(self):
-        """ Get the atributes for the last applied step. """
+        """ Get the attributes for the last applied step. """
 
         P = self.histP[self.cont]
         I = self.histI[self.cont]
@@ -96,7 +98,7 @@ class stepMngr():
         ObjRtrn = 1.1 * self.Obj0
         if Obj > self.Obj0:
             BadPntCode = True
-            BadPntMsg += ("\n-  Obj-Obj0 = {:.4E}".format(Obj-self.Obj0) + \
+            BadPntMsg += ("\n-  Obj-Obj0 = {:.4E}".format(Obj-self.Obj0) +
                          " > 0")
             ObjRtrn = Obj
         if Obj < 0.0:
@@ -104,12 +106,12 @@ class stepMngr():
             BadPntMsg += ("\n-  Obj = {:.4E} < 0".format(Obj))
         if P >= self.limP:
             BadPntCode = True
-            BadPntMsg += ("\n-  P = {:.4E}".format(P) + \
+            BadPntMsg += ("\n-  P = {:.4E}".format(P) +
                          " > {:.4E} = limP".format(self.limP))
         if PiCondVio:
             BadPntCode = True
-            BadPntMsg += ("\n-   piLowLim: " + str(self.piLowLim) + \
-                          "\n          pi: " + str(pi) + \
+            BadPntMsg += ("\n-   piLowLim: " + str(self.piLowLim) +
+                          "\n          pi: " + str(pi) +
                           "\n   piHighLim: " + str(self.piHighLim))
 
         if BadPntCode:
@@ -169,7 +171,7 @@ class stepMngr():
         J,_,_,I,_,_ = newSol.calcJ()
         Obj = self.calcObj(P,I,J)
         isOk, Obj = self.check(alfa,Obj,P,newSol.pi)#self.check(alfa,Obj,P)
-
+        resStr = ''
         if isOk:
             # Update best value (if it is the case)
             if self.best['obj'] > Obj:
@@ -215,7 +217,7 @@ class stepMngr():
         da = self.findLimStepTol * .1
         NotAlgn = True
         P, I, Obj = self.tryStep(sol, alfa, plotSol=plotSol, plotPint=plotPint)
-
+        outp = {}
         while NotAlgn:
             stepArry = numpy.array([alfa*(1.-da), alfa, alfa*(1.+da)])
             Pm, Im, Objm = self.tryStep(sol, stepArry[0])
@@ -417,8 +419,10 @@ class stepMngr():
 
     def endPrntPlot(self,alfa,mustPlot=False):
         """Final plots and prints for this run of calcStepGrad. """
+        P, I, Obj = 1., 1., 1.
         if mustPlot or self.mustPrnt:
             # Get index for applied step
+            k = 0
             for k in range(len(self.histStep)):
                 if abs(self.histStep[k]-alfa)<1e-14:
                     break
@@ -433,11 +437,12 @@ class stepMngr():
             # Plot history of P
             a = min(self.histStep)
             cont = 0
-            if a == 0:
+            if a == 0.:
                 newhistStep = sorted(self.histStep)
-            while a == 0.0:
-                cont += 1
-                a = newhistStep[cont]
+                while a == 0.0:
+                    cont += 1
+                    a = newhistStep[cont]
+                #
             linhAlfa = numpy.array([0.9*a,max(self.histStep)])
             plt.loglog(self.histStep,self.histP,'o',label='P(alfa)')
             linP0 = self.P0 + numpy.zeros(len(linhAlfa))
@@ -456,9 +461,10 @@ class stepMngr():
             plt.show()
 
             # Plot history of I
-            plt.semilogx(self.histStep, 100.0*(self.histI/self.I0-1.0), 'o',\
+            # noinspection PyTypeChecker
+            plt.semilogx(self.histStep, 100.0*(self.histI/self.I0-1.0), 'o',
                          label='I(alfa)')
-            plt.semilogx(alfa, 100.0*(I/self.I0-1.0), 's', \
+            plt.semilogx(alfa, 100.0*(I/self.I0-1.0), 's',
                          label='Chosen value')
             xlim = max([.99*self.maxGoodStep, 1.01*alfa])
             plt.ylabel("I variation (%)")
@@ -479,14 +485,16 @@ class stepMngr():
             plt.show()
 
             # Plot history of Obj
-            plt.semilogx(self.histStep, 100.0*(self.histObj/self.Obj0-1.0), \
+            # noinspection PyTypeChecker
+            plt.semilogx(self.histStep, 100.0*(self.histObj/self.Obj0-1.0),
                          'o', label='Obj(alfa)')
-            plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's', \
+            plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's',
                          label='Chosen value')
             #minStep, maxStep = min(self.histStep), max(self.histStep)
             #steps = numpy.linspace(minStep,maxStep,num=1000)
             #dJTheoPerc = (100.0 * self.dJdStepTheo / self.Obj0) * steps
             #plt.semilogx(steps, dJTheoPerc, label='TheoObj(alfa)')
+            # noinspection PyTypeChecker
             dJTheoPerc = (100.0 * self.dJdStepTheo) * (self.histStep/self.Obj0)
             plt.semilogx(self.histStep, dJTheoPerc,'o', label='TheoObj(alfa)')
             plt.ylabel("Obj variation (%)")
@@ -572,13 +580,13 @@ def plotF(self,piIsTime=False):
             f, fOrig, fPF = argout
             self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
             self.plotCat(fOrig, piIsTime=piIsTime, color='k', labl='Orig cost')
-            self.plotCat(fPF, piIsTime=piIsTime, color='r', \
+            self.plotCat(fPF, piIsTime=piIsTime, color='r',
                          labl='Penalty function')
         else:
             f = argout[0]
             self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
     else:
-        self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
+        self.plotCat(argout, piIsTime=piIsTime, color='b', labl='Total cost')
     #
     plt.title('Integrand of cost function (grad iter #' + \
               str(self.NIterGrad) + ')')
@@ -592,7 +600,7 @@ def plotF(self,piIsTime=False):
     self.savefig(keyName='F',fullName='F')
 
 def plotQRes(self,args,mustSaveFig=True,addName=''):
-    "Generic plots of the Q residuals"
+    """ Generic plots of the Q residuals. """
 
     iterStr = "\n(grad iter #" + str(self.NIterGrad) + \
                   ", rest iter #"+str(self.NIterRest) + \
@@ -669,7 +677,7 @@ def plotQRes(self,args,mustSaveFig=True,addName=''):
     plt.title(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
-        self.plotCat(errQp[:,j,:],color='k')
+        self.plotCat(errQp[:,j,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQp, j ="+str(j))
     plt.xlabel("t [-]")
@@ -744,7 +752,7 @@ def calcQ(self,mustPlotQs=False,addName=''):
     accQx = numpy.empty((N,s))
     errQu = numpy.empty((N,m,s)); normErrQu = numpy.empty((N,s))
     accQu = numpy.empty((N,s))
-    errQp = numpy.empty((N,p,s)); #normErrQp = numpy.empty(N)
+    errQp = numpy.empty((N,p,s))#; normErrQp = numpy.empty(N)
 
     coefList = simp([],N,onlyCoef=True)
     z = numpy.empty(2*n*s)
@@ -753,10 +761,10 @@ def calcQ(self,mustPlotQs=False,addName=''):
         z[2*arc*n : (2*arc+1)*n] = -lam[0,:,arc]
         z[(2*arc+1)*n : (2*arc+2)*n] = lam[N-1,:,arc]
 
-        # calculate Qx separately. In this way, the derivative avaliation is
+        # calculate Qx separately. In this way, the derivative evaluation is
         # adequate with the trapezoidal integration method
         med = (lam[1,:,arc]-lam[0,:,arc])/dt -.5*(fx[0,:,arc]+fx[1,:,arc]) + \
-                .5 * (phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) +  \
+                .5 * (phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) +
                       phix[1,:,:,arc].transpose().dot(lam[1,:,arc])    )
 
         errQx[0,:,arc] = med

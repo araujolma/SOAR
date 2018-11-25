@@ -9,7 +9,7 @@ Created on Wed Jun 28 09:35:29 2017
 import dill, datetime, pprint, os, shutil
 from utils import getNowStr
 
-class logger():
+class logger:
     """ Class for the handler of log messages."""
 
     def __init__(self,probName,mode='both'):
@@ -30,28 +30,28 @@ class logger():
         if mode in '':
             mode = self.mode
 
-        if mode in 'both':
+        if mode.startswith('both'):
             print(msg)
             self.fhand.write('\n'+msg)
-        elif mode in 'file':
+        elif mode.startswith('file'):
             self.fhand.write('\n'+msg)
-        elif mode in 'screen':
+        elif mode.startswith('screen'):
             print(msg)
 
     def pprint(self,obj):
-        if self.mode in 'both':
+        if self.mode.startswith('both'):
             pprint.pprint(obj)
             pprint.pprint(obj,self.fhand)
-        elif self.mode in 'file':
+        elif self.mode.startswith('file'):
             pprint.pprint(obj,self.fhand)
-        elif self.mode in 'screen':
+        elif self.mode.startswith('screen'):
             pprint.pprint(obj)
 
     def close(self):
         self.fhand.close()
 
 
-class ITman():
+class ITman:
     """Class for the ITerations MANager.
 
     Only one object from this class is intended to be active during a program
@@ -71,7 +71,7 @@ class ITman():
         self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.GRplotSolRate = 10
+        self.GRplotSolRate = 1
         self.GRsaveSolRate = 50
         self.GRpausRate = 3000#1000#10
         self.GradHistShowRate = 10
@@ -247,14 +247,16 @@ class ITman():
                 self.loadSolDir = inp
             return
         else:
-            self.log.printL('\nUnknown starting option "' + self.defOpt + \
-                            '".\nLeaving now.')
-            raise
+            msg = '\nUnknown starting option "' + self.defOpt + \
+                            '".\nLeaving now.'
+            self.log.printL(msg)
+            raise Exception(msg)
         #
     #
 
     def checkPars(self,sol):
-        """Performs a check in the parameters of a initial solution. """
+        """Makes the user check the parameters of an initial solution,
+         and performs an automatic check as well."""
 
         pLimMin = len(sol.restrictions['pi_min'])
         pLimMax = len(sol.restrictions['pi_max'])
@@ -278,7 +280,7 @@ class ITman():
             pLimMin = len(sol.restrictions['pi_min'])
             pLimMax = len(sol.restrictions['pi_max'])
         #
-        # now the limitation arrays are all equal. Check compatbility with p
+        # now the limitation arrays are all equal. Check compatibility with p
         if pLimMin < sol.p:
             msg += "\nPi limitation and pi arrays' dimensions mismatch. "
             pi_min = sol.restrictions['pi_min']; val_min = pi_min[-1]
@@ -321,7 +323,7 @@ class ITman():
         while keepLoop:
             self.prntDashStr()
             sol.printPars()
-            sol.plotSol()
+            #sol.plotSol()
             self.prntDashStr()
             print("\a")
             msg = "\nAre these parameters OK?\n" + \
@@ -372,7 +374,7 @@ class ITman():
         self.log.printL(msg)
         if self.isNewSol:
             # declare problem:
-            solInit = sol.initGues({'initMode':self.initOpt,\
+            solInit = sol.initGues({'initMode':self.initOpt,
                                     'confFile':self.confFile})
             self.log.printL("Saving a copy of the configuration file " + \
                             "in this run's folder.")
@@ -612,7 +614,7 @@ class ITman():
                     #if sol.NIterGrad > 11:
                     #     sol.dbugOptGrad['plotCalcStepGrad'] = True
 
-                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
+                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base,
                                                       retry_grad, stepMan)
                     # BEGIN_DEBUG:
                     I_mid,_,_ = sol_new.calcI()

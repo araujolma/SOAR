@@ -77,7 +77,7 @@ class prob(sgra):
 
         n = 3
         m = 1
-        s = 2
+        s = 4
         q = n + (n-1) + n * (s-1)
         p = s
         self.n = n
@@ -200,7 +200,6 @@ class prob(sgra):
 #            self.x = numpy.zeros((N,n,s))
 #            self.u = numpy.zeros((N,m,s))
 #            self.pi = numpy.array([100.])
-            self.plotSol()
 
             self.lam = 0.0 * self.x
             self.mu = numpy.zeros(q)
@@ -284,6 +283,45 @@ class prob(sgra):
             psiy[5, 8] = 1.0
             psiy[6, 9] = 1.0
             psiy[7, 10] = 1.0
+        elif s % 2 == 0:
+            psiy[0, 0] = 1.0  # h(0) = h0
+            psiy[1, 1] = 1.0  # V(0) = V0
+            psiy[2, 2] = 1.0  # m(0) = m0
+
+            # para s = 4
+            # psi = numpy.array([self.x[0, 0, 0] - h0,
+            #                    self.x[0, 1, 0] - V0,
+            #                    self.x[0, 2, 0] - M0,
+            #                    self.x[0, 0, 1] - self.x[N - 1, 0, 0],
+            #                    self.x[0, 1, 1] - self.x[N - 1, 1, 0],
+            #                    self.x[0, 2, 1] - self.x[N - 1, 2, 0],
+            #                    self.x[0, 0, 2] - self.x[N - 1, 0, 1],
+            #                    self.x[0, 1, 2] - self.x[N - 1, 1, 1],
+            #                    self.x[0, 2, 2] - self.x[N - 1, 2, 1],
+            #                    self.x[0, 0, 3] - self.x[N - 1, 0, 2],
+            #                    self.x[0, 1, 3] - self.x[N - 1, 1, 2],
+            #                    self.x[0, 2, 3] - self.x[N - 1, 2, 2],
+            #                    self.x[N - 1, 0, 3],
+            #                    self.x[N - 1, 1, 3]])
+
+            jm, jp = 3, 6
+            for arc in range(s-1):
+                for k in range(n):
+                    # psiy[n * (arc+1) + i, n * arc + i] = -1.0
+                    # psiy[n * (arc+1) + i, n * (arc+1) + i] = 1.0
+                    # ind = n * (arc + 1) + i
+                    # psiy[ind, ind] = -1.0
+                    # psiy[ind, ind + n] = 1.0
+                    i = n * (arc+1) + k
+                    psiy[i,jp+k] = 1.
+                    psiy[i,jm+k] = -1.
+                #
+                jp += 2 * n
+                jm += 2 * n
+
+            psiy[q-2, 2*n*s-3] = 1.0 # hFinal = 0
+            psiy[q-1, 2*n*s-2] = 1.0 # vFinal = 0
+            #print("psiy =\n"+str(psiy))
         else:
             msg = "Psi gradients calculation only compatible" + \
                   "with s == 1 or 2."
@@ -343,7 +381,7 @@ class prob(sgra):
 
 #%%
     def calcPsi(self):
-        N, s = self.N, self.s
+        N, q, s = self.N,  self.q, self.s
 
         h0 = self.restrictions['h']
         V0 = self.restrictions['V']
@@ -364,16 +402,35 @@ class prob(sgra):
                                self.x[0,2,1] - self.x[N-1,2,0],
                                self.x[N-1,0,1],
                                self.x[N-1,1,1]])
+        elif s % 2 == 0:
+            psi = numpy.empty(q)
+            psi[0] = self.x[0, 0, 0] - h0
+            psi[1] = self.x[0, 1, 0] - V0
+            psi[2] = self.x[0, 2, 0] - M0
+
+            i = 2
+            for arc in range(s-1):
+                #print("s = ",s,", arc = ",arc)
+                i+=1
+                psi[i] = self.x[0,0,arc+1] - self.x[N-1,0,arc]
+                i+=1
+                psi[i] = self.x[0,1,arc+1] - self.x[N-1,1,arc]
+                i+=1
+                psi[i] = self.x[0,2,arc+1] - self.x[N-1,2,arc]
+
+            psi[q-2] = self.x[N - 1, 0, -1]
+            psi[q-1] = self.x[N - 1, 1, -1]
+
         else:
             msg = "Psi calculation only compatible" + \
-                  "with s == 1 or 2."
+                  "with s even or s == 1."
             raise Exception(msg)
         return psi
 
     def calcF(self):
         N,s = self.N,self.s
         fOrig = numpy.empty((N,s))
-        fPF = 0.0 * numpy.empty((N,s))
+        fPF = numpy.zeros((N,s))
 
 #        sttEndP1 = self.restrictions['finish1']
 #        sttEndP2 = self.restrictions['finish2']
@@ -569,6 +626,31 @@ class prob(sgra):
 #            plt.clf()
 
     def lander(self,opt=None):
+        """ Proposes an initial guess for the lander problem.
+        P
+        FP
+        FPFP
+        FPFPFP
+
+        "General" case: as many propulsive stages as required,
+        but without having to specify too many parameters
+
+        s = 2 * Np 'stages'; Np equal falls,
+        1 first stopping thrust to rest, then
+        Np-1 equal stopping thrusts from the same initial speed to rest,
+
+
+        Only one parameter is necessary, either the falling time
+        or the limit speed. How to provide boundaries for these parameters?
+
+
+        Maximum tFall = ?
+        0 = h + V * t - .5 * g * t² ->
+        t = (-V +- sqrt(V²+2gh))/-g = V/g +- sqrt(V²+2gh)/g = (V+sqrt(V²+2gh)/g
+        so, maximum tFall = (V+sqrt(V²+2gh))/g.
+        under these conditions, Vfinal = V - g * tFall = -sqrt(V²+2gh).
+        """
+
         self.log.printL("\nIn lander.\n")
 
         g0Isp = self.constants['g0'] * self.constants['Isp']
@@ -580,33 +662,41 @@ class prob(sgra):
         h, V, M = self.restrictions['h'], self.restrictions['V'], \
                     self.restrictions['M']
 
-        psi = .5 * Tmax / M / g
-        vLim = (1.-1./psi) * g0Isp * abs(numpy.log(1.-phi0))
-        self.log.printL("Propellant-based vLim = {:.4E} km/s".format(vLim))
-        dh = vLim * vLim / 2. / g / (psi-1.)
-        if dh > h:
-            hLim = (V*V + 2. * g * h) / 2. / g / psi
-            vLim = numpy.sqrt(V*V + 2. * g * (h - hLim))
-            self.log.printL("Since the spacecraft crashes before reaching" + \
-                            " that speed, recalculating...\n" + \
-                            " vLim = {:.4E} km/s".format(vLim))
-        else:
-            msg = "Error: too little propellant to stop rocket." + \
-                  "\nUnfeasible problem."
-            raise Exception(msg)
+        # TODO: this should become a parameter in the .its file!
+        psi = .25 * Tmax / M / g
 
-        tStop = vLim / g / (psi-1.)
-        # v = v0 - gt
-        # -vLim = V - gt
-        tFall = (V + vLim)/g # vLim is actually positive
-        tTot = tStop + tFall
+        # calculate maximum velocity limit for starting propulsive phase,
+        # so that all the propellant is used at the moment that s/c stops.
+        vLimProp = (1.-1./psi) * g0Isp * abs(numpy.log(1.-phi0))
+        self.log.printL("Propellant-based vLim = {:.4E} km/s".format(vLimProp))
+
+        vLim = numpy.sqrt((V*V + 2. * g * h) * (2./s) * (1.-1./psi))
+
+        tFall = vLim / g
+        tStop = tFall / (psi-1.)
+        t1 = tFall + V / g
+        #h1 = (vLim*vLim - V*V) / 2. / g
+
+        # dh = vLim * vLim / 2. / g / (psi-1.)
+        # if dh > h:
+        #     hLim = (V*V + 2. * g * h) / 2. / g / psi
+        #     vLim = numpy.sqrt(V*V + 2. * g * (h - hLim))
+        #     self.log.printL("Since the spacecraft crashes before reaching" + \
+        #                     " that speed, recalculating...\n" + \
+        #                     " vLim = {:.4E} km/s".format(vLim))
+        # else:
+        #     msg = "Error: too little propellant to stop rocket,\n" + \
+        #           "at least under current configurations." + \
+        #           "\n Unfeasible problem."
+        #     raise Exception(msg)
 
         self.x = numpy.zeros((N, n, s))
         self.u = numpy.zeros((N, m, s))
 
         if s == 1:
+            tTot = tStop + tFall
+            hLim = (V * V + 2. * g * h) / 2. / g / psi
             self.pi = numpy.array([tTot])
-
             dt = tTot/(N-1)
             kT = int(tFall * N / tTot)
             tFallVec = numpy.linspace(0.,1.,num=kT) * (tFall-dt)
@@ -628,7 +718,7 @@ class prob(sgra):
         elif s == 2:
             self.pi = numpy.array([tFall,tStop])
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
-
+            hLim = (V * V + 2. * g * h) / 2. / g / psi
             self.x[:, 0, 0] = h + V * tFallVec - .5 * g * tFallVec ** 2.
             self.x[:, 1, 0] = V - g * tFallVec
             self.x[:, 2, 0] = M + tFallVec * 0.
@@ -642,6 +732,49 @@ class prob(sgra):
 
             thr = psi * M * numpy.exp(-psi * tStopVec * g / g0Isp) * g
             self.u[:, 0, 1] = numpy.arctanh(2. * thr / Tmax - 1.)
+        elif s % 2 == 0:
+            self.pi = numpy.zeros(s)
+            s2 = int(s / 2)
+            self.pi[0] = t1
+            t1Vec = numpy.linspace(0., 1., num=N) * t1
+            self.x[:, 0, 0] = h + V * t1Vec - .5 * g * t1Vec ** 2.
+            self.x[:, 1, 0] = V - g * t1Vec
+            self.x[:, 2, 0] = M
+            self.u[:, 0, 0] = -6.
+
+            tStopVec = numpy.linspace(0., 1., num=N) * tStop
+            tFallVec = numpy.linspace(0., 1., num=N) * tFall
+
+            arc = 0
+            for k in range(s2):
+                h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
+                arc += 1
+                self.pi[arc] = tStop
+                x0StopVec = h - vLim * tStopVec + \
+                            .5 * g * (psi - 1.) * tStopVec ** 2.
+                x1StopVec = -vLim + g * (psi - 1.) * tStopVec
+                x2StopVec = M * numpy.exp(-psi * tStopVec * g / g0Isp)
+                thr = psi * M * numpy.exp(-psi * tStopVec * g / g0Isp) * g
+                uStopVec = numpy.arctanh(2. * thr / Tmax - 1.)
+                self.x[:, 0, arc] = x0StopVec
+                self.x[:, 1, arc] = x1StopVec
+                self.x[:, 2, arc] = x2StopVec
+                self.u[:, 0, arc] = uStopVec
+
+
+                h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
+                arc += 1
+                if arc == s:
+                    break
+                self.pi[arc] = tFall
+                x0FallVec = h + V * tFallVec - .5 * g * tFallVec ** 2.
+                x1FallVec = - g * tFallVec
+                x2FallVec = M + tFallVec * 0.
+                self.x[:, 0, arc] = x0FallVec
+                self.x[:, 1, arc] = x1FallVec
+                self.x[:, 2, arc] = x2FallVec
+                self.u[:, 0, arc] = -6.
+
         else:
             msg = "\nLander method undefined for s = " + str(s)
             raise Exception(msg)
