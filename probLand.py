@@ -486,7 +486,7 @@ class prob(sgra):
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
-            ng = 5
+            ng = 6
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
             self.plotCat(self.x[:,0,:])
             plt.grid(True)
@@ -508,11 +508,29 @@ class prob(sgra):
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
-            self.plotCat(Thrust,color='k')
+            Weight = self.constants['g'] * self.x[:,2,:]
+            self.plotCat(Thrust,color='r',labl='Thrust')
+            self.plotCat(Weight,color='k',labl='Weight')
             plt.grid(True)
-            plt.ylabel("Thrust [kN]")
+            plt.ylabel("Force [kN]")
             plt.xlabel("Time [s]")
+            plt.legend()
 
+            ax = plt.subplot2grid((ng, 1), (5, 0))
+            s = self.s
+            position = numpy.arange(s)
+            stages = numpy.arange(1, s + 1)
+            width = 0.4
+            ax.bar(position, pi, width, color='b')
+            # Put the values of the arc lenghts on the bars...
+            for arc in range(s):
+                coord = (float(arc) - .25 * width, pi[arc] + 10.)
+                ax.annotate("{:.1E}".format(pi[arc]), xy=coord, xytext=coord)
+            ax.set_xticks(position)
+            ax.set_xticklabels(stages)
+            plt.grid(True, axis='y')
+            plt.xlabel("Arcs")
+            plt.ylabel("Duration [s]")
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
@@ -635,20 +653,11 @@ class prob(sgra):
         "General" case: as many propulsive stages as required,
         but without having to specify too many parameters
 
-        s = 2 * Np 'stages'; Np equal falls,
-        1 first stopping thrust to rest, then
-        Np-1 equal stopping thrusts from the same initial speed to rest,
+        s = 2 * Np 'stages'; Np equal falls (still thrusting, with psi<1),
+        1 first (thrusting) fall to vLim, then
+        Np-1 equal stopping thrusts (with psi>1) from the same initial speed
+       (vLim) to rest.
 
-
-        Only one parameter is necessary, either the falling time
-        or the limit speed. How to provide boundaries for these parameters?
-
-
-        Maximum tFall = ?
-        0 = h + V * t - .5 * g * t² ->
-        t = (-V +- sqrt(V²+2gh))/-g = V/g +- sqrt(V²+2gh)/g = (V+sqrt(V²+2gh)/g
-        so, maximum tFall = (V+sqrt(V²+2gh))/g.
-        under these conditions, Vfinal = V - g * tFall = -sqrt(V²+2gh).
         """
 
         self.log.printL("\nIn lander.\n")
@@ -663,18 +672,23 @@ class prob(sgra):
                     self.restrictions['M']
 
         # TODO: this should become a parameter in the .its file!
-        psi = .25 * Tmax / M / g
+        psiHigh = .25 * Tmax / M / g
+        psiLow = 0.9
 
         # calculate maximum velocity limit for starting propulsive phase,
         # so that all the propellant is used at the moment that s/c stops.
-        vLimProp = (1.-1./psi) * g0Isp * abs(numpy.log(1.-phi0))
+        vLimProp = (1.-1./psiHigh) * g0Isp * abs(numpy.log(1.-phi0))
         self.log.printL("Propellant-based vLim = {:.4E} km/s".format(vLimProp))
 
-        vLim = numpy.sqrt((V*V + 2. * g * h) * (2./s) * (1.-1./psi))
+        #vLim = numpy.sqrt((V*V + 2. * g * h) * (2./s) * (1.-1./psiHigh))
+        g_ = g * (1.-psiLow)
+        vLim = numpy.sqrt((V*V + 2. * g_ * h) * (2./s) / \
+                          ((psiHigh - psiLow)/(psiHigh - 1.)) )
 
-        tFall = vLim / g
-        tStop = tFall / (psi-1.)
-        t1 = tFall + V / g
+        tBase = vLim / g
+        tFall = tBase / (1.-psiLow)
+        tStop = tBase / (psiHigh-1.)
+        t1 = tFall + V / g_
         #h1 = (vLim*vLim - V*V) / 2. / g
 
         # dh = vLim * vLim / 2. / g / (psi-1.)
@@ -695,12 +709,12 @@ class prob(sgra):
 
         if s == 1:
             tTot = tStop + tFall
+            psi = psiHigh
             hLim = (V * V + 2. * g * h) / 2. / g / psi
             self.pi = numpy.array([tTot])
             dt = tTot/(N-1)
             kT = int(tFall * N / tTot)
             tFallVec = numpy.linspace(0.,1.,num=kT) * (tFall-dt)
-
 
             self.x[:kT,0,0] = h + V * tFallVec - .5 * g * tFallVec ** 2.
             self.x[:kT,1,0] = V - g * tFallVec
@@ -718,6 +732,7 @@ class prob(sgra):
         elif s == 2:
             self.pi = numpy.array([tFall,tStop])
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
+            psi = psiHigh
             hLim = (V * V + 2. * g * h) / 2. / g / psi
             self.x[:, 0, 0] = h + V * tFallVec - .5 * g * tFallVec ** 2.
             self.x[:, 1, 0] = V - g * tFallVec
@@ -737,10 +752,12 @@ class prob(sgra):
             s2 = int(s / 2)
             self.pi[0] = t1
             t1Vec = numpy.linspace(0., 1., num=N) * t1
-            self.x[:, 0, 0] = h + V * t1Vec - .5 * g * t1Vec ** 2.
-            self.x[:, 1, 0] = V - g * t1Vec
-            self.x[:, 2, 0] = M
-            self.u[:, 0, 0] = -6.
+            g_ = g * (1. - psiLow)
+            self.x[:, 0, 0] = h + V * t1Vec - .5 * g_ * t1Vec ** 2.
+            self.x[:, 1, 0] = V - g_ * t1Vec
+            self.x[:, 2, 0] = M * numpy.exp(-psiLow * t1Vec * g / g0Isp)
+            thr = psiLow * self.x[:, 2, 0] * g
+            self.u[:, 0, 0] = numpy.arctanh(2. * thr / Tmax - 1.)
 
             tStopVec = numpy.linspace(0., 1., num=N) * tStop
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
@@ -750,11 +767,12 @@ class prob(sgra):
                 h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
                 arc += 1
                 self.pi[arc] = tStop
+                psi = psiHigh
                 x0StopVec = h - vLim * tStopVec + \
                             .5 * g * (psi - 1.) * tStopVec ** 2.
                 x1StopVec = -vLim + g * (psi - 1.) * tStopVec
                 x2StopVec = M * numpy.exp(-psi * tStopVec * g / g0Isp)
-                thr = psi * M * numpy.exp(-psi * tStopVec * g / g0Isp) * g
+                thr = psi * x2StopVec * g
                 uStopVec = numpy.arctanh(2. * thr / Tmax - 1.)
                 self.x[:, 0, arc] = x0StopVec
                 self.x[:, 1, arc] = x1StopVec
@@ -767,13 +785,16 @@ class prob(sgra):
                 if arc == s:
                     break
                 self.pi[arc] = tFall
-                x0FallVec = h + V * tFallVec - .5 * g * tFallVec ** 2.
-                x1FallVec = - g * tFallVec
-                x2FallVec = M + tFallVec * 0.
+                g_ = g * (1.-psiLow)
+                x0FallVec = h + V * tFallVec - .5 * g_ * tFallVec ** 2.
+                x1FallVec = - g_ * tFallVec
+                x2FallVec = M * numpy.exp(-psiLow * tFallVec * g / g0Isp)
+                thr = psiLow * x2FallVec * g
+                uFallVec = numpy.arctanh(2. * thr / Tmax - 1.)
                 self.x[:, 0, arc] = x0FallVec
                 self.x[:, 1, arc] = x1FallVec
                 self.x[:, 2, arc] = x2FallVec
-                self.u[:, 0, arc] = -6.
+                self.u[:, 0, arc] = uFallVec
 
         else:
             msg = "\nLander method undefined for s = " + str(s)

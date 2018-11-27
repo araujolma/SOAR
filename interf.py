@@ -433,7 +433,7 @@ class ITman:
         flag = False#True#
         sol.dbugOptGrad.setAll(opt={'pausGrad':flag,#True,#
                            'pausCalcQ':flag,
-                           'prntCalcStepGrad':flag,#True,
+                           'prntCalcStepGrad':True,#flag,#
                            'plotCalcStepGrad': flag,#True,#
                            'manuInptStepGrad': flag,
                            'pausCalcStepGrad':flag,#True,#
