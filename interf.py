@@ -64,6 +64,7 @@ class ITman:
     dashStr = '\n'+'-'*88
 
     def __init__(self,confFile='',probName='prob'):
+        # TODO: these parameters should go to an external file!
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
@@ -253,7 +254,6 @@ class ITman:
             raise Exception(msg)
         #
     #
-
     def checkPars(self,sol):
         """Makes the user check the parameters of an initial solution,
          and performs an automatic check as well."""
@@ -346,7 +346,6 @@ class ITman:
             #
         #
 
-
     def loadSol(self,path=''):
         if path == '':
             path = self.loadSolDir
@@ -419,6 +418,7 @@ class ITman:
         # Plot trajectory
         sol.plotTraj()
 
+        # TODO: these parameters should go to an external file!
         # Setting debugging options (rest and grad). Declaration is in sgra.py!
         sol.dbugOptRest.setAll(opt={'pausRest':False,
                            'pausCalcP':False,

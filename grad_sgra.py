@@ -687,7 +687,6 @@ def plotQRes(self,args,mustSaveFig=True,addName=''):
         plt.show()
         plt.clf()
 
-
 def calcJ(self):
     N, s = self.N, self.s
     #x = self.x

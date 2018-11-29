@@ -68,6 +68,7 @@ class prob(sgra):
             self.restrictions[key] = pConf.con[key]
         self.restrictions['M'] = self.constants['Mu'] + \
                                  self.constants['Mp']/self.constants['efes']
+        #self.restrictions['hList'] = []
 
     def initGues(self,opt={}):
 
@@ -78,7 +79,8 @@ class prob(sgra):
         n = 3
         m = 1
         s = 4
-        q = n + (n-1) + n * (s-1)
+        #q = n + (n-1) + n * (s-1)
+        q = n + (n-1) + (n+1) * (s-1)
         p = s
         self.n = n
         self.m = m
@@ -177,24 +179,6 @@ class prob(sgra):
                     (-numpy.log(1.-phi0))
             self.log.printL(" Spacecraft vMax = {:.4E} km/s".format(vMax))
 
-#            h0 = self.restrictions['h']
-#            V0 = self.restrictions['V']
-#            M0 = self.restrictions['M']
-#            g = self.constants['g']
-#            a = g - .5 * self.constants['T'] / M0
-#            m = .5 * self.constants['T'] / \
-#                  (self.constants['g0'] * self.constants['Isp'])
-#
-#            tF = (V0 + numpy.sqrt(V0**2 + 2. * a * h0))/a
-#            t = tF * numpy.linspace(0.,1.,num=N)
-#            x[:,2,0] = M0 - m * t
-#
-#
-#            x[:,0,0] = h0 + V0 * t - .5 * a * t**2
-#            x[:,1,0] = V0 - a * t
-#
-#            u[:,0,0] = -5.
-
             self.lander()
 
 #            self.x = numpy.zeros((N,n,s))
@@ -288,36 +272,27 @@ class prob(sgra):
             psiy[1, 1] = 1.0  # V(0) = V0
             psiy[2, 2] = 1.0  # m(0) = m0
 
-            # para s = 4
-            # psi = numpy.array([self.x[0, 0, 0] - h0,
-            #                    self.x[0, 1, 0] - V0,
-            #                    self.x[0, 2, 0] - M0,
-            #                    self.x[0, 0, 1] - self.x[N - 1, 0, 0],
-            #                    self.x[0, 1, 1] - self.x[N - 1, 1, 0],
-            #                    self.x[0, 2, 1] - self.x[N - 1, 2, 0],
-            #                    self.x[0, 0, 2] - self.x[N - 1, 0, 1],
-            #                    self.x[0, 1, 2] - self.x[N - 1, 1, 1],
-            #                    self.x[0, 2, 2] - self.x[N - 1, 2, 1],
-            #                    self.x[0, 0, 3] - self.x[N - 1, 0, 2],
-            #                    self.x[0, 1, 3] - self.x[N - 1, 1, 2],
-            #                    self.x[0, 2, 3] - self.x[N - 1, 2, 2],
-            #                    self.x[N - 1, 0, 3],
-            #                    self.x[N - 1, 1, 3]])
+            # jm, jp = 3, 6
+            # for arc in range(s-1):
+            #     for k in range(n):
+            #         # psiy[n * (arc+1) + i, n * arc + i] = -1.0
+            #         # psiy[n * (arc+1) + i, n * (arc+1) + i] = 1.0
+            #         # ind = n * (arc + 1) + i
+            #         # psiy[ind, ind] = -1.0
+            #         # psiy[ind, ind + n] = 1.0
+            #         i = n * (arc+1) + k
+            #         psiy[i,jp+k] = 1.
+            #         psiy[i,jm+k] = -1.
+            #     #
+            #     jp += 2 * n
+            #     jm += 2 * n
 
-            jm, jp = 3, 6
             for arc in range(s-1):
-                for k in range(n):
-                    # psiy[n * (arc+1) + i, n * arc + i] = -1.0
-                    # psiy[n * (arc+1) + i, n * (arc+1) + i] = 1.0
-                    # ind = n * (arc + 1) + i
-                    # psiy[ind, ind] = -1.0
-                    # psiy[ind, ind + n] = 1.0
-                    i = n * (arc+1) + k
-                    psiy[i,jp+k] = 1.
-                    psiy[i,jm+k] = -1.
-                #
-                jp += 2 * n
-                jm += 2 * n
+                i = n + arc * (n+1)
+                j = n + arc * 2 * n
+                psiy[i,j] = 1.;       psiy[i+1,j+n] = 1.  # separate height
+                psiy[i+2,j+n+1] = 1.; psiy[i+2,j+1] = -1. # continuity in speed
+                psiy[i+3,j+n+2] = 1.; psiy[i+3,j+2] = -1. # continuity in mass
 
             psiy[q-2, 2*n*s-3] = 1.0 # hFinal = 0
             psiy[q-1, 2*n*s-2] = 1.0 # vFinal = 0
@@ -408,15 +383,28 @@ class prob(sgra):
             psi[1] = self.x[0, 1, 0] - V0
             psi[2] = self.x[0, 2, 0] - M0
 
+            # i = 2
+            # for arc in range(s-1):
+            #     #print("s = ",s,", arc = ",arc)
+            #     i+=1
+            #     psi[i] = self.x[0,0,arc+1] - self.x[N-1,0,arc]
+            #     i+=1
+            #     psi[i] = self.x[0,1,arc+1] - self.x[N-1,1,arc]
+            #     i+=1
+            #     psi[i] = self.x[0,2,arc+1] - self.x[N-1,2,arc]
+
+            hList = self.restrictions['hList']
             i = 2
             for arc in range(s-1):
-                #print("s = ",s,", arc = ",arc)
-                i+=1
-                psi[i] = self.x[0,0,arc+1] - self.x[N-1,0,arc]
-                i+=1
-                psi[i] = self.x[0,1,arc+1] - self.x[N-1,1,arc]
-                i+=1
-                psi[i] = self.x[0,2,arc+1] - self.x[N-1,2,arc]
+                i += 1
+                psi[i] = self.x[N - 1, 0, arc] - hList[arc]
+                i += 1
+                psi[i] = self.x[0, 0, arc + 1] - hList[arc]
+                i += 1
+                psi[i] = self.x[0, 1, arc + 1] - self.x[N - 1, 1, arc]
+                i += 1
+                psi[i] = self.x[0, 2, arc + 1] - self.x[N - 1, 2, arc]
+
 
             psi[q-2] = self.x[N - 1, 0, -1]
             psi[q-1] = self.x[N - 1, 1, -1]
@@ -488,29 +476,29 @@ class prob(sgra):
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
             ng = 6
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(self.x[:,0,:])
+            self.plotCat(self.x[:,0,:],piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(self.x[:,1,:],color='g')
+            self.plotCat(self.x[:,1,:],color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(self.x[:,2,:],color='r')
+            self.plotCat(self.x[:,2,:],color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("M [kg]")
 
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
             Weight = self.constants['g'] * self.x[:,2,:]
-            self.plotCat(Thrust,color='r',labl='Thrust')
-            self.plotCat(Weight,color='k',labl='Weight')
+            self.plotCat(Thrust,color='r',labl='Thrust',piIsTime=piIsTime)
+            self.plotCat(Weight,color='k',labl='Weight',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Force [kN]")
             plt.xlabel("Time [s]")
@@ -552,21 +540,21 @@ class prob(sgra):
 
             ng = 5
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(dx[:,0,:])
+            self.plotCat(dx[:,0,:],piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(dx[:,1,:],color='g')
+            self.plotCat(dx[:,1,:],color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(dx[:,2,:],color='r')
+            self.plotCat(dx[:,2,:],color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("M [kg]")
 
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(du[:,0,:],color='k')
+            self.plotCat(du[:,0,:],color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
@@ -574,7 +562,7 @@ class prob(sgra):
             Thr = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
             NewThr = .5 * self.constants['T'] * \
                 (1.+numpy.tanh(self.u[:,0,:]+du[:,0,:]))
-            self.plotCat(NewThr-Thr,color='k')
+            self.plotCat(NewThr-Thr,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
             plt.xlabel("Time [s]")
@@ -586,26 +574,26 @@ class prob(sgra):
 
             ng = 5
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(self.lam[:,0,:])
+            self.plotCat(self.lam[:,0,:],piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: h")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(self.lam[:,1,:],color='g')
+            self.plotCat(self.lam[:,1,:],color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: v")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(self.lam[:,2,:],color='r')
+            self.plotCat(self.lam[:,2,:],color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: m")
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
-            self.plotCat(Thrust,color='k')
+            self.plotCat(Thrust,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
             plt.xlabel("Time [s]")
@@ -762,9 +750,10 @@ class prob(sgra):
             tStopVec = numpy.linspace(0., 1., num=N) * tStop
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
 
-            arc = 0
+            arc = 0; hList = numpy.empty(s-1)
             for k in range(s2):
                 h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
+                hList[arc] = h
                 arc += 1
                 self.pi[arc] = tStop
                 psi = psiHigh
@@ -780,10 +769,13 @@ class prob(sgra):
                 self.u[:, 0, arc] = uStopVec
 
 
-                h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
-                arc += 1
-                if arc == s:
+                if arc == s-1:
                     break
+
+                h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
+                hList[arc] = h
+                arc += 1
+
                 self.pi[arc] = tFall
                 g_ = g * (1.-psiLow)
                 x0FallVec = h + V * tFallVec - .5 * g_ * tFallVec ** 2.
@@ -800,8 +792,8 @@ class prob(sgra):
             msg = "\nLander method undefined for s = " + str(s)
             raise Exception(msg)
         #
-
-
+        self.restrictions['hList'] = hList
+        self.log.printL("\nHeight list: " + str(hList))
         self.log.printL("\nFinal mass = {:.1F} kg.".format(M))
 
     #
