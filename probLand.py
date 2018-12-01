@@ -88,6 +88,7 @@ class prob(sgra):
         self.q = q
         self.s = s
         self.Ns = 2*n*s + p
+        self.ctrlPar = 'sin' #'tanh'#
 
         initMode = opt.get('initMode','default')
         if initMode == 'default':
@@ -198,6 +199,74 @@ class prob(sgra):
 
 #%%
 
+    def calcDimCtrl(self,ext_u = None,driv=False):
+        """Calculate beta (thrust), from
+        either the object's own control (self.u) or external control
+        (additional parameter needed).
+        driv parameter determines if the mode is for derivative or not."""
+
+        restrictions = self.restrictions
+        if ext_u is None:
+            u = self.u
+        else:
+            u = ext_u
+
+        if self.ctrlPar == 'tanh':
+            if driv:
+                beta = .5 * (1. - numpy.tanh(u[:,0,:])**2)
+            else:
+                beta = .5 * (1. + numpy.tanh(u[:,0,:]))
+        elif self.ctrlPar == 'sin':
+            if driv:
+                beta = .5 * numpy.cos(u[:,0,:])
+            else:
+                beta = .5 * (1. + numpy.sin(u[:,0,:]))
+        else:
+            #beta = 0. * u
+            raise(Exception("calcDimCtrl: Unknown control parametrization."))
+
+        return beta
+
+    def calcAdimCtrl(self, beta):
+        """Calculate non-dimensional control from a given thrust profile
+        (beta), which is an external array."""
+
+        # sh = beta.shape
+        # if len(sh) == 2:
+        #     Nu, su = sh
+        # else:
+        #     Nu = sh
+        #     su = 1
+        #
+        # print(Nu)
+        # print(su)
+        Nu = len(beta)
+
+        if self.ctrlPar == 'tanh':
+            # Basic saturation
+            for k in range(Nu):
+                if beta[k] > 0.99999:
+                    beta[k] = 0.99999
+                if beta[k] < -0.99999:
+                    beta[k] = -0.99999
+            #
+            u = numpy.arctanh(2.*beta-1.)
+
+        elif self.ctrlPar == 'sin':
+            # Basic saturation
+            for k in range(Nu):
+                if beta[k] > 1.:
+                    beta[k] = 1.
+                if beta[k] < -1.:
+                    beta[k] = -1.
+            #
+            u = numpy.arcsin(2.*beta-1.)
+
+        else:
+            raise (Exception("calcAdimCtrl: Unknown control parametrization."))
+
+        return u
+
     def calcPhi(self):
         N = self.N
         n = self.n
@@ -207,11 +276,10 @@ class prob(sgra):
         g = self.constants['g']
 
         for arc in range(s):
-            Thrust = self.constants['T'] * \
-                    (.5 + .5 * numpy.tanh(self.u[:,0,arc]))
+            Thrust = self.constants['T'] * self.calcDimCtrl()
             phi[:,0,arc] = self.pi[arc] * self.x[:,1,arc]
-            phi[:,1,arc] = self.pi[arc] * (-g + Thrust/self.x[:,2,arc])
-            phi[:,2,arc] = - self.pi[arc] * Thrust / g0Isp
+            phi[:,1,arc] = self.pi[arc] * (-g + Thrust[:,arc]/self.x[:,2,arc])
+            phi[:,2,arc] = - self.pi[arc] * Thrust[:,arc] / g0Isp
 
         return phi
 
@@ -306,23 +374,21 @@ class prob(sgra):
 
         g0Isp = self.constants['g0'] * self.constants['Isp']
         g = self.constants['g']
+        Thrust = self.constants['T'] * self.calcDimCtrl()
+        dTdu = self.constants['T'] * self.calcDimCtrl(driv=True)
         for arc in range(s):
-            Thrust = .5 * self.constants['T'] * \
-                     (1. + numpy.tanh(self.u[:,0,arc]))
-            dTdu = .5 * self.constants['T'] * \
-                     (1. - ( numpy.tanh(self.u[:,0,arc]) )**2  )
 
             phix[:,0,1,arc] = pi[arc]
-            phix[:,1,2,arc] = - pi[arc] * Thrust / (self.x[:,2,arc]**2)
+            phix[:,1,2,arc] = - pi[arc] * Thrust[:,arc] / (self.x[:,2,arc]**2)
 
-            phiu[:,1,0,arc] = pi[arc] * dTdu / self.x[:,2,arc]
-            phiu[:,2,0,arc] = - pi[arc] * dTdu / g0Isp
+            phiu[:,1,0,arc] = pi[arc] * dTdu[:,arc] / self.x[:,2,arc]
+            phiu[:,2,0,arc] = - pi[arc] * dTdu[:,arc] / g0Isp
 
             phip[:,0,arc,arc] = self.x[:,1,arc]
-            phip[:,1,arc,arc] = Thrust/self.x[:,2,arc] - g
-            phip[:,2,arc,arc] = - Thrust / g0Isp
+            phip[:,1,arc,arc] = Thrust[:,arc] / self.x[:,2,arc] - g
+            phip[:,2,arc,arc] = - Thrust[:,arc] / g0Isp
 
-            fp[:,arc,arc] = Thrust / g0Isp
+            fp[:,arc,arc] = Thrust[:,arc] / g0Isp
 #            fp[:,arc,arc] = sttCostWeig11 * (ex1**2) + \
 #                            sttCostWeig22 * (ex2**2) + \
 #                            2. * sttCostWeig12 * ex1 * ex2 + \
@@ -339,7 +405,7 @@ class prob(sgra):
 #                           (self.u[:,0,arc]>self.uLim) + \
 #                           (self.u[:,0,arc]+self.uLim) *  \
 #                           (self.u[:,0,arc]<-self.uLim) )
-            fu[:,0,arc] = self.pi[arc] * dTdu / g0Isp
+            fu[:,0,arc] = self.pi[arc] * dTdu[:,arc] / g0Isp
         #
 
         Grads['phix'] = phix
@@ -428,9 +494,10 @@ class prob(sgra):
 #        sttCostWeig12 = self.constants['sttCostWeig12']
 #        sttCostWeig22 = self.constants['sttCostWeig22']
         g0Isp = self.constants['g0'] * self.constants['Isp']
+        Thr = self.constants['T'] * self.calcDimCtrl()
         for arc in range(s):
-            fOrig[:,arc] = (self.pi[arc] * self.constants['T'] / g0Isp) * \
-                           .5 * (1. + numpy.tanh(self.u[:,0,arc]))
+            fOrig[:,arc] = (self.pi[arc] / g0Isp) * Thr[:,arc]
+
 #            fPF[:,arc] = self.pi[arc] * self.Kpf * \
 #                        ((self.u[:,0,arc]>self.uLim) * \
 #                          (self.u[:,0,arc]- self.uLim)**2 + \
@@ -495,7 +562,7 @@ class prob(sgra):
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
-            Thrust = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
+            Thrust = self.constants['T'] * self.calcDimCtrl()
             Weight = self.constants['g'] * self.x[:,2,:]
             self.plotCat(Thrust,color='r',labl='Thrust',piIsTime=piIsTime)
             self.plotCat(Weight,color='k',labl='Weight',piIsTime=piIsTime)
@@ -559,9 +626,10 @@ class prob(sgra):
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
-            Thr = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
-            NewThr = .5 * self.constants['T'] * \
-                (1.+numpy.tanh(self.u[:,0,:]+du[:,0,:]))
+            Thr = self.constants['T'] * self.calcDimCtrl()
+            new_u = self.u + du
+            NewThr = self.constants['T'] * self.calcDimCtrl(ext_u=new_u)
+            #deltaThr = NewThr-Thr
             self.plotCat(NewThr-Thr,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
@@ -592,7 +660,7 @@ class prob(sgra):
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
-            Thrust = .5 * self.constants['T'] * (1.+numpy.tanh(self.u[:,0,:]))
+            Thrust = self.constants['T'] * self.calcDimCtrl()
             self.plotCat(Thrust,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
@@ -660,8 +728,8 @@ class prob(sgra):
                     self.restrictions['M']
 
         # TODO: this should become a parameter in the .its file!
-        psiHigh = .25 * Tmax / M / g
-        psiLow = 0.9
+        psiHigh = 0.5 * Tmax / M / g#.25 * Tmax / M / g
+        psiLow = 0.#0.9#
 
         # calculate maximum velocity limit for starting propulsive phase,
         # so that all the propellant is used at the moment that s/c stops.
@@ -692,9 +760,8 @@ class prob(sgra):
         #           "\n Unfeasible problem."
         #     raise Exception(msg)
 
-        self.x = numpy.zeros((N, n, s))
-        self.u = numpy.zeros((N, m, s))
-
+        self.x = numpy.zeros((N, n, s)); self.u = numpy.zeros((N, m, s))
+        hList = numpy.empty(s - 1)
         if s == 1:
             tTot = tStop + tFall
             psi = psiHigh
@@ -716,7 +783,8 @@ class prob(sgra):
             self.x[kT:,2,0] = M * numpy.exp(-psi * tStopVec * g / g0Isp)
 
             thr = psi * M * numpy.exp(-psi * tStopVec * g / g0Isp) * g
-            self.u[kT:,0,0] = numpy.arctanh(2. * thr / Tmax - 1.)
+            self.u[kT:,0,0] = self.calcAdimCtrl(thr/Tmax)
+            #numpy.arctanh(2. * thr / Tmax - 1.)
         elif s == 2:
             self.pi = numpy.array([tFall,tStop])
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
@@ -725,7 +793,7 @@ class prob(sgra):
             self.x[:, 0, 0] = h + V * tFallVec - .5 * g * tFallVec ** 2.
             self.x[:, 1, 0] = V - g * tFallVec
             self.x[:, 2, 0] = M + tFallVec * 0.
-            self.u[:, 0, 0] = -6.
+            self.u[:, 0, 0] = self.calcAdimCtrl(tFallVec*0.)
 
             tStopVec = numpy.linspace(0., 1., num=N) * tStop
             self.x[:, 0, 1] = hLim - vLim * tStopVec + \
@@ -734,7 +802,8 @@ class prob(sgra):
             self.x[:, 2, 1] = M * numpy.exp(-psi * tStopVec * g / g0Isp)
 
             thr = psi * M * numpy.exp(-psi * tStopVec * g / g0Isp) * g
-            self.u[:, 0, 1] = numpy.arctanh(2. * thr / Tmax - 1.)
+            self.u[:, 0, 1] = self.calcAdimCtrl(thr/Tmax)
+            #numpy.arctanh(2. * thr / Tmax - 1.)
         elif s % 2 == 0:
             self.pi = numpy.zeros(s)
             s2 = int(s / 2)
@@ -745,12 +814,13 @@ class prob(sgra):
             self.x[:, 1, 0] = V - g_ * t1Vec
             self.x[:, 2, 0] = M * numpy.exp(-psiLow * t1Vec * g / g0Isp)
             thr = psiLow * self.x[:, 2, 0] * g
-            self.u[:, 0, 0] = numpy.arctanh(2. * thr / Tmax - 1.)
+            self.u[:, 0, 0] = self.calcAdimCtrl(thr/Tmax)
+            #numpy.arctanh(2. * thr / Tmax - 1.)
 
             tStopVec = numpy.linspace(0., 1., num=N) * tStop
             tFallVec = numpy.linspace(0., 1., num=N) * tFall
 
-            arc = 0; hList = numpy.empty(s-1)
+            arc = 0
             for k in range(s2):
                 h, M = self.x[-1, 0, arc], self.x[-1, 2, arc]
                 hList[arc] = h
@@ -762,11 +832,11 @@ class prob(sgra):
                 x1StopVec = -vLim + g * (psi - 1.) * tStopVec
                 x2StopVec = M * numpy.exp(-psi * tStopVec * g / g0Isp)
                 thr = psi * x2StopVec * g
-                uStopVec = numpy.arctanh(2. * thr / Tmax - 1.)
+                #uStopVec = numpy.arctanh(2. * thr / Tmax - 1.)
                 self.x[:, 0, arc] = x0StopVec
                 self.x[:, 1, arc] = x1StopVec
                 self.x[:, 2, arc] = x2StopVec
-                self.u[:, 0, arc] = uStopVec
+                self.u[:, 0, arc] = self.calcAdimCtrl(thr/Tmax)
 
 
                 if arc == s-1:
@@ -782,11 +852,11 @@ class prob(sgra):
                 x1FallVec = - g_ * tFallVec
                 x2FallVec = M * numpy.exp(-psiLow * tFallVec * g / g0Isp)
                 thr = psiLow * x2FallVec * g
-                uFallVec = numpy.arctanh(2. * thr / Tmax - 1.)
+                #uFallVec = numpy.arctanh(2. * thr / Tmax - 1.)
                 self.x[:, 0, arc] = x0FallVec
                 self.x[:, 1, arc] = x1FallVec
                 self.x[:, 2, arc] = x2FallVec
-                self.u[:, 0, arc] = uFallVec
+                self.u[:, 0, arc] = self.calcAdimCtrl(thr/Tmax)
 
         else:
             msg = "\nLander method undefined for s = " + str(s)
