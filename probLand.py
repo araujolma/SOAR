@@ -88,7 +88,7 @@ class prob(sgra):
         self.q = q
         self.s = s
         self.Ns = 2*n*s + p
-        self.ctrlPar = 'sin' #'tanh'#
+        self.ctrlPar = 'tanh'#'sin' #
 
         initMode = opt.get('initMode','default')
         if initMode == 'default':
@@ -200,8 +200,8 @@ class prob(sgra):
 #%%
 
     def calcDimCtrl(self,ext_u = None,driv=False):
-        """Calculate beta (thrust), from
-        either the object's own control (self.u) or external control
+        """Calculate beta (thrust), or its derivative, from either
+        the object's own control (self.u) or external control
         (additional parameter needed).
         driv parameter determines if the mode is for derivative or not."""
 
@@ -244,13 +244,19 @@ class prob(sgra):
 
         if self.ctrlPar == 'tanh':
             # Basic saturation
+
+            sat = 0.99999
+
+            lowL = .5 * (1-sat)
+            highL = .5 * (1+sat)
             for k in range(Nu):
-                if beta[k] > 0.99999:
-                    beta[k] = 0.99999
-                if beta[k] < -0.99999:
-                    beta[k] = -0.99999
+                if beta[k] > highL:
+                    beta[k] = highL
+                if beta[k] < lowL:
+                    beta[k] = lowL
             #
             u = numpy.arctanh(2.*beta-1.)
+
 
         elif self.ctrlPar == 'sin':
             # Basic saturation
@@ -602,6 +608,9 @@ class prob(sgra):
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
                 #titlStr += str(dp[i])+", "
+            titlStr += "\nDelta pi (%): "
+            for i in range(self.p):
+                titlStr += "{:.1F}, ".format(100.0 * dp[i] / self.pi[i])
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
@@ -728,8 +737,12 @@ class prob(sgra):
                     self.restrictions['M']
 
         # TODO: this should become a parameter in the .its file!
-        psiHigh = 0.5 * Tmax / M / g#.25 * Tmax / M / g
+        psiHigh = 0.5 * Tmax / M / g#1.1#0.25 * Tmax / M / g#.25 * Tmax / M / g #1.01#
         psiLow = 0.#0.9#
+        msg = "\nThrust to weight ratios used:\n" + \
+              '"Stopping" phase: {:.2F}\n'.format(psiHigh) + \
+              '"Falling" phase: {:.2F}\n'.format(psiLow)
+        self.log.printL(msg)
 
         # calculate maximum velocity limit for starting propulsive phase,
         # so that all the propellant is used at the moment that s/c stops.
