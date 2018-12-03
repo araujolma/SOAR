@@ -477,7 +477,7 @@ class ITman:
         while sol.P > sol.tol['P']:
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
-            #sol.plotSol()
+            sol.plotSol()
             #input("\nOne more restoration complete.")
         #
 

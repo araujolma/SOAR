@@ -27,7 +27,7 @@ def calcP(self,mustPlotPint=False):
     for arc in range(s):
         vetIP[0,arc] = coefList[0] * vetP[0,arc]
         for t in range(1,N):
-            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
+            vetIP[t,arc] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
     #
 
     #vetIP *= self.dt # THIS IS WRONG!! REMOVE IT!!
@@ -59,10 +59,11 @@ def calcP(self,mustPlotPint=False):
 #        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
 #        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
 #        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
-    for arc in range(s):
-        vetIP[0,arc] = coefList[0] * vetP[0,arc]
-        for t in range(1,N):
-            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
+
+    # for arc in range(s):
+    #     vetIP[0,arc] = coefList[0] * vetP[0,arc]
+    #     for t in range(1,N):
+    #         vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
 
     #vetIP *= dt
 
@@ -311,8 +312,8 @@ def rest(self,parallelOpt={}):
     isParallel = parallelOpt.get('restLMPBVP',False)
     corr,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-#    A, B, C = corr['x'], corr['u'], corr['pi']
-#    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    A, B, C = corr['x'], corr['u'], corr['pi']
+    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
 #    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
