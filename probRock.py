@@ -461,16 +461,16 @@ class prob(sgra):
                     # this bypass just ensures consistency for control
                     if i == N-2 and arc == s-1:
                         uip1 = ui
-
-                    f1 = calcXdot(td,x[i,:,arc],ui,constants,arc)
+                    x1 = x[i,:,arc]
+                    f1 = calcXdot(td,x1,ui,constants,arc)
                     tdm = td+.5*dtd # time at half the integration interval
-                    x2 = x[i,:,arc] + .5*dtd*f1 # x at half step, with f1
+                    x2 = x1 + .5 * dtd * f1 # x at half step, with f1
                     f2 = calcXdot(tdm,x2,uipm,constants,arc)
-                    x3 = x[i,:,arc] + .5*dtd*f2 # x at half step, with f2
+                    x3 = x1 + .5 * dtd * f2 # x at half step, with f2
                     f3 = calcXdot(tdm,x3,uipm,constants,arc)
-                    x4 = x[i,:,arc] + dtd*f3 # x at next step, with f3
+                    x4 = x1 + dtd * f3 # x at next step, with f3
                     f4 = calcXdot(td+dtd,x4,uip1,constants,arc)
-                    x[i+1,:,arc] = x[i,:,arc] + dtd6 * (f1+f2+f2+f3+f3+f4)
+                    x[i+1,:,arc] = x1 + dtd6 * (f1+f2+f2+f3+f3+f4)
                 #
                 u[N-1,:,arc] = u[N-2,:,arc]
             #
@@ -484,8 +484,8 @@ class prob(sgra):
         self.log.printL("Controls themselves are being 'desaturated'.")
         self.log.printL("Check code for the values, and be careful!\n")
 
-        #self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
-        #self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
+        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
+        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
 
 #        ThrustFactor = 2.0#500.0/40.0
 #        self.constants['Thrust'] *= ThrustFactor
@@ -506,13 +506,13 @@ class prob(sgra):
 # =============================================================================
 #        # Basic desaturation:
 #
-        # bat = 1.5#0.5
-        # for arc in range(s):
-        #     for k in range(N):
-        #         if u[k,1,arc] < -bat:
-        #             u[k,1,arc] = -bat
-        #         if u[k,1,arc] > bat:
-        #             u[k,1,arc] = bat
+        bat = 1.5#0.5
+        for arc in range(s):
+            for k in range(N):
+                if u[k,1,arc] < -bat:
+                    u[k,1,arc] = -bat
+                if u[k,1,arc] > bat:
+                    u[k,1,arc] = bat
 
         # This was a test for a "super honest" desaturation, so that the
         # program would not know when to do the coasting a priori.
@@ -529,7 +529,7 @@ class prob(sgra):
         self.u = u
 
         self.compWith(solInit,'Initial guess')
-        self.plotSol()
+        self.plotSol(piIsTime=False)
         self.plotF()
 
         self.log.printL("\nInitialization complete.\n")
@@ -2348,10 +2348,8 @@ def calcXdot(td,x,u,constants,arc):
 
     sin = numpy.sin; cos = numpy.cos
 
-    u1 = u[0]; u2 = u[1]
-
     # calculate variables alpha and beta
-    alpha = u1; beta = u2
+    alpha = u[0]; beta = u[1]
 
     # calculate variables CL and CD
     CL = CL0[arc] + CL1[arc] * alpha
@@ -2375,11 +2373,12 @@ def calcXdot(td,x,u,constants,arc):
     # example rocket single stage to orbit with Lift and Drag
 
     sinGama = sin(x[2])
+    Thr = beta * Thrust[arc]
     dx[0] = x[1] * sinGama
-    dx[1] = (beta * Thrust[arc] * cos(alpha) - D)/x[3] - grav * sinGama
-    dx[2] = (beta * Thrust[arc] * sin(alpha) + L)/(x[3] * x[1]) + \
+    dx[1] = (Thr * cos(alpha) - D)/x[3] - grav * sinGama
+    dx[2] = (Thr * sin(alpha) + L)/(x[3] * x[1]) + \
             cos(x[2]) * ( x[1]/r  -  grav/x[1] )
     # "Gamma factor" in the gamma equation. td is dimensional time
     dx[2] *= .5*(1.0+numpy.tanh(DampSlop*(td-DampCent)))
-    dx[3] = -(beta * Thrust[arc])/(grav_e * Isp[arc])
+    dx[3] = -Thr/(grav_e * Isp[arc])
     return dx

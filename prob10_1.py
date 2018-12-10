@@ -200,7 +200,7 @@ class prob(sgra):
     def calcI(self):
         return self.pi[0],self.pi[0],0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):
         t = self.t
         x = self.x
@@ -271,9 +271,12 @@ class prob(sgra):
             titlStr = opt['mode']
     #
 
-    def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
-        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+    def compWith(self,altSol,altSolLabl='altSol',piIsTime=True,
+                 mustSaveFig=True,
+                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                      'top':2.1,'wspace':0.2,'hspace':0.4}):
+        # TODO: Use PiIsTime!
+        #  All plt.plot instances must be changed to self.plotCat...
         self.log.printL("\nComparing solutions...\n")
         pi = self.pi
         currSolLabl = 'Final solution'

@@ -13,6 +13,7 @@ def calcP(self,mustPlotPint=False):
     N, s = self.N, self.s
 
     psi = self.calcPsi()
+    #print("psi = "+str(psi))
     func = self.calcErr()
 
     vetP = numpy.empty((N,s))
@@ -312,8 +313,8 @@ def rest(self,parallelOpt={}):
     isParallel = parallelOpt.get('restLMPBVP',False)
     corr,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-    A, B, C = corr['x'], corr['u'], corr['pi']
-    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    #A, B, C = corr['x'], corr['u'], corr['pi']
+    #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
 #    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
