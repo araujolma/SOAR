@@ -77,7 +77,7 @@ tAoA = 10.0
 [trajmods] # Trajectory modifications
 #
 # Pitch-damping center [s]
-DampCent = -30.0
+DampCent = 3.0
 #
 # Pitch-damping slope [-]
 DampSlop = 3.0

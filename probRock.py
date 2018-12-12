@@ -530,6 +530,7 @@ class prob(sgra):
 
         self.compWith(solInit,'Initial guess')
         self.plotSol(piIsTime=False)
+        self.plotSol()#opt={'mode':'orbt'})
         self.plotF()
 
         self.log.printL("\nInitialization complete.\n")
@@ -1402,8 +1403,10 @@ class prob(sgra):
 
         if piIsTime:
             timeLabl = 't [s]'
+            tVec = [0.0, self.pi.sum()]
         else:
             timeLabl = 'adim. t [-]'
+            tVec = [0.0, self.s]
 
         if opt.get('mode','sol') == 'sol':
             I,Iorig,Ipf = self.calcI()
@@ -1521,15 +1524,8 @@ class prob(sgra):
             plt.subplot2grid((11,1),(9,0))
             acc =  self.calcAcc()
             self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
-            if piIsTime:
-                plt.plot([0.0,self.pi.sum()],
-                          1e3 * self.restrictions['acc_max'] * \
+            plt.plot(tVec,1e3 * self.restrictions['acc_max'] * \
                           numpy.array([1.0,1.0]),'--')
-            else:
-                plt.plot([0.0,self.s+1],
-                          1e3 * self.restrictions['acc_max'] * \
-                          numpy.array([1.0,1.0]),'--')
-
             plt.grid(True)
             plt.xlabel(timeLabl)
             plt.ylabel("Tang. accel. [m/s²]")
@@ -1570,6 +1566,8 @@ class prob(sgra):
                     if self.isStagSep[arc]:
                         EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
                 self.log.printL("Ejected masses: " + str(EjctMass))
+
+            self.plotSol(opt={'mode': 'orbt'},piIsTime=piIsTime)
 
         elif opt['mode'] == 'lambda':
             titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
@@ -1728,6 +1726,104 @@ class prob(sgra):
             else:
                 plt.show()
                 plt.clf()
+        elif opt['mode'] == 'orbt':
+            titlStr = "Current solution (orbital parameters)\n"
+            titlStr += "(grad iter #" + str(self.NIterGrad) + ")"
+
+            h, V  = self.x[:,0,:], self.x[:,1,:]
+            gama = self.x[:,2,:]
+            r = h + self.constants['r_e']
+            GM = self.constants['GM']
+
+            # Specific mechanical energy
+            en = .5 * V * V - GM/r
+            # Specific angular momentum
+            am = r * V * numpy.cos(gama)
+            # Semi-major axis
+            a = -.5 * GM / en
+            # Eccentricity
+            e = numpy.sqrt(1. + 2. * en * (am/GM)**2)
+
+            aRef = self.constants['r_e'] + self.boundary['h_final']
+            eRef = 0.
+            enRef = - .5 * self.constants['GM'] / aRef
+            amRef = aRef * self.boundary['V_final'] * \
+                    numpy.cos(self.boundary['gamma_final'])
+            eRef = numpy.sqrt(1. + 2. * enRef * (amRef/GM)**2)
+
+            plt.subplots_adjust(**subPlotAdjs)
+            nPlot = 7; np = 0
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(en, piIsTime=piIsTime, intv=intv)
+            plt.plot(tVec,enRef * numpy.array([1.0, 1.0]), '--')
+            plt.grid(True)
+            plt.ylabel("Spec. Energy [MJ/kg]")
+            plt.title(titlStr)
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(am, color='g', piIsTime=piIsTime, intv=intv)
+            plt.plot(tVec, amRef * numpy.array([1.0, 1.0]), '--')
+            plt.grid(True)
+            plt.ylabel("Ang. momentum [km²/s]")
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(a, color='r', piIsTime=piIsTime, intv=intv)
+            plt.plot(tVec, aRef * numpy.array([1.0, 1.0]), '--')
+            plt.grid(True)
+            plt.ylabel("Semi-major axis [km]")
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(e, color='m', piIsTime=piIsTime, intv=intv)
+            plt.plot(tVec, eRef * numpy.array([1.0, 1.0]), '--')
+            plt.grid(True)
+            plt.ylabel("Eccentricity [kg]")
+            plt.xlabel(timeLabl)
+
+            ######################################
+            alpha, beta = self.calcDimCtrl()
+            alpha *= r2d
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(alpha, piIsTime=piIsTime, intv=intv, color='k')
+            plt.grid(True)
+            plt.ylabel("alpha [deg]")
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(beta, piIsTime=piIsTime, intv=intv, color='k')
+            plt.grid(True)
+            plt.ylabel("beta [-]")
+            plt.xlabel(timeLabl)
+            ######################################
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            acc = self.calcAcc()
+            self.plotCat(acc * 1e3, color='y', piIsTime=piIsTime, labl='Accel.')
+
+            plt.plot(tVec,1e3 * self.restrictions['acc_max'] * \
+                          numpy.array([1.0, 1.0]), '--')
+            plt.grid(True)
+            plt.xlabel(timeLabl)
+            plt.ylabel("Tang. accel. [m/s²]")
+
+            if mustSaveFig:
+                if piIsTime:
+                    self.savefig(keyName='currOrbt', fullName='orbital solution')
+                else:
+                    self.savefig(keyName='currOrbt-adimTime',
+                                 fullName='orbital solution (adim. Time)')
+            else:
+                plt.show()
+                plt.clf()
+
         else:
             raise Exception('plotSol: Unknown mode "' + str(opt['mode']))
         #
