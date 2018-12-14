@@ -185,7 +185,6 @@ class sgra:
         s, t, N = self.s, self.t, self.N
         pi = self.pi
         dt = 1.0/(N-1)
-        dtd = dt
 
         # Set upper and lower bounds
         lowrBnd = 0.0
@@ -194,7 +193,9 @@ class sgra:
         else:
             TimeDur = t[-1]
             uperBnd = TimeDur * s
+            dtd = dt #dimensional dt, makes no sense if piIsTime=False
 
+        # if no interval is specified, default to a full plot
         if len(intv)==0:
             intv = [lowrBnd,uperBnd]
 
@@ -207,58 +208,54 @@ class sgra:
             if intv[1] > uperBnd:
                 intv[1] = uperBnd
 
+        # Accumulated time between arcs
         accTime = 0.0
+        # Flag for labeling plots
         mustLabl = True
+        # Flag that marks if the current arc is the first to be plotted
         isBgin = True
 
         for arc in range(s):
+            # TimeDur: time duration of this arc
             if piIsTime:
                 TimeDur = pi[arc]
-                dtd = dt * TimeDur
-            else:
-                TimeDur = t[-1]
+                dtd = dt * TimeDur #dimensional dt
 
             # check if this arc gets plotted at all
-            #print("\narc =",arc)
-            #print("accTime =",accTime)
-            #print("TimeDur =",TimeDur)
-            #print("intv =",intv)
-            #print("condition1:",accTime <= intv[1])
-            #print("condition2:",accTime + TimeDur >= intv[0])
+            # noinspection PyUnboundLocalVariable
             if (accTime <= intv[1]) and (accTime + TimeDur >= intv[0]):
 
                 # From this point on, the arc will be plotted.
                 # Find the index for the first point to be plotted:
 
+                # Plot the first point of the arc
                 if isBgin:
                     # accTime + ind * dtd = intv[0]
-                    indBgin = int((intv[0] - accTime)/dtd)
-                    isBgin = False
+                    # noinspection PyUnboundLocalVariable
+                    indBgin = int(numpy.floor((intv[0] - accTime) / dtd))
                     if intv[0] <= accTime:
                         plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,
                                  ms=markSize)
+                    isBgin = False
                 else:
                     indBgin = 0
                     # arc beginning with circle
                     plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color,
                              ms=markSize)
 
-                #print("indBgin =",indBgin)
+                # Plot the last point of the arc, with square
                 if accTime + TimeDur > intv[1]:
-                    indEnd = int((intv[1] - accTime)/dtd)
-                    if indEnd == (N-1):
+                    indEnd = int(numpy.ceil((intv[1] - accTime)/dtd))
+                    if indEnd >= (N-1):
                         plt.plot(accTime + TimeDur*t[-1],
                          func[-1,arc],'s'+color,ms=markSize)
                 else:
-                    indEnd = N-1
-                    # arc end with square
+                    indEnd = N
                     plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color,
                              ms=markSize)
 
-                #print("indEnd =",indEnd)
-
                 # Plot the function at each arc.
-                #Label only the first drawn arc
+                # Label only the first drawn arc
                 if mustLabl:
                     plt.plot(accTime + TimeDur * t[indBgin:indEnd],
                              func[indBgin:indEnd,arc],
@@ -270,6 +267,7 @@ class sgra:
                              mark+color)
                 #
             #
+            # Correct accumulated time, for next arc
             accTime += TimeDur
 
     def savefig(self,keyName='',fullName=''):
