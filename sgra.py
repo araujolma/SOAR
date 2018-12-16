@@ -120,6 +120,8 @@ class sgra:
         self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
 
 
+    # Basic "utility" methods
+
     def copy(self):
         """Copy the solution. It is useful for applying corrections, generating
         baselines for comparison, etc.
@@ -141,10 +143,6 @@ class sgra:
         self.x  += alfa * corr['x']
         self.u  += alfa * corr['u']
         self.pi += alfa * corr['pi']
-
-    def initGues(self):
-        # Must be implemented by child classes
-        pass
 
     def loadParsFromFile(self,file):
         pConf = problemConfigurationSGRA(fileAdress=file)
@@ -292,7 +290,57 @@ class sgra:
         plt.clf()
         plt.close('all')
 
-#%% Just for avoiding compatibility issues with other problems
+    def pack(self, f: numpy.array) -> numpy.array:
+        """ 'Stacks' an array of size N*s x 1 into a N x s array."""
+
+        Nf = len(f)
+        if not (Nf == self.N * self.s):
+            raise(Exception("Unable to pack from array with size " +
+                            str(Nf) + "."))
+
+        F = numpy.empty((self.N,self.s))
+
+        for arc in range(self.s):
+            F[:,arc] = f[arc*self.N : (arc+1)*self.N]
+
+        return F
+
+    def unpack(self,F: numpy.array) -> numpy.array:
+        """ 'Unpacks' an array of size N x s into a long N*s array."""
+
+        NF, sF = F.shape
+        if not ((NF == self.N) and (sF == self.s)):
+            raise(Exception("Unable to unpack array with shape " +
+                            str(NF) + " x " +str(sF) + "."))
+
+        f = numpy.empty(self.N*self.s)
+
+        for arc in range(self.s):
+            f[arc * self.N : (arc + 1) * self.N] = F[:,arc]
+
+        return f
+
+
+    def intgEulr(self, df: numpy.array, f0: float):
+        """ Integrate a given function, by Euler method.
+        Just one initial condition (f0) is required, since the arcs are
+        concatenated. """
+
+        f = numpy.empty((self.N,self.s))
+
+        for arc in range(self.s):
+            # initial condition
+            f[0, arc] = f0
+            # dimensional dt
+            dtd = self.dt * self.pi[arc]
+            for i in range(1, self.N):
+                # Integrate by Euler method using derivative, df
+                f[i, arc] = f[i - 1, arc] + dtd * df[i - 1,arc]
+            # Set initial condition for next arc
+            f0 = f[-1, arc]
+
+        return f
+
     # These methods SHOULD all be properly implemented in each problem class.
 
     def plotTraj(self,*args,**kwargs):
@@ -336,6 +384,10 @@ class sgra:
         self.savefig(keyName='currSol',fullName='solution')
 
     # These methods MUST all be properly implemented in each problem class.
+
+    def initGues(self):
+        # Must be implemented by child classes
+        pass
 
     def calcI(self,*args,**kwargs):
         pass

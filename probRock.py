@@ -697,7 +697,6 @@ class prob(sgra):
         grav_e = constants['grav_e']; MaxThrs = constants['Thrust']
         Isp = constants['Isp']; g0Isp = Isp * grav_e
         r_e = constants['r_e']; GM = constants['GM']
-        s_f = constants['s_f']
         CL0 = constants['CL0']; CL1 = constants['CL1']
         CD0 = constants['CD0']; CD2 = constants['CD2']
         s_ref = constants['s_ref']
@@ -995,7 +994,8 @@ class prob(sgra):
 
             ## fx derivatives
             # d f d h (incomplete):
-            fx[:,0,:] = K2dAPen * (2.0 * GM * sinGama / r3 - \
+            # noinspection PyUnboundLocalVariable
+            fx[:,0,:] = K2dAPen * (2.0 * GM * sinGama / r3 -
               (0.5 * del_rho * V2 * CDsref)/m)
             # d f d V (incomplete):
             fx[:,1,:] = - K2dAPen * CDsref * dens * V / m
@@ -1092,7 +1092,7 @@ class prob(sgra):
         # d hdot d u2: 0.0
 
         # d vdot d u1:
-            phiu[:,1,0,arc] = -(bTm[:,arc] * sinAlpha[:,arc] + \
+            phiu[:,1,0,arc] = -(bTm[:,arc] * sinAlpha[:,arc] +
             dens[:,arc] * V2[:,arc] * s_ref[arc] * CD2[arc] * alpha[:,arc]) * \
             DAlfaDu1[:,arc] / m[:,arc]
         # d vdot d u2:
@@ -1100,7 +1100,7 @@ class prob(sgra):
             DBetaDu2[:,arc] / m[:,arc]
 
         # d gamadot d u1:
-            phiu[:,2,0,arc] = ( thrust[:,arc] * cosAlpha[:,arc] / V[:,arc] + \
+            phiu[:,2,0,arc] = ( thrust[:,arc] * cosAlpha[:,arc] / V[:,arc] +
             0.5 * dens[:,arc] * V[:,arc] * s_ref[arc] * CL1[arc] ) * \
             DAlfaDu1[:,arc] / m[:,arc]
         # d gamadot d u2:
@@ -1151,7 +1151,7 @@ class prob(sgra):
 
         # inter-arc conditions for the extra arcs (if any)
         for arc in range(addArcs):
-            i = 4 + 5 * (arc)
+            i = 4 + 5 * arc
             # states in order: height (2x), speed, flight angle and mass
             psi[i]   = x[N-1,0,arc] - TargHeig[arc]
             psi[i+1] = x[0,0,arc+1] - TargHeig[arc]
@@ -1391,11 +1391,10 @@ class prob(sgra):
             DvAcc += g0Isp[arc]*numpy.log(M0/Mf)
         return DvAcc
 
-
     def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                              'top':10.0,'wspace':0.2,'hspace':0.35}):
-        self.log.printL("\nIn plotSol.")
+        self.log.printL("\nIn plotSol, opt = "+str(opt))
         x = self.x
         u = self.u
         pi = self.pi
@@ -1741,23 +1740,39 @@ class prob(sgra):
             am = r * V * numpy.cos(gama)
             # Semi-major axis
             a = -.5 * GM / en
-            # Eccentricity
+            # Eccentricity (module)
             e = numpy.sqrt(1. + 2. * en * (am/GM)**2)
 
+            # range angle (with respect to zenith at launch)
+            sigma = self.rockin(opt={'sigma':True})['sigma']
+            # horizontal and vertical components of r and V vectors
+            rx, rz = r * numpy.sin(sigma),      r * numpy.cos(sigma)
+            vx, vz = V * numpy.cos(gama-sigma), V * numpy.sin(gama-sigma)
+            # radial "component" for eccentricity vector
+            er = V**2 / GM - 1./r
+            # velocity "component" for eccentricity vector
+            ev = -(r * V * numpy.sin(gama))/GM
+            # horizontal and vertical components for eccentricity
+            ex, ez = er * rx + ev * vx, er * rz + ev * vz
+            # Argument of perigee (with respect to zenith at launch)
+            omega = numpy.arctan2(ex,ez)
+            # True anomaly
+            f = sigma-omega
+
+            # Reference values for orbital parameters
             aRef = self.constants['r_e'] + self.boundary['h_final']
-            eRef = 0.
             enRef = - .5 * self.constants['GM'] / aRef
             amRef = aRef * self.boundary['V_final'] * \
                     numpy.cos(self.boundary['gamma_final'])
             eRef = numpy.sqrt(1. + 2. * enRef * (amRef/GM)**2)
 
             plt.subplots_adjust(**subPlotAdjs)
-            nPlot = 7; np = 0
+            nPlot = 11; np = 0
             plt.subplot2grid((nPlot, 1), (np, 0))
             self.plotCat(en, piIsTime=piIsTime, intv=intv)
             plt.plot(tVec,enRef * numpy.array([1.0, 1.0]), '--')
             plt.grid(True)
-            plt.ylabel("Spec. Energy [MJ/kg]")
+            plt.ylabel("Spec. mec. energy [MJ/kg]")
             plt.title(titlStr)
             plt.xlabel(timeLabl)
 
@@ -1766,7 +1781,7 @@ class prob(sgra):
             self.plotCat(am, color='g', piIsTime=piIsTime, intv=intv)
             plt.plot(tVec, amRef * numpy.array([1.0, 1.0]), '--')
             plt.grid(True)
-            plt.ylabel("Ang. momentum [km²/s]")
+            plt.ylabel("Spec. ang. momentum [km²/s]")
             plt.xlabel(timeLabl)
 
             np += 1
@@ -1782,8 +1797,39 @@ class prob(sgra):
             self.plotCat(e, color='m', piIsTime=piIsTime, intv=intv)
             plt.plot(tVec, eRef * numpy.array([1.0, 1.0]), '--')
             plt.grid(True)
-            plt.ylabel("Eccentricity [kg]")
+            plt.ylabel("Eccentricity [-]")
             plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(ex, piIsTime=piIsTime, intv=intv, labl='ex')
+            self.plotCat(ez, color='k', piIsTime=piIsTime, intv=intv, labl='ez')
+            plt.grid(True)
+            plt.ylabel("Eccentricity components [-]")
+            plt.legend()
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(sigma * r2d, piIsTime=piIsTime, intv=intv)
+            plt.grid(True)
+            plt.ylabel("Range angle [deg]")
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(omega * r2d, piIsTime=piIsTime, intv=intv)
+            plt.grid(True)
+            plt.ylabel("Argument of periapsis [deg]")
+            plt.xlabel(timeLabl)
+
+            np += 1
+            plt.subplot2grid((nPlot, 1), (np, 0))
+            self.plotCat(f * r2d, piIsTime=piIsTime, intv=intv)
+            plt.grid(True)
+            plt.ylabel("True anomaly [deg]")
+            plt.xlabel(timeLabl)
+
 
             ######################################
             alpha, beta = self.calcDimCtrl()
@@ -1827,8 +1873,6 @@ class prob(sgra):
         else:
             raise Exception('plotSol: Unknown mode "' + str(opt['mode']))
         #
-
-    #
 
     # noinspection PyTypeChecker
     def plotQRes(self,args,mustSaveFig=True,addName=''):
@@ -1935,7 +1979,6 @@ class prob(sgra):
         else:
             plt.show()
             plt.clf()
-
 
     def compWith(self, altSol, altSolLabl='altSol',
                  mustSaveFig=True, piIsTime=True,
@@ -2185,24 +2228,76 @@ class prob(sgra):
                         " kg, " + "{:.4G}".format(paylPercMassGain) + \
               "% more payload!\n")
 
+    def rockin(self,opt=None):
+        """ Integrate rocket kinematics.
+
+        Options for range angle, horizontal position and vertical
+        position for a topocentric system. """
+
+        if opt is None:
+            opt = {}
+
+        ret = {}
+
+        # Range angle
+        if opt.get('range',False) or opt.get('sigma',False) or \
+                opt.get('X',False) or opt.get('Z',False):
+            # range angle derivative
+            dsig = self.x[:,1,:] * \
+                   numpy.cos(self.x[:,2,:]) / \
+                   (self.constants['r_e'] + self.x[:, 0, :])
+            # perform integration itself
+            sigma = self.intgEulr(dsig,0.)
+            ret['sigma'] = sigma
+
+        # Horizontal position 'X'
+        if opt.get('X', False):
+            # X position derivative
+            # noinspection PyUnboundLocalVariable
+            dX = self.x[:, 1, :] * \
+                   numpy.cos(self.x[:, 2, :] - sigma)
+            # perform the integration itself
+            ret['X'] = self.intgEulr(dX, 0.)
+
+        # Vertical position 'Z'
+        if opt.get('Z', False):
+            # Z position derivative
+            # noinspection PyUnboundLocalVariable
+            dZ = self.x[:, 1, :] * \
+                 numpy.sin(self.x[:, 2, :] - sigma)
+            # perform the integration itself
+            ret['Z'] = self.intgEulr(dZ, self.boundary['h_initial'])
+
+        return ret
 
     def plotTraj(self, compare=False, altSol: sgra = None,
                  altSolLabl='altSol', mustSaveFig=True):
+        """ Plot the rocket trajectory in the flight plane.
+
+        Also enables:
+         - comparing trajectories
+         - calculating maximum dynamic pressure."""
+
         self.log.printL("\nIn plotTraj!")
+
+        # Pre-assigning functions and variables
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
         N, s = self.N, self.s
 
         # Density for all times/arcs
-        dens = numpy.empty((N,s))
-        X = numpy.zeros(N*s); Z = numpy.zeros(N*s)
+        dens = numpy.zeros((N,s))
+        # Stage separation points (actually, just the arcs)
         StgSepPnts = numpy.zeros((s,2))
 #        StgInitAcc = numpy.zeros(s)
 #        StgFinlAcc = numpy.zeros(s)
 
-        sigma = 0.0 #sigma: range angle
-        X[0] = 0.0
-        Z[0] = self.boundary['h_initial']
+        # Re-integrate the kinematics for topocentric system (X,Z),
+        # range angle is also necessary for orbit plot
+        optRockin = {'X':True, 'Z':True, 'range':True}
+        ret = self.rockin(opt=optRockin)
+        X, Z = self.unpack(ret['X']), self.unpack(ret['Z'])
+        sigma = ret['sigma'][-1,-1]
 
         if compare:
             if altSol is None:
@@ -2211,12 +2306,13 @@ class prob(sgra):
                                 "compare. Ignoring...")
                 compare=False
             else:
-                X_alt = 0.0 * X; Z_alt = 0.0 * Z
-                sigma_alt = 0.0
-                X_alt[0] = 0.0
-                Z_alt[0] = altSol.boundary['h_initial']
+                # Also do the kinematic integrations for alt. solution
+                # noinspection PyUnresolvedReferences
+                ret = altSol.rockin(opt=optRockin)
+                X_alt = altSol.unpack(ret['X'])
+                Z_alt = altSol.unpack(ret['Z'])
 
-        # Propulsive phases' starting and ending times
+        # Propulsive phases' starting and ending times.
         # This is implemented with two lists, one for each arc.
         # Each list stores the indices of the points in which the burning
         # begins or ends, respectively.
@@ -2227,13 +2323,8 @@ class prob(sgra):
         iCont = 0 # continuous counter (all arcs concatenated)
         strtInd = 1
         for arc in range(s):
-            dtd = self.dt * self.pi[arc] # Dimensional dt...
-            if compare:
-                dtd_alt = altSol.dt * altSol.pi[arc]
-
             for i in range(strtInd,N):
-                dens[i,arc] = rho(self.x[i,0,arc])
-
+                dens[i, arc] = rho(self.x[i, 0, arc])
                 iCont += 1
 
                 if isBurn:
@@ -2241,55 +2332,31 @@ class prob(sgra):
                         isBurn = False
                         indShut.append(iCont)
                 else: #not burning
-                    if self.u[i,1,arc] > -3.:# <0.3% thrust
+                    if self.u[i,1,arc] > -3.:# >0.3% thrust
                         isBurn = True
                         indBurn.append(iCont)
 
-                # Propagate the trajectory by Euler method.
-                v = self.x[i,1,arc]
-                gama = self.x[i,2,arc]
-                dsigma = v * cos(gama) / (R + self.x[i,0,arc])
-                sigma += dsigma * dtd
-
-                X[iCont] = X[iCont-1] + dtd * v * cos(gama-sigma)
-                Z[iCont] = Z[iCont-1] + dtd * v * sin(gama-sigma)
-
-
-                if compare:
-                    v_alt = altSol.x[i,1,arc]
-                    gama_alt = altSol.x[i,2,arc]
-                    dsigma_alt = v_alt * cos(gama_alt)/(R + altSol.x[i,0,arc])
-                    # noinspection PyUnboundLocalVariable
-                    sigma_alt += dsigma_alt * dtd_alt
-                    # noinspection PyUnboundLocalVariable
-                    X_alt[iCont] = X_alt[iCont-1] + dtd_alt * v_alt\
-                                         * cos(gama_alt-sigma_alt)
-                    # noinspection PyUnboundLocalVariable
-                    Z_alt[iCont] = Z_alt[iCont-1] + dtd_alt * v_alt\
-                                         * sin(gama_alt-sigma_alt)
-
             #
-            # TODO: this must be readequated to new formulation, where arcs
-            #  might not be the stage separation poins necessarily
+            # TODO: this must be adjusted to new formulation, where arcs
+            #  might not be the stage separation points necessarily
             StgSepPnts[arc,:] = X[iCont],Z[iCont]
             #strtInd = 0
-        #
-        # The rocket most definitely ends the trajectory with engine shutdown.
+        # The rocket definitely ends the trajectory with engine shutdown
         indShut.append(iCont)
 
         # Remaining points are unused; it is best to repeat the final point
-        X[iCont+1 :] = X[iCont]
-        Z[iCont+1 :] = Z[iCont]
-
-        if compare:
-            X_alt[iCont+1 :] = X_alt[iCont]
-            Z_alt[iCont+1 :] = Z_alt[iCont]
+        #X[iCont+1 :] = X[iCont]
+        #Z[iCont+1 :] = Z[iCont]
+        #if compare:
+        #    # noinspection PyUnboundLocalVariable
+        #    X_alt[iCont+1 :] = X_alt[iCont]
+        #    # noinspection PyUnboundLocalVariable
+        #    Z_alt[iCont+1 :] = Z_alt[iCont]
 
         # Calculate dynamic pressure, get point of max pdyn
-        pDyn = .5 * dens * (self.x[:,1,:]**2)
+        pDyn = self.unpack(.5 * dens * (self.x[:,1,:]**2))
         indPdynMax = numpy.argmax(pDyn)
-        pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
-        pDynMax = pDyn[pairIndPdynMax]
+        pDynMax = pDyn[indPdynMax]
 
         #pairIndPdynMax = numpy.unravel_index(indPdynMax,(N,s))
         #self.log.printL(indPdynMax)
@@ -2328,15 +2395,18 @@ class prob(sgra):
         plt.plot(x,z,'k',label='Earth surface')
 
         # Get final orbit parameters
-        h,v,gama,M = self.x[N-1,:,s-1]
+        h,v,gama,M = self.x[-1,:,-1]
 
         self.log.printL("State @burnout time:")
-        self.log.printL("h = {:.4E}".format(h)+", v = {:.4E}".format(v)+\
-        ", gama = {:.4E}".format(gama)+", m = {:.4E}".format(M))
+        self.log.printL("h = {:.3F} km".format(h) + \
+                        ", v = {:.3F} km/s".format(v) + \
+                        ", gama = {:.4F} deg".format(gama*180./numpy.pi) + \
+                        ", m = {:.4F} kg".format(M))
 
         GM = self.constants['GM']
         r = R + h
         cosGama, sinGama = cos(gama), sin(gama)
+        # specific angular momentum
         momAng = r * v * cosGama
         # specific mechanic energy
         en = .5 * v * v - GM / r
@@ -2344,18 +2414,17 @@ class prob(sgra):
         a = - .5 * GM / en
         # Eccentricity
         aux = v * momAng / GM
-        e = numpy.sqrt((aux * cosGama - 1.0)**2 + (aux * sinGama)**2)
-        # True anomaly
-        eccExpr = v * momAng * cosGama / GM - 1.0
-        f = numpy.arccos(eccExpr/e)
+        er = aux * cosGama - 1.0 # radial component of ecc. vector
+        erOrt = aux * sinGama # orthogonal component of ecc. vector
+        e = numpy.sqrt(er**2 + erOrt**2)
+        # True anomaly (w.r.t. zenith axis)
+        f = numpy.arccos(er/e)
         ph = a * (1.0 - e) - R
-        self.log.printL("Perigee altitude: " + str(ph))
-        ah = 2*(a - R) - ph
-        self.log.printL("Apogee altitude: " + str(ah))
-
+        self.log.printL("Perigee altitude: {:.1F} km".format(ph))
+        ah = a * (1. + e) - R
+        self.log.printL("Apogee altitude: {:.1F} km".format(ah))
         # semi-latus rectum
         p = momAng**2 / GM #a * (1.0-e)**2
-
 
         # Plot orbit in green over the same range as the Earth shown
         # (and a little bit futher)
@@ -2414,6 +2483,7 @@ class prob(sgra):
 
         # Plot altSol
         if compare:
+            # noinspection PyUnboundLocalVariable
             plt.plot(X_alt,Z_alt,'k--',label='Initial guess')
 
         # Final plotting commands
@@ -2423,7 +2493,7 @@ class prob(sgra):
         plt.axis('equal')
         titlStr = "Rocket trajectory over Earth "
         titlStr += "(grad iter #" + str(self.NIterGrad) + ")\n"
-        titlStr += "MaxDynPres = {:.4E} kPa".format(pDynMax*1e-6)
+        titlStr += "MaxDynPres = {:.3F} MPa".format(pDynMax*1e-9)
         plt.title(titlStr)
         plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
