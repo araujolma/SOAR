@@ -2397,8 +2397,8 @@ class prob(sgra):
         # Get final orbit parameters
         h,v,gama,M = self.x[-1,:,-1]
 
-        self.log.printL("State @burnout time:")
-        self.log.printL("h = {:.3F} km".format(h) + \
+        self.log.printL("State @burnout time:\n" + \
+                        "h = {:.3F} km".format(h) + \
                         ", v = {:.3F} km/s".format(v) + \
                         ", gama = {:.4F} deg".format(gama*180./numpy.pi) + \
                         ", m = {:.4F} kg".format(M))

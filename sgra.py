@@ -115,10 +115,8 @@ class sgra:
                                 inpName='Plot saving options')
 
         # Parallelism options
-        self.isParallel = dict()
-        self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False)
-        self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
-
+        self.isParallel = {'gradLMPBVP': parallel.get('gradLMPBVP',False),
+                           'restLMPBVP': parallel.get('restLMPBVP',False)}
 
     # Basic "utility" methods
 
