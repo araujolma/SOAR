@@ -2434,14 +2434,14 @@ class prob(sgra):
         sh = sigma - f - .5*numpy.pi
         rOrb = p/(1.0+e*cos(sigVec))
         xOrb = rOrb * cos(-sigVec-sh)
-        yOrb = rOrb * sin(-sigVec-sh) - R
-        plt.plot(xOrb,yOrb,'g--',label='Target orbit')
+        zOrb = rOrb * sin(-sigVec-sh) - R
+        plt.plot(xOrb,zOrb,'g--',label='Target orbit')
 
         # Draw orbit injection point (green)
         r0 = p / (1.0 + e * cos(f))
         x0 = r0 * cos(-f-sh)
-        y0 = r0 * sin(-f-sh) - R
-        plt.plot(x0,y0,'og')
+        z0 = r0 * sin(-f-sh) - R
+        plt.plot(x0,z0,'og')
 
         # Plot trajectory in default color (blue)
         plt.plot(X,Z,label='Ballistic flight (coasting)')
