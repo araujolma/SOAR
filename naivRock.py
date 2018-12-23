@@ -54,7 +54,7 @@ missDv = numpy.sqrt((constants['GM']/constants['r_e']) *
 boundary = {'h_initial': 0.,#0.,
             'V_initial': 1e-6,#.05,#
             'gamma_initial': 90. * d2r,#5*numpy.pi,
-            'm_initial': 10000,
+            'm_initial': 3000,
             'h_final': h_final,
             'V_final': V_final,
             'gamma_final': 0.,
@@ -71,7 +71,7 @@ restrictions = {'alpha_min': -alfa_max,
 # Declare a running solution
 sol = probRock.prob()
 # Open a logger object, just for printing
-sol.log = logger(sol.probName,mode='screen')
+sol.log = logger(sol.probName)#,mode='screen')
 
 sol.constants = constants
 # Anything, really, it is just because there should be a mPayl attribute
@@ -112,7 +112,7 @@ finlElem = numpy.zeros(s,dtype='int')
 
 for arc in range(s):
     tdArc = 0. # dimensional running time for this arc
-
+    tStart = 0.
     if arc == 0:
         # First arc:
         # - rise vertically
@@ -120,17 +120,21 @@ for arc in range(s):
         # - until v = 100 m/s
         alfaFun = lambda t, state: 0.
         #numpy.arcsin((g / V - V / r) * numpy.cos(gama) * (M * V / Thr)
-        betaFun = lambda t, state, arc_: 1.
+        betaFun = lambda t, state: 1.
         arcCond = lambda t, state: state[1] < 0.1
     elif arc == 1:
         # Second arc:
         # - maximum turning (half of max ang of attack)
         # - constant specific thrust
         # - until gamma = 10deg
-        alfaFun = lambda t, state: -2. * d2r #min([1., t / 10.]) * d2r
-        betaFun = lambda t, state, arc_: psi * state[3] * \
-                                       constants['grav_e'] / \
-                                       constants['Thrust'][arc_]
+        #alfaFun = lambda t, state: -2. * min([1., ((t-tStart)/ 10.]) * d2r
+        alfaFun = lambda t, state: -2. * d2r
+        #betaFun = lambda t, state: min([psi * state[3] * \
+        #                               constants['grav_e'] / \
+        #                               constants['Thrust'][1], 1.])
+        betaFun = lambda t, state: psi * state[3] * \
+                                    constants['grav_e'] / \
+                                    constants['Thrust'][1]
         arcCond = lambda t, state: state[2] > 10. * d2r
 
     elif arc == 2:
@@ -143,27 +147,27 @@ for arc in range(s):
     # RK4 integration
     k = 1; dtd2, dtd6 = dtd/2., dtd/6.
     while k < Nmax and arcCond(td, x_):
-        u_ = numpy.array([alfaFun(td,x_),betaFun(td,x_,arc)])
+        u_ = numpy.array([alfaFun(td,x_),betaFun(td,x_)])
         # first derivative
         f1 = probRock.calcXdot(td, x_, u_, constants, arc)
         tdpm = td + dtd2
         # x at half step, with f1
         x2 = x_ + dtd2 * f1
         # u at half step, with f1
-        u2 = numpy.array([alfaFun(tdpm, x2), betaFun(tdpm, x2,arc)])
+        u2 = numpy.array([alfaFun(tdpm, x2), betaFun(tdpm, x2)])
         # second derivative
         f2 = probRock.calcXdot(tdpm, x2, u2, constants, arc)
         # x at half step, with f2
         x3 = x_ + dtd2 * f2  # x at half step, with f2
         # u at half step, with f2
-        u3 = numpy.array([alfaFun(tdpm, x3), betaFun(tdpm, x3,arc)])
+        u3 = numpy.array([alfaFun(tdpm, x3), betaFun(tdpm, x3)])
         # third derivative
         f3 = probRock.calcXdot(tdpm, x3, u3, constants, arc)
         td4 = td + dtd
         # x at half step, with f3
         x4 = x_ + dtd * f3  # x at next step, with f3
         # u at half step, with f3
-        u4 = numpy.array([alfaFun(td4, x4), betaFun(td4, x3,arc)])
+        u4 = numpy.array([alfaFun(td4, x4), betaFun(td4, x3)])
         # fourth derivative
         f4 = probRock.calcXdot(td4, x4, u4, constants, arc)
         # update state with all four derivatives f1, f2, f3, f4
@@ -186,11 +190,13 @@ for arc in range(s):
 
 # Load constants into sol object
 sol.N = int(max(finlElem))
+sol.log.printL("Original N: "+str(sol.N))
+sol.N = 1*(Nmax-1) + 1
+sol.log.printL("New N: "+str(sol.N))
 sol.m, sol.n, sol.p, sol.s = m, n, s, s
-sol.dt = 1./(Nmax-1)
+sol.dt = 1./(sol.N-1)
 sol.t = numpy.linspace(0.,1.,num=sol.N)
-
-# Perform interpolations
+# Perform interpolations to keep every arc with the same refinement
 xFine, uFine = numpy.empty((sol.N,n,s)), numpy.empty((sol.N,m,s))
 for arc in range(s):
     # "Fine" time array
@@ -210,6 +216,15 @@ sol.x = xFine
 sol.u = sol.calcAdimCtrl(uFine[:,0,:],uFine[:,1,:])
 sol.pi = pi
 
+# integrand = numpy.ones((sol.N,sol.s))
+# test = sol.intgEulr(integrand,0)
+# print(integrand)
+# print(test)
+# print(test[-1])
+# print(sol.pi)
+
 # Finally: plot solution and trajectory
-sol.plotSol()#mustSaveFig=False)
-sol.plotTraj(compare=False)
+sol.plotSol()
+sol.plotTraj()
+
+#sol.plotTraj(fullOrbt=True,mustSaveFig=False)

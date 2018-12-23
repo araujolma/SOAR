@@ -2271,7 +2271,8 @@ class prob(sgra):
         return ret
 
     def plotTraj(self, compare=False, altSol: sgra = None,
-                 altSolLabl='altSol', mustSaveFig=True):
+                 altSolLabl='altSol', mustSaveFig=True, fullOrbt=False,
+                 markSize=2.5):
         """ Plot the rocket trajectory in the flight plane.
 
         Also enables:
@@ -2294,10 +2295,16 @@ class prob(sgra):
 
         # Re-integrate the kinematics for topocentric system (X,Z),
         # range angle is also necessary for orbit plot
-        optRockin = {'X':True, 'Z':True, 'range':True}
-        ret = self.rockin(opt=optRockin)
-        X, Z = self.unpack(ret['X']), self.unpack(ret['Z'])
-        sigma = ret['sigma'][-1,-1]
+        # optRockin = {'X':True, 'Z':True, 'range':True}
+        # ret = self.rockin(opt=optRockin)
+        # X, Z = self.unpack(ret['X']), self.unpack(ret['Z'])
+        # sigma = ret['sigma'][-1, -1]
+        ret = self.rockin(opt={'sigma':True})
+        sigArray = ret['sigma']
+        # Having the height, just the range angle is necessary, actually...
+        X = self.unpack((self.x[:,0,:]+R) * sin(sigArray))
+        Z = self.unpack((self.x[:,0,:]+R) * cos(sigArray) - R)
+        sigma = sigArray[-1,-1]
 
         if compare:
             if altSol is None:
@@ -2308,22 +2315,32 @@ class prob(sgra):
             else:
                 # Also do the kinematic integrations for alt. solution
                 # noinspection PyUnresolvedReferences
-                ret = altSol.rockin(opt=optRockin)
-                X_alt = altSol.unpack(ret['X'])
-                Z_alt = altSol.unpack(ret['Z'])
+                # ret_alt = altSol.rockin(opt=optRockin)
+                # X_alt = altSol.unpack(ret_alt['X'])
+                # Z_alt = altSol.unpack(ret_alt['Z'])
 
-        # Propulsive phases' starting and ending times.
+                ret_alt = altSol.rockin(opt={'sigma': True})
+                sigArray_alt = ret_alt['sigma']
+                # Having the height, just the range angle is necessary,
+                # actually...
+                X_alt = altSol.unpack((altSol.x[:, 0, :] + R) * \
+                                  sin(sigArray_alt))
+                Z_alt = altSol.unpack((altSol.x[:, 0, :] + R) * \
+                                  cos(sigArray_alt) - R)
+
+        # Propulsive phases' starting and ending times, and maxQ calculations.
         # This is implemented with two lists, one for each arc.
         # Each list stores the indices of the points in which the burning
         # begins or ends, respectively.
         isBurn = True
         indBurn = list(); indShut = list()
 
-        indBurn.append(0) # The rocket definitely begins burning at liftoff!
-        iCont = 0 # continuous counter (all arcs concatenated)
-        strtInd = 1
+        # The rocket definitely begins burning at liftoff!
+        indBurn.append(0)
+        iCont = -1 # continuous counter (all arcs concatenated)
         for arc in range(s):
-            for i in range(strtInd,N):
+            for i in range(N):#range(strtInd,N):
+
                 dens[i, arc] = rho(self.x[i, 0, arc])
                 iCont += 1
 
@@ -2340,18 +2357,9 @@ class prob(sgra):
             # TODO: this must be adjusted to new formulation, where arcs
             #  might not be the stage separation points necessarily
             StgSepPnts[arc,:] = X[iCont],Z[iCont]
-            #strtInd = 0
         # The rocket definitely ends the trajectory with engine shutdown
         indShut.append(iCont)
 
-        # Remaining points are unused; it is best to repeat the final point
-        #X[iCont+1 :] = X[iCont]
-        #Z[iCont+1 :] = Z[iCont]
-        #if compare:
-        #    # noinspection PyUnboundLocalVariable
-        #    X_alt[iCont+1 :] = X_alt[iCont]
-        #    # noinspection PyUnboundLocalVariable
-        #    Z_alt[iCont+1 :] = Z_alt[iCont]
 
         # Calculate dynamic pressure, get point of max pdyn
         pDyn = self.unpack(.5 * dens * (self.x[:,1,:]**2))
@@ -2390,8 +2398,16 @@ class prob(sgra):
 
         # Draw Earth segment corresponding to flight range
         sigVec = numpy.arange(0,1.01,.01) * sigma
-        x = R * cos(.5*numpy.pi - sigVec)
-        z = R * (sin(.5*numpy.pi - sigVec) - 1.0)
+        # If in "full orbit mode", draw Earth itself,
+        # else, plot just the segment corresponding to flight range
+        if fullOrbt:
+            intv = numpy.arange(0,2.*numpy.pi,0.001)
+            x = R * cos(intv)
+            z = R * (sin(intv) - 1.)
+        else:
+            x = R * cos(.5 * numpy.pi - sigVec)
+            z = R * (sin(.5 * numpy.pi - sigVec) - 1.0)
+
         plt.plot(x,z,'k',label='Earth surface')
 
         # Get final orbit parameters
@@ -2417,7 +2433,7 @@ class prob(sgra):
         er = aux * cosGama - 1.0 # radial component of ecc. vector
         erOrt = aux * sinGama # orthogonal component of ecc. vector
         e = numpy.sqrt(er**2 + erOrt**2)
-        # True anomaly (w.r.t. zenith axis)
+        # True anomaly (w.r.t. perigee)
         f = numpy.arccos(er/e)
         ph = a * (1.0 - e) - R
         self.log.printL("Perigee altitude: {:.1F} km".format(ph))
@@ -2426,35 +2442,70 @@ class prob(sgra):
         # semi-latus rectum
         p = momAng**2 / GM #a * (1.0-e)**2
 
-        # Plot orbit in green over the same range as the Earth shown
-        # (and a little bit futher)
-
-        sigVec = numpy.arange(f-1.2*sigma,f+.2*sigma,.01)
         # shifting angle
-        sh = sigma - f - .5*numpy.pi
-        rOrb = p/(1.0+e*cos(sigVec))
-        xOrb = rOrb * cos(-sigVec-sh)
-        zOrb = rOrb * sin(-sigVec-sh) - R
+        sh = sigma - f - .5 * numpy.pi
+        if fullOrbt:
+            # If in full orbit mode, plot the complete orbit
+            sigVec = numpy.arange(f, f+2.*numpy.pi, .01)
+            rOrb = p / (1.0 + e * cos(sigVec))
+            xOrb = rOrb * cos(-sigVec-sh)
+            zOrb = rOrb * sin(-sigVec-sh) - R
+        else:
+            # Plot orbit in green over the same range as the Earth shown
+            # (and a little bit further)
+            sigVec = numpy.arange(f-1.2*sigma,f+.2*sigma,.01*sigma)
+            rOrb = p/(1.0+e*cos(sigVec))
+            xOrb = rOrb * cos(-sigVec-sh)
+            zOrb = rOrb * sin(-sigVec-sh) - R
         plt.plot(xOrb,zOrb,'g--',label='Target orbit')
+
+        # # DEBUG
+        # strP = "\nDebugging is fun!\n" + \
+        #       "Final states for all arcs: \n" + str(self.x[-1, :, :]) + \
+        #       "\nFinal values after kinematic reintegration:" + \
+        #       "\nX: " + str(ret['X'][-1, :]) + \
+        #       "\nZ: " + str(ret['Z'][-1, :])
+        # self.log.printL(strP)
+        # d2r = numpy.pi / 180.
+        # trueF = numpy.arccos((p/r - 1.)/e) / d2r
+        # strP = "\nTrue anomaly at injection point: {:.2F}".format(trueF)
+        # strP += "\nf = {:.2F} deg".format(f/d2r)
+        # strP += "\nsigma = {:.2F} deg".format(sigma/d2r)
+        # #strP += "\nsigma = {.2F}".format(sigma / d2r)
+        # rp = numpy.sqrt(X[-1]**2 + (Z[-1]+R)**2)
+        # strP += "\n X at inj point: {:.2F} km".format(X[-1])
+        # strP += "\n Z at inj point: {:.2F} km".format(Z[-1])
+        # strP += "\nRadial distance at inj point (Pyth): {:.2F} km".format(rp)
+        # strP += "\nR+h at inj point: {:.2F} km".format(R+h)
+        # ofX, ofZ = (R + h) * sin(sigma), (R+h)*cos(sigma)-R
+        # strP += "\n(R+h)*sin(sigma) = {:.2F} km".format(ofX)
+        # strP += "\n(R+h)*cos(sigma)-R = {:.2F} km".format(ofZ)
+        # strP += "\nh*cos(sigma) = {:.2F} km".format(h * cos(sigma))
+        # strP += "\nX error = {:.3F} km".format(X[-1] - ofX)
+        # strP += "\nZ error = {:.3F} km".format(Z[-1] - ofZ)
+        # strP += "\n"
+        # self.log.printL(strP)
+        #input("\nIAE? ")
 
         # Draw orbit injection point (green)
         r0 = p / (1.0 + e * cos(f))
         x0 = r0 * cos(-f-sh)
         z0 = r0 * sin(-f-sh) - R
-        plt.plot(x0,z0,'og')
+        plt.plot(x0,z0,'og',ms=markSize)
 
         # Plot trajectory in default color (blue)
         plt.plot(X,Z,label='Ballistic flight (coasting)')
 
         # Plot launching point (black)
-        plt.plot(X[0],Z[0],'ok')
+        plt.plot(X[0],Z[0],'ok',ms=markSize)
 
         # Plot burning segments in red,
         # label only the first to avoid multiple labels
         mustLabl = True
         for i in range(len(indBurn)):
             ib = indBurn[i]
-            ish = indShut[i]
+            # this +1 compensates for Python's lovely slicing standard
+            ish = indShut[i]+1
             if mustLabl:
                 plt.plot(X[ib:ish],Z[ib:ish],'r',label='Propulsed flight')
                 mustLabl = False
@@ -2463,7 +2514,7 @@ class prob(sgra):
 
         # Plot Max Pdyn point in orange
         plt.plot(X[indPdynMax],Z[indPdynMax],marker='o',color='orange',
-                 label='Max dynamic pressure')
+                 label='Max dynamic pressure',ms=markSize)
 
         # Plot stage separation points in blue
         mustLabl = True
@@ -2474,12 +2525,12 @@ class prob(sgra):
                     # to avoid multiple labels afterwards
                     if mustLabl:
                         plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
-                                 marker='o', color='blue',
+                                 marker='o', color='blue',ms=markSize,
                                  label='Stage separation point')
                         mustLabl = False
                     else:
                         plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
-                                 marker='o')
+                                 marker='o', color='blue',ms=markSize)
 
         # Plot altSol
         if compare:
