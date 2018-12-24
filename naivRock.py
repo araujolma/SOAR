@@ -19,6 +19,40 @@ from interf import logger
 #  version of plotSol to it.
 import probRock
 
+def speed_ang_controller(v,gama,M,pars):
+    #print("\nIn speed_ang_controller!")
+    #print(pars)
+    #print(v)
+
+    vOrb, gOrb, rOrb = pars['vOrb'], pars['gOrb'], pars['rOrb']
+    lv, lg = pars['lv'], pars['lg']
+
+    dv,dg = v-vOrb, gama
+
+    # Calculate nominal thrust to weight ratio
+    psi = - lv * dv / gOrb + dg
+
+    # perform saturations
+    if psi < 0.:
+        psi = 0.
+    Thr = psi * M * gOrb
+    if Thr > pars['Thrust']:
+        Thr = pars['Thrust']
+
+    beta = Thr / pars['Thrust']
+    psi = Thr / M / gOrb
+
+    # calculate nominal angle of attack
+    alfa = -(vOrb/gOrb/psi) * (lg * dg + 2. * dv / rOrb)
+
+    # perform saturations
+    if alfa > pars['alfa']:
+        alfa = pars['alfa']
+    elif alfa < -pars['alfa']:
+        alfa = -pars['alfa']
+
+    return alfa, beta
+
 
 # TODO: 'objectify' this module. It would be great for development and
 #  testing if the trajectory guess could be generated in here as well,
@@ -29,7 +63,7 @@ import probRock
 
 
 d2r = numpy.pi/180.0
-m, n, s = 2, 4, 2
+m, n, s = 2, 4, 3
 ones = numpy.ones(s)
 constants = {'r_e': 6371.0,
              'GM': 398600.4415,
@@ -87,8 +121,8 @@ sol.initMode = 'extSol'
 sol.printPars()
 #input("\nIAE?")
 
-# Final, dimensional time for any arc
-tf = 400.
+# Maximum dimensional time for any arc
+tf = 1000.
 # Dimensional dt for integration
 dtd = 0.1
 Nmax = int(tf/dtd)+1#100001#000
@@ -118,9 +152,10 @@ for arc in range(s):
         # - rise vertically
         # - at full thrust
         # - until v = 100 m/s
-        alfaFun = lambda t, state: 0.
+        #alfaFun = lambda t, state: 0.
         #numpy.arcsin((g / V - V / r) * numpy.cos(gama) * (M * V / Thr)
-        betaFun = lambda t, state: 1.
+        #betaFun = lambda t, state: 1.
+        ctrl = lambda t, state: [0., 1.]
         arcCond = lambda t, state: state[1] < 0.1
     elif arc == 1:
         # Second arc:
@@ -128,46 +163,63 @@ for arc in range(s):
         # - constant specific thrust
         # - until gamma = 10deg
         #alfaFun = lambda t, state: -2. * min([1., ((t-tStart)/ 10.]) * d2r
-        alfaFun = lambda t, state: -2. * d2r
+        #alfaFun = lambda t, state: -2. * d2r
         #betaFun = lambda t, state: min([psi * state[3] * \
         #                               constants['grav_e'] / \
         #                               constants['Thrust'][1], 1.])
-        betaFun = lambda t, state: psi * state[3] * \
-                                    constants['grav_e'] / \
-                                    constants['Thrust'][1]
-        arcCond = lambda t, state: state[2] > 10. * d2r
-
+        #betaFun = lambda t, state: psi * state[3] * \
+        #                            constants['grav_e'] / \
+        #                            constants['Thrust'][1]
+        ctrl = lambda t, state: [-.6 * d2r,
+                                 min([psi * state[3] * \
+                                      constants['grav_e'] / \
+                                      constants['Thrust'][1], 1.])]
+        arcCond = lambda t, state: state[2] > 5. * d2r
     elif arc == 2:
-        alfaFun = lambda t, state: -2 * min([1., t / 10.]) * d2r
-        arcCond = lambda t, state: True
+        pars = {'rOrb': constants['r_e'] + boundary['h_final'],
+                'vOrb': boundary['V_final'],
+                'lv': .01,
+                'lg': .1,
+                'Thrust': constants['Thrust'][2],
+                'alfa': restrictions['alpha_max']}
+        pars['gOrb'] = constants['GM'] / (pars['rOrb']**2)
+        sol.log.pprint(pars)
+        ctrl = lambda t, state: speed_ang_controller(state[1],state[2],
+                                                     state[3],pars)
+        tolV, tolG = 0.01, 0.1 * d2r
+        arcCond = lambda t, state: abs(state[1]-pars['vOrb']) > tolV or \
+                                    (abs(state[2]) > tolG)
     else:
-        raise(Exception("Undefined pitching program for arc > 2."))
+        raise(Exception("Undefined controls for arc = {}.".format(arc)))
     #(-2.*(1.-td/tf)-1.*(td/tf))*d2r#numpy.arcsin((g/V - V/r)*numpy.cos(gama) * (M*V/Thr) )
 
     # RK4 integration
     k = 1; dtd2, dtd6 = dtd/2., dtd/6.
     while k < Nmax and arcCond(td, x_):
-        u_ = numpy.array([alfaFun(td,x_),betaFun(td,x_)])
+        #u_ = numpy.array([alfaFun(td,x_),betaFun(td,x_)])
+        u_ = ctrl(td, x_)
         # first derivative
         f1 = probRock.calcXdot(td, x_, u_, constants, arc)
         tdpm = td + dtd2
         # x at half step, with f1
         x2 = x_ + dtd2 * f1
         # u at half step, with f1
-        u2 = numpy.array([alfaFun(tdpm, x2), betaFun(tdpm, x2)])
+        #u2 = numpy.array([alfaFun(tdpm, x2), betaFun(tdpm, x2)])
+        u2 = ctrl(tdpm, x2)
         # second derivative
         f2 = probRock.calcXdot(tdpm, x2, u2, constants, arc)
         # x at half step, with f2
         x3 = x_ + dtd2 * f2  # x at half step, with f2
         # u at half step, with f2
-        u3 = numpy.array([alfaFun(tdpm, x3), betaFun(tdpm, x3)])
+        #u3 = numpy.array([alfaFun(tdpm, x3), betaFun(tdpm, x3)])
+        u3 = ctrl(tdpm, x3)
         # third derivative
         f3 = probRock.calcXdot(tdpm, x3, u3, constants, arc)
         td4 = td + dtd
         # x at half step, with f3
         x4 = x_ + dtd * f3  # x at next step, with f3
         # u at half step, with f3
-        u4 = numpy.array([alfaFun(td4, x4), betaFun(td4, x3)])
+        u4 = ctrl(td4, x4)
         # fourth derivative
         f4 = probRock.calcXdot(td4, x4, u4, constants, arc)
         # update state with all four derivatives f1, f2, f3, f4
@@ -178,11 +230,11 @@ for arc in range(s):
         # store states and controls
         x[k,:,arc], u[k-1,:,arc] = x_, u_
         k += 1
-
+    # Store the final time index for this arc
     finlElem[arc] = k
     # avoiding nonsense values for controls in the last time of the arc
     u[-1, :, arc] = u[-2,:,arc]
-    # continuity condition for next arc
+    # continuity condition for next arc (if it exists)
     if arc < s-1:
         x[0,:,arc+1] = x[k-1,:,arc]
     # Store time into pi array
@@ -225,6 +277,8 @@ sol.pi = pi
 
 # Finally: plot solution and trajectory
 sol.plotSol()
+sol.plotSol(piIsTime=False)
 sol.plotTraj()
+sol.log.printL("Final error on boundaries:\n"+str(sol.calcPsi()))
 
 #sol.plotTraj(fullOrbt=True,mustSaveFig=False)

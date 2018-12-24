@@ -2285,6 +2285,7 @@ class prob(sgra):
         cos = numpy.cos; sin = numpy.sin
         R = self.constants['r_e']
         N, s = self.N, self.s
+        d2r = numpy.pi / 180.
 
         # Density for all times/arcs
         dens = numpy.zeros((N,s))
@@ -2418,7 +2419,8 @@ class prob(sgra):
                         ", v = {:.3F} km/s".format(v) + \
                         ", gama = {:.4F} deg".format(gama*180./numpy.pi) + \
                         ", m = {:.4F} kg".format(M))
-
+        self.log.printL("Not a state, but should be:\n" + \
+                        "range angle = {:.1F} deg".format(sigma/d2r))
         GM = self.constants['GM']
         r = R + h
         cosGama, sinGama = cos(gama), sin(gama)
@@ -2466,7 +2468,6 @@ class prob(sgra):
         #       "\nX: " + str(ret['X'][-1, :]) + \
         #       "\nZ: " + str(ret['Z'][-1, :])
         # self.log.printL(strP)
-        # d2r = numpy.pi / 180.
         # trueF = numpy.arccos((p/r - 1.)/e) / d2r
         # strP = "\nTrue anomaly at injection point: {:.2F}".format(trueF)
         # strP += "\nf = {:.2F} deg".format(f/d2r)
