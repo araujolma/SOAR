@@ -17,10 +17,8 @@ class prob(sgra):
     def initGues(self,opt={}):
 
         # matrix sizes
-        n = 4
-        m = 2
-        self.n = n
-        self.m = m
+        n, m = 4, 2
+        self.n, self.m = n, m
 
         d2r = numpy.pi / 180.0
         # Get initialization mode
@@ -225,6 +223,10 @@ class prob(sgra):
                 u[:,1,:] = (0.5)*numpy.ones((N,s))
                 pi = 500*numpy.ones(s)
 #
+        #elif initMode == 'naive2':
+
+
+
         elif initMode == 'extSol':
 
             ###################################################################
@@ -495,11 +497,8 @@ class prob(sgra):
 
         u = self.calcAdimCtrl(u[:,0,:],u[:,1,:])
 
-        self.x = x
-        self.u = u
-        self.pi = pi
-        self.lam = lam
-        self.mu = mu
+        self.x, self.u, self.pi = x, u, pi
+        self.lam, self.mu = lam, mu
 
         solInit = self.copy()
 
@@ -2585,11 +2584,10 @@ def calcXdot(td,x,u,constants,arc):
     # calculate grav
     grav = GM/r/r
 
-    # calculate phi:
+    # prepare return array:
     dx = numpy.empty(4)
 
-    # example rocket single stage to orbit with Lift and Drag
-
+    # Rocket dynamics
     sinGama = sin(x[2])
     Thr = beta * Thrust[arc]
     dx[0] = x[1] * sinGama
