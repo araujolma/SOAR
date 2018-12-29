@@ -11,6 +11,7 @@ in order to yield a basic (naive) initial guess for MSGRA.
 
 import numpy
 from interf import logger
+from scipy.signal import place_poles
 
 # TODO: there will be a conflict when this module gets imported in
 #  probRock.py, because this module already loads probRock (mainly for
@@ -53,6 +54,58 @@ def speed_ang_controller(v,gama,M,pars):
 
     return alfa, beta
 
+def finl_controller(stt,pars):
+
+    h, v, gama, M = stt
+    r = pars['r_e']+h
+    g = pars['mu']/(r**2)
+    psiCosAlfa = pars['acc_v']/g + numpy.sin(gama)
+    psiSinAlfa = pars['acc_g']*v/g + (1. - v**2/g/r) * numpy.cos(gama)
+
+    psi = numpy.sqrt(psiSinAlfa**2+psiCosAlfa**2)
+    alfa = numpy.arctan2(psiSinAlfa,psiCosAlfa)
+
+    # perform saturations
+    if alfa > pars['alfa']:
+        alfa = pars['alfa']
+    elif alfa < -pars['alfa']:
+        alfa = -pars['alfa']
+
+    beta = psi * M * g / pars['Thrust']
+
+    # perform saturations
+    if beta < 0.:
+        beta = 0.
+    elif beta > 1.:
+        beta = 1.
+
+    return alfa, beta
+
+
+def pole_place_ctrl_gains(pars):
+    """Calculate the gains for the pole placement controller """
+
+    # Assemble matrix 'A'
+    A = numpy.zeros((3,3))
+    A[0,2] = pars['vOrb']
+    A[1,2] = -pars['gOrb']
+    A[2,0] = -3. * pars['gOrb'] / pars['rOrb']
+    A[2,1] = 2./pars['rOrb'] + pars['gOrb']/(pars['vOrb']**2)
+
+    # Assemble matrix 'B'
+    B = numpy.zeros((3,2))
+    B[1,0] = pars['gOrb']
+    B[2,1] = pars['gOrb']
+
+    P = pars['poles']
+
+    fsf = place_poles(A,B,P)
+
+    return fsf.gain_matrix
+
+def pole_place_controller(h,v,gama,M,pars):
+    #return alfa, beta
+    pass
 
 # TODO: 'objectify' this module. It would be great for development and
 #  testing if the trajectory guess could be generated in here as well,
@@ -127,7 +180,6 @@ def naivGues():
     sol.initMode = 'extSol'
     # Show the parameters before integration
     sol.printPars()
-    #input("\nIAE?")
 
     # Maximum dimensional time for any arc [s]
     tf = 1000.
@@ -135,15 +187,12 @@ def naivGues():
     dtd = 0.1
     Nmax = int(tf/dtd)+1
 
-    # base thrust to weight ratio
-    psi = 1.7
-
     h, V = boundary['h_initial'], boundary['V_initial']
     gama, M =  boundary['gamma_initial'], boundary['m_initial']
     # running x
     x_ = numpy.array([h, V, gama, M])
     # prepare arrays for integration
-    x, u = numpy.zeros((Nmax,n,s)), numpy.empty((Nmax,m,s))
+    x, u = numpy.zeros((Nmax,n,s)), numpy.zeros((Nmax,m,s))
     pi = numpy.empty(s)
     # initial condition, first arc
     x[0,:,0] = x_
@@ -152,17 +201,23 @@ def naivGues():
     td = 0.
     finlElem = numpy.zeros(s,dtype='int')
     sol.log.printL("\nProceeding for naive integrations...")
+    tdArc = 0.  # dimensional running time for each arc
+    # TODO: replace hardcoded "end of arc" parameters by custom values from
+    #  the configuration file.
     for arc in range(s):
-        tdArc = 0. # dimensional running time for this arc
-        tStart = 0.
         if arc == 0:
             # First arc:
             # - rise vertically
             # - at full thrust
             # - until v = 100 m/s
+            msg = "\nEntering 1st arc (vertical rise at full thrust)..."
+            sol.log.printL(msg)
             #alfaFun = lambda t, state: 0.
             #numpy.arcsin((g / V - V / r) * numpy.cos(gama) * (M * V / Thr)
             #betaFun = lambda t, state: 1.
+            # TODO: there should be actually a calculation to ensure
+            #  gamma=90deg, instead of just leaving alpha=0 and hoping
+            #  for the best...
             ctrl = lambda t, state: [0., 1.]
             arcCond = lambda t, state: state[1] < 0.1
         elif arc == 1:
@@ -178,27 +233,75 @@ def naivGues():
             #betaFun = lambda t, state: psi * state[3] * \
             #                            constants['grav_e'] / \
             #                            constants['Thrust'][1]
+            msg = "\nEntering 2nd arc (turn at constant alpha)..."
+            sol.log.printL(msg)
+            # base thrust to weight ratio
+            psi = 1.7
             ctrl = lambda t, state: [-.6 * d2r,
                                      min([psi * state[3] * \
                                           constants['grav_e'] / \
                                           constants['Thrust'][1], 1.])]
             arcCond = lambda t, state: state[2] > 5. * d2r
         elif arc == 2:
+            # assemble parameter dictionary for controllers
+            # noinspection PyDictCreation
             pars = {'rOrb': constants['r_e'] + boundary['h_final'],
                     'vOrb': boundary['V_final'],
-                    'lv': .01,
-                    'lg': .1,
                     'Thrust': constants['Thrust'][2],
                     'alfa': restrictions['alpha_max']}
             pars['gOrb'] = constants['GM'] / (pars['rOrb']**2)
-            ctrl = lambda t, state: speed_ang_controller(state[1],state[2],
-                                                         state[3],pars)
-            tolV, tolG = 0.01, 0.1 * d2r
-            arcCond = lambda t, state: abs(state[1]-pars['vOrb']) > tolV or \
-                                        (abs(state[2]) > tolG)
+
+            # approach #01: only speed and angle control,
+            # linearization by feedback
+
+            #pars['lv'], pars['lg'] = .01, .1
+            #ctrl = lambda t, state: speed_ang_controller(state[1],state[2],
+            #                                             state[3],pars)
+
+            # approach #02: full state feedback control,
+            # pole placement
+
+            #pars['poles'] = numpy.array([-.1001,-.1002,-.1003])/10.
+            #K = pole_place_ctrl_gains(pars)
+            #sol.log.printL("Gains for controller:\n{}".format(K))
+            #pars['K'] = K
+            #ctrl = lambda t, state: pole_place_controller(state[0],state[1],
+            #                                              state[2],state[3],
+            #                                              pars)
+
+            #tolV, tolG = 0.01, 0.1 * d2r
+            #arcCond = lambda t, state: abs(state[1]-pars['vOrb']) > tolV or \
+            #                            (abs(state[2]) > tolG)
+
+            # approach #03: height, speed and angle control, similar to #01,
+            # but with linear reference for speed and angle. Exit condition
+            # by on time-out, based on pre-calculated time
+
+            # height error
+            eh = boundary['h_final'] - x[0,0,2]
+            # initial speed and speed error
+            v0 = x[0,1,2]; ev = boundary['V_final'] - v0
+            # initial flight path angle
+            gama0 = x[0,2,2]
+            # calculated duration of maneuver
+            tf = 6. * eh / gama0 / (3.*v0 + ev)
+            # Load parameters to pars dict
+            pars['tf'] = tf; pars['eh'] = eh; pars['ev'] = ev
+            # "Acceleration" for velocity and flight path angle
+            pars['acc_v'] = ev/tf; pars['acc_g'] = -gama0/tf
+            # These are for calculating g locally at each height
+            pars['mu'] = constants['GM']; pars['r_e'] = constants['r_e']
+            acc = pars['acc_v'] / constants['grav_e']
+            turn = pars['acc_g'] / d2r
+            msg = "\nTime until orbit: {:.3g} s\n".format(tf) + \
+                  "Target acceleration: {:.2g} g's\n".format(acc) + \
+                  "Target turning rate: {:.1g} deg/s".format(-turn)
+            sol.log.printL(msg)
+            ctrl = lambda t, state: finl_controller(state,pars)
+            tf_offset = tf + td
+            arcCond = lambda t, state: (t <= tf_offset)
         else:
             raise(Exception("Undefined controls for arc = {}.".format(arc)))
-        #(-2.*(1.-td/tf)-1.*(td/tf))*d2r#numpy.arcsin((g/V - V/r)*numpy.cos(gama) * (M*V/Thr) )
 
         # RK4 integration
         k = 1; dtd2, dtd6 = dtd/2., dtd/6.
@@ -231,21 +334,24 @@ def naivGues():
             f4 = probRock.calcXdot(td4, x4, u4, constants, arc)
             # update state with all four derivatives f1, f2, f3, f4
             x_ += dtd6 * (f1 + f2 + f2 + f3 + f3 + f4)
-
             # update dimensional time
             td = td4
             # store states and controls
             x[k,:,arc], u[k-1,:,arc] = x_, u_
+            # Increment time index
             k += 1
         # Store the final time index for this arc
         finlElem[arc] = k
-        # avoiding nonsense values for controls in the last time of the arc
-        u[-1, :, arc] = u[-2,:,arc]
         # continuity condition for next arc (if it exists)
-        if arc < s-1:
-            x[0,:,arc+1] = x[k-1,:,arc]
+        if arc < s - 1:
+            x[0, :, arc + 1] = x[k - 1, :, arc]
+        # avoiding nonsense values for controls in the last times of the arc
+        for j in range(k-1,Nmax):
+            # noinspection PyUnboundLocalVariable
+            u[j, :, arc] = u_
         # Store time into pi array
-        pi[arc] = td
+        pi[arc] = td-tdArc
+        tdArc = td + 0.
     sol.log.printL("... naive integrations are complete.")
 
     # Load constants into sol object
@@ -283,7 +389,7 @@ def naivGues():
     sol.pi = pi
     # This is just for compatibility. Current probRock formulation demands
     # a target height array for the first "artificial" arcs
-    sol.boundary['TargHeig'] = numpy.array(sol.x[-1,0,:])
+    sol.boundary['TargHeig'] = numpy.array(sol.x[-1,0,:s-1])
     # These arrays get zeros, although that does not make much sense
     sol.lam = numpy.zeros_like(sol.x,dtype='float')
     sol.mu = numpy.zeros(q)
@@ -306,11 +412,11 @@ if __name__ == "__main__":
 
     # TESTING the obtained solution with rest
     contRest = 0
+    sol.calcP(mustPlotPint=True)
     while sol.P > sol.tol['P']:
         sol.rest()
         contRest += 1
         sol.plotSol()
-        # input("\nOne more restoration complete.")
     #
 
     sol.showHistP()
