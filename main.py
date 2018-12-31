@@ -126,10 +126,14 @@ if __name__ == "__main__":
         ITman.log.printL("\nHistQ: "+str(sol.histQ[:(sol.NIterGrad+1)]))
         ITman.log.printL("\nHistI: "+str(sol.histI[:(sol.NIterGrad+1)]))
 
+        # Make a sound!
         for k in range(3):
             print("\a")
             time.sleep(.1)
 
+        # Close the log file
+        ITman.log.printL("\n")
+        ITman.log.close()
     # Manage the exceptions. Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
         ITman.log.printL("\n\n\nUser has stopped the program.")

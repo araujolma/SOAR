@@ -157,8 +157,8 @@ class ITman:
                     self.initOpt='default'
                     self.log.printL("\nProceeding with 'default' mode.\n")
                 elif inp=='n':
-                    self.initOpt='naive'
-                    self.log.printL("\nProceeding with 'naive' mode.\n")
+                    self.initOpt='naive2'
+                    self.log.printL("\nProceeding with 'naive2' mode.\n")
                 else:
                     self.initOpt='extSol'
                     self.log.printL("\nProceeding with 'extSol' mode.\n" + \

@@ -1029,8 +1029,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     #
 
     # TODO: "Assured rejection prevention"
-    # if P<tolP, make sure I<I0, otherwise,
-    # there will be a guaranteed rejection later...
+    #  if P<tolP, make sure I<I0, otherwise,
+    #  there will be a guaranteed rejection later...
 
     if self.dbugOptGrad['plotCalcStepGrad']:
         # SCREENING:

@@ -10,6 +10,7 @@ from sgra import sgra
 from atmosphere import rho
 import matplotlib.pyplot as plt
 from utils import simp#, getNowStr
+from naivRock import naivGues
 
 class prob(sgra):
     probName = 'probRock'
@@ -223,9 +224,27 @@ class prob(sgra):
                 u[:,1,:] = (0.5)*numpy.ones((N,s))
                 pi = 500*numpy.ones(s)
 #
-        #elif initMode == 'naive2':
+        elif initMode == 'naive2':
+            sol = naivGues(extLog=self.log)
 
-
+            # Get the parameters from the sol object
+            self.constants = sol.constants
+            self.restrictions = sol.restrictions
+            self.boundary = sol.boundary
+            self.mPayl = sol.mPayl
+            self.isStagSep = sol.isStagSep
+            self.addArcs = sol.addArcs
+            self.N, self.p, self.q, self.s = sol.N, sol.p, sol.q, sol.s
+            self.dt, self.t = sol.dt, sol.t
+            self.Ns = sol.Ns
+            self.tol = sol.tol
+            # These go outside because of the bypass that comes later
+            x, pi = sol.x, sol.pi
+            # Doing here just to undo later. Counter-productive, I know.
+            u = numpy.empty((self.N,self.m,self.s))
+            u[:,0,:], u[:,1,:] = sol.calcDimCtrl()
+            # all info retrieved; the sol object can now be safely deleted
+            del sol
 
         elif initMode == 'extSol':
 
@@ -477,15 +496,15 @@ class prob(sgra):
                 u[N-1,:,arc] = u[N-2,:,arc]
             #
 
-        lam = numpy.zeros((N,n,s))
-        mu = numpy.zeros(q)
+        lam = numpy.zeros((self.N,n,self.s))
+        mu = numpy.zeros(self.q)
 
 #        # TODO: This hardcoded bypass MUST be corrected in later versions.
-        self.log.printL("\n!!!\nHeavy hardcoded bypass here:")
-        self.log.printL("Control limits are being switched;")
-        self.log.printL("Controls themselves are being 'desaturated'.")
-        self.log.printL("Check code for the values, and be careful!\n")
-
+        msg = "\n!!!\nHeavy hardcoded bypass here:\n" + \
+              "Control limits are being switched;\n" + \
+              "Controls themselves are being 'desaturated'.\n" + \
+              "Check code for the values, and be careful!\n"
+        self.log.printL(msg)
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
 
@@ -505,13 +524,13 @@ class prob(sgra):
 # =============================================================================
 #        # Basic desaturation:
 #
-        bat = 1.5#0.5
-        for arc in range(s):
-            for k in range(N):
-                if u[k,1,arc] < -bat:
-                    u[k,1,arc] = -bat
-                if u[k,1,arc] > bat:
-                    u[k,1,arc] = bat
+        # bat = 1.5#0.5
+        # for arc in range(s):
+        #     for k in range(N):
+        #         if u[k,1,arc] < -bat:
+        #             u[k,1,arc] = -bat
+        #         if u[k,1,arc] > bat:
+        #             u[k,1,arc] = bat
 
         # This was a test for a "super honest" desaturation, so that the
         # program would not know when to do the coasting a priori.
@@ -822,86 +841,35 @@ class prob(sgra):
                 #str(j0+stt+n)+"] : 1.0")
             # For mass:
             stt = n-1
-            initMode = self.initMode
-            if initMode == 'extSol':
-                if self.isStagSep[arc]:
-                    # mass, next arc (init cond)
-                    psiy[i0+stt,j0+stt+n] = 1.0
-                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
-                    #str(j0+stt+n)+"] : 1.0")
-                    # mass, this arc (end cond):
-                    psiy[i0+stt,j0+stt] = -1.0/(1.0-s_f[arc])
-                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
-                    #str(j0+stt)+"] : -1/(1-e)...")
-                    # mass, this arc (init cond):
-                    psiy[i0+stt,j0+stt-n] = s_f[arc]/(1.0-s_f[arc])
-                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
-                    #str(j0+stt-n)+"] : +e/(1-e)...")
-                else:
-                    psiy[i0+stt,j0+stt] = -1.0  # mass, this arc  (end cond)
-                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
-                    #str(j0+stt)+"] : -1.0")
-                    psiy[i0+stt,j0+stt+n] = 1.0 # mass, next arc (init cond)
-                    #self.log.printL("Writing on ["+str(i0+stt)+","+\
-                    #str(j0+stt+n)+"] : 1.0")
+            #initMode = self.initMode
+            #if initMode == 'extSol':
+            if self.isStagSep[arc]:
+                # mass, next arc (init cond)
+                psiy[i0+stt,j0+stt+n] = 1.0
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt+n)+"] : 1.0")
+                # mass, this arc (end cond):
+                psiy[i0+stt,j0+stt] = -1.0/(1.0-s_f[arc])
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt)+"] : -1/(1-e)...")
+                # mass, this arc (init cond):
+                psiy[i0+stt,j0+stt-n] = s_f[arc]/(1.0-s_f[arc])
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt-n)+"] : +e/(1-e)...")
+            else:
+                psiy[i0+stt,j0+stt] = -1.0  # mass, this arc  (end cond)
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt)+"] : -1.0")
+                psiy[i0+stt,j0+stt+n] = 1.0 # mass, next arc (init cond)
+                #self.log.printL("Writing on ["+str(i0+stt)+","+\
+                #str(j0+stt+n)+"] : 1.0")
 
             i0 += n
             j0 += 2*n
         #
-        #input("IAE?")
         # Last n-1 rows (no mass eq for end condition of final arc):
         for ind in range(n-1):
             psiy[q-1-ind,2*n*s-2-ind] = 1.0
-
-        # Intermediate conditions
-#        psiy[4,4] = 1.0 # h
-#        psiy[5,8] = 1.0 # h
-#        psiy[6,5] = -1.0 # v
-#        psiy[6,9] = 1.0 # v
-#        psiy[7,6] = -1.0 #gama
-#        psiy[7,10] = 1.0 #gama
-#        psiy[8,7] = -1.0 #m
-#        psiy[8,11] = 1.0 #m
-#
-#        psiy[9,12] = 1.0 # h
-#        psiy[10,16] = 1.0 # h
-#        psiy[11,13] = -1.0 # v
-#        psiy[11,17] = 1.0 # v
-#        psiy[12,14] = -1.0 #gama
-#        psiy[12,18] = 1.0 #gama
-#        psiy[13,15] = -1.0 #m
-#        psiy[13,19] = 1.0 #m
-
-#        # Intermediate conditions
-#        i0 = n; j0 = 0
-#        for arc in range(s-1):
-#            # This loop sets the interfacing conditions between all states
-#            # in 'arc' and 'arc+1' (that's why it only goes up to s-1)
-#
-#            # For height, speed and angle:
-#            for stt in range(n-1):
-#                ind = i0 + stt
-#                psiy[ind,j0+ind] = -1.0  # this state, this arc  (end cond)
-#                psiy[ind,j0+ind+n] = 1.0 # this state, next arc (init cond)
-#
-#            # For mass:
-#            stt = n-1; ind = i0 + stt
-#            initMode = self.initMode
-#            if initMode == 'extSol':
-#                if self.isStagSep[arc]:
-#                    # mass, next arc (init cond)
-#                    psiy[ind,j0+ind+n] = 1.0
-#                    # mass, this arc (end cond):
-#                    psiy[ind,j0+ind] = -1.0/(1.0-s_f[arc])
-#                    # mass, this arc (init cond):
-#                    psiy[ind,j0+ind-n] = s_f[arc]/(1.0-s_f[arc])
-#                else:
-#                    psiy[ind,j0+ind] = -1.0  # mass, this arc  (end cond)
-#                    psiy[ind,j0+ind+n] = 1.0 # mass, next arc (init cond)
-#
-#            i0 = ind + 1
-#            j0 += n
-#        #
 
         psip = numpy.zeros((q,p))
 
@@ -923,9 +891,9 @@ class prob(sgra):
         # Calculate variables (arrays) alpha and beta
 
         # TODO: change calcDimCtrl so that the derivatives
-        # DAlfaDu1 and DBetaDu2 are also calculated there...
-        # (with an optional command so that these are not calculated all the
-        # time, of course!)
+        #  DAlfaDu1 and DBetaDu2 are also calculated there...
+        #  (with an optional command so that these are not calculated all the
+        #  time, of course!)
         alpha,beta = self.calcDimCtrl()
         sinAlpha, cosAlpha = sin(alpha), cos(alpha)
 
@@ -1171,20 +1139,22 @@ class prob(sgra):
             psi[i]   = x[0,0,arc+1] - x[N-1,0,arc]
             psi[i+1] = x[0,1,arc+1] - x[N-1,1,arc]
             psi[i+2] = x[0,2,arc+1] - x[N-1,2,arc]
-            initMode = self.initMode
-            if initMode == 'extSol':
-                # This if...else is basically a safety net for the case of an
-                # undefined self.isStagSep.
-                if self.isStagSep[arc]:
-                    psi[i+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc])) * \
-                                (x[N-1,3,arc] - s_f[arc] * x[0,3,arc])
-                else:
-                    psi[i+3] = x[0,3,arc+1] - x[N-1,3,arc]
+            # initMode = self.initMode
+            # if initMode == 'extSol':
+            #     # This if...else is basically a safety net for the case of an
+            #     # undefined self.isStagSep.
+
+            if self.isStagSep[arc]:
+                psi[i+3] = x[0,3,arc+1] - (1.0/(1.0 - s_f[arc])) * \
+                            (x[N-1,3,arc] - s_f[arc] * x[0,3,arc])
             else:
-                self.log.printL("Sorry, this part of calcPsi "+\
-                                "is not implemented yet.")
-                raise Exception("Broken compatibility with init methods " +
-                                "other than 'extSol'.")
+                psi[i+3] = x[0,3,arc+1] - x[N-1,3,arc]
+
+            # else:
+            #     self.log.printL("Sorry, this part of calcPsi "+\
+            #                     "is not implemented yet.")
+            #     raise Exception("Broken compatibility with init methods " +
+            #                     "other than 'extSol'.")
             #strPrnt += str(i)+","+str(i+1)+","+str(i+2)+","+str(i+3)+","
         #
 
@@ -1556,14 +1526,18 @@ class prob(sgra):
 
             self.log.printL("Final (injected into orbit) rocket mass: " + \
                   "{:.4E}\n".format(x[-1,3,self.s-1]))
-            EjctMass = list()
             # get ejected masses:
-            initMode = self.initMode
-            if initMode == 'extSol':
-                for arc in range(self.s-1):
-                    if self.isStagSep[arc]:
-                        EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
-                self.log.printL("Ejected masses: " + str(EjctMass))
+
+            #EjctMass = list()
+            #initMode = self.initMode
+            #if initMode == 'extSol':
+
+            #for arc in range(self.s-1):
+            #    if self.isStagSep[arc]:
+            #        EjctMass.append(x[-1,3,arc]-x[0,3,arc+1])
+            EjctMass = [x[-1,3,arc]-x[0,3,arc+1] for arc in range(self.s-1)\
+                        if self.isStagSep[arc]]
+            self.log.printL("Ejected masses: " + str(EjctMass))
 
             self.plotSol(opt={'mode': 'orbt'},piIsTime=piIsTime)
 
@@ -1989,7 +1963,7 @@ class prob(sgra):
         if piIsTime:
             timeLabl = 't [s]'
         else:
-            timeLabl = 'adim. t [-]'
+            timeLabl = 'non-dim. t [-]'
 
         # Comparing final mass:
         mPaySol = self.calcMassDist()['u'][-1]#self.calcPsblPayl()
@@ -2158,7 +2132,7 @@ class prob(sgra):
         width = 0.4
         current = ax.bar(position,self.pi,width,color='y')
         initial = ax.bar(position_alt + width,altSol.pi,width)
-        # Put the values of the arc lenghts on the bars...
+        # Put the values of the arc lengths on the bars...
         for arc in range(s):
             coord = (float(position[arc])-.25*width,self.pi[arc]+10.)
             ax.annotate("{:.1F}".format(self.pi[arc]),xy=coord,xytext=coord)
@@ -2518,19 +2492,19 @@ class prob(sgra):
 
         # Plot stage separation points in blue
         mustLabl = True
-        if self.initMode == 'extSol':
-            for arc in range(s-1):
-                if self.isStagSep[arc]:
-                    # this trick only labels the first segment,
-                    # to avoid multiple labels afterwards
-                    if mustLabl:
-                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
-                                 marker='o', color='blue',ms=markSize,
-                                 label='Stage separation point')
-                        mustLabl = False
-                    else:
-                        plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
-                                 marker='o', color='blue',ms=markSize)
+        #if self.initMode == 'extSol':1
+        for arc in range(s-1):
+            if self.isStagSep[arc]:
+                # this trick only labels the first segment,
+                # to avoid multiple labels afterwards
+                if mustLabl:
+                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
+                             marker='o', color='blue',ms=markSize,
+                             label='Stage separation point')
+                    mustLabl = False
+                else:
+                    plt.plot(StgSepPnts[arc,0],StgSepPnts[arc,1],
+                             marker='o', color='blue',ms=markSize)
 
         # Plot altSol
         if compare:

@@ -81,7 +81,6 @@ def finl_controller(stt,pars):
 
     return alfa, beta
 
-
 def pole_place_ctrl_gains(pars):
     """Calculate the gains for the pole placement controller """
 
@@ -114,8 +113,20 @@ def pole_place_controller(h,v,gama,M,pars):
 # TODO: make a module for loading parameters from .its file. Probably just
 #  loading some of itsme.py's methods does the trick.
 
-def naivGues():
+def naivGues(extLog=None):
 
+    # Declare a running solution
+    sol = probRock.prob()
+
+    if extLog is None:
+        # Open a logger object, just for printing
+        sol.log = logger(sol.probName)#,mode='screen')
+    else:
+        # Otherwise, use this provided logger
+        sol.log = extLog
+
+    sol.log.printL("\nIn naivGues, preparing parameters to generate an" + \
+                   " initial solution!")
     d2r = numpy.pi/180.0
     m, n, s = 2, 4, 3
     p = s
@@ -146,7 +157,7 @@ def naivGues():
     boundary = {'h_initial': 0.,#0.,
                 'V_initial': 1e-6,#.05,#
                 'gamma_initial': 90. * d2r,#5*numpy.pi,
-                'm_initial': 3000,
+                'm_initial': 3000, # TODO: this has to be calculated in this module!
                 'h_final': h_final,
                 'V_final': V_final,
                 'gamma_final': 0.,
@@ -163,11 +174,6 @@ def naivGues():
                     'pi_max': [None]*p}
     # 'TargHeig': TargHeig}
 
-    # Declare a running solution
-    sol = probRock.prob()
-    # Open a logger object, just for printing
-    sol.log = logger(sol.probName)#,mode='screen')
-
     sol.constants = constants
     # Anything, really, it is just because there should be a mPayl attribute
     sol.mPayl = 10.
@@ -177,9 +183,9 @@ def naivGues():
 
     sol.boundary = boundary
     sol.restrictions = restrictions
-    sol.initMode = 'extSol'
-    # Show the parameters before integration
-    sol.printPars()
+    #sol.tol = {'P':1e-12, 'Q':1e-4}
+    sol.loadParsFromFile('defaults/probRock.its')
+    #sol.initMode = 'extSol'
 
     # Maximum dimensional time for any arc [s]
     tf = 1000.
@@ -243,6 +249,9 @@ def naivGues():
                                           constants['Thrust'][1], 1.])]
             arcCond = lambda t, state: state[2] > 5. * d2r
         elif arc == 2:
+            msg = "\nEntering 3rd arc (closed-loop orbit insertion)..."
+            sol.log.printL(msg)
+
             # assemble parameter dictionary for controllers
             # noinspection PyDictCreation
             pars = {'rOrb': constants['r_e'] + boundary['h_final'],
@@ -352,6 +361,7 @@ def naivGues():
         # Store time into pi array
         pi[arc] = td-tdArc
         tdArc = td + 0.
+        sol.log.printL("  arc complete!")
     sol.log.printL("... naive integrations are complete.")
 
     # Load constants into sol object
@@ -359,7 +369,7 @@ def naivGues():
     sol.log.printL("Original N: {}".format(sol.N))
     # This line is for redefining N, if so,
     # while still keeping the 100k + 1 "structure"
-    sol.N = 1*(Nmax-1) + 1
+    sol.N = 201#1*(Nmax-1) + 1
     sol.log.printL("New N: {}".format(sol.N))
     sol.m, sol.n, sol.p, sol.q, sol.s = m, n, s, q, s
     sol.dt = 1./(sol.N-1)
@@ -401,6 +411,9 @@ if __name__ == "__main__":
     # Generate the initial guess
     sol = naivGues()
 
+    # Show the parameters obtained
+    sol.printPars()
+
     # Plot solution
     sol.plotSol() # normal
     # non-dimensional time to check better the details in short arcs
@@ -420,3 +433,5 @@ if __name__ == "__main__":
     #
 
     sol.showHistP()
+    sol.log.printL("\nnaivRock.py execution finished. Bye!\n")
+    sol.log.close()
