@@ -680,9 +680,11 @@ class LMPBVPhelp():
         # Calculations of weights k:
         KMi = numpy.linalg.solve(M,col)
         Res = M.dot(KMi)-col
-        log.printL("Residual of the Linear System: " + \
+        log.printL("LMPBVP: Residual of the Linear System: " + \
                    str(Res.transpose().dot(Res)))
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
+        log.printL("LMPBVP: coefficients of particular solutions: " + \
+                   str(K))
 
         # summing up linear combinations
         A = numpy.zeros((N,n,s))

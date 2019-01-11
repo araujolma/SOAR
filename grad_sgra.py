@@ -170,7 +170,7 @@ class stepMngr:
         P,_,_ = newSol.calcP(mustPlotPint=plotPint)
         J,_,_,I,_,_ = newSol.calcJ()
         Obj = self.calcObj(P,I,J)
-        isOk, Obj = self.check(alfa,Obj,P,newSol.pi)#self.check(alfa,Obj,P)
+        isOk, Obj = self.check(alfa,Obj,P,newSol.pi)
         resStr = ''
         if isOk:
             # Update best value (if it is the case)
@@ -342,13 +342,13 @@ class stepMngr:
 
     def stopCond(self,alfa,outp):
         """ Decide if the step search can be stopped. """
-        gradObj = outp['gradObj']/outp['obj'][1]
+        relGradObj = outp['gradObj']/outp['obj'][1]
 
         #outp = {'P': numpy.array([Pm,P,PM]), 'I': numpy.array([Im,I,IM]),
         #        'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
         #        'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
 
-        if abs(gradObj) < self.stopObjDerTol:
+        if abs(relGradObj) < self.stopObjDerTol:
             #if self.mustPrnt:
             self.log.printL("\n> Stopping step search: low sensitivity" + \
                                 " of objective function with step.\n" + \
@@ -356,7 +356,7 @@ class stepMngr:
             self.stopMotv = 1
             return True
         elif abs(alfa/self.maxGoodStep - 1.0) < self.stopStepLimTol \
-                and gradObj < 0.0:
+                and relGradObj < 0.0:
             self.log.printL("\n> Stopping step search: high proximity" + \
                             " to the step limit value.")
             self.stopMotv = 2
@@ -707,10 +707,12 @@ def calcJ(self):
             vetL[t,arc] = lam[t,:,arc].transpose().dot(func[t,:,arc])
 
     # Perform the integration of Lint array by Simpson's method
+    vetIL = numpy.empty(s)
     Lint = 0.0
     for arc in range(self.s):
-        Lint += simp(vetL[:,arc],N)
-
+        vetIL[arc] = simp(vetL[:,arc],N)
+        Lint += vetIL[arc]
+    self.log.printL("L components, by arc: "+str(vetIL))
     #Lint = vetIL[N-1,:].sum()
     Lpsi = mu.transpose().dot(psi)
     L = Lint + Lpsi
@@ -719,8 +721,8 @@ def calcJ(self):
     J_Lpsi = Lpsi
     J_I = I
     J = L + J_I
-    strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
-          ", J_Lpsi = {:.6E}".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
+    strJs = "J = {:.6E}, J_Lint = {:.6E}, ".format(J,J_Lint) + \
+            "J_Lpsi = {:.6E}, J_I = {:.6E}".format(J_Lpsi,J_I)
     self.log.printL(strJs)
 
     return J, J_Lint, J_Lpsi, I, Iorig, Ipf

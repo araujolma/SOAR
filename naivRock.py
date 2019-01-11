@@ -179,7 +179,12 @@ def naivGues(extLog=None):
     sol.mPayl = 10.
     # This is necessary for calculating Psi at the end:
     sol.addArcs = addArcs
-    sol.isStagSep = numpy.array([False]*s)
+
+    # By default, every arc is separating,
+    # except for the first ones (added arcs)
+    sol.isStagSep = numpy.array([True]*s)
+    for arc in range(addArcs):
+        sol.isStagSep[arc] = False
 
     sol.boundary = boundary
     sol.restrictions = restrictions

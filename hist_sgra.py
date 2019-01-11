@@ -25,7 +25,7 @@ def declHist(self):
     #self.GREvIndx = -1
 
     # Basic maximum number of iterations for grad/rest.
-    # May be overriden in the problem definition
+    # May be overridden in the problem definition
 
     self.MaxIterRest = MaxIterRest
     self.NIterRest = 0
@@ -146,15 +146,15 @@ def showHistP(self):
     # (init, accept, reject)
 
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histP[GradInitIndx],'*',\
+        plt.semilogy(GradInitIndx,self.histP[GradInitIndx],'*',
                  label='GradInit')
     if len(GradAcptIndxList)>0:
-        plt.semilogy(GradAcptIndxList, \
-                     self.histP[GradAcptIndxList], \
+        plt.semilogy(GradAcptIndxList,
+                     self.histP[GradAcptIndxList],
                      'ob', label='GradAccept')
     if len(GradRjecIndxList)>0:
-        plt.semilogy(GradRjecIndxList, \
-                     self.histP[GradRjecIndxList], \
+        plt.semilogy(GradRjecIndxList,
+                     self.histP[GradRjecIndxList],
                      'xb', label='GradReject')
 
     # Finally, plot the P tolerance
@@ -251,15 +251,15 @@ def showHistQ(self,tolZoom=True):
                 GradRjecIndxList.append(iGrad)
 
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*',\
+        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*',
                  label='GradInit')
     if len(GradAcptIndxList)>0:
-        plt.semilogy(GradAcptIndxList, \
-                     self.histQ[GradAcptIndxList], \
+        plt.semilogy(GradAcptIndxList,
+                     self.histQ[GradAcptIndxList],
                      'ob', label='GradAccept')
     if len(GradRjecIndxList)>0:
-        plt.semilogy(GradRjecIndxList, \
-                     self.histQ[GradRjecIndxList], \
+        plt.semilogy(GradRjecIndxList,
+                     self.histQ[GradRjecIndxList],
                      'xb', label='GradReject')
 
 
@@ -277,28 +277,20 @@ def showHistQ(self,tolZoom=True):
 
 def showHistI(self):
     IterGrad = numpy.arange(0,self.NIterGrad+1,1)
-
-    plt.title("Convergence report on I")
+    titl = "Convergence report on I"
     plt.plot(IterGrad,self.histI[IterGrad],label='I')
-    plt.plot(IterGrad,self.histIorig[IterGrad],label='Iorig')
-    plt.plot(IterGrad,self.histIpf[IterGrad],label='Ipf')
+    if self.histIpf[IterGrad].any() > 0.:
+        plt.plot(IterGrad,self.histIorig[IterGrad],label='Iorig')
+        plt.plot(IterGrad,self.histIpf[IterGrad],label='Ipf')
+    else:
+        titl += "\n(Ipf omitted: identically zero)"
     plt.grid(True)
+    plt.title(titl)
     plt.xlabel("Gradient iterations")
     plt.ylabel("I values")
     plt.legend()
 
     self.savefig(keyName='histI',fullName='I convergence history')
-
-#def showHistGradStep(self):
-#    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
-#
-#    plt.title("Gradient step history")
-#    plt.semilogy(IterGrad,self.histStepGrad[IterGrad])
-#    plt.grid(True)
-#    plt.xlabel("Gradient iterations")
-#    plt.ylabel("Step values")
-#
-#    self.savefig(keyName='histGradStep',fullName='GradStep history')
 
 def showHistGradStep(self):
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
@@ -307,7 +299,7 @@ def showHistGradStep(self):
     color = 'tab:blue'
     ax1.set_xlabel("Gradient iterations")
     ax1.set_ylabel('Step values',color=color)
-    ax1.semilogy(IterGrad,self.histStepGrad[IterGrad],color=color,\
+    ax1.semilogy(IterGrad,self.histStepGrad[IterGrad],color=color,
                  label='Step values')
     ax1.tick_params(axis='y',labelcolor=color)
     ax1.grid(True)
@@ -321,7 +313,7 @@ def showHistGradStep(self):
            '1 - local min found\n' + \
            '2 - step limit hit\n' + \
            '3 - too many evals'
-    ax2.plot(IterGrad,self.histGSSstopMotv[IterGrad],color=color,\
+    ax2.plot(IterGrad,self.histGSSstopMotv[IterGrad],color=color,
                  label=labl)
     ax2.tick_params(axis='y',labelcolor=color)
     #ax2.yaxis.set_major_locator(ticker.IndexLocator(base=1., offset=1.))

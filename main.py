@@ -8,7 +8,7 @@ Created on Tue Jun 27 14:19:46 2017
 
 import datetime, time, sys, os
 from interf import ITman
-
+import matplotlib.pyplot as plt
 
 #%%
 
@@ -131,9 +131,6 @@ if __name__ == "__main__":
             print("\a")
             time.sleep(.1)
 
-        # Close the log file
-        ITman.log.printL("\n")
-        ITman.log.close()
     # Manage the exceptions. Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
         ITman.log.printL("\n\n\nUser has stopped the program.")

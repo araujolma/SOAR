@@ -318,7 +318,6 @@ class sgra:
 
         return f
 
-
     def intgEulr(self, df: numpy.array, f0: float):
         """ Integrate a given function, by Euler method.
         Just one initial condition (f0) is required, since the arcs are
@@ -468,7 +467,7 @@ class sgra:
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
-    def calcErr(self):#,inRest=False):
+    def calcErr(self):
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
 #        phi = self.calcPhi()
@@ -478,7 +477,6 @@ class sgra:
         phi = self.calcPhi()
         err = numpy.zeros((self.N,self.n,self.s))
 
-        #if inRest:
         m = .5*(phi[0,:,:] + phi[1,:,:]) + \
                 -(self.x[1,:,:]-self.x[0,:,:])/self.dt
         err[0,:,:] = m
@@ -487,11 +485,6 @@ class sgra:
             err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
             -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
             -err[k-1,:,:]
-        #else:
-        #    for k in range(2,self.N-1):
-        #        err[k,:,:] = phi[k,:,:] + \
-        #                    -(self.x[k+1,:,:]-self.x[k-1,:,:])/self.dt
-
 
         return err
 
@@ -547,10 +540,13 @@ class sgra:
                             ", CC = {:.4E},".format(CC) + \
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
             # TODO: Use the 'self.save' dictionary here as well...
+
             if self.NIterGrad % 10 == 0:
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)
+            #if self.NIterGrad > 380:
+            #    raise Exception("Mandou parar, parei.")
 
             #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
             #time.sleep(5.0)

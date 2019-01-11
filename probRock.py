@@ -499,15 +499,9 @@ class prob(sgra):
         lam = numpy.zeros((self.N,n,self.s))
         mu = numpy.zeros(self.q)
 
-#        # TODO: This hardcoded bypass MUST be corrected in later versions.
-        msg = "\n!!!\nHeavy hardcoded bypass here:\n" + \
-              "Control limits are being switched;\n" + \
-              "Controls themselves are being 'desaturated'.\n" + \
-              "Check code for the values, and be careful!\n"
-        self.log.printL(msg)
+        # Bypass
         self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
         self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
-
 #        ThrustFactor = 2.0#500.0/40.0
 #        self.constants['Thrust'] *= ThrustFactor
 #        # Re-calculate the Kpf, since it scales with the Thrust...
@@ -524,13 +518,24 @@ class prob(sgra):
 # =============================================================================
 #        # Basic desaturation:
 #
-        # bat = 1.5#0.5
-        # for arc in range(s):
-        #     for k in range(N):
-        #         if u[k,1,arc] < -bat:
-        #             u[k,1,arc] = -bat
-        #         if u[k,1,arc] > bat:
-        #             u[k,1,arc] = bat
+
+#        # TODO: This hardcoded bypass MUST be corrected in later versions.
+
+        if initMode == 'extSol':
+            msg = "\n!!!\nHeavy hardcoded bypass here:\n" + \
+                  "Control limits are being switched;\n" + \
+                  "Controls themselves are being 'desaturated'.\n" + \
+                  "Check code for the values, and be careful!\n"
+
+            self.log.printL(msg)
+
+            bat = 1.5
+            for arc in range(self.s):
+                for k in range(self.N):
+                    if u[k,1,arc] < -bat:
+                        u[k,1,arc] = -bat
+                    if u[k,1,arc] > bat:
+                        u[k,1,arc] = bat
 
         # This was a test for a "super honest" desaturation, so that the
         # program would not know when to do the coasting a priori.
@@ -540,9 +545,6 @@ class prob(sgra):
         # there is this...
         # TODO: Try to put this before the RK4 re-integration. If this works,
         #  it would be a great candidate to a less-naive method.
-#        for arc in range(1,s):
-#            for k in range(N):
-#                u[k,1,arc] = -0.1
 # =============================================================================
         self.u = u
 
@@ -1265,7 +1267,7 @@ class prob(sgra):
         for arc in range(s):
             IorigVec[arc] = (self.x[0,3,arc]-self.x[-1,3,arc])/(1.-s_f[arc])
             IpfVec[arc] = simp(fPF[:,arc],N)
-
+        self.log.printL("I components, by arcs: "+str(IorigVec))
         Iorig = IorigVec.sum()
         Ipf = IpfVec.sum()
 
@@ -1519,7 +1521,7 @@ class prob(sgra):
                     self.savefig(keyName='currSol',fullName='solution')
                 else:
                     self.savefig(keyName='currSol-adimTime',
-                                 fullName='solution (adim. Time)')
+                                 fullName='solution (non-dim. time)')
             else:
                 plt.show()
                 plt.clf()
@@ -1539,7 +1541,7 @@ class prob(sgra):
                         if self.isStagSep[arc]]
             self.log.printL("Ejected masses: " + str(EjctMass))
 
-            self.plotSol(opt={'mode': 'orbt'},piIsTime=piIsTime)
+            #self.plotSol(opt={'mode': 'orbt'},piIsTime=piIsTime)
 
         elif opt['mode'] == 'lambda':
             titlStr = "Lambdas (grad iter #" + str(self.NIterGrad+1) + ")"
@@ -1966,11 +1968,15 @@ class prob(sgra):
             timeLabl = 'non-dim. t [-]'
 
         # Comparing final mass:
-        mPaySol = self.calcMassDist()['u'][-1]#self.calcPsblPayl()
-        mPayAlt = altSol.calcMassDist()['u'][-1]#altSol.calcPsblPayl()
+        mPaySol = self.calcMassDist()['u'][-1]
+        mPayAlt = altSol.calcMassDist()['u'][-1]
 
-        paylMassGain = mPaySol - mPayAlt
-        paylPercMassGain = 100.0*paylMassGain/mPayAlt
+        if mPayAlt <= 0.:
+            paylMassGain = numpy.inf
+            paylPercMassGain = numpy.inf
+        else:
+            paylMassGain = mPaySol - mPayAlt
+            paylPercMassGain = 100.0*paylMassGain/mPayAlt
 
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
@@ -2189,17 +2195,17 @@ class prob(sgra):
                 self.savefig(keyName='comp',fullName='comparisons')
             else:
                 self.savefig(keyName='comp-adimTime',
-                             fullName='comparisons (adim. time)')
+                             fullName='comparisons (non-dim. time)')
         else:
             plt.show()
             plt.clf()
 
-        self.log.printL('Final rocket "payload":')
-        self.log.printL(currSolLabl+": {:.4E}".format(mPaySol)+" kg.")
-        self.log.printL(altSolLabl+": {:.4E}".format(mPayAlt)+" kg.")
-        self.log.printL("Difference: {:.4E}".format(paylMassGain) + \
-                        " kg, " + "{:.4G}".format(paylPercMassGain) + \
-              "% more payload!\n")
+        msg = 'Final rocket "payload":\n' + \
+              '{}: {:.4E} kg.\n'.format(currSolLabl,mPaySol) + \
+              '{}: {:.4E} kg.\n'.format(altSolLabl, mPayAlt) + \
+              'Difference: {:.4E} kg, '.format(paylMassGain) + \
+              '{:.4G}% more payload!\n'.format(paylPercMassGain)
+        self.log.printL(msg)
 
     def rockin(self,opt=None):
         """ Integrate rocket kinematics.

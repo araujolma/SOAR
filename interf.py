@@ -12,19 +12,28 @@ from utils import getNowStr
 class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,mode='both'):
+    def __init__(self,probName,runName='',makeDir=True,mode='both'):
         # Mode ('both', 'file' or 'screen') sets the target output
         self.mode = mode
-        # Results folder for this run
-        self.folderName = probName + '_' + getNowStr()
-        # Create the folder
-        os.makedirs(self.folderName)
 
-        try:
-            self.fhand = open(self.folderName + os.sep + 'log.txt','w+')
-        except:
-            print("Sorry, could not open/create the file!")
-            raise
+        if makeDir:
+            # Results folder for this run
+            if len(runName)>0:
+                self.folderName = probName + '_' + runName + '_' + getNowStr()
+            else:
+                self.folderName = probName + '_' + getNowStr()
+            # Create the folder
+            os.makedirs(self.folderName)
+
+            try:
+                self.fhand = open(self.folderName + os.sep + 'log.txt', 'w+')
+            except:
+                print("Sorry, could not open/create the file!")
+                raise
+        else:
+            self.mode = 'screen'
+            self.folderName = os.getcwd()
+
 
     def printL(self,msg,mode=''):
         if mode in '':
@@ -63,7 +72,7 @@ class ITman:
     bscImpStr = "\n >> "
     dashStr = '\n'+'-'*88
 
-    def __init__(self,confFile='',probName='prob'):
+    def __init__(self,confFile='',probName='prob',isInteractive=False):
         # TODO: these parameters should go to an external file!
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
@@ -72,7 +81,7 @@ class ITman:
         self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.GRplotSolRate = 1
+        self.GRplotSolRate = 10
         self.GRsaveSolRate = 50
         self.GRpausRate = 3000#1000#10
         self.GradHistShowRate = 10
@@ -83,8 +92,12 @@ class ITman:
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
 
-        # Create directory for logs and stuff
-        self.log = logger(probName)
+        if isInteractive:
+            self.log = logger(probName,runName='interactive',makeDir=False)
+        else:
+            # Create directory for logs and stuff
+            self.log = logger(probName)
+
         self.overrideParallel()
 
     def overrideParallel(self):
@@ -477,7 +490,7 @@ class ITman:
         while sol.P > sol.tol['P']:
             sol.rest(parallelOpt=self.parallelOpt)
             contRest += 1
-            sol.plotSol()
+            #sol.plotSol()
             #input("\nOne more restoration complete.")
         #
 
@@ -706,7 +719,9 @@ class ITman:
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
                 #self.prntDashStr()
-                self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
+                name = self.log.folderName + os.sep + \
+                       'sol-{}gradIts.pkl'.format(sol.NIterGrad)
+                self.saveSol(sol,name)
 
             if self.plotSolGradCond(sol):
                 #self.prntDashStr()
@@ -727,7 +742,7 @@ class ITman:
             if self.gradRestPausCond(sol):
                 print("\a")
                 self.prntDashStr()
-                self.log.printL(datetime.datetime.now())
+                self.log.printL(str(datetime.datetime.now()))
                 msg = "\nAfter " + str(sol.NIterGrad) + \
                       " gradient iterations,\n" + \
                       "Grad-Rest cycle pause condition has been reached.\n" + \
