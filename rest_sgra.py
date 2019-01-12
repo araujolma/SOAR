@@ -229,81 +229,68 @@ def calcP(self,mustPlotPint=False):
 
     return P,Pint,Ppsi
 
-def calcStepRest(self,corr):
-    self.log.printL("\nIn calcStepRest.\n")
+def getPvalue(self,step,corr,mustPlotPint=False):
+    """Abbreviation function for testing step values."""
 
     newSol = self.copy()
-    newSol.aplyCorr(1.0,corr)
-    P1,_,_ = newSol.calcP()
+    newSol.aplyCorr(step,corr)
+    P,_,_ = newSol.calcP(mustPlotPint=mustPlotPint)
+    return P
+
+def calcStepRest(self,corr):
+    """Calculate the restoration step (referred to as  "alfa" or "alpha").
+
+    The idea is to search for a value that minimizes the value of the P
+    functional, so that P < tolP. It may be possible to meet that
+    condition with a single restoration, if not, sequential restorations
+    will be performed. """
+    self.log.printL("\nIn calcStepRest.\n")
+    plotPint = False
+
+    # Get P value for "full restoration"
+    P1 = getPvalue(self,1.0,corr,mustPlotPint=plotPint)
 
     # if applying alfa = 1.0 already meets the tolerance requirements,
     # why waste time decreasing alfa?
     if P1 < self.tol['P']:
+        self.log.printL("Leaving rest with alfa = 1.")
+        self.log.printL("Delta pi = " + str(corr['pi']))
         return 1.0
 
-    #P0,_,_ = calcP(self)
+    # Avoid a new P calculation by loading P value from the sol object
     P0 = self.P
+    # Multiplicative factor for reducing the step
     dalfa = 0.9
-    newSol = self.copy()
-    newSol.aplyCorr(dalfa,corr)
-    P1m,_,_ = newSol.calcP()
+
+    # Check P value for alfa near 1
+    P1m = getPvalue(self,dalfa,corr,mustPlotPint=plotPint)
 
     if P1 >= P1m or P1 >= P0:
         self.log.printL("\nalfa = 1.0 is too much.")
         # alfa = 1.0 is too much. Reduce alfa.
         nP = P1m; alfa = dalfa#1.0
         cont = 0; keepSearch = (nP>P0)
+        # Lowering
+        dalfa = 0.5
         while keepSearch and alfa > 1.0e-15:
             cont += 1
             P = nP
             alfa *= dalfa
-            newSol = self.copy()
-            newSol.aplyCorr(alfa,corr)
-            nP,_,_ = newSol.calcP()
-            if P < P0:
+            nP = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
+            if nP < P0:
                 keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
         if cont>0:
             alfa /= dalfa
+
+        self.log.printL("Leaving rest with alfa = " + str(alfa))
+        self.log.printL("Delta pi = " + str(alfa * corr['pi']))
+        return alfa
     else:
         # no "overdrive!"
         self.log.printL("Leaving rest with alfa = 1.")
         self.log.printL("Delta pi = "+str(corr['pi']))
         return 1.0
-
-
-        # with "overdrive":
-        newSol = self.copy()
-        newSol.aplyCorr(1.2,corr)
-        P1M,_,_ = newSol.calcP()
-
-
-        if P1 <= P1M:
-            # alfa = 1.0 is likely to be best value.
-            # Better not to waste time and return 1.0
-            return 1.0
-        else:
-            # There is still a descending gradient here. Increase alfa!
-            nP = P1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            alfa = 1.2
-            while keepSearch:
-                cont += 1
-                P = nP
-                alfa *= 1.2
-                newSol = self.copy()
-                newSol.aplyCorr(alfa,corr)
-                nP,_,_ = newSol.calcP()
-                self.log.printL("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                      " (P0 = {:.4E})".format(P0))
-                keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
-                #if nPint < Pint0:
-            alfa /= 1.2
-        #
     #
-
-    self.log.printL("Leaving rest with alfa = "+str(alfa))
-    self.log.printL("Delta pi = "+str(alfa*corr['pi']))
-    return alfa
 
 
 def rest(self,parallelOpt={}):
