@@ -240,10 +240,11 @@ def getPvalue(self,step,corr,mustPlotPint=False):
 def calcStepRest(self,corr):
     """Calculate the restoration step (referred to as  "alfa" or "alpha").
 
-    The idea is to search for a value that minimizes the value of the P
-    functional, so that P < tolP. It may be possible to meet that
+    The idea is to search for a value that reduces the value of the P
+    functional, so that eventually P < tolP. It may be possible to meet that
     condition with a single restoration, if not, sequential restorations
     will be performed. """
+
     self.log.printL("\nIn calcStepRest.\n")
     plotPint = False
 
@@ -253,43 +254,77 @@ def calcStepRest(self,corr):
     # if applying alfa = 1.0 already meets the tolerance requirements,
     # why waste time decreasing alfa?
     if P1 < self.tol['P']:
-        self.log.printL("Leaving rest with alfa = 1.")
-        self.log.printL("Delta pi = " + str(corr['pi']))
+        msg = "Unitary step already satisfies tolerances.\n" + \
+              "Leaving rest with alfa = 1.\nDelta pi = " + str(corr['pi'])
+        self.log.printL(msg)
         return 1.0
 
     # Avoid a new P calculation by loading P value from the sol object
     P0 = self.P
-    # Multiplicative factor for reducing the step
-    dalfa = 0.9
 
-    # Check P value for alfa near 1
-    P1m = getPvalue(self,dalfa,corr,mustPlotPint=plotPint)
-
-    if P1 >= P1m or P1 >= P0:
-        self.log.printL("\nalfa = 1.0 is too much.")
-        # alfa = 1.0 is too much. Reduce alfa.
-        nP = P1m; alfa = dalfa#1.0
-        cont = 0; keepSearch = (nP>P0)
-        # Lowering
-        dalfa = 0.5
-        while keepSearch and alfa > 1.0e-15:
-            cont += 1
-            P = nP
-            alfa *= dalfa
-            nP = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
-            if nP < P0:
-                keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
-        if cont>0:
-            alfa /= dalfa
-
-        self.log.printL("Leaving rest with alfa = " + str(alfa))
-        self.log.printL("Delta pi = " + str(alfa * corr['pi']))
-        return alfa
-    else:
-        # no "overdrive!"
-        self.log.printL("Leaving rest with alfa = 1.")
-        self.log.printL("Delta pi = "+str(corr['pi']))
+    # If alfa = 1 already lowers the P value and gradient seems
+    # unfavorable, it is best to stop here and return alfa = 1.
+    if P1 < P0:
+        msg = "Unitary step lowers P.\n" + \
+              "Leaving rest with alfa = 1.\nDelta pi = " + str(corr['pi'])
+        self.log.printL(msg)
         return 1.0
+
+    # Beginning actual search: get the maximum value of alfa so that P<=P0
+    self.log.printL("\nSearching for proper step...")
+    # Perform a simple bisection monitoring the "error" P-P0:
+    # alfaLow is maximum step so that P<=P0,
+    # alfaHigh is minimum step so that P>=P0,
+    alfaLow, alfa, alfaHigh = 0., 0.5,  1.
+
+    # Stop conditions on "error" (1% of P0) and step variation (also 1%)
+    #while abs(P-P0) > tolSrch and (alfaHigh-alfaLow) > 1e-2 * alfa:
+
+    # Stop condition on step variation (1%)
+    while (alfaHigh - alfaLow) > 1e-2 * alfa:
+        # Try P in the middle
+        alfa = .5 * (alfaLow + alfaHigh)
+        P = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
+        if P < P0:
+            # Negative error: go forward
+            alfaLow = alfa
+        else:
+            # Positive error: go backwards
+            alfaHigh = alfa
+    # Get a step so that P<P0, just to be sure
+    alfa = alfaLow
+    msg =  "\nLeaving rest with alfa = {:.4E}".format(alfa) + \
+           "\nDelta pi = " + str(alfa * corr['pi'])
+    self.log.printL(msg)
+    return alfa
+
+    # Manual input of step
+    # alfa = 1.
+    # promptMsg = "Please enter new value of step to be used, or hit " + \
+    #             "'enter' to finish:\n>> "
+    # while True:
+    #     inp = input(promptMsg)
+    #
+    #     if inp == '':
+    #         break
+    #
+    #     try:
+    #         alfa = float(inp)
+    #         P = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
+    #         msg = "alfa = {:.4E}, P = {:.4E}, P0 = {:.4E}, tolP = {:.1E}\n".format(alfa,P,P0,self.tol['P'])
+    #         self.log.printL(msg)
+    #
+    #     except KeyboardInterrupt:
+    #         self.log.printL("Okay then.")
+    #         raise
+    #     except:
+    #         msg = "\nSorry, could not cast '{}' to float.\n".format(inp)
+    #         self.log.printL(msg)
+    #
+    # self.log.printL("Leaving rest with alfa = " + str(alfa))
+    # self.log.printL("Delta pi = " + str(alfa * corr['pi']))
+    # return alfa
+
     #
 
 

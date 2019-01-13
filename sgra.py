@@ -276,6 +276,8 @@ class sgra:
                             '!')
             try:
                 plt.savefig(fileName, bbox_inches='tight', pad_inches=0.1)
+            except KeyboardInterrupt:
+                raise
             except:
                 self.log.printL("Sorry, pdf saving failed... " + \
                                 "Are you using Windows?\n" + \
