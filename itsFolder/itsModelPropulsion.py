@@ -116,14 +116,16 @@ class modelPropulsion():
 class modelPropulsionHetSimple():
 
     def __init__(self, p1: object, p2: object, tf: float,
-                 v1: float, v2: float):
+                 v1: float, v2: float, margin: float):
 
+        self.margin = margin
         # Improvements for heterogeneous rocket
         self.fail = False
         # Total list of specific impulse
-        self.Isplist = p1.Isplist + [1.0] + p2.Isplist
+        self.Isplist = p1.Isplist + p2.Isplist + p2.Isplist
         # Total list of Thrust
-        self.Tlist = p1.Tlist + [0.0] + p2.Tlist
+        auxT = p1.Tlist + p2.Tlist + p2.Tlist
+        self.Tlist = [x/(1 - margin) for x in auxT]
         # Total list of final t
         t2 = tf - p2.tb[-1]
         self.t2 = t2
@@ -135,9 +137,10 @@ class modelPropulsionHetSimple():
         self.vlist = []
         for T in self.Tlist:
             if T > 0.0:
-                self.vlist.append(v1)
+                self.vlist.append(1 - self.margin)
             else:
-                self.vlist.append(v2)
+                self.vlist.append(self.margin)
+        self.vlist[-2] = self.margin
         # number of archs
         self.N = len(self.tflist)
         # List of events for the first propulsive part
@@ -165,7 +168,7 @@ class modelPropulsionHetSimple():
     def value(self, t: float)-> float:
         ii = self.getIndex(t)
         if ii == self.N:
-            ans = 0.0
+            ans = self.margin
         else:
             ans = self.vlist[ii]
 
@@ -174,7 +177,7 @@ class modelPropulsionHetSimple():
     def mdlDer(self, t: float)-> tuple:
         ii = self.getIndex(t)
         if ii == self.N:
-            ans = 0.0, 1.0, 0.0
+            ans = self.margin, 1.0, 0.0
         else:
             ans = self.vlist[ii], self.Isplist[ii], self.Tlist[ii]
 

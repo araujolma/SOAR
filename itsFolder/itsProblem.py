@@ -289,6 +289,12 @@ class problemConfiguration():
         else:
             self.con['fracVel'] = 0.7
 
+        name = 'margin'
+        if self.config.has_option(section, name):
+            self.con[name] = self.config.getfloat(section, name)
+        else:
+            self.con[name] = 0.0
+
 
 class problemIteractions():
 
