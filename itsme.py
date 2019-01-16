@@ -24,6 +24,15 @@ from itsFolder.itsmeSimple import secondaryEstimate
 sys.path.append('/itsFolder')
 
 
+def zeroFun(x, problem1, Mu0):
+
+    problem1.con['Mu'] = x
+    solution2 = problem1.solveForFineTune()
+    error = solution2.basic.traj.xx[-1][-1] - Mu0
+
+    return error
+
+
 def its(*arg):
 
     # arguments analisys
@@ -46,11 +55,11 @@ def its(*arg):
     solution1.displayResults()
 
     solution2 = problem1.solveForFineTune()
-
     solution2.displayResults()
 
     if not solution2.converged():
             print('itsme saying: solution has not converged :(')
+            print('Case: ', fname)
 
     return solution2
 
@@ -87,16 +96,23 @@ def itsTester():
     print(testList)
 
     for case in testList:
-        if not its(folder + '/' + case).converged():
-            print(case)
-            raise Exception('itsme saying: solution did not converge')
+        try:
+            its(folder + '/' + case)
 
-    con = initialize(folder + '/caseEarthRotating.its').result()
-    problem(con, model).solveForFineTune()
-    con = initialize(folder + '/caseMoon.its').result()
-    problem(con, model).solveForFineTune()
-    con = initialize(folder + '/caseMu150h500NStag4.its').result()
-    problem(con, model).solveForFineTune()
+        except:
+            print('Fail case: ', case)
+
+    testList2 = ['/caseEarthRotating.its',
+                 '/caseMoon.its',
+                 '/caseMu150h500NStag4.its']
+
+    for case in testList2:
+        try:
+            con = initialize(folder + case).result()
+            problem(con, model).solveForFineTune()
+
+        except:
+            print('Fail case: ', case)
 
     #sgra('teste.its')
 
