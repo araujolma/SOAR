@@ -159,7 +159,7 @@ class initialize():
             # the secondary estimate is so good that the guess bellow has been
             # effective
             guess = numpy.array([1, 1, 1])
-            limit = numpy.array([1, 1, 1])/2
+            limit = numpy.array([1, 1, 1])*0.9
 
             con['guess'] = guess
             con['fsup'] = guess + limit
@@ -190,7 +190,7 @@ class initialize():
             # the secondary estimate is so good that the guess bellow has been
             # effective
             guess = numpy.array([1, 1, 1])
-            limit = numpy.array([1, 1, 1])/2
+            limit = numpy.array([1, 1, 1])*0.9
 
             con['guess'] = guess
             con['fsup'] = guess + limit
@@ -259,6 +259,7 @@ class problemConfigurationSGRA(problemConfiguration):
             else:
                 PiHigh.append(float(nStr))
         self.con['pi_max'] = PiHigh#numpy.array(PiHigh)
+
 
 class initializeSGRA(initialize):
 

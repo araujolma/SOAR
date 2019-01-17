@@ -61,6 +61,7 @@ class problem():
 
         if not solution1.converged():
             print('itsme saying: solution has not converged :(')
+            print('Case: ', self.con['itsFile'])
 
         return solution1
 
@@ -194,7 +195,7 @@ class problem():
               % (self.finf[0], self.finf[1], self.finf[2]))
         print("\n#################################" +
               "######################################")
-        print("itsme")
+        print("itsme, case: "+self.con['itsFile'])
 
 
 class problemConfiguration():

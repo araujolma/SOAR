@@ -16,10 +16,10 @@ NStag = 1
 Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+efes = .1
 #
 # Thrust [kN]
-T = 40.0
+T = 75.0
 #
 # softness of the transions of propulsive curve
 softness = 0.5
@@ -65,10 +65,10 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 2.0
+AoAmax = 3.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 3.0
 #
 # Duration of attitude maneuver [°]
 tAoA = 5.0
@@ -88,8 +88,10 @@ we = 0.0
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1.0, 1.0, 1.0
+guess = 1, 1, 1
 #
-limit = 1.0, 1.0, 1.0
+limit = 1, 1, 1
 #
-tol = 1e-7
+tol = 1e-8
+#
+margin = 0.01

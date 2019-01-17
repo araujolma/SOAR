@@ -92,6 +92,6 @@ guess = 1, 1, 1
 #
 limit = 1, 1, 1
 #
-tol = 1e-6
+tol = 1e-8
 #
-margin = 0.001
+margin = 0.01
