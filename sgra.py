@@ -270,7 +270,7 @@ class sgra:
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            now = '_' + getNowStr()
+            now = ''#'_' + getNowStr()
             fileName = self.log.folderName + os.sep + keyName + now + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
@@ -522,7 +522,7 @@ class sgra:
                 self.savefig(keyName='eig',fullName='eigenvalues')
 
             # TODO: Use the 'self.save' dictionary here as well...
-            if self.NIterGrad % 10 == 0:
+            if self.NIterGrad % 20 == 0:
                 self.plotSol(opt={'mode':'lambda'})
                 self.plotSol(opt={'mode':'lambda'},piIsTime=False)
 
@@ -543,7 +543,7 @@ class sgra:
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
             # TODO: Use the 'self.save' dictionary here as well...
 
-            if self.NIterGrad % 10 == 0:
+            if self.NIterGrad % 20 == 0:
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)

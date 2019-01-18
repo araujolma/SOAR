@@ -8,7 +8,6 @@ Created on Tue Jun 27 14:19:46 2017
 
 import datetime, time, sys, os
 from interf import ITman
-import matplotlib.pyplot as plt
 
 #%%
 

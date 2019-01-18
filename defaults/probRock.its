@@ -104,7 +104,7 @@ PFtol = 1.0e-2
 [sgra] # Internal SGRA parameters
 #
 # Tolerance for P functional
-tolP = 1e-12
+tolP = 1e-15
 #
 # Tolerance for Q functional
 tolQ = 1e-4

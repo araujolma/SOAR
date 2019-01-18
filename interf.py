@@ -81,14 +81,14 @@ class ITman:
         self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.GRplotSolRate = 10
-        self.GRsaveSolRate = 50
-        self.GRpausRate = 3000#1000#10
-        self.GradHistShowRate = 10
-        self.RestPlotSolRate = 10
-        self.RestHistShowRate = 10
-        self.ShowEigRate = 50
-        self.ShowGRrateRate = 10
+        self.GRplotSolRate = 20#1#
+        self.GRsaveSolRate = 100
+        self.GRpausRate = 10000#1000#10
+        self.GradHistShowRate = 20
+        self.RestPlotSolRate = 20
+        self.RestHistShowRate = 20
+        self.ShowEigRate = 100
+        self.ShowGRrateRate = 20
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
 
@@ -447,7 +447,7 @@ class ITman:
         sol.dbugOptGrad.setAll(opt={'pausGrad':flag,#True,#
                            'pausCalcQ':flag,
                            'prntCalcStepGrad':True,#flag,#
-                           'plotCalcStepGrad': flag,#True,#
+                           'plotCalcStepGrad': flag,#True,#flag,#
                            'manuInptStepGrad': flag,
                            'pausCalcStepGrad':flag,#True,#
                            'plotQx':flag,
@@ -594,6 +594,9 @@ class ITman:
 
 
             if sol.Q <= sol.tol['Q']:
+                # Run again calcQ, making sure the residuals are plotted.
+                # This is good for debugging eventual convergence errors
+                _,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 self.log.printL("\nTerminate program. Solution is sol_r.")
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.

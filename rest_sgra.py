@@ -262,8 +262,8 @@ def calcStepRest(self,corr):
     # Avoid a new P calculation by loading P value from the sol object
     P0 = self.P
 
-    # If alfa = 1 already lowers the P value and gradient seems
-    # unfavorable, it is best to stop here and return alfa = 1.
+    # If alfa = 1 already lowers the P value, it is best to stop here
+    # and return alfa = 1.
     if P1 < P0:
         msg = "Unitary step lowers P.\n" + \
               "Leaving rest with alfa = 1.\nDelta pi = " + str(corr['pi'])

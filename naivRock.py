@@ -106,9 +106,42 @@ def pole_place_controller(h,v,gama,M,pars):
     #return alfa, beta
     pass
 
-# TODO: 'objectify' this module. It would be great for development and
-#  testing if the trajectory guess could be generated in here as well,
-#  instead of having to run main.py every time.
+def calc_initial_rocket_mass(boundary,constants,log):
+    """Calculate the initial rocket mass for a given mission and given
+    engine parameters."""
+
+    # Isp in km/s
+    Isp_kmps = constants['Isp'][0] * constants['grav_e']
+    # Structural factor (structural inefficiency)
+    s_f = constants['s_f'][0]
+    # Maximum deliverable Dv
+    max_Dv = - Isp_kmps * numpy.log(s_f)
+    # Mission required Dv
+    Dv = boundary['mission_dv']
+    if Dv > max_Dv:
+        msg = 'naivRock: Sorry, unfeasible mission.\n'+ \
+              'Mission Dv-Maximum Dv = {:.3E} km/s'.format(Dv-max_Dv)
+        raise Exception(msg)
+    else:
+        msg = "\nMaximum Dv margin: {:.2G}%".format(100.*(max_Dv/Dv-1.))
+        log.printL(msg)
+        # Carry on with a Dv larger than strictly necessary (giving margin)
+        f = 0.99#.5#.933
+        print("f = ",f)
+        Dv = (1.-f) * Dv + f * max_Dv
+    L = numpy.exp(Dv / Isp_kmps)
+    print("L = ",L)
+    m0 = (1. + (L-1.) / (1. -  L * s_f) ) * constants['mPayl']
+    mu_rel = 100. * constants['mPayl'] / m0
+    mp_rel = (1. - s_f) * (100. - mu_rel)
+    me_rel = 100. - mu_rel - mp_rel
+    msg = 'Initial rocket mass: {:.1F} kg,\n'.format(m0) + \
+          ' propellant: {:.2G}%, '.format(mp_rel) + \
+          ' structure: {:.2G}%, '.format(me_rel) + \
+          ' payload: {:.2G}%'.format(mu_rel)
+    log.printL(msg)
+    return m0
+
 
 # TODO: make a module for loading parameters from .its file. Probably just
 #  loading some of itsme.py's methods does the trick.
@@ -134,6 +167,8 @@ def naivGues(extLog=None):
     q = (n+n-1) + n * (s-addArcs-1) + (n+1) * addArcs
 
     ones = numpy.ones(s)
+    # Payload mass:
+    mPayl = 10.
     constants = {'r_e': 6371.0,
                  'GM': 398600.4415,
                  'Thrust': 100. * ones,
@@ -147,21 +182,28 @@ def naivGues(extLog=None):
                  'DampCent': -30.,
                  'DampSlop': 10.,
                  'Kpf': 0.,
-                 'PFmode': 'tanh'}
+                 'PFmode': 'tanh',
+                 'mPayl': mPayl}
     constants['grav_e'] = constants['GM']/(constants['r_e']**2)
+    sol.mPayl = mPayl
 
     h_final = 473.
     V_final = numpy.sqrt(constants['GM']/(constants['r_e']+h_final))
     missDv = numpy.sqrt((constants['GM']/constants['r_e']) *
                         (2.0-1./(1.+h_final/constants['r_e'])))
+
+
     boundary = {'h_initial': 0.,#0.,
                 'V_initial': 1e-6,#.05,#
                 'gamma_initial': 90. * d2r,#5*numpy.pi,
-                'm_initial': 3000, # TODO: this has to be calculated in this module!
                 'h_final': h_final,
                 'V_final': V_final,
                 'gamma_final': 0.,
                 'mission_dv': missDv}
+
+    #m0 = calc_initial_rocket_mass(boundary, constants, sol.log)
+    m0 = 3000.
+    boundary['m_initial'] = m0
 
     alfa_max = 3. * numpy.pi / 180.
     restrictions = {'alpha_min': -alfa_max,
@@ -175,8 +217,8 @@ def naivGues(extLog=None):
     # 'TargHeig': TargHeig}
 
     sol.constants = constants
-    # Anything, really, it is just because there should be a mPayl attribute
-    sol.mPayl = 10.
+
+
     # This is necessary for calculating Psi at the end:
     sol.addArcs = addArcs
 
@@ -367,7 +409,15 @@ def naivGues(extLog=None):
         pi[arc] = td-tdArc
         tdArc = td + 0.
         sol.log.printL("  arc complete!")
-    sol.log.printL("... naive integrations are complete.")
+        st = x[k - 1, :, arc]
+        msg = '\nArc duration = {:.2F} s'.format(pi[arc]) + \
+              '\nStates at end of arc:\n' + \
+              '- height = {:.2F} km'.format(st[0]) + \
+              '\n- speed = {:.3F} km/s'.format(st[1]) + \
+              '\n- flight path angle = {:.1F} deg'.format(st[2] / d2r) + \
+              '\n- mass = {:.1F} kg'.format(st[3])
+        sol.log.printL(msg)
+    sol.log.printL("\n... naive integrations are complete.")
 
     # Load constants into sol object
     sol.N = int(max(finlElem))

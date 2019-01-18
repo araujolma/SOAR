@@ -737,8 +737,8 @@ class prob(sgra):
                     self.restrictions['M']
 
         # TODO: this should become a parameter in the .its file!
-        psiHigh = 0.5 * Tmax / M / g#1.1#0.25 * Tmax / M / g#.25 * Tmax / M / g #1.01#
-        psiLow = 0.#0.9#
+        psiHigh = 0.25 * Tmax / M / g
+        psiLow = 0.9#0.#
         msg = "\nThrust to weight ratios used:\n" + \
               '"Stopping" phase: {:.2F}\n'.format(psiHigh) + \
               '"Falling" phase: {:.2F}\n'.format(psiLow)

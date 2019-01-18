@@ -156,7 +156,7 @@ class prob(sgra):
 
         fx = numpy.zeros((N,n,s))
         fu = numpy.zeros((N,m,s))
-        fp = numpy.ones((N,p,s))
+        fp = numpy.zeros((N,p,s))
 
         #psiy = numpy.eye(q,2*n*s)
         psiy = numpy.zeros((q,2*n*s))
@@ -179,6 +179,8 @@ class prob(sgra):
             phiu[:,1,0,arc] = pi[arc] * (1.0 - tanh_u**2)
             phip[:,0,arc,arc] = x[:,1,arc]
             phip[:,1,arc,arc] = tanh_u
+
+            fp[:,arc,arc] = numpy.ones(N)
 #        DynMat = array([[0.0,1.0],[0.0,0.0]])
 #        for k in range(N):
 #            for arc in range(s):
