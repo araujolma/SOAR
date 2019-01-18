@@ -25,10 +25,63 @@ def stg1Error(x, efflist, Isplist, Tlist, Dv1, Dv2, con)-> float:
 
     return error
 
-def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
+
+def coastError(x, tf, Dv1, Dv2, efflist, Isplist, Tlist, con):
+
+        p20 = modelStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
+                                        [Tlist[-1]], Dv2, con['Mu'],
+                                        con['g0'], con['tol'])
+        p20.result()
+
+        p21 = modelStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
+                                        [Tlist[-1]], x, con['Mu'],
+                                        con['g0'], con['tol'])
+        # p2.bisec()
+        p21.result()
+        # p2.show()
+
+        p1 = modelStagingHeterogeneous(efflist[0:-1], Isplist[0:-1],
+                                       Tlist[0:-1], Dv1, p21.mtot[0],
+                                       con['g0'], con['tol'])
+        # p1.bisec()
+        p1.result()
+        # p1.show()
+        tcoast = (p21.mp[0] - p20.mp[0])/p21.mflux[0]
+        # print('tcoast = ', tcoast)
+        tf0 = p1.tf[-1] + tcoast + p20.tb[-1]
+        error = tf - tf0
+
+        return error
+
+
+def Dv2_MarginCorrection(tf, Dv1, Dv2, efflist, Isplist, Tlist, con):
+
+    x0 = Dv2
+    x1 = Dv2*1.5
+
+    e0 = coastError(x0, tf, Dv1, Dv2, efflist, Isplist, Tlist, con)
+    e1 = coastError(x1, tf, Dv1, Dv2, efflist, Isplist, Tlist, con)
+
+    ii = 0
+    while (abs(e1) > con['tol']) and (ii < 100):
+        de = e1 - e0
+        x0 = x1
+        if abs(de) > 0.0:
+            x1 = x1 - e1*(x1 - x0)/de
+        else:
+            x1 = x1*(1 + con['tol'])
+
+        e0 = coastError(x0, tf, Dv1, Dv2, efflist, Isplist, Tlist, con)
+        e1 = coastError(x1, tf, Dv1, Dv2, efflist, Isplist, Tlist, con)
+        ii += 1
+
+    return x1
+
+
+def stagingCalculate(tf, con, Dv1: float, Dv2: float)-> None:
 
     efflist = con['efflist']
-    Tlist = con['Tlist']
+    Tlist = [x*(1 - con['margin']) for x in con['Tlist']]
 
     if con['homogeneous']:
 
@@ -69,6 +122,10 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
         Isplist = con['Isplist']
         if con['NStag'] > 1:
 
+#            if con['margin'] > 0:
+#                Dv2 = Dv2_MarginCorrection(tf, Dv1, Dv2, efflist, Isplist,
+#                                           Tlist, con)
+
             p2 = modelStagingHeterogeneous([efflist[-1]], [Isplist[-1]],
                                            [Tlist[-1]], Dv2, con['Mu'],
                                            con['g0'], con['tol'])
@@ -81,6 +138,10 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
             # p1.bisec()
             p1.result()
             # p1.show()
+
+            t2 = (tf - p1.tf[-1])
+            n = con['margin']/(1 - con['margin'])
+            p2.tb = (p2.tb - n*t2)/(1 - n)
 
         elif con['NStag'] == 1:
 
@@ -107,6 +168,10 @@ def stagingCalculate(con, Dv1: float, Dv2: float)-> None:
                                            [Tlist[-1]], Dv1, p2.mtot[0],
                                            con['g0'], con['tol'])
             p1.result1st()
+
+            t2 = (tf - p1.tf[-1])
+            n = con['margin']/(1 - con['margin'])
+            p2.tb = (p2.tb - n*t2)/(1 - n)
 
         else:
             raise Exception('itsme saying: heterogeneous vehicle for'

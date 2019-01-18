@@ -145,7 +145,7 @@ class model():
 
         #######################################################################
         # Staging calculation
-        self.p1, self.p2 = stagingCalculate(self.con, Dv1, Dv2)
+        self.p1, self.p2 = stagingCalculate(tf, self.con, Dv1, Dv2)
 
         #######################################################################
         # Thrust program
@@ -153,7 +153,8 @@ class model():
             tabBeta = modelPropulsion(self.p1, self.p2, tf, 1.0, 0.0,
                                       con['softness'], con['Isp'], con['T'])
         else:
-            tabBeta = modelPropulsionHetSimple(self.p1, self.p2, tf, 1.0, 0.0)
+            tabBeta = modelPropulsionHetSimple(self.p1, self.p2, tf, 1.0, 0.0,
+                                               con['margin'])
         if tabBeta.fail:
             raise Exception('itsme saying: Softness too high!')
         self.tabBeta = tabBeta

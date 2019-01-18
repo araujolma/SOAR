@@ -61,6 +61,7 @@ class problem():
 
         if not solution1.converged():
             print('itsme saying: solution has not converged :(')
+            print('Case: ', self.con['itsFile'])
 
         return solution1
 
@@ -194,7 +195,7 @@ class problem():
               % (self.finf[0], self.finf[1], self.finf[2]))
         print("\n#################################" +
               "######################################")
-        print("itsme")
+        print("itsme, case: "+self.con['itsFile'])
 
 
 class problemConfiguration():
@@ -288,6 +289,12 @@ class problemConfiguration():
             self.con['fracVel'] = self.config.getfloat(section, 'fracVel')
         else:
             self.con['fracVel'] = 0.7
+
+        name = 'margin'
+        if self.config.has_option(section, name):
+            self.con[name] = self.config.getfloat(section, name)
+        else:
+            self.con[name] = 0.0
 
 
 class problemIteractions():
