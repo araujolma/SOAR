@@ -16,7 +16,7 @@ NStag = 1
 Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .1
+efes = .05
 #
 # Thrust [kN]
 T = 40.
@@ -26,13 +26,13 @@ softness = 0.5
 #
 # Aerodynamic coefficients
 #
-CL0 = 0.0
+CL0 = -0.02
 #
 # (B1 Miele 1998)
-CL1 = 0.8
+CL1 = 1.5
 #
 # (A0 Miele 1998)
-CD0 = 0.05
+CD0 = 0.03
 #
 # (A2 Miele 1998)
 CD2 = 0.5
@@ -153,3 +153,6 @@ guess = 1., 1., 1.
 limit = 1., 1., 1.
 #
 tol = 1e-6
+#
+margin = 0.04
+#
