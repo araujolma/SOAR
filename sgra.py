@@ -111,7 +111,8 @@ class sgra:
                      'histGradStep':True,
                      'traj':True,
                      'comp':True,
-                     'eig':True},
+                     'eig':True,
+                     'hamCheck':True},
                                 inpName='Plot saving options')
 
         # Parallelism options
@@ -556,3 +557,99 @@ class sgra:
         #
 
         return corr,lam,mu
+
+#%% Validation
+    def calcHam(self):
+        """Calculate Hamiltonian."""
+
+        # noinspection PyTupleAssignmentBalance
+        H,_,_ = self.calcF()
+        phi = self.calcPhi()
+
+        for arc in range(self.s):
+            for k in range(self.N):
+                H[k,arc] -= self.lam[k,:,arc].transpose().dot(phi[k,:,arc])
+
+        return H
+
+    def checkHamMin(self,mustPlot=False):
+        """Check Hamiltonian minimality conditions."""
+
+        # TODO: something
+        self.log.printL("\nChecking Hamiltonian conditions.")
+        H0 = self.calcHam()
+
+        warnMsg = "\nHAMILTONIAN CHECK FAILED!\n"
+        testFail = False
+
+        if mustPlot:
+            colorList = ['k','b','r', 'g','y','m','c']; c = 0
+            nc = len(colorList)
+
+        # For each control, check for the effect of small variations on H
+        delta = 0.01
+        for j in range(self.m):
+            # get a dummy copy of solution for applying variations
+            dummySol = self.copy()
+
+            # apply positive increment
+            dummySol.u[:,j,:] += delta
+            DHp = dummySol.calcHam() - H0
+            argMinDHp = numpy.argmin(DHp)
+            indMinDHp = numpy.unravel_index(argMinDHp,(self.N,self.s))
+            minDHp = DHp[indMinDHp]
+            msg = "Positive increment on control #{}:".format(j)
+            if minDHp>0.:
+                msg += " min H-H0 = {:.1E} > 0.".format(minDHp)
+            else:
+                msg += " min H-H0 = {:.1E} < 0 !".format(minDHp)
+                msg += warnMsg
+                testFail = True
+
+            self.log.printL(msg)
+            if mustPlot:
+                labl = 'DH(u'+str(j)+'+)'
+
+                # noinspection PyUnboundLocalVariable
+                self.plotCat(DHp, labl=labl, color=colorList[c%nc],
+                             piIsTime=False)
+                c+=1
+
+            # apply negative increment
+            dummySol.u[:, j, :] += -2. * delta
+            DHm = dummySol.calcHam() - H0
+            argMinDHm = numpy.argmin(DHm)
+            indMinDHm = numpy.unravel_index(argMinDHm, (self.N, self.s))
+            minDHm = DHm[indMinDHm]
+            msg = "Negative increment on control #{}:".format(j)
+            if minDHm > 0.:
+                msg += " min H-H0 = {:.1E} > 0.".format(minDHm)
+            else:
+                msg += " min H-H0 = {:.1E} < 0 !".format(minDHm)
+                msg += warnMsg
+                testFail = True
+
+            self.log.printL(msg)
+            if mustPlot:
+                labl = 'DH(u' + str(j) + '-)'
+                # noinspection PyUnboundLocalVariable
+                self.plotCat(DHm, labl=labl, color=colorList[c%nc],
+                             piIsTime=False)
+                c+=1
+
+        if testFail:
+           self.log.printL("\nSome test has failed. "
+                           "Solution is not truly optimal...")
+        else:
+            self.log.printL("\nAll tests passed.")
+
+        if mustPlot:
+            plt.xlabel("Non-dim. time [-]")
+            plt.grid(True)
+            plt.legend()
+            plt.title("Hamiltonian variations")
+            self.savefig(keyName='hamCheck',fullName='Hamiltonian check')
+
+
+
+        # TODO: add tests for pi conditions as well!

@@ -488,6 +488,6 @@ if __name__ == "__main__":
     #
 
     sol.showHistP()
-    #sol.checkHamMin()
+    sol.checkHamMin()
     sol.log.printL("\nnaivRock.py execution finished. Bye!\n")
     sol.log.close()

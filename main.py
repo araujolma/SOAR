@@ -9,13 +9,9 @@ Created on Tue Jun 27 14:19:46 2017
 import datetime, time, sys, os
 from interf import ITman
 
-#%%
-
-# ##################
-# MAIN SEGMENT:
-# ##################
 if __name__ == "__main__":
-    print("-"*66)
+    line = "#" * 66
+    print(line)
     print('\nRunning main.py with arguments:')
     print(sys.argv)
     print(datetime.datetime.now())
@@ -64,8 +60,8 @@ if __name__ == "__main__":
             confFile = 'defaults'+ os.sep + 'prob10_2.its'
         else:
             if 'rock' not in probName:
-                print("\nSorry, I didn't understand the problem instance:" + \
-                      '   "' + probName + '"...\n' + \
+                print("\nSorry, I didn't understand the problem " + \
+                      "instance:" + '   "' + probName + '"...\n' + \
                       "I will carry on with probRock, ok?\n")
             import probRock as prob
             confFile = 'defaults'+ os.sep + 'probRock.its'
@@ -82,46 +78,37 @@ if __name__ == "__main__":
     try:
         # Greet the user, confirm basic settings
         ITman.greet()
-        #input("main: Done greeting. I will set init sol now.\n")
         start_time = time.time()
         # Set initial solution
         sol,solInit = ITman.setInitSol(sol)
         # Perform the first restoration rounds
-        #input("main: Done setting init sol. I will restore sol now.\n")
         sol = ITman.frstRestRnds(sol)
         # Proceed to the gradient-restoration cycles
-        #input("main: Done with first restorations. I will go to GR cycle now.\n")
         sol = ITman.gradRestCycl(sol,solInit)
-        # Final restorations
-        # TODO: NECESSÁRIO?
-        #input("main: Done with GR cycle. I will go to final restorations now.\n")
-        sol,_ = ITman.restRnds(sol)
 
         # Display final messages, show solution and convergence reports
-        line = "#"*66
-        ITman.log.printL("\n\n")
-        ITman.log.printL(line)
-        ITman.log.printL("                      OPTIMIZATION FINISHED!                      ")
-        ITman.log.printL(line)
-        ITman.saveSol(sol,ITman.log.folderName+'/currSol.pkl')
-        sol.showHistP()
-
-        sol.showHistQ()
-        sol.showHistI()
+        msg = "\n\n\n" + line + '\n' + (' '*22) + \
+              "OPTIMIZATION FINISHED!" + (' '*22) + '\n' + line
+        ITman.log.printL(msg)
+        # Save solution to disk
+        ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
+        # Show all convergence histories
+        sol.showHistP(); sol.showHistQ(); sol.showHistI()
         sol.showHistGradStep()
 
-        ITman.log.printL("\n\n")
-        ITman.log.printL(line)
-        ITman.log.printL("                   THIS IS THE FINAL SOLUTION:                    ")
-        ITman.log.printL(line)
+        msg = "\n\n\n" + line + '\n' + (' '*19) + \
+              "THIS IS THE FINAL SOLUTION:" + (' '*19) + '\n' + line
+        ITman.log.printL(msg)
 
-        sol.plotSol()
+        # Show solution, compare it with initial guess, show trajectory
+        sol.plotSol(); sol.compWith(solInit); sol.plotTraj()
 
         ITman.log.printL("\n"+line)
-        ITman.log.printL("=== First Guess + MSGRA execution: %s seconds ===\n" % \
-              (time.time() - start_time))
+        msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % \
+              (time.time() - start_time)
+        ITman.log.printL(msg)
 
-        # TODO: [debug] retirar isso
+        # This does not add that much information, but...
         ITman.log.printL("\nHistQ: "+str(sol.histQ[:(sol.NIterGrad+1)]))
         ITman.log.printL("\nHistI: "+str(sol.histI[:(sol.NIterGrad+1)]))
 
@@ -130,7 +117,11 @@ if __name__ == "__main__":
             print("\a")
             time.sleep(.1)
 
-    # Manage the exceptions. Basically, the logger must be safely shut down.
+        # Check Hamiltonian conditions (just to be sure)
+        sol.checkHamMin(mustPlot=True)
+
+    # Manage the exceptions.
+    # Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
         ITman.log.printL("\n\n\nUser has stopped the program.")
         raise

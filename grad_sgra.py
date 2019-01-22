@@ -196,8 +196,8 @@ class stepMngr:
                          " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
                          " J = {:.7E}".format(J) + \
                          " CorrObj = {:.7E}\n ".format(Obj) + \
-                         " J reduction eff. = {:.1F}%,".format(JredEff) + \
-                         " I reduction eff. = {:.1F}%".format(IredEff)
+                         " J reduction eff. = {:.1F}%,".format(JrelRed) + \
+                         " I reduction eff. = {:.1F}%".format(JrelRed)
         #
 
         if self.mustPrnt:
