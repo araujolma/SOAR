@@ -255,23 +255,6 @@ class prob(sgra):
 
             t_its, x_its, u_its, tabAlpha, tabBeta, inputDict, tphases, \
             mass0, massJet = itsme.sgra(inpFile)
-
-
-            # for stt in range(4):
-            #     plt.plot(t_its,x_its[:,stt])
-            #     plt.grid(True)
-            #     plt.show()
-            #
-            # print(tabBeta.value(520.))
-            # print(tabBeta.value(530.))
-            # print(tabBeta.value(540.))
-            # print(tabBeta.value(550.))
-            #
-            # for ctrl in range(2):
-            #     plt.plot(t_its, u_its[:, ctrl])
-            #     plt.grid(True)
-            #     plt.show()
-
             # 'inputDict' corresponds to the 'con' dictionary from itsme.
 
             self.log.printL("\nITSME was run sucessfully, " + \
@@ -367,11 +350,13 @@ class prob(sgra):
                              'TargHeig': TargHeig}
 
             # restrictions
-            alpha_max = inputDict['AoAmax'] * d2r  # in rads
+            ones = numpy.ones(s)
+            alpha_max = inputDict['AoAmax'] * d2r * ones  # in rads
             alpha_min = -alpha_max                 # in rads
             self.restrictions = {'alpha_min': alpha_min,
                                  'alpha_max': alpha_max,
-                                 'beta_min': 0.0, 'beta_max': 1.0,
+                                 'beta_min': 0.0 * ones,
+                                 'beta_max': ones,
                                  'acc_max': acc_max}
 
             # Load remaining parameters:
@@ -500,11 +485,12 @@ class prob(sgra):
         mu = numpy.zeros(self.q)
 
         # Bypass
-        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0
-        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0
+        ones = numpy.ones(self.s)
+        self.restrictions['alpha_min'] = -3.0*numpy.pi/180.0 * ones
+        self.restrictions['alpha_max'] = 3.0*numpy.pi/180.0 * ones
 #        ThrustFactor = 2.0#500.0/40.0
 #        self.constants['Thrust'] *= ThrustFactor
-#        # Re-calculate the Kpf, since it scales with the Thrust...
+#        # Re-calculate the Kpf, since it scales with Thrust...
 #        #self.constants['Kpf'] *= ThrustFactor
 #        u[:,1,:] *= 1.0/ThrustFactor
 
@@ -566,18 +552,27 @@ class prob(sgra):
         alpha_max = restrictions['alpha_max']
         beta_min = restrictions['beta_min']
         beta_max = restrictions['beta_max']
-        if ext_u is None:
-            alfa = .5*((alpha_max + alpha_min) +
-                       (alpha_max - alpha_min)*numpy.tanh(self.u[:,0,:]))
-            beta = .5*((beta_max + beta_min) +
-                       (beta_max - beta_min)*numpy.tanh(self.u[:,1,:]))
-        else:
-            alfa = .5*((alpha_max + alpha_min) +
-                       (alpha_max - alpha_min)*numpy.tanh(ext_u[:,0,:]))
-            beta = .5*((beta_max + beta_min) +
-                       (beta_max - beta_min)*numpy.tanh(ext_u[:,1,:]))
+        alfa = numpy.empty((self.N,self.s))
+        beta = numpy.empty((self.N,self.s))
 
-        return alfa,beta
+        if ext_u is None:
+            for arc in range(self.s):
+                alfa[:,arc] = .5*((alpha_max[arc] + alpha_min[arc]) +
+                                  (alpha_max[arc] - alpha_min[arc]) *
+                                  numpy.tanh(self.u[:,0,arc]))
+                beta[:,arc] = .5*((beta_max[arc] + beta_min[arc]) +
+                           (beta_max[arc] - beta_min[arc]) *
+                           numpy.tanh(self.u[:,1,arc]))
+        else:
+            for arc in range(self.s):
+                alfa[:,arc] = .5*((alpha_max[arc] + alpha_min[arc]) +
+                                  (alpha_max[arc] - alpha_min[arc]) *
+                                  numpy.tanh(ext_u[:,0,arc]))
+                beta[:,arc] = .5*((beta_max[arc] + beta_min[arc]) +
+                                  (beta_max[arc] - beta_min[arc]) *
+                                  numpy.tanh(ext_u[:,1,arc]))
+
+        return alfa, beta
 
     def calcAdimCtrl(self,alfa,beta):
         """Calculate adimensional control 'u' based on external arrays for
@@ -597,11 +592,12 @@ class prob(sgra):
         b1 = .5*(beta_max + beta_min)
         b2 = .5*(beta_max - beta_min)
 
-        alfa -= a1
-        alfa *= 1.0/a2
+        for arc in range(self.s):
+            alfa[:,arc] -= a1[arc]
+            alfa[:,arc] *= 1.0/a2[arc]
 
-        beta -= b1
-        beta *= 1.0/b2
+            beta[:,arc] -= b1[arc]
+            beta[:,arc] *= 1.0/b2[arc]
 
         u[:,0,:] = alfa.copy()
         u[:,1,:] = beta.copy()
@@ -1298,11 +1294,13 @@ class prob(sgra):
         msg += "\nEngine specific impulse [s]: "+str(self.constants['Isp'])
         msg += "\nStructural factors [-]: "+str(self.constants['s_f'])
         r2d = 180./numpy.pi
-        msg += "\nAngle of attack bounds: alpha_min = "
-        msg += "{:.1F}".format(r2d*self.restrictions['alpha_min'])
-        msg += " deg, alpha_max ="
-        msg += " {:.1F} deg".format(r2d*self.restrictions['alpha_max'])
-        msg += "\nTangential acc. bound [m/s²]: "
+        msg += "\nAngle of attack bounds: alpha_min = ["
+        for arc in range(self.s):
+            msg += " {:.1F}, ".format(r2d*self.restrictions['alpha_min'][arc])
+        msg += "] deg,\n" + (' '*24) + "alpha_max = ["
+        for arc in range(self.s):
+            msg += " {:.1F},".format(r2d*self.restrictions['alpha_max'][arc])
+        msg += "] deg,\nTangential acc. bound [m/s²]: "
         msg += "{:.1F}\n".format(self.restrictions['acc_max']*1000.)
         msg += '-'*88
         self.log.printL(msg)

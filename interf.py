@@ -652,7 +652,9 @@ class ITman:
                           "  dI = {:.6E}".format(sol_new.I-I_base) + \
                           ", P = {:.4E}".format(sol_new.P) + \
                           "\nVariation in I: " + \
-                            str(100.0*(sol_new.I/I_base-1.0)) + "%"
+                            str(100.0*(sol_new.I/I_base-1.0)) + "%" + \
+                          '\nRelative reduction of I (w.r.t. theoretical dI/dStep): ' + \
+                          str(100.0 * ((sol_new.I-I_base)/alfa/(-sol.Q))) + "%"
                     self.log.printL(msg)
 
                     if sol_new.I <= I_base:

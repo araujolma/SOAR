@@ -56,8 +56,8 @@ class stepMngr:
         """This is the function which defines the objective function."""
 
         # TODO: Find a way to properly parametrize this so that the user can
-        # TODO: set the objective function by setting numerical (or enumerable)
-        # TODO: parameters in the .its file.
+        #  set the objective function by setting numerical (or enumerable)
+        #  parameters in the .its file.
 
         return J
 
@@ -143,11 +143,7 @@ class stepMngr:
             self.log.printL("> I0 = {:.4E}, ".format(I0) + \
                             "Obj0 = {:.4E}".format(Obj0))
             self.log.printL("\n> Setting Obj0 to "+str(Obj0))
-        self.P0 = P0
-        self.I0 = I0
-        self.J0 = J0
-        self.Obj0 = Obj0
-
+        self.P0, self.I0, self.J0, self.Obj0 = P0, I0, J0, Obj0
         self.best['obj'] = Obj0
         return Obj0
 
@@ -169,6 +165,8 @@ class stepMngr:
 
         P,_,_ = newSol.calcP(mustPlotPint=plotPint)
         J,_,_,I,_,_ = newSol.calcJ()
+        JrelRed = 100.*((J - self.J0)/alfa/self.dJdStepTheo)
+        IrelRed = 100.*((I - self.I0)/alfa/self.dJdStepTheo)
         Obj = self.calcObj(P,I,J)
         isOk, Obj = self.check(alfa,Obj,P,newSol.pi)
         resStr = ''
@@ -183,17 +181,23 @@ class stepMngr:
             #
 
             if self.mustPrnt:
+
                 resStr = "\n- Results (good point):\n" + \
                          "step = {:.4E}".format(alfa) + \
                          " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                         " J = {:.7E}".format(J) + " Obj = {:.7E}".format(Obj)
+                         " J = {:.7E}".format(J) + \
+                         " Obj = {:.7E}\n ".format(Obj) + \
+                         " Rel. reduction of J = {:.1F}%,".format(JrelRed) + \
+                         " Rel. reduction of I = {:.1F}%".format(IrelRed)
         else:
             if self.mustPrnt:
                 resStr = "\n- Results (bad point):\n" + \
                          "step = {:.4E}".format(alfa) + \
                          " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
                          " J = {:.7E}".format(J) + \
-                         " CorrObj = {:.7E}".format(Obj)
+                         " CorrObj = {:.7E}\n ".format(Obj) + \
+                         " J reduction eff. = {:.1F}%,".format(JredEff) + \
+                         " I reduction eff. = {:.1F}%".format(IredEff)
         #
 
         if self.mustPrnt:

@@ -206,10 +206,10 @@ def naivGues(extLog=None):
     boundary['m_initial'] = m0
 
     alfa_max = 3. * numpy.pi / 180.
-    restrictions = {'alpha_min': -alfa_max,
-                    'alpha_max': alfa_max,
-                    'beta_min': 0.,
-                    'beta_max': 1.,
+    restrictions = {'alpha_min': -alfa_max * ones,
+                    'alpha_max': alfa_max * ones,
+                    'beta_min': 0. * ones,
+                    'beta_max': 1. * ones,
                     'acc_max': 4. * constants['grav_e'],
                     # Remove this once the loading from file is ready!
                     'pi_min': numpy.zeros(p),
@@ -304,7 +304,7 @@ def naivGues(extLog=None):
             pars = {'rOrb': constants['r_e'] + boundary['h_final'],
                     'vOrb': boundary['V_final'],
                     'Thrust': constants['Thrust'][2],
-                    'alfa': restrictions['alpha_max']}
+                    'alfa': restrictions['alpha_max'][2]}
             pars['gOrb'] = constants['GM'] / (pars['rOrb']**2)
 
             # approach #01: only speed and angle control,
@@ -488,5 +488,6 @@ if __name__ == "__main__":
     #
 
     sol.showHistP()
+    #sol.checkHamMin()
     sol.log.printL("\nnaivRock.py execution finished. Bye!\n")
     sol.log.close()
