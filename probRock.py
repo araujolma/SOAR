@@ -12,8 +12,133 @@ import matplotlib.pyplot as plt
 from utils import simp#, getNowStr
 from naivRock import naivGues
 
+d2r = numpy.pi / 180.0
+
 class prob(sgra):
     probName = 'probRock'
+
+    def storePars(self,inputDict,inputFile):
+        """Get parameters from dictionary, load them into self properly."""
+        # For lazy referencing here
+        n = self.n
+        # Payload mass
+        self.mPayl = inputDict['Mu']
+
+        # Earth constants
+        r_e, GM = inputDict['R'], inputDict['GM']
+        grav_e = GM / r_e / r_e
+
+        # Target heights for separation.
+        # This is only here because the Isp, Thrust and s_f arrays must be
+        # padded to put the extra arcs there.
+        TargHeig = numpy.array(inputDict['TargHeig'])
+        # Number of additional arcs:
+        addArcs = len(TargHeig); self.addArcs = addArcs
+        # Number of arcs:
+        s = inputDict['NStag'] + addArcs; self.s = s
+
+        # Extra arcs go in the beginning only.
+        isStagSep = numpy.ones(s, dtype='bool')
+        for i in range(addArcs):
+            isStagSep[i] = False
+        self.isStagSep = isStagSep
+
+        # There are always as many pi's as there are arcs
+        p = s; self.p = p
+
+        # n + n-1: beginning and end conditions (free final mass);
+        # n*(s-addArcs-1) are for "normal" arc  interfaces
+        #  [hf=hi,vf=vi,gf=gi,mf=mi or mf=mi+jettisoned mass];
+        # (n+1)* addArcs are for additional arc interfaces
+        #  [hf=hTarg,hi=hTarg,vf=vi,gf=gi,mf=mi]
+        q = (n + n - 1) + n * (s - addArcs - 1) + (n + 1) * addArcs
+        self.q = q
+        # This is the 'N' variable in Miele (2003)
+        self.Ns = 2 * n * s + p
+
+        # rocket constants
+        ones = numpy.ones(s)
+        if 'Isplist' in inputDict.keys():
+            Isp = numpy.array(inputDict['Isplist'])
+            Isp = numpy.pad(Isp, (addArcs, 0),
+                            'constant', constant_values=Isp[0])
+        else:
+            Isp = inputDict['Isp'] * numpy.ones(s)
+
+        Thrust = numpy.array(inputDict['Tlist'])
+        Thrust = numpy.pad(Thrust, (addArcs, 0),
+                           'constant', constant_values=Thrust[0])
+        s_f = numpy.array(inputDict['efflist'])
+        s_f = numpy.pad(s_f, (addArcs, 0),
+                        'constant', constant_values=s_f[0])
+
+        CL0, CL1 = inputDict['CL0'] * ones, inputDict['CL1'] * ones
+        CD0, CD2 = inputDict['CD0'] * ones, inputDict['CD2'] * ones
+        s_ref = inputDict['s_ref'] * ones
+        DampCent, DampSlop = inputDict['DampCent'],inputDict['DampSlop']
+        acc_max = inputDict['acc_max'] * grav_e  # in km/s²
+
+        # Penalty function settings
+
+        # This approach to Kpf is that if, in any point during flight, the
+        # acceleration exceeds the limit by acc_max_tol, then the penalty
+        # function at that point is PFtol times greater than the maximum
+        # value of the original cost functional.
+
+        PFmode = inputDict['PFmode']
+        costFuncVals = Thrust / grav_e / Isp / (1.0 - s_f)
+        PFtol = inputDict['PFtol']
+        acc_max_relTol = inputDict['acc_max_relTol']
+        acc_max_tol = acc_max_relTol * acc_max
+        if PFmode == 'lin':
+            Kpf = PFtol * max(costFuncVals) / acc_max_tol
+        elif PFmode == 'quad':
+            Kpf = PFtol * max(costFuncVals) / (acc_max_tol ** 2)
+        elif PFmode == 'tanh':
+            Kpf = PFtol * max(costFuncVals) / numpy.tanh(acc_max_relTol)
+        else:
+            self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
+            raise KeyError
+
+        constants = {'grav_e': grav_e, 'Thrust': Thrust,
+                     'Isp': Isp, 's_f': s_f,
+                     'r_e': r_e, 'GM': GM,
+                     'CL0': CL0, 'CL1': CL1, 'CD0': CD0, 'CD2': CD2,
+                     's_ref': s_ref,
+                     'DampCent': DampCent, 'DampSlop': DampSlop,
+                     'PFmode': PFmode, 'Kpf': Kpf}
+        self.constants = constants
+
+        # boundary conditions
+        h_final = inputDict['h_final']
+        V_final = numpy.sqrt(GM / (r_e + h_final))  # km/s
+        missDv = numpy.sqrt((GM / r_e) * (2.0 - r_e / (r_e + h_final)))
+
+        self.boundary = {'h_initial': inputDict['h_initial'],
+                         'V_initial': inputDict['V_initial'],
+                         'gamma_initial': inputDict['gamma_initial'],
+                         'm_initial': 0., # Just a place holder!
+                         'h_final': h_final,
+                         'V_final': V_final,
+                         'gamma_final': inputDict['gamma_final'],
+                         'mission_dv': missDv,
+                         'TargHeig': TargHeig}
+
+        # restrictions
+        alpha_max = inputDict['AoAmax'] * d2r * ones  # in rads
+        alpha_min = -alpha_max  # in rads
+        self.restrictions = {'alpha_min': alpha_min,
+                             'alpha_max': alpha_max,
+                             'beta_min': 0.0 * ones,
+                             'beta_max': ones,
+                             'acc_max': acc_max}
+
+        # Load remaining parameters:
+        # - Time discretization,
+        # - P and Q tolerances,
+        # - Gradient step search options [constants]
+        # - Time (pi) limitations [restrictions]
+        self.loadParsFromFile(file=inputFile)
 
     def initGues(self,opt={}):
 
@@ -21,7 +146,6 @@ class prob(sgra):
         n, m = 4, 2
         self.n, self.m = n, m
 
-        d2r = numpy.pi / 180.0
         # Get initialization mode
         initMode = opt.get('initMode','default'); self.initMode = initMode
 
@@ -225,7 +349,8 @@ class prob(sgra):
                 pi = 500*numpy.ones(s)
 #
         elif initMode == 'naive2':
-            sol = naivGues(extLog=self.log)
+            inpFile = opt.get('confFile','defaults/probRock.its')
+            sol = naivGues(inpFile,extLog=self.log)
 
             # Get the parameters from the sol object
             self.constants = sol.constants
@@ -250,7 +375,7 @@ class prob(sgra):
 
             ###################################################################
             # STEP 1: run itsme
-            inpFile = opt.get('confFile','')
+            inpFile = opt.get('confFile','defaults/probRock.its')
             self.log.printL("Starting ITSME with input = " + inpFile)
 
             t_its, x_its, u_its, tabAlpha, tabBeta, inputDict, tphases, \
@@ -263,109 +388,13 @@ class prob(sgra):
             ###################################################################
             # STEP 2: Load constants from file (actually, via inputDict)
 
-            # Payload mass
-            self.mPayl = inputDict['Mu']
-
-            # Earth constants
-            r_e = inputDict['R']; GM = inputDict['GM']
-            grav_e = GM/r_e/r_e
-
-            # Target heights for separation.
-            # This is only here because the Isp, Thrust and s_f arrays must be
-            # padded to put the extra arcs there.
-            TargHeig = numpy.array(inputDict['TargHeig'])
-            # Number of additional arcs:
-            addArcs = len(TargHeig); self.addArcs = addArcs
-            # Number of arcs:
-            s = inputDict['NStag'] + addArcs; self.s = s
-
-            # rocket constants
-            if 'Isplist' in inputDict.keys():
-                Isp = numpy.array(inputDict['Isplist'])
-                Isp = numpy.pad(Isp,(addArcs,0),
-                                'constant',constant_values=Isp[0])
-            else:
-                Isp = inputDict['Isp']*numpy.ones(s)
-
-            Thrust = numpy.array(inputDict['Tlist'])
-            Thrust = numpy.pad(Thrust,(addArcs,0),
-                               'constant', constant_values=Thrust[0])
-            s_f = numpy.array(inputDict['efflist'])
-            s_f = numpy.pad(s_f,(addArcs,0),
-                            'constant',constant_values=s_f[0])
-
-            CL0 = inputDict['CL0']*numpy.ones(s)
-            CL1 = inputDict['CL1']*numpy.ones(s)
-            CD0 = inputDict['CD0']*numpy.ones(s)
-            CD2 = inputDict['CD2']*numpy.ones(s)
-            s_ref = inputDict['s_ref']*numpy.ones(s)
-            DampCent = inputDict['DampCent']
-            DampSlop = inputDict['DampSlop']
-            acc_max = inputDict['acc_max'] * grav_e # in km/s²
-
-            # Penalty function settings
-
-            # This approach to Kpf is that if, in any point during flight, the
-            # acceleration exceeds the limit by acc_max_tol, then the penalty
-            # function at that point is PFtol times greater than the maximum
-            # value of the original cost functional.
-
-            PFmode = inputDict['PFmode']
-            costFuncVals = Thrust/grav_e/Isp/(1.0-s_f)
-            PFtol = inputDict['PFtol']
-            acc_max_relTol = inputDict['acc_max_relTol']
-            acc_max_tol = acc_max_relTol * acc_max
-            if PFmode == 'lin':
-                Kpf = PFtol * max(costFuncVals) / (acc_max_tol)
-            elif PFmode == 'quad':
-                Kpf = PFtol * max(costFuncVals) / (acc_max_tol**2)
-            elif PFmode == 'tanh':
-                Kpf = PFtol * max(costFuncVals) / numpy.tanh(acc_max_relTol)
-            else:
-                self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
-                raise KeyError
-
-            constants = {'grav_e': grav_e, 'Thrust': Thrust,
-                         'Isp': Isp, 's_f': s_f,
-                         'r_e': r_e, 'GM': GM,
-                         'CL0': CL0, 'CL1': CL1, 'CD0': CD0, 'CD2': CD2,
-                         's_ref': s_ref,
-                         'DampCent': DampCent, 'DampSlop': DampSlop,
-                         'PFmode': PFmode, 'Kpf': Kpf}
-            self.constants = constants
-
-            # boundary conditions
-            h_final = inputDict['h_final']
-            V_final = numpy.sqrt(GM/(r_e+h_final))   # km/s
-            missDv = numpy.sqrt((GM/r_e)*(2.0-r_e/(r_e+h_final)))
-
-            self.boundary = {'h_initial': inputDict['h_initial'],
-                             'V_initial': inputDict['V_initial'],
-                             'gamma_initial': inputDict['gamma_initial'],
-                             'm_initial': x_its[0,3],
-                             'h_final': h_final,
-                             'V_final': V_final,
-                             'gamma_final': inputDict['gamma_final'],
-                             'mission_dv': missDv,
-                             'TargHeig': TargHeig}
-
-            # restrictions
-            ones = numpy.ones(s)
-            alpha_max = inputDict['AoAmax'] * d2r * ones  # in rads
-            alpha_min = -alpha_max                 # in rads
-            self.restrictions = {'alpha_min': alpha_min,
-                                 'alpha_max': alpha_max,
-                                 'beta_min': 0.0 * ones,
-                                 'beta_max': ones,
-                                 'acc_max': acc_max}
-
-            # Load remaining parameters:
-            # - Time discretization,
-            # - P and Q tolerances,
-            # - Gradient step search options [constants]
-            # - Time (pi) limitations [restrictions]
-            self.loadParsFromFile(file=inpFile)
-            N = self.N
+            self.storePars(inputDict,inpFile)
+            # This is specific to this initMode (itsme)
+            self.boundary['m_initial'] = x_its[0, 3]
+            # For lazy referencing below:
+            N, addArcs, s = self.N, self.addArcs, self.s
+            TargHeig = self.boundary['TargHeig']
+            constants = self.constants
 
             ###################################################################
             # STEP 3: Set up the arcs, handle stage separation points
@@ -375,32 +404,10 @@ class prob(sgra):
             arc = 0; arcBginIndx[arc] = 0
             nt = len(t_its)
 
-            # Extra arcs go in the beginning only.
-            isStagSep = numpy.ones(s,dtype='bool')
-            for i in range(addArcs):
-                isStagSep[i] = False
-            self.isStagSep = isStagSep
-
-            # There are always as many pi's as there are arcs
-            p = s; self.p = p
-
-            #q = n * (s+1) - 1 +2 #s=1,q=7; s=2,q=11; s=3,q=15
-            #self.log.printL("\nOld q = "+str(q))
-
-            # n + n-1: beginning and end conditions (free final mass);
-            # n*(s-addArcs-1) are for "normal" arc  interfaces
-            #  [hf=hi,vf=vi,gf=gi,mf=mi or mf=mi+jettisoned mass];
-            # (n+1)* addArcs are for additional arc interfaces
-            #  [hf=hTarg,hi=hTarg,vf=vi,gf=gi,mf=mi]
-            q = (n+n-1) + n * (s-addArcs-1) + (n+1) * addArcs
-            #self.log.printL("New q = "+str(q))
-            #input(">> ")
-            self.q = q
-            # This is the 'N' variable in Miele (2003)
-            self.Ns = 2*n*s + p
-
             # The goal here is to find the indexes in the x_its array that
-            # correspond to where the arcs begin.
+            # correspond to where the arcs begin, hence, assembling the
+            # 'arcBginIndx' array.
+
             # First, find the times for the targeted heights:
             j = 0
             for hTarg in TargHeig:
@@ -431,8 +438,6 @@ class prob(sgra):
                     #
                 #
             #
-            #self.log.printL(arcBginIndx)
-
             # Finally, set the array of interval lengths
             pi = numpy.empty(s)
             for arc in range(s):

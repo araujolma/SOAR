@@ -9,16 +9,13 @@ This is a module for simple integration of the rocket equations,
 in order to yield a basic (naive) initial guess for MSGRA.
 """
 
-import numpy
+import numpy, pprint
 from interf import logger
 from scipy.signal import place_poles
-
-# TODO: there will be a conflict when this module gets imported in
-#  probRock.py, because this module already loads probRock (mainly for
-#  using plotSol, I hope calcXDot can be imported separately, so there is
-#  no conflict with it.) Anyway, we will probably have to make another
-#  version of plotSol to it.
+from itsme import initializeSGRA
 import probRock
+
+d2r = numpy.pi/180.0
 
 def speed_ang_controller(v,gama,M,pars):
     #print("\nIn speed_ang_controller!")
@@ -142,11 +139,7 @@ def calc_initial_rocket_mass(boundary,constants,log):
     log.printL(msg)
     return m0
 
-
-# TODO: make a module for loading parameters from .its file. Probably just
-#  loading some of itsme.py's methods does the trick.
-
-def naivGues(extLog=None):
+def naivGues(file, extLog=None):
 
     # Declare a running solution
     sol = probRock.prob()
@@ -158,81 +151,43 @@ def naivGues(extLog=None):
         # Otherwise, use this provided logger
         sol.log = extLog
 
-    sol.log.printL("\nIn naivGues, preparing parameters to generate an" + \
+    sol.log.printL("\nIn naivGues, preparing parameters to generate an"
                    " initial solution!")
-    d2r = numpy.pi/180.0
-    m, n, s = 2, 4, 3
-    p = s
-    addArcs = 2
-    q = (n+n-1) + n * (s-addArcs-1) + (n+1) * addArcs
+
+    con = initializeSGRA(file).result()
+    sol.storePars(con,file)
+
+    m, n, s = sol.m, sol.n, sol.s
 
     ones = numpy.ones(s)
     # Payload mass:
-    mPayl = 10.
-    constants = {'r_e': 6371.0,
-                 'GM': 398600.4415,
-                 'Thrust': 100. * ones,
-                 's_ref': 0.7853981633974482e-06 * ones,
-                 's_f': 0.1 * ones,
-                 'Isp': 450. * ones,
-                 'CL0': 0. * ones,#-0.02]),
-                 'CL1': .8 * ones,
-                 'CD0': .05 * ones,
-                 'CD2': .5 * ones,
-                 'DampCent': -30.,
-                 'DampSlop': 10.,
-                 'Kpf': 0.,
-                 'PFmode': 'tanh',
-                 'mPayl': mPayl}
-    constants['grav_e'] = constants['GM']/(constants['r_e']**2)
-    sol.mPayl = mPayl
+    # constants = {'r_e': 6371.0,
+    #              'GM': 398600.4415,
+    #              'Thrust': 100. * ones,
+    #              's_ref': 0.7853981633974482e-06 * ones,
+    #              's_f': 0.1 * ones,
+    #              'Isp': 450. * ones,
+    #              'CL0': 0. * ones,#-0.02]),
+    #              'CL1': .8 * ones,
+    #              'CD0': .05 * ones,
+    #              'CD2': .5 * ones,
+    #              'DampCent': -30.,
+    #              'DampSlop': 10.,
+    #              'Kpf': 0.,
+    #              'PFmode': 'tanh',
+    #              'mPayl': mPayl}
 
-    h_final = 473.
-    V_final = numpy.sqrt(constants['GM']/(constants['r_e']+h_final))
-    missDv = numpy.sqrt((constants['GM']/constants['r_e']) *
-                        (2.0-1./(1.+h_final/constants['r_e'])))
-
-
-    boundary = {'h_initial': 0.,#0.,
-                'V_initial': 1e-6,#.05,#
-                'gamma_initial': 90. * d2r,#5*numpy.pi,
-                'h_final': h_final,
-                'V_final': V_final,
-                'gamma_final': 0.,
-                'mission_dv': missDv}
+    #constants['grav_e'] = constants['GM']/(constants['r_e']**2)
 
     #m0 = calc_initial_rocket_mass(boundary, constants, sol.log)
     m0 = 3000.
-    boundary['m_initial'] = m0
+    sol.boundary['m_initial'] = m0
 
-    alfa_max = 3. * numpy.pi / 180.
-    restrictions = {'alpha_min': -alfa_max * ones,
-                    'alpha_max': alfa_max * ones,
-                    'beta_min': 0. * ones,
-                    'beta_max': 1. * ones,
-                    'acc_max': 4. * constants['grav_e'],
-                    # Remove this once the loading from file is ready!
-                    'pi_min': numpy.zeros(p),
-                    'pi_max': [None]*p}
-    # 'TargHeig': TargHeig}
-
-    sol.constants = constants
-
-
-    # This is necessary for calculating Psi at the end:
-    sol.addArcs = addArcs
-
-    # By default, every arc is separating,
-    # except for the first ones (added arcs)
-    sol.isStagSep = numpy.array([True]*s)
-    for arc in range(addArcs):
-        sol.isStagSep[arc] = False
-
-    sol.boundary = boundary
-    sol.restrictions = restrictions
-    #sol.tol = {'P':1e-12, 'Q':1e-4}
-    sol.loadParsFromFile('defaults/probRock.its')
-    #sol.initMode = 'extSol'
+    # This is only here for bypassing
+    alfa_max = 3. * d2r
+    sol.restrictions['alpha_min'] = -alfa_max * ones
+    sol.restrictions['alpha_max'] =  alfa_max * ones
+    boundary, constants = sol.boundary, sol.constants
 
     # Maximum dimensional time for any arc [s]
     tf = 1000.
@@ -240,8 +195,8 @@ def naivGues(extLog=None):
     dtd = 0.1
     Nmax = int(tf/dtd)+1
 
-    h, V = boundary['h_initial'], boundary['V_initial']
-    gama, M =  boundary['gamma_initial'], boundary['m_initial']
+    h, V = sol.boundary['h_initial'], sol.boundary['V_initial']
+    gama, M = sol.boundary['gamma_initial'], sol.boundary['m_initial']
     # running x
     x_ = numpy.array([h, V, gama, M])
     # prepare arrays for integration
@@ -277,15 +232,7 @@ def naivGues(extLog=None):
             # Second arc:
             # - maximum turning (half of max ang of attack)
             # - constant specific thrust
-            # - until gamma = 10deg
-            #alfaFun = lambda t, state: -2. * min([1., ((t-tStart)/ 10.]) * d2r
-            #alfaFun = lambda t, state: -2. * d2r
-            #betaFun = lambda t, state: min([psi * state[3] * \
-            #                               constants['grav_e'] / \
-            #                               constants['Thrust'][1], 1.])
-            #betaFun = lambda t, state: psi * state[3] * \
-            #                            constants['grav_e'] / \
-            #                            constants['Thrust'][1]
+            # - until gamma = 5deg
             msg = "\nEntering 2nd arc (turn at constant alpha)..."
             sol.log.printL(msg)
             # base thrust to weight ratio
@@ -304,7 +251,7 @@ def naivGues(extLog=None):
             pars = {'rOrb': constants['r_e'] + boundary['h_final'],
                     'vOrb': boundary['V_final'],
                     'Thrust': constants['Thrust'][2],
-                    'alfa': restrictions['alpha_max'][2]}
+                    'alfa': sol.restrictions['alpha_max'][2]}
             pars['gOrb'] = constants['GM'] / (pars['rOrb']**2)
 
             # approach #01: only speed and angle control,
@@ -331,7 +278,7 @@ def naivGues(extLog=None):
 
             # approach #03: height, speed and angle control, similar to #01,
             # but with linear reference for speed and angle. Exit condition
-            # by on time-out, based on pre-calculated time
+            # by time-out, based on pre-calculated time
 
             # height error
             eh = boundary['h_final'] - x[0,0,2]
@@ -362,7 +309,6 @@ def naivGues(extLog=None):
         # RK4 integration
         k = 1; dtd2, dtd6 = dtd/2., dtd/6.
         while k < Nmax and arcCond(td, x_):
-            #u_ = numpy.array([alfaFun(td,x_),betaFun(td,x_)])
             u_ = ctrl(td, x_)
             # first derivative
             f1 = probRock.calcXdot(td, x_, u_, constants, arc)
@@ -370,14 +316,12 @@ def naivGues(extLog=None):
             # x at half step, with f1
             x2 = x_ + dtd2 * f1
             # u at half step, with f1
-            #u2 = numpy.array([alfaFun(tdpm, x2), betaFun(tdpm, x2)])
             u2 = ctrl(tdpm, x2)
             # second derivative
             f2 = probRock.calcXdot(tdpm, x2, u2, constants, arc)
             # x at half step, with f2
             x3 = x_ + dtd2 * f2  # x at half step, with f2
             # u at half step, with f2
-            #u3 = numpy.array([alfaFun(tdpm, x3), betaFun(tdpm, x3)])
             u3 = ctrl(tdpm, x3)
             # third derivative
             f3 = probRock.calcXdot(tdpm, x3, u3, constants, arc)
@@ -420,16 +364,11 @@ def naivGues(extLog=None):
     sol.log.printL("\n... naive integrations are complete.")
 
     # Load constants into sol object
-    sol.N = int(max(finlElem))
-    sol.log.printL("Original N: {}".format(sol.N))
+    sol.log.printL("Original N: {}".format(int(max(finlElem))))
     # This line is for redefining N, if so,
     # while still keeping the 100k + 1 "structure"
-    sol.N = 201#1*(Nmax-1) + 1
     sol.log.printL("New N: {}".format(sol.N))
-    sol.m, sol.n, sol.p, sol.q, sol.s = m, n, s, q, s
-    sol.dt = 1./(sol.N-1)
-    sol.t = numpy.linspace(0.,1.,num=sol.N)
-    sol.Ns = 2 * n * s + sol.p
+    m, n, s, q, s = sol.m, sol.n, sol.p, sol.q, sol.s
     # Perform interpolations to keep every arc with the same refinement
     xFine, uFine = numpy.empty((sol.N,n,s)), numpy.empty((sol.N,m,s))
     sol.log.printL("\nProceeding to interpolations...")
@@ -452,8 +391,8 @@ def naivGues(extLog=None):
     # Control is stored non-dimensionally
     sol.u = sol.calcAdimCtrl(uFine[:,0,:],uFine[:,1,:])
     sol.pi = pi
-    # This is just for compatibility. Current probRock formulation demands
-    # a target height array for the first "artificial" arcs
+    # Current probRock formulation demands a target height array for the
+    # first "artificial" arcs
     sol.boundary['TargHeig'] = numpy.array(sol.x[-1,0,:s-1])
     # These arrays get zeros, although that does not make much sense
     sol.lam = numpy.zeros_like(sol.x,dtype='float')
@@ -464,7 +403,7 @@ def naivGues(extLog=None):
 
 if __name__ == "__main__":
     # Generate the initial guess
-    sol = naivGues()
+    sol = naivGues('defaults/probRock-naive2.its')
 
     # Show the parameters obtained
     sol.printPars()
@@ -488,6 +427,5 @@ if __name__ == "__main__":
     #
 
     sol.showHistP()
-    sol.checkHamMin()
     sol.log.printL("\nnaivRock.py execution finished. Bye!\n")
     sol.log.close()
