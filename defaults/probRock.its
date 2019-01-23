@@ -26,7 +26,7 @@ softness = 0.5
 #
 # Aerodynamic coefficients
 #
-CL0 = -0.02
+CL0 = 0.02
 #
 # (B1 Miele 1998)
 CL1 = 1.5

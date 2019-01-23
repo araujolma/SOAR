@@ -13,6 +13,7 @@ import numpy, pprint
 from interf import logger
 from scipy.signal import place_poles
 from itsme import initializeSGRA
+from atmosphere import rho
 import probRock
 
 d2r = numpy.pi/180.0
@@ -77,6 +78,87 @@ def finl_controller(stt,pars):
         beta = 1.
 
     return alfa, beta
+
+def keep_straight_controller(stt,pars):
+    h, V, gama, M = stt
+    # r = pars['r_e'] + h
+    # g = pars['mu'] / (r ** 2)
+    beta = .9#0.8
+    Thr = beta * pars['Thrust']
+    dens = rho(h)
+    pDyn = .5 * dens * V * V
+    # v dgdt = T*sin(alfa)/M + L/M = 0
+    # T * alfa + Fa * (CL0 + alfa * CL1) = 0
+    # T/Fa * alfa + CL0 + alfa * CL1 = 0
+    alfa = -pars['CL0']/(Thr/(pDyn * pars['S']) + pars['CL1'])
+    #L = pDyn * pars['S'] * (pars['CL0'] + alfa * pars['CL1'])
+    # perform saturations
+    if alfa < -pars['alfa']:
+        alfa = -pars['alfa']
+    elif alfa > pars['alfa']:
+        alfa = pars['alfa']
+
+    #print("alfa = {:.3E} deg, Thr = {:.3E} kN, dens = {:.3E} kg/km³, pDyn = {:.3E} kN/km², L = {:.3E} kN".format(alfa/d2r,Thr,dens,pDyn,L) )
+
+    return alfa, beta
+
+def one_controller(t,stt,pars):
+    h, V, gama, M = stt
+
+    r = pars['r_e'] + h
+    g = pars['mu'] / (r ** 2)
+    dens = rho(h)
+    pDynS = .5 * dens * V * V * pars['S']
+    CD0, CD2 = pars['CD0'], pars['CD2']
+    CL0, CL1 = pars['CL0'], pars['CL1']
+
+    vdot,gdot = pars['vdot'], pars['gdot']
+    C1 = vdot/g + numpy.sin(gama)
+    C2 = V * gdot/g + (1.-V*V/g/r) * numpy.cos(gama)
+    W = M * g
+
+    # The equations:
+    # psi * cos(alfa) = vdot/g + sin(gama) + D/W               = C1 + D/W
+    # psi * sin(alfa) = v*gdot/g - L/W + (1.-V*V/gr)*cos(gama) = C2 - L/W
+
+    # iterative scheme
+    alfa = 0.; Cond = True
+    qsmg = pDynS/W
+    C1_, C2_ = C1 + qsmg*CD0, C2 + qsmg*CL0
+    CL1_, CD2_ = qsmg * CL1, qsmg * CD2
+    while Cond:
+        Num = C2_ + CL1*alfa
+        Den = C1_ + CD2*alfa*alfa
+        f = Num / Den - numpy.tan(alfa)
+        df = (CL1*Den-Num*2.*CD2*alfa)/(Den**2) - 1./(numpy.cos(alfa))**2
+        alfa_new = alfa - f/df
+        Cond = abs(alfa_new-alfa) > 1e-6
+        alfa = alfa_new
+    # while Cond:
+    #     DW = pDynS * (CD0 + CD2 * alfa * alfa) / W
+    #     LW = pDynS * (CL0 + CL1 * alfa) / W
+    #     psi = numpy.sqrt((C1 + DW)**2 + (C2 - LW)**2)
+    #     alfa_new = numpy.arctan2(C2-LW,C1+DW)
+    #     Cond = abs(alfa_new-alfa) > 1e-6
+    #     alfa = alfa_new
+    print("alfa = ",alfa_new/d2r)
+    print("Error in alpha: ",(alfa_new-alfa)/d2r)
+    alfa = alfa_new
+    psi = (C1 + qsmg*(CD0 + CD2*alfa*alfa))/numpy.cos(alfa)
+    beta = psi * W / pars['Thrust']
+
+    # perform saturations
+    if alfa < -pars['alfa']:
+        alfa = -pars['alfa']
+    elif alfa > pars['alfa']:
+        alfa = pars['alfa']
+
+
+    if beta > 1.:
+        beta = 1.
+
+    return alfa, beta
+
 
 def pole_place_ctrl_gains(pars):
     """Calculate the gains for the pole placement controller """
@@ -154,30 +236,13 @@ def naivGues(file, extLog=None):
     sol.log.printL("\nIn naivGues, preparing parameters to generate an"
                    " initial solution!")
 
+    # Get all parameters from file into the proper places in sol object
     con = initializeSGRA(file).result()
     sol.storePars(con,file)
 
     m, n, s = sol.m, sol.n, sol.s
 
     ones = numpy.ones(s)
-    # Payload mass:
-    # constants = {'r_e': 6371.0,
-    #              'GM': 398600.4415,
-    #              'Thrust': 100. * ones,
-    #              's_ref': 0.7853981633974482e-06 * ones,
-    #              's_f': 0.1 * ones,
-    #              'Isp': 450. * ones,
-    #              'CL0': 0. * ones,#-0.02]),
-    #              'CL1': .8 * ones,
-    #              'CD0': .05 * ones,
-    #              'CD2': .5 * ones,
-    #              'DampCent': -30.,
-    #              'DampSlop': 10.,
-    #              'Kpf': 0.,
-    #              'PFmode': 'tanh',
-    #              'mPayl': mPayl}
-
-    #constants['grav_e'] = constants['GM']/(constants['r_e']**2)
 
     #m0 = calc_initial_rocket_mass(boundary, constants, sol.log)
     m0 = 3000.
@@ -220,28 +285,55 @@ def naivGues(file, extLog=None):
             # - until v = 100 m/s
             msg = "\nEntering 1st arc (vertical rise at full thrust)..."
             sol.log.printL(msg)
-            #alfaFun = lambda t, state: 0.
-            #numpy.arcsin((g / V - V / r) * numpy.cos(gama) * (M * V / Thr)
-            #betaFun = lambda t, state: 1.
-            # TODO: there should be actually a calculation to ensure
-            #  gamma=90deg, instead of just leaving alpha=0 and hoping
-            #  for the best...
-            ctrl = lambda t, state: [0., 1.]
+
+            pars = {'Thrust': constants['Thrust'][0],
+                    'alfa': sol.restrictions['alpha_max'][0],
+                    'CL0': constants['CL0'][0],
+                    'CL1': constants['CL1'][0],
+                    'S': constants['s_ref'][0]}
+            ctrl = lambda t, state: keep_straight_controller(state,pars)
             arcCond = lambda t, state: state[1] < 0.1
         elif arc == 1:
             # Second arc:
             # - maximum turning (half of max ang of attack)
             # - constant specific thrust
             # - until gamma = 5deg
-            msg = "\nEntering 2nd arc (turn at constant alpha)..."
+            #msg = "\nEntering 2nd arc (turn at constant alpha)..."
+            msg = "\nEntering 2nd arc (1 turn to rule them all)..."
             sol.log.printL(msg)
-            # base thrust to weight ratio
-            psi = 1.7
-            ctrl = lambda t, state: [-.6 * d2r,
-                                     min([psi * state[3] * \
-                                          constants['grav_e'] / \
-                                          constants['Thrust'][1], 1.])]
-            arcCond = lambda t, state: state[2] > 5. * d2r
+            pi2 = numpy.pi / 2.
+            vf = boundary['V_final']# * 0.8
+            tf = (boundary['h_final']-h)*pi2 / \
+                 (vf*(1.-1./pi2) + V/pi2)
+            vdot = (vf-V)/tf
+            gdot = -pi2/tf
+            acc_g = vdot/constants['grav_e']
+            beta_LB = M*(vdot+constants['grav_e'])/constants['Thrust'][1]
+            msg = "\nTime until next arc: {:.3g} s\n".format(tf) + \
+                  "Target acceleration: {:.2g} g's\n".format(acc_g) + \
+                  "Target turning rate: {:.1g} deg/s".format(-gdot/d2r) + \
+                  "\nLower bound for initial beta: {:.2g}".format(beta_LB)
+            sol.log.printL(msg)
+            if beta_LB >= 1.:
+                input("\nThe thrust will certainly saturate in this arc."
+                      "\nPress any key to proceed. ")
+
+            pars = {'mu': constants['GM'],
+                    'r_e': constants['r_e'],
+                    'CD0': constants['CD0'][1],
+                    'CD2': constants['CD2'][1],
+                    'Thrust': constants['Thrust'][1],
+                    'alfa': sol.restrictions['alpha_max'][1],
+                    'CL0': constants['CL0'][1],
+                    'CL1': constants['CL1'][1],
+                    'S': constants['s_ref'][1],
+                    't0': td,
+                    'vdot': vdot,#'Dv': vf-V,
+                    'gdot': gdot}
+
+            ctrl = lambda t, state: one_controller(t,state,pars)
+            tf_offset = tf + td
+            arcCond = lambda t, state: (t <= tf_offset)
         elif arc == 2:
             msg = "\nEntering 3rd arc (closed-loop orbit insertion)..."
             sol.log.printL(msg)
@@ -403,7 +495,8 @@ def naivGues(file, extLog=None):
 
 if __name__ == "__main__":
     # Generate the initial guess
-    sol = naivGues('defaults/probRock-naive2.its')
+    sol = naivGues('defaults/probRock.its')
+    #sol = naivGues('defaults/probRock-naive2.its')
 
     # Show the parameters obtained
     sol.printPars()

@@ -1466,9 +1466,8 @@ class prob(sgra):
 
             ######################################
             alpha,beta = self.calcDimCtrl()
-            alpha *= r2d
             plt.subplot2grid((11,1),(6,0))
-            self.plotCat(alpha,piIsTime=piIsTime,intv=intv,color='k')
+            self.plotCat(alpha/d2r,piIsTime=piIsTime,intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("alpha [deg]")
             plt.xlabel(timeLabl)
@@ -1482,16 +1481,29 @@ class prob(sgra):
 
             ######################################
             plt.subplot2grid((11,1),(8,0))
-            thrust = numpy.empty_like(beta)
-            s = self.s
-            constants = self.constants
-            MaxThrs = constants['Thrust']
+            s = self.s; thrust = numpy.empty_like(beta)
+            L = numpy.empty_like(beta); D = numpy.empty_like(beta)
+            dens = numpy.empty_like(beta); pDyn = numpy.empty_like(beta)
+            MaxThrs = self.constants['Thrust']
+            CL0,CL1 = self.constants['CL0'],self.constants['CL1']
+            CD0,CD2 = self.constants['CD0'],self.constants['CD2']
+            s_ref = self.constants['s_ref']
             for arc in range(s):
                 thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
-            self.plotCat(thrust,color='y',piIsTime=piIsTime)
+                for k in range(self.N):
+                    dens[k,arc] = rho(self.x[k,0,arc])
+                pDyn[:,arc] = .5 * dens[:,arc] * (self.x[:,1,arc])**2
+                L[:,arc] = pDyn[:, arc] * s_ref[arc] * \
+                           (CL0[arc] + alpha[:,arc] * CL1[arc])
+                D[:,arc] = pDyn[:, arc] * s_ref[arc] * \
+                           (CD0[arc] + ( alpha[:,arc]**2 ) * CD2[arc])
+            self.plotCat(thrust,color='k',piIsTime=piIsTime,labl='Thrust')
+            self.plotCat(L,color='b',piIsTime=piIsTime,labl='Lift')
+            self.plotCat(D,color='r',piIsTime=piIsTime,labl='Drag')
             plt.grid(True)
             plt.xlabel(timeLabl)
-            plt.ylabel("Thrust [kN]")
+            plt.ylabel("Forces [kN]")
+            plt.legend()
 
             ######################################
             plt.subplot2grid((11,1),(9,0))
@@ -2012,7 +2024,6 @@ class prob(sgra):
         plt.ylabel("V [km/s]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 3: flight path angle
         plt.subplot2grid((12,1),(2,0))
@@ -2024,7 +2035,6 @@ class prob(sgra):
         plt.ylabel("gamma [deg]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 4: Mass
         plt.subplot2grid((12,1),(3,0))
@@ -2036,7 +2046,6 @@ class prob(sgra):
         plt.ylabel("m [kg]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 5: Control #1 (angle of attack)
         plt.subplot2grid((12,1),(4,0))
@@ -2048,7 +2057,6 @@ class prob(sgra):
         plt.ylabel("u1 [-]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 6: Control #2 (thrust)
         plt.subplot2grid((12,1),(5,0))
@@ -2060,7 +2068,6 @@ class prob(sgra):
         plt.ylabel("u2 [-]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 7: angle of attack
         alpha,beta = self.calcDimCtrl()
@@ -2075,7 +2082,6 @@ class prob(sgra):
         plt.ylabel("alpha [deg]")
         plt.xlabel(timeLabl)
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 8: thrust level
         plt.subplot2grid((12,1),(7,0))
@@ -2087,28 +2093,50 @@ class prob(sgra):
         plt.xlabel(timeLabl)
         plt.ylabel("beta [-]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 9: thrust
         plt.subplot2grid((12,1),(8,0))
         thrust = numpy.empty_like(beta)
         thrust_alt = numpy.empty_like(beta_alt)
-        s = self.s
-        s_alt = altSol.s
-        constants = self.constants
-        MaxThrs = constants['Thrust']
+        L = numpy.empty_like(beta); L_alt = numpy.empty_like(beta)
+        D = numpy.empty_like(beta); D_alt = numpy.empty_like(beta)
+        dens = numpy.empty_like(beta); dens_alt = numpy.empty_like(beta)
+        pDyn = numpy.empty_like(beta); pDyn_alt = numpy.empty_like(beta)
+        s = self.s; s_alt = altSol.s
+        MaxThrs = self.constants['Thrust']
+        CL0, CL1 = self.constants['CL0'], self.constants['CL1']
+        CD0, CD2 = self.constants['CD0'], self.constants['CD2']
+        s_ref = self.constants['s_ref']
         for arc in range(s):
-            thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
-            thrust_alt[:,arc] = beta_alt[:,arc] * MaxThrs[arc]
-        self.plotCat(thrust,color='y',labl=currSolLabl,
-                       piIsTime=piIsTime)
-        altSol.plotCat(thrust_alt,mark='--',labl=altSolLabl,
-                       piIsTime=piIsTime)
+            thrust[:, arc] = beta[:, arc] * MaxThrs[arc]
+            thrust_alt[:, arc] = beta_alt[:, arc] * MaxThrs[arc]
+            for k in range(self.N):
+                dens[k, arc] = rho(self.x[k, 0, arc])
+                dens_alt[k, arc] = rho(altSol.x[k,0,arc])
+            pDyn[:,arc] = .5 * dens[:,arc] * (self.x[:, 1, arc]) ** 2
+            pDyn_alt[:,arc] = .5 * dens_alt[:,arc] * \
+                              (altSol.x[:, 1, arc]) ** 2
+            L[:, arc] = pDyn[:, arc] * s_ref[arc] * \
+                        (CL0[arc] + alpha[:, arc] * CL1[arc])
+            L_alt[:, arc] = pDyn_alt[:, arc] * s_ref[arc] * \
+                        (CL0[arc] + alpha_alt[:, arc] * CL1[arc])
+            D[:, arc] = pDyn[:, arc] * s_ref[arc] * \
+                        (CD0[arc] + (alpha[:, arc] ** 2) * CD2[arc])
+            D_alt[:, arc] = pDyn_alt[:, arc] * s_ref[arc] * \
+                        (CD0[arc] + (alpha_alt[:, arc] ** 2) * CD2[arc])
+        self.plotCat(thrust, color='k', piIsTime=piIsTime, labl='Thrust')
+        altSol.plotCat(thrust_alt, mark='--', color='k',
+                       labl='Thrust - '+altSolLabl, piIsTime=piIsTime)
+        self.plotCat(L, color='b', piIsTime=piIsTime, labl='Lift')
+        self.plotCat(L_alt, mark='--', color='b', piIsTime=piIsTime,
+                     labl='Lift - '+altSolLabl)
+        self.plotCat(D, color='r', piIsTime=piIsTime, labl='Drag')
+        self.plotCat(D_alt, mark='--', color='r', piIsTime=piIsTime,
+                     labl='Drag - '+altSolLabl)
         plt.grid(True)
         plt.xlabel(timeLabl)
-        plt.ylabel("Thrust [kN]")
+        plt.ylabel("Forces [kN]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # Curve 10: acceleration
         plt.subplot2grid((12,1),(9,0))
@@ -2131,7 +2159,6 @@ class prob(sgra):
         plt.xlabel(timeLabl)
         plt.ylabel("Tang. accel. [m/s²]")
         plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=3)
-        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
 
         # 'Curve' 11: pi's (arcs)
         ax = plt.subplot2grid((12,1),(10,0))
