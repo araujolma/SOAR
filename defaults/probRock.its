@@ -16,17 +16,17 @@ NStag = 1
 Isp = 450
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = .05
+efes = .1
 #
 # Thrust [kN]
-T = 40.
+T = 100.
 #
 # softness of the transions of propulsive curve
 softness = 0.5
 #
 # Aerodynamic coefficients
 #
-CL0 = -0.02
+CL0 = 0.02
 #
 # (B1 Miele 1998)
 CL1 = 1.5
@@ -77,13 +77,13 @@ tAoA = 10.0
 [trajmods] # Trajectory modifications
 #
 # Pitch-damping center [s]
-DampCent = 3.0
+DampCent = -10.0
 #
 # Pitch-damping slope [-]
 DampSlop = 3.0
 #
 # Target heights for extra arcs (without stage separation) [km]
-TargHeig = 50.0e-3, 2.0
+TargHeig = 250.
 #
 ###############################################################################
 [accel] # Acceleration limitation parameters
@@ -104,7 +104,7 @@ PFtol = 1.0e-2
 [sgra] # Internal SGRA parameters
 #
 # Tolerance for P functional
-tolP = 1e-15
+tolP = 1e-12
 #
 # Tolerance for Q functional
 tolQ = 1e-4
@@ -116,7 +116,7 @@ pi_min = 0.0, 0.0, 0.0, 0.0, 0.0
 pi_max = None, None, None, None, None
 #
 # Number of divisions in time array [-]
-N = 201
+N = 501
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
 GSS_PLimCte = 1.0e15

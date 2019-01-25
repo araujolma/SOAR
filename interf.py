@@ -59,7 +59,6 @@ class logger:
     def close(self):
         self.fhand.close()
 
-
 class ITman:
     """Class for the ITerations MANager.
 
@@ -86,7 +85,7 @@ class ITman:
         self.GRpausRate = 10000#1000#10
         self.GradHistShowRate = 20
         self.RestPlotSolRate = 20
-        self.RestHistShowRate = 20
+        self.RestHistShowRate = 100#20
         self.ShowEigRate = 100
         self.ShowGRrateRate = 20
         self.parallelOpt = {'gradLMPBVP': True,
@@ -494,7 +493,7 @@ class ITman:
             #input("\nOne more restoration complete.")
         #
 
-        sol.showHistP()
+#        sol.showHistP()
 #        self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
 #                        "), P = {:.4E}".format(sol.P) + ". Solution so far:")
 #        sol.plotSol()
