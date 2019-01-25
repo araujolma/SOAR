@@ -64,10 +64,10 @@ def finl_controller(stt,pars):
     alfa = numpy.arctan2(psiSinAlfa,psiCosAlfa)
 
     # perform saturations
-    if alfa > pars['alfa']:
-        alfa = pars['alfa']
-    elif alfa < -pars['alfa']:
-        alfa = -pars['alfa']
+    if alfa > pars['alfa_max']:
+        alfa = pars['alfa_max']
+    elif alfa < -pars['alfa_max']:
+        alfa = -pars['alfa_max']
 
     beta = psi * M * g / pars['Thrust']
 
@@ -83,7 +83,7 @@ def keep_straight_controller(stt,pars):
     h, V, gama, M = stt
     # r = pars['r_e'] + h
     # g = pars['mu'] / (r ** 2)
-    beta = .9#0.8
+    beta = pars['beta_max']
     Thr = beta * pars['Thrust']
     dens = rho(h)
     pDyn = .5 * dens * V * V
@@ -93,10 +93,10 @@ def keep_straight_controller(stt,pars):
     alfa = -pars['CL0']/(Thr/(pDyn * pars['S']) + pars['CL1'])
     #L = pDyn * pars['S'] * (pars['CL0'] + alfa * pars['CL1'])
     # perform saturations
-    if alfa < -pars['alfa']:
-        alfa = -pars['alfa']
-    elif alfa > pars['alfa']:
-        alfa = pars['alfa']
+    if alfa < -pars['alfa_max']:
+        alfa = -pars['alfa_max']
+    elif alfa > pars['alfa_max']:
+        alfa = pars['alfa_max']
 
     #print("alfa = {:.3E} deg, Thr = {:.3E} kN, dens = {:.3E} kg/km³, pDyn = {:.3E} kN/km², L = {:.3E} kN".format(alfa/d2r,Thr,dens,pDyn,L) )
 
@@ -112,7 +112,10 @@ def one_controller(t,stt,pars):
     CD0, CD2 = pars['CD0'], pars['CD2']
     CL0, CL1 = pars['CL0'], pars['CL1']
 
-    vdot,gdot = pars['vdot'], pars['gdot']
+    pi2 = pars['pi2']
+    Tf = (pars['hTarg']-h) * pi2 / (V/pi2 + pars['vTarg']*(1.-1/pi2) )
+    vdot = (pars['vTarg']-V)/Tf
+    gdot = -gama/Tf
     C1 = vdot/g + numpy.sin(gama)
     C2 = V * gdot/g + (1.-V*V/g/r) * numpy.cos(gama)
     W = M * g
@@ -121,44 +124,144 @@ def one_controller(t,stt,pars):
     # psi * cos(alfa) = vdot/g + sin(gama) + D/W               = C1 + D/W
     # psi * sin(alfa) = v*gdot/g - L/W + (1.-V*V/gr)*cos(gama) = C2 - L/W
 
+    # Due to the saturations, these may not be attainable.
+    # Let's play it safe:
+
+    # Calculate the smallest possible beta to attain the vdot target.
+    # (which is associated with alfa=0)
+    D0 = pDynS * CD0
+    betaMin = (M * vdot + W * numpy.sin(gama) + D0)/pars['Thrust']
+    # If betaMin is larger than the limit, than
+
     # iterative scheme
-    alfa = 0.; Cond = True
-    qsmg = pDynS/W
-    C1_, C2_ = C1 + qsmg*CD0, C2 + qsmg*CL0
+
+    #psi_ref = numpy.sqrt(()**2 + ()**2)
+    alfa_max, beta_max = pars['alfa_max'], pars['beta_max']
+    # TODO: otimizar estas contas depois!
+    btm = beta_max*pars['Thrust']/M
+    max_turn_pos = btm * numpy.sin(alfa_max) + \
+                    pDynS/M * (CL0 + CL1 * alfa_max) + \
+                    (V * V / r - g) * numpy.cos(gama)
+    min_turn_pos = -btm * numpy.sin(alfa_max) + \
+                    pDynS/M * (CL0 - CL1 * alfa_max) + \
+                    (V * V / r - g) * numpy.cos(gama)
+
+    qsmg = pDynS / W
+    C1_, C2_ = C1 + qsmg * CD0, C2 - qsmg * CL0
     CL1_, CD2_ = qsmg * CL1, qsmg * CD2
-    while Cond:
-        Num = C2_ + CL1*alfa
-        Den = C1_ + CD2*alfa*alfa
-        f = Num / Den - numpy.tan(alfa)
-        df = (CL1*Den-Num*2.*CD2*alfa)/(Den**2) - 1./(numpy.cos(alfa))**2
-        alfa_new = alfa - f/df
-        Cond = abs(alfa_new-alfa) > 1e-6
-        alfa = alfa_new
-    # while Cond:
-    #     DW = pDynS * (CD0 + CD2 * alfa * alfa) / W
-    #     LW = pDynS * (CL0 + CL1 * alfa) / W
-    #     psi = numpy.sqrt((C1 + DW)**2 + (C2 - LW)**2)
-    #     alfa_new = numpy.arctan2(C2-LW,C1+DW)
-    #     Cond = abs(alfa_new-alfa) > 1e-6
-    #     alfa = alfa_new
-    print("alfa = ",alfa_new/d2r)
-    print("Error in alpha: ",(alfa_new-alfa)/d2r)
-    alfa = alfa_new
-    psi = (C1 + qsmg*(CD0 + CD2*alfa*alfa))/numpy.cos(alfa)
+    print("\n\n")
+    turn = V * gdot
+    if max_turn_pos < turn:#V * gdot:
+        # alfa must be saturated in the highest value
+        alfa = alfa_max
+        print("TargTurn = {:.2G} not in [{:.2G},{:.2G}]. Saturating alfa @max val.".format(turn, min_turn_pos,
+                                                                                           max_turn_pos))
+    elif min_turn_pos > turn:#V * gdot:
+        # alfa must be saturated in the lowest value
+        alfa = -alfa_max
+        print("TargTurn = {:.2G} not in [{:.2G},{:.2G}]. Saturating alfa @min val.".format(turn, min_turn_pos,
+                                                                                           max_turn_pos))
+    else:
+        print("TargTurn = {:.2G} \in [{:.2G},{:.2G}].".format(turn,min_turn_pos,max_turn_pos))
+        alfa = 0.; Cond = True
+
+        while Cond:
+            Num = C2_ - CL1_ * alfa
+            Den = C1_ + CD2_ * alfa * alfa
+            f = Num / Den - numpy.tan(alfa)
+            df = (-CL1_ * Den - Num * 2. * CD2_ * alfa)/(Den**2) + \
+                 -1./(numpy.cos(alfa))**2
+            alfa_new = alfa - f/df
+            Cond = abs(alfa_new-alfa) > 1e-6
+            alfa = alfa_new
+
+        # perform alfa saturation
+        if alfa < -pars['alfa_max']:
+            alfa = -pars['alfa_max']
+        elif alfa > pars['alfa_max']:
+            alfa = pars['alfa_max']
+
+    # This psi is OK even if alfa ended up saturating.
+    psi = (C1_ + CD2_*alfa*alfa)/numpy.cos(alfa)
     beta = psi * W / pars['Thrust']
 
-    # perform saturations
-    if alfa < -pars['alfa']:
-        alfa = -pars['alfa']
-    elif alfa > pars['alfa']:
-        alfa = pars['alfa']
+    #      "alfad = {:.3E} deg, psid = {:.3E}".format(alfa_new/d2r,psi) + \
+    #      ", betad = {:.3E}".format(beta)
+    # "h = {:.3E} km, V = {:.4E} km/s,".format(h,V) + \
+    # " gama = {:.4E} deg, M = {:.3E} kg, ".format(gama/d2r,M) + \
+    # "Tf = {:.3E}s, vdot = {:.3E} km/s,".format(Tf,vdot) +\
+    # " gdot = {:.3E} deg/s, ".format(gdot/d2r)+\
 
+    betaSat = False
+    if beta > pars['beta_max']:
+        beta = pars['beta_max']
+        betaSat = True
+    elif beta < pars['beta_min']:
+        beta = pars['beta_min']
 
-    if beta > 1.:
-        beta = 1.
+    if betaSat:
+        # Beta is saturated, must recalculate alfa
+        alfa = C2_ / (beta * pars['Thrust']/W + CL1_)
+
+        # perform alfa saturation
+        if alfa < -pars['alfa_max']:
+            alfa = -pars['alfa_max']
+        elif alfa > pars['alfa_max']:
+            alfa = pars['alfa_max']
+
+    # This is DEBUG:
+    print("\nalfa = {:.3E} deg, beta = {:.3E}".format(alfa/d2r,beta))
+    print("States: h={:.3G}km, V={:.3G}km/s, gama={:.3G}deg, M={:.4G}kg".format(h,V,gama/d2r,M))
+    D = pDynS * (CD0 + CD2 * alfa * alfa)
+    L = pDynS * (CL0 + CL1 * alfa)
+    vdot_ob = (beta*pars['Thrust']*numpy.cos(alfa)-D)/M - g*numpy.sin(gama)
+    gdot_ob = (beta*pars['Thrust']*numpy.sin(alfa)+L)/M/V + (V/r-g/V)*numpy.cos(gama)
+    msg = "t = {:.3E} s, ".format(t) + \
+          "vDot_d = {:.3E} km/s, vDot = {:.3E} km/s, ".format(vdot, vdot_ob)+ \
+          "gDot_d = {:.3E} deg/s, gDot = {:.3E} deg/s, ".format(gdot/d2r, gdot_ob/d2r)
+    print(msg)
+    # if int(t/0.001) % 100 == 0:
+    #     input("IAE? ")
 
     return alfa, beta
 
+def par_ascent_controller(t,stt,pars):
+    h, V, gama, M = stt
+
+    r = pars['r_e'] + h
+    g = pars['mu'] / (r ** 2)
+    dens = rho(h)
+    pDynS = .5 * dens * V * V * pars['S']
+    # CD0, CD2 = pars['CD0'], pars['CD2']
+    CL0, CL1 = pars['CL0'], pars['CL1']
+
+    alfa_max, beta_max = pars['alfa_max'], pars['beta_max']
+    if gama > 70. * d2r:
+        # Maximum turn!
+        alfa = -alfa_max
+        beta = beta_max
+
+    else:
+
+        psi = 1.6#1.5#1.25
+        beta = psi * M * g / pars['Thrust']
+
+        if beta > beta_max:
+            beta = beta_max
+            psi = beta * pars['Thrust'] / M / g
+
+        # "Gravity turn": cancel lift
+        alfa = -(pDynS/M) * CL0 / (psi * g + pDynS*CL1/M)
+
+        # perform alfa saturation
+        if alfa < -alfa_max:
+            alfa = -alfa_max
+        elif alfa > alfa_max:
+            alfa = alfa_max
+
+
+
+    return alfa, beta
 
 def pole_place_ctrl_gains(pars):
     """Calculate the gains for the pole placement controller """
@@ -249,9 +352,12 @@ def naivGues(file, extLog=None):
     sol.boundary['m_initial'] = m0
 
     # This is only here for bypassing
-    alfa_max = 3. * d2r
+    alfa_max = numpy.pi/2. #3. * d2r
     sol.restrictions['alpha_min'] = -alfa_max * ones
     sol.restrictions['alpha_max'] =  alfa_max * ones
+    alfa_max_naive = alfa_max#2.5 * d2r
+    beta_max_naive = 0.95
+    beta_min_naive = 0.05
     boundary, constants = sol.boundary, sol.constants
 
     # Maximum dimensional time for any arc [s]
@@ -287,7 +393,9 @@ def naivGues(file, extLog=None):
             sol.log.printL(msg)
 
             pars = {'Thrust': constants['Thrust'][0],
-                    'alfa': sol.restrictions['alpha_max'][0],
+                    'alfa_max': alfa_max_naive,
+                    'beta_max': beta_max_naive,
+                    'beta_min': beta_min_naive,
                     'CL0': constants['CL0'][0],
                     'CL1': constants['CL1'][0],
                     'S': constants['s_ref'][0]}
@@ -302,38 +410,43 @@ def naivGues(file, extLog=None):
             msg = "\nEntering 2nd arc (1 turn to rule them all)..."
             sol.log.printL(msg)
             pi2 = numpy.pi / 2.
+            hf = boundary['h_final']
             vf = boundary['V_final']# * 0.8
-            tf = (boundary['h_final']-h)*pi2 / \
-                 (vf*(1.-1./pi2) + V/pi2)
+            tf = (hf-h)*pi2 / (vf*(1.-1./pi2) + V/pi2)
             vdot = (vf-V)/tf
             gdot = -pi2/tf
             acc_g = vdot/constants['grav_e']
+
             beta_LB = M*(vdot+constants['grav_e'])/constants['Thrust'][1]
-            msg = "\nTime until next arc: {:.3g} s\n".format(tf) + \
+            msg = "\nIntended time until next arc: {:.3g} s\n".format(tf) + \
                   "Target acceleration: {:.2g} g's\n".format(acc_g) + \
                   "Target turning rate: {:.1g} deg/s".format(-gdot/d2r) + \
                   "\nLower bound for initial beta: {:.2g}".format(beta_LB)
             sol.log.printL(msg)
             if beta_LB >= 1.:
                 input("\nThe thrust will certainly saturate in this arc."
-                      "\nPress any key to proceed. ")
+                      "\nPress any key to proceed.")
 
             pars = {'mu': constants['GM'],
                     'r_e': constants['r_e'],
                     'CD0': constants['CD0'][1],
                     'CD2': constants['CD2'][1],
                     'Thrust': constants['Thrust'][1],
-                    'alfa': sol.restrictions['alpha_max'][1],
+                    'alfa_max': alfa_max_naive,
+                    'beta_max': beta_max_naive,
+                    'beta_min': beta_min_naive,
                     'CL0': constants['CL0'][1],
                     'CL1': constants['CL1'][1],
                     'S': constants['s_ref'][1],
                     't0': td,
-                    'vdot': vdot,#'Dv': vf-V,
-                    'gdot': gdot}
+                    'pi2': numpy.pi/2.,
+                    'hTarg': hf,
+                    'vTarg': vf}
 
+            #ctrl = lambda t, state: par_ascent_controller(t,state,pars)
             ctrl = lambda t, state: one_controller(t,state,pars)
-            tf_offset = tf + td
-            arcCond = lambda t, state: (t <= tf_offset)
+            #tf_offset = tf + td
+            arcCond = lambda t, state: state[1] < vf*0.9#abs(state[2]) > .5 * d2r
         elif arc == 2:
             msg = "\nEntering 3rd arc (closed-loop orbit insertion)..."
             sol.log.printL(msg)
@@ -343,7 +456,9 @@ def naivGues(file, extLog=None):
             pars = {'rOrb': constants['r_e'] + boundary['h_final'],
                     'vOrb': boundary['V_final'],
                     'Thrust': constants['Thrust'][2],
-                    'alfa': sol.restrictions['alpha_max'][2]}
+                    'alfa_max': alfa_max_naive,
+                    'beta_max': beta_max_naive,
+                    'beta_min': beta_min_naive}
             pars['gOrb'] = constants['GM'] / (pars['rOrb']**2)
 
             # approach #01: only speed and angle control,
@@ -495,8 +610,8 @@ def naivGues(file, extLog=None):
 
 if __name__ == "__main__":
     # Generate the initial guess
-    sol = naivGues('defaults/probRock.its')
-    #sol = naivGues('defaults/probRock-naive2.its')
+    #sol = naivGues('defaults/probRock.its')
+    sol = naivGues('defaults/probRock-naive2.its')
 
     # Show the parameters obtained
     sol.printPars()
@@ -510,15 +625,15 @@ if __name__ == "__main__":
     # sol.plotTraj(fullOrbt=True,mustSaveFig=False)
     sol.log.printL("\nFinal error on boundaries:\n"+str(sol.calcPsi()))
 
-    # TESTING the obtained solution with rest
-    contRest = 0
-    sol.calcP(mustPlotPint=True)
-    while sol.P > sol.tol['P']:
-        sol.rest()
-        contRest += 1
-        sol.plotSol()
+    # # TESTING the obtained solution with rest
+    # contRest = 0
+    # sol.calcP(mustPlotPint=True)
+    # while sol.P > sol.tol['P']:
+    #     sol.rest()
+    #     contRest += 1
+    #     sol.plotSol()
+    # #
     #
-
-    sol.showHistP()
+    # sol.showHistP()
     sol.log.printL("\nnaivRock.py execution finished. Bye!\n")
     sol.log.close()

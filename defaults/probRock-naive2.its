@@ -56,7 +56,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 473.0
+h = 463.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -104,7 +104,7 @@ PFtol = 1.0e-2
 [sgra] # Internal SGRA parameters
 #
 # Tolerance for P functional
-tolP = 1e-15
+tolP = 1e-12
 #
 # Tolerance for Q functional
 tolQ = 1e-4
