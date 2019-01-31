@@ -89,7 +89,7 @@ TargHeig = 250.
 [accel] # Acceleration limitation parameters
 #
 # Maximum tangential acceleration [g]
-acc_max = 35.0
+acc_max = 3.0
 #
 # Penalty function mode [‘lin’,’quad’,’tanh’]
 PFmode = quad

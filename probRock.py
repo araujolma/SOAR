@@ -515,19 +515,46 @@ class prob(sgra):
 
         TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
         TWR_targ = 1.3
-        dm = (TWR/TWR_targ) * self.boundary['m_initial']/60.
-        while TWR>TWR_targ:
-            self.log.printL("TWR = {:.4G}. Time to increase that mass!".format(TWR))
+        dm = (TWR/TWR_targ) * self.boundary['m_initial']/30.
+        sign = 1.
+        while abs(TWR-TWR_targ)>0.0001:
+            self.log.printL("TWR = {:.4G}. Time to change that mass!".format(TWR))
             #input("\nI am about to mess things up. Be careful. ")
             #dm = 10.
             #self.x[:,3,:] += dm
+            if sign * (TWR - TWR_targ) < 0:
+                dm = -dm/2.
+                sign *= -1.
             self.boundary['m_initial'] += dm
             self.log.printL("\nDone. Let's restore it again.")
             self.calcP()
             while self.P > self.tol['P']:
                 self.rest(parallelOpt={'restLMPBVP':True})
             TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
-            self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
+            #self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
+
+        S = self.constants['s_ref'][0]  # km²
+        WL_targ = 1890.  # kgf/m²
+        S_targ = (self.boundary['m_initial'] / WL_targ) * 1e-6  # km²
+        dS = (S_targ - S) / 10.  # km²
+        print("S = {:.4G} km², S_targ = {:.4G} km²".format(S, S_targ))
+        sign = 1.
+        while abs(S - S_targ) > S_targ * 1e-7:
+            self.log.printL(
+                "WL = {:.4G} kgf/m². Time to change that area!".format(self.boundary['m_initial'] / (S * 1e6)))
+            # input("\nI am about to mess things up. Be careful. ")
+            # dm = 10.
+            # self.x[:,3,:] += dm
+            if sign * (S_targ - S) < 0:
+                dS = -dS / 2.
+                sign *= -1.
+            self.constants['s_ref'] += dS
+            S = self.constants['s_ref'][0]
+            self.log.printL("\nDone. Let's restore it again.")
+            self.calcP()
+            while self.P > self.tol['P']:
+                self.rest(parallelOpt={'restLMPBVP': True})
+            # self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
 
 
 # =============================================================================
