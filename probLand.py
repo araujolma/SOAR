@@ -528,7 +528,7 @@ class prob(sgra):
         IOrig = self.x[0,2,0] - self.x[-1,2,-1]
         return IOrig, IOrig, 0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):
 
         pi = self.pi
@@ -538,9 +538,6 @@ class prob(sgra):
 #        else:
 #             intv = list(intv)
 
-        if len(intv)>0:
-            self.log.printL("plotSol: Sorry, ignoring plotting range.")
-
 
         if opt.get('mode','sol') == 'sol':
             I, _, _ = self.calcI()
@@ -549,29 +546,31 @@ class prob(sgra):
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
             ng = 6
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(self.x[:,0,:],piIsTime=piIsTime)
+            self.plotCat(self.x[:,0,:],intv=intv,piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(self.x[:,1,:],color='g',piIsTime=piIsTime)
+            self.plotCat(self.x[:,1,:],intv=intv,color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(self.x[:,2,:],color='r',piIsTime=piIsTime)
+            self.plotCat(self.x[:,2,:],intv=intv,color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("M [kg]")
 
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(self.u[:,0,:],color='k',piIsTime=piIsTime)
+            self.plotCat(self.u[:,0,:],intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = self.constants['T'] * self.calcDimCtrl()
             Weight = self.constants['g'] * self.x[:,2,:]
-            self.plotCat(Thrust,color='r',labl='Thrust',piIsTime=piIsTime)
-            self.plotCat(Weight,color='k',labl='Weight',piIsTime=piIsTime)
+            self.plotCat(Thrust,intv=intv,color='r',labl='Thrust',
+                         piIsTime=piIsTime)
+            self.plotCat(Weight,intv=intv,color='k',labl='Weight',
+                         piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Force [kN]")
             plt.xlabel("Time [s]")
@@ -616,21 +615,21 @@ class prob(sgra):
 
             ng = 5
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(dx[:,0,:],piIsTime=piIsTime)
+            self.plotCat(dx[:,0,:],intv=intv,piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("h [km]")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(dx[:,1,:],color='g',piIsTime=piIsTime)
+            self.plotCat(dx[:,1,:],intv=intv,color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("V [km/s]")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(dx[:,2,:],color='r',piIsTime=piIsTime)
+            self.plotCat(dx[:,2,:],intv=intv,color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("M [kg]")
 
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(du[:,0,:],color='k',piIsTime=piIsTime)
+            self.plotCat(du[:,0,:],intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
@@ -639,7 +638,7 @@ class prob(sgra):
             new_u = self.u + du
             NewThr = self.constants['T'] * self.calcDimCtrl(ext_u=new_u)
             #deltaThr = NewThr-Thr
-            self.plotCat(NewThr-Thr,color='k',piIsTime=piIsTime)
+            self.plotCat(NewThr-Thr,intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
             plt.xlabel("Time [s]")
@@ -651,26 +650,29 @@ class prob(sgra):
 
             ng = 5
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
-            self.plotCat(self.lam[:,0,:],piIsTime=piIsTime)
+            self.plotCat(self.lam[:,0,:],intv=intv,piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: h")
             plt.title(titlStr)
             plt.subplot2grid((ng,1),(1,0),colspan=ng)
-            self.plotCat(self.lam[:,1,:],color='g',piIsTime=piIsTime)
+            self.plotCat(self.lam[:,1,:],intv=intv,color='g',
+                         piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: v")
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
-            self.plotCat(self.lam[:,2,:],color='r',piIsTime=piIsTime)
+            self.plotCat(self.lam[:,2,:],intv=intv,color='r',
+                         piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("lambda: m")
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
-            self.plotCat(self.u[:,0,:],color='k',piIsTime=piIsTime)
+            self.plotCat(self.u[:,0,:],intv=intv,color='k',
+                         piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = self.constants['T'] * self.calcDimCtrl()
-            self.plotCat(Thrust,color='k',piIsTime=piIsTime)
+            self.plotCat(Thrust,intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
             plt.xlabel("Time [s]")

@@ -506,55 +506,57 @@ class prob(sgra):
 
         solInit = self.copy()
 
+        # This segment does the alterations on itsme solution to yield the
+        # Miele ratios (TWR=1.3, WL = 1890.)
 
-        self.log.printL("\nRestoring initial solution.")
-        self.calcP()
-        while self.P > self.tol['P']:
-            self.rest(parallelOpt={'restLMPBVP':True})
-        self.log.printL("\nSolution was restored. ")
-
-        TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
-        TWR_targ = 1.3
-        dm = (TWR/TWR_targ) * self.boundary['m_initial']/30.
-        sign = 1.
-        while abs(TWR-TWR_targ)>0.0001:
-            self.log.printL("TWR = {:.4G}. Time to change that mass!".format(TWR))
-            #input("\nI am about to mess things up. Be careful. ")
-            #dm = 10.
-            #self.x[:,3,:] += dm
-            if sign * (TWR - TWR_targ) < 0:
-                dm = -dm/2.
-                sign *= -1.
-            self.boundary['m_initial'] += dm
-            self.log.printL("\nDone. Let's restore it again.")
-            self.calcP()
-            while self.P > self.tol['P']:
-                self.rest(parallelOpt={'restLMPBVP':True})
-            TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
-            #self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
-
-        S = self.constants['s_ref'][0]  # km²
-        WL_targ = 1890.  # kgf/m²
-        S_targ = (self.boundary['m_initial'] / WL_targ) * 1e-6  # km²
-        dS = (S_targ - S) / 10.  # km²
-        print("S = {:.4G} km², S_targ = {:.4G} km²".format(S, S_targ))
-        sign = 1.
-        while abs(S - S_targ) > S_targ * 1e-7:
-            self.log.printL(
-                "WL = {:.4G} kgf/m². Time to change that area!".format(self.boundary['m_initial'] / (S * 1e6)))
-            # input("\nI am about to mess things up. Be careful. ")
-            # dm = 10.
-            # self.x[:,3,:] += dm
-            if sign * (S_targ - S) < 0:
-                dS = -dS / 2.
-                sign *= -1.
-            self.constants['s_ref'] += dS
-            S = self.constants['s_ref'][0]
-            self.log.printL("\nDone. Let's restore it again.")
-            self.calcP()
-            while self.P > self.tol['P']:
-                self.rest(parallelOpt={'restLMPBVP': True})
-            # self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
+        # self.log.printL("\nRestoring initial solution.")
+        # self.calcP()
+        # while self.P > self.tol['P']:
+        #     self.rest(parallelOpt={'restLMPBVP':True})
+        # self.log.printL("\nSolution was restored. ")
+        #
+        # TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
+        # TWR_targ = 1.3
+        # dm = (TWR/TWR_targ) * self.boundary['m_initial']/30.
+        # sign = 1.
+        # while abs(TWR-TWR_targ)>0.0001:
+        #     self.log.printL("TWR = {:.4G}. Time to change that mass!".format(TWR))
+        #     #input("\nI am about to mess things up. Be careful. ")
+        #     #dm = 10.
+        #     #self.x[:,3,:] += dm
+        #     if sign * (TWR - TWR_targ) < 0:
+        #         dm = -dm/2.
+        #         sign *= -1.
+        #     self.boundary['m_initial'] += dm
+        #     self.log.printL("\nDone. Let's restore it again.")
+        #     self.calcP()
+        #     while self.P > self.tol['P']:
+        #         self.rest(parallelOpt={'restLMPBVP':True})
+        #     TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
+        #     #self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
+        #
+        # S = self.constants['s_ref'][0]  # km²
+        # WL_targ = 1890.  # kgf/m²
+        # S_targ = (self.boundary['m_initial'] / WL_targ) * 1e-6  # km²
+        # dS = (S_targ - S) / 10.  # km²
+        # print("S = {:.4G} km², S_targ = {:.4G} km²".format(S, S_targ))
+        # sign = 1.
+        # while abs(S - S_targ) > S_targ * 1e-7:
+        #     self.log.printL(
+        #         "WL = {:.4G} kgf/m². Time to change that area!".format(self.boundary['m_initial'] / (S * 1e6)))
+        #     # input("\nI am about to mess things up. Be careful. ")
+        #     # dm = 10.
+        #     # self.x[:,3,:] += dm
+        #     if sign * (S_targ - S) < 0:
+        #         dS = -dS / 2.
+        #         sign *= -1.
+        #     self.constants['s_ref'] += dS
+        #     S = self.constants['s_ref'][0]
+        #     self.log.printL("\nDone. Let's restore it again.")
+        #     self.calcP()
+        #     while self.P > self.tol['P']:
+        #         self.rest(parallelOpt={'restLMPBVP': True})
+        #     # self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
 
 
 # =============================================================================
@@ -1416,7 +1418,7 @@ class prob(sgra):
             DvAcc += g0Isp[arc]*numpy.log(M0/Mf)
         return DvAcc
 
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
                              'top':10.0,'wspace':0.2,'hspace':0.35}):
         self.log.printL("\nIn plotSol, opt = "+str(opt))
@@ -1548,9 +1550,12 @@ class prob(sgra):
                            (CL0[arc] + alpha[:,arc] * CL1[arc])
                 D[:,arc] = pDyn[:, arc] * s_ref[arc] * \
                            (CD0[arc] + ( alpha[:,arc]**2 ) * CD2[arc])
-            self.plotCat(thrust,color='k',piIsTime=piIsTime,labl='Thrust')
-            self.plotCat(L,color='b',piIsTime=piIsTime,labl='Lift')
-            self.plotCat(D,color='r',piIsTime=piIsTime,labl='Drag')
+            self.plotCat(thrust,color='k',intv=intv,piIsTime=piIsTime,
+                         labl='Thrust')
+            self.plotCat(L,color='b',intv=intv,piIsTime=piIsTime,
+                         labl='Lift')
+            self.plotCat(D,color='r',intv=intv,piIsTime=piIsTime,
+                         labl='Drag')
             plt.grid(True)
             plt.xlabel(timeLabl)
             plt.ylabel("Forces [kN]")
@@ -1559,7 +1564,8 @@ class prob(sgra):
             ######################################
             plt.subplot2grid((11,1),(9,0))
             acc =  self.calcAcc()
-            self.plotCat(acc*1e3,color='y',piIsTime=piIsTime,labl='Accel.')
+            self.plotCat(acc*1e3,color='y',intv=intv,piIsTime=piIsTime,
+                         labl='Accel.')
             plt.plot(tVec,1e3 * self.restrictions['acc_max'] * \
                           numpy.array([1.0,1.0]),'--')
             plt.grid(True)

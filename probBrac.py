@@ -252,7 +252,7 @@ class prob(sgra):
         I = Ivec.sum()
         return I, I, 0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,\
                 subPlotAdjs={}):
 
         pi = self.pi
@@ -268,9 +268,6 @@ class prob(sgra):
 #        else:
 #             intv = list(intv)
 
-        if len(intv)>0:
-            self.log.printL("plotSol: Sorry, currently ignoring plotting range.")
-
 
         if opt.get('mode','sol') == 'sol':
             I, _, _ = self.calcI()
@@ -278,25 +275,25 @@ class prob(sgra):
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
             plt.subplot2grid((5,1),(0,0),colspan=5)
-            self.plotCat(self.x[:,0,:])
+            self.plotCat(self.x[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("x [m]")
             plt.title(titlStr)
             plt.subplot2grid((5,1),(1,0),colspan=5)
-            self.plotCat(self.x[:,1,:],color='g')
+            self.plotCat(self.x[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("y [m]")
             plt.subplot2grid((5,1),(2,0),colspan=5)
-            self.plotCat(self.x[:,2,:],color='r')
+            self.plotCat(self.x[:,2,:],intv=intv,color='r')
             plt.grid(True)
             plt.ylabel("V [m/s]")
             plt.subplot2grid((5,1),(3,0),colspan=5)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.subplot2grid((5,1),(4,0),colspan=5)
             gama = 0.5*numpy.pi*numpy.tanh(self.u)
-            self.plotCat(r2d*gama[:,0,:],color='k')
+            self.plotCat(r2d*gama[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')
             plt.xlabel(timeLabl)
@@ -320,23 +317,23 @@ class prob(sgra):
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
             plt.subplot2grid((5,1),(0,0))
-            self.plotCat(dx[:,0,:])
+            self.plotCat(dx[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("x [m]")
             plt.title(titlStr)
 
             plt.subplot2grid((5,1),(1,0))
-            self.plotCat(dx[:,1,:],color='g')
+            self.plotCat(dx[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("y [m]")
 
             plt.subplot2grid((5,1),(2,0))
-            self.plotCat(dx[:,2,:],color='r')
+            self.plotCat(dx[:,2,:],intv=intv,color='r')
             plt.grid(True)
             plt.ylabel("v [m/s]")
 
             plt.subplot2grid((5,1),(3,0))
-            self.plotCat(du[:,0,:],color='k')
+            self.plotCat(du[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
 
@@ -345,7 +342,7 @@ class prob(sgra):
             new_gama = 0.5*numpy.pi*numpy.tanh(new_u)
             dgama = new_gama - gama
             plt.subplot2grid((5,1),(4,0))
-            self.plotCat(r2d*dgama[:,0,:],color='r')
+            self.plotCat(r2d*dgama[:,0,:],intv=intv,color='r')
             plt.grid(True)
             plt.xlabel("t")
             plt.ylabel("Inclination angle [deg]")
@@ -356,25 +353,25 @@ class prob(sgra):
             titlStr = "Lambda for current solution"
 
             plt.subplot2grid((5,1),(0,0),colspan=5)
-            self.plotCat(self.lam[:,0,:])
+            self.plotCat(self.lam[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("lambda: x")
             plt.title(titlStr)
             plt.subplot2grid((5,1),(1,0),colspan=5)
-            self.plotCat(self.lam[:,1,:],color='g')
+            self.plotCat(self.lam[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("lambda: y")
             plt.subplot2grid((5,1),(2,0),colspan=5)
-            self.plotCat(self.lam[:,2,:],color='g')
+            self.plotCat(self.lam[:,2,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("lambda: Speed")
             plt.subplot2grid((5,1),(3,0),colspan=5)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.subplot2grid((5,1),(4,0),colspan=5)
             gama = 0.5*numpy.pi*numpy.tanh(self.u)
-            self.plotCat(r2d*gama[:,0,:],color='k')
+            self.plotCat(r2d*gama[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel('Inclination angle [deg]')
             plt.xlabel(timeLabl)

@@ -229,7 +229,7 @@ class prob(sgra):
         I = Ivec.sum()
         return I, I, 0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,\
                 subPlotAdjs={}):
         t = self.t
         x = self.x
@@ -237,10 +237,10 @@ class prob(sgra):
         pi = self.pi
         gama = numpy.pi * numpy.tanh(u)
 
-        if len(intv)==0:
+        if intv is None:
             intv = numpy.arange(0,self.N,1,dtype='int')
         else:
-             intv = list(intv)
+            intv = list(intv)
 
 
         if opt.get('mode','sol') == 'sol':
@@ -277,7 +277,7 @@ class prob(sgra):
             dx = opt['x']
             du = opt['u']
             dp = opt['pi']
-            dgama = 0.5 * numpy.pi * numpy.tanh(du)
+            dgama = numpy.pi * numpy.tanh(du)
 
             plt.subplot2grid((8,4),(0,0),colspan=5)
             plt.plot(t[intv],dx[intv,0,0],)

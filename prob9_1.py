@@ -221,18 +221,20 @@ class prob(sgra):
             I += simp(f[:,arc],N)
         return I, I, 0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+    def plotSol(self,opt=None,intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):
         t = self.t
         x = self.x
         u = self.u
         pi = self.pi
 
-        if len(intv)==0:
+        if intv is None:
             intv = numpy.arange(0,self.N,1,dtype='int')
         else:
              intv = list(intv)
 
+        if opt is None:
+            opt = {}
 
         if opt.get('mode','sol') == 'sol':
             I,_,_ = self.calcI()
@@ -303,7 +305,7 @@ class prob(sgra):
             plt.ylabel("lam - y")
 
             plt.subplot2grid((3,1),(2,0))
-            self.plotCat(self.u[intv,0,:],color='k',intv=intv)
+            self.plotCat(self.u[:,0,:],color='k',intv=intv)
             plt.grid(True)
             plt.ylabel("u")
 

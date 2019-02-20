@@ -200,17 +200,17 @@ class prob(sgra):
     def calcI(self):
         return self.pi[0],self.pi[0],0.0
 #%%
-    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):
         t = self.t
         x = self.x
         u = self.u
         pi = self.pi
 
-        if len(intv)==0:
+        if intv is None:
             intv = numpy.arange(0,self.N,1,dtype='int')
         else:
-             intv = list(intv)
+            intv = list(intv)
 
 
         if opt.get('mode','sol') == 'sol':

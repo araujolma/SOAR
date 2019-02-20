@@ -303,7 +303,8 @@ class prob(sgra):
             plt.title(titlStr)
 
             plt.subplot2grid((3, 1), (1, 0))
-            self.plotCat(self.lam[:, 1, :], color='g', piIsTime=piIsTime, intv=intv)
+            self.plotCat(self.lam[:, 1, :], color='g', piIsTime=piIsTime,
+                         intv=intv)
             plt.grid(True)
             plt.ylabel("lam - y")
             plt.xlabel(timeLabl)
