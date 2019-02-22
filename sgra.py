@@ -191,7 +191,7 @@ class sgra:
         else:
             uperBnd = t[-1] * s
             arcsDur = [t[-1]] * s
-        print("arcsDur =",arcsDur)
+
         # First and last arcs to be plotted
         FrstArc, LastArc = 0, s
         # Indexes for begin and and of plot
@@ -226,7 +226,7 @@ class sgra:
                 # update accumulated time, partial sums array
                 accTime += arcsDur[arc]
                 PartSumTimeArry[arc] = accTime
-                print("PartSumTimeArry =",PartSumTimeArry)
+
                 dtd = dt * arcsDur[arc] # dimensional dt
                 if MustFindFrstArc and intv[0] <= PartSumTimeArry[arc]:
                     # Found the first arc!
@@ -235,7 +235,7 @@ class sgra:
                     # Find the index for start of plot
                     indFlt = (intv[0] - PartSumTimeArry[arc]+arcsDur[arc]) /\
                              dtd
-                    print("indFltBgin =",indFlt)
+
                     BginPlotIndx[arc] = max([int(numpy.floor(indFlt)),0])
                 if MustFindLastArc and intv[1] <= PartSumTimeArry[arc]:
                     # Found last arc!
@@ -244,12 +244,9 @@ class sgra:
                     # Find the index for end of plot
                     indFlt = (intv[1] - PartSumTimeArry[arc]+arcsDur[arc]) /\
                              dtd
-                    print("indFltEnd =", indFlt)
+
                     EndPlotIndx[arc] = min([int(numpy.ceil(indFlt))+1,N]) # idem
             #
-            print("\nFirst arc = {}, Last arc (p.i.) = {}".format(FrstArc,LastArc))
-            print("BginPlotIndx =",BginPlotIndx)
-            print("EndPlotIndx =",EndPlotIndx)
         #
 
         # Accumulated time between arcs

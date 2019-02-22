@@ -78,8 +78,10 @@ class prob(sgra):
 
         n = 3
         m = 1
-        s = 4
+        s = 2#4
+        # This q expression works for s=1 only:
         #q = n + (n-1) + n * (s-1)
+        # This is more general:
         q = n + (n-1) + (n+1) * (s-1)
         p = s
         self.n = n
@@ -290,6 +292,18 @@ class prob(sgra):
         return phi
 
 #%%
+    def calcAcc(self):
+        """Calculate acceleration "felt" by the rocket."""
+
+        acc = numpy.empty((self.N, self.s))
+
+        # Calculate acceleration
+        phi = self.calcPhi()
+        for arc in range(self.s):
+            acc[:, arc] = phi[:, 1, arc] / self.pi[arc]
+
+        # add a 'g' so that it returns the acc. "felt" inside the rocket
+        return acc + self.constants['g']
 
     def calcGrads(self,calcCostTerm=False):
         Grads = dict()
@@ -322,25 +336,26 @@ class prob(sgra):
             psiy[3, 3] = 1.0  # h(1) = 0.0
             psiy[4, 4] = 1.0  # V(1) = 0.0
         elif s == 2:
-            # psi = numpy.array([self.x[0, 0, 0] - h0,
-            #                    self.x[0, 1, 0] - V0,
-            #                    self.x[0, 2, 0] - M0,
-            #                    self.x[0, 0, 1] - self.x[N - 1, 0, 0],
-            #                    self.x[0, 1, 1] - self.x[N - 1, 1, 0],
-            #                    self.x[0, 2, 1] - self.x[N - 1, 2, 0],
-            #                    self.x[N - 1, 0, 1],
-            #                    self.x[N - 1, 1, 1]])
-            psiy[0, 0] = 1.0  # h(0) = h0
-            psiy[1, 1] = 1.0  # V(0) = V0
-            psiy[2, 2] = 1.0  # m(0) = m0
-            psiy[3, 3] = -1.0
-            psiy[3, 6] = 1.0
-            psiy[4, 4] = -1.0
-            psiy[4, 7] = 1.0
-            psiy[5, 5] = -1.0
-            psiy[5, 8] = 1.0
-            psiy[6, 9] = 1.0
-            psiy[7, 10] = 1.0
+            psiy[0, 0] = 1.0  # h(0,0) = h0          (0)
+            psiy[1, 1] = 1.0  # V(0,0) = V0          (1)
+            psiy[2, 2] = 1.0  # m(0,0) = m0          (2)
+            psiy[3, 3] = 1.0  # h(1,0) = hBound      (3)
+            psiy[4, 6] = 1.0  # h(0,1) = hBound      (4)
+            psiy[5, 4] = -1.0 # V(0,1) - V(1,0) = 0  (5)
+            psiy[5, 7] = 1.0  # V(0,1) - V(1,0) = 0  (5)
+            psiy[6, 5] = -1.0 # M(0,1) - M(1,0) = 0  (6)
+            psiy[6, 8] = 1.0  # M(0,1) - M(1,0) = 0  (6)
+            psiy[7, 9] = 1.0  # h(1,1) = 0           (7)
+            psiy[8, 10] = 1.0 # V(1,1) = 0           (8)
+            # self.x[0, 0, 0] - h0,
+            # self.x[0, 1, 0] - V0,
+            # self.x[0, 2, 0] - M0,
+            # self.x[N - 1, 0, 0] - hBound,
+            # self.x[0, 0, 1] - hBound,
+            # self.x[0, 1, 1] - self.x[N - 1, 1, 0],
+            # self.x[0, 2, 1] - self.x[N - 1, 2, 0],
+            # self.x[N - 1, 0, 1],
+            # self.x[N - 1, 1, 1]
         elif s % 2 == 0:
             psiy[0, 0] = 1.0  # h(0) = h0
             psiy[1, 1] = 1.0  # V(0) = V0
@@ -441,10 +456,12 @@ class prob(sgra):
                                 self.x[N-1,0,0],
                                 self.x[N-1,1,0]])
         elif s == 2:
+            hBound = self.restrictions['hList'][0]
             psi = numpy.array([self.x[0,0,0] - h0,
                                self.x[0,1,0] - V0,
                                self.x[0,2,0] - M0,
-                               self.x[0,0,1] - self.x[N-1,0,0],
+                               self.x[N - 1, 0, 0] - hBound,
+                               self.x[0,0,1] - hBound,
                                self.x[0,1,1] - self.x[N-1,1,0],
                                self.x[0,2,1] - self.x[N-1,2,0],
                                self.x[N-1,0,1],
@@ -533,10 +550,11 @@ class prob(sgra):
 
         pi = self.pi
 
-#        if len(intv)==0:
-#            intv = numpy.arange(0,self.N,1,dtype='int')
-#        else:
-#             intv = list(intv)
+
+        if piIsTime:
+            timeLabl = 't [s]'
+        else:
+            timeLabl = 'adim. t [-]'
 
 
         if opt.get('mode','sol') == 'sol':
@@ -544,7 +562,7 @@ class prob(sgra):
             titlStr = "Current solution: I = {:.4E}".format(I) + \
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
-            ng = 6
+            ng = 7
             plt.subplot2grid((ng,1),(0,0),colspan=ng)
             self.plotCat(self.x[:,0,:],intv=intv,piIsTime=piIsTime)
             plt.grid(True)
@@ -563,7 +581,7 @@ class prob(sgra):
             self.plotCat(self.u[:,0,:],intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.xlabel("Time [s]")
+
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thrust = self.constants['T'] * self.calcDimCtrl()
             Weight = self.constants['g'] * self.x[:,2,:]
@@ -573,10 +591,17 @@ class prob(sgra):
                          piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Force [kN]")
-            plt.xlabel("Time [s]")
             plt.legend()
 
-            ax = plt.subplot2grid((ng, 1), (5, 0))
+            plt.subplot2grid((ng, 1), (5, 0), colspan=ng)
+            acc = self.calcAcc()
+            self.plotCat(acc/self.constants['g'], intv=intv, labl='acc',
+                         piIsTime=piIsTime)
+            plt.grid(True)
+            plt.ylabel("Acceleration [g]")
+            plt.xlabel(timeLabl)
+
+            ax = plt.subplot2grid((ng, 1), (6, 0))
             s = self.s
             position = numpy.arange(s)
             stages = numpy.arange(1, s + 1)
@@ -592,9 +617,10 @@ class prob(sgra):
             plt.xlabel("Arcs")
             plt.ylabel("Duration [s]")
 
-            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.45)
 
             self.savefig(keyName='currSol',fullName='solution')
+            #plt.show()
 
             self.log.printL("pi = "+str(pi)+"\n")
         elif opt['mode'] == 'var':
@@ -623,16 +649,18 @@ class prob(sgra):
             self.plotCat(dx[:,1,:],intv=intv,color='g',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("V [km/s]")
+
             plt.subplot2grid((ng,1),(2,0),colspan=ng)
             self.plotCat(dx[:,2,:],intv=intv,color='r',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("M [kg]")
 
+
             plt.subplot2grid((ng,1),(3,0),colspan=ng)
             self.plotCat(du[:,0,:],intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("u1 [-]")
-            plt.xlabel("Time [s]")
+
             plt.subplot2grid((ng,1),(4,0),colspan=ng)
             Thr = self.constants['T'] * self.calcDimCtrl()
             new_u = self.u + du
@@ -641,7 +669,7 @@ class prob(sgra):
             self.plotCat(NewThr-Thr,intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
-            plt.xlabel("Time [s]")
+            plt.xlabel(timeLabl)
 
             self.savefig(keyName='corr',fullName='corrections')
 
@@ -675,9 +703,9 @@ class prob(sgra):
             self.plotCat(Thrust,intv=intv,color='k',piIsTime=piIsTime)
             plt.grid(True)
             plt.ylabel("Thrust [kN]")
-            plt.xlabel("Time [s]")
+            plt.xlabel(timeLabl)
 
-            plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
+            plt.subplots_adjust(0.0125,0.0,0.9,3.5,0.2,0.2)
             self.savefig(keyName='currLamb',fullName='lambdas')
 
             self.log.printL("mu = "+str(self.mu))
@@ -739,8 +767,8 @@ class prob(sgra):
                     self.restrictions['M']
 
         # TODO: this should become a parameter in the .its file!
-        psiHigh = 0.25 * Tmax / M / g
-        psiLow = 0.9#0.#
+        psiHigh = 0.5 * Tmax / M / g
+        psiLow = 0.#0.9#
         msg = "\nThrust to weight ratios used:\n" + \
               '"Stopping" phase: {:.2F}\n'.format(psiHigh) + \
               '"Falling" phase: {:.2F}\n'.format(psiLow)
@@ -784,6 +812,7 @@ class prob(sgra):
             self.pi = numpy.array([tTot])
             dt = tTot/(N-1)
             kT = int(tFall * N / tTot)
+            #print("\nkT =",kT)
             tFallVec = numpy.linspace(0.,1.,num=kT) * (tFall-dt)
 
             self.x[:kT,0,0] = h + V * tFallVec - .5 * g * tFallVec ** 2.
@@ -810,6 +839,7 @@ class prob(sgra):
             self.x[:, 2, 0] = M + tFallVec * 0.
             self.u[:, 0, 0] = self.calcAdimCtrl(tFallVec*0.)
 
+            hList[0] = hLim
             tStopVec = numpy.linspace(0., 1., num=N) * tStop
             self.x[:, 0, 1] = hLim - vLim * tStopVec + \
                                 .5 * g * (psi - 1.) * tStopVec ** 2.
