@@ -22,7 +22,7 @@ pi_max = None, None
 N = 101
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e10
+GSS_PLimCte = 1.0e5
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
@@ -83,24 +83,21 @@ h = 10.0
 # Initial velocity [km/s]
 V = 0.0
 #
-###############################################################################
 
 ###############################################################################
-[cost] # Cost function parameters
+[accel] # Acceleration limitation parameters
 #
-# Control cost weight
-contCostWeig = 1.
+# Maximum tangential acceleration [g]
+acc_max = 5.
 #
-# Time cost weight
-timeCostWeig = 0.
+# Penalty function mode [‘lin’,’quad’,’tanh’]
+PFmode = quad
 #
-# State 1 quadratic cost weight (x1**2 term)
-sttCostWeig11 = 0.
+# Relative tolerance for maximum acceleration [-]
+acc_max_relTol = 0.1
 #
-# State 1 and state 2 cross cost weight (x1*x2 term)
-sttCostWeig12 = 0.
+# Penalty function value at tolerance acceleration [-]
+PFtol = 10.
+#e-3
 #
-# State 2 quadratic cost weight (x2**2 term)
-sttCostWeig22 = 0.
-#
-###############################################################################
+

@@ -40,13 +40,13 @@ class problemConfigurationSGRA2(problemConfigurationSGRA):
         for key in ['GM', 'R', 'g0']:
             self.con[key] = self.config.getfloat('env', key)
 
-    def cost(self):
-        """Cost function parameters."""
+    def accel(self):
+        """Acceleration limitation parameters."""
 
-        for key in ['contCostWeig', 'timeCostWeig', \
-                    'sttCostWeig11','sttCostWeig12', 'sttCostWeig22']:
-            self.con[key] = self.config.getfloat('cost',key)
+        for key in ['acc_max', 'acc_max_relTol', 'PFtol']:
+            self.con[key] = self.config.getfloat('accel',key)
 
+        self.con['PFmode'] = self.config.get('accel', 'PFmode')
 
 class prob(sgra):
     probName = 'probLand'
@@ -57,7 +57,7 @@ class prob(sgra):
         pConf.restr()
         pConf.vehicle()
         pConf.env()
-        #pConf.cost()
+        pConf.accel()
 
         for key in ['Mu', 'Mp', 'Isp', 'efes', 'T', 'GM', 'R', 'g0']:
             self.constants[key] = pConf.con[key]
@@ -69,6 +69,36 @@ class prob(sgra):
         self.restrictions['M'] = self.constants['Mu'] + \
                                  self.constants['Mp']/self.constants['efes']
         #self.restrictions['hList'] = []
+
+        acc_max = pConf.con['acc_max'] * self.constants['g']  # in km/s²
+        self.restrictions['acc_max'] = acc_max
+        # Penalty function settings
+
+        # This approach to Kpf is that if, in any point during flight, the
+        # acceleration exceeds the limit by acc_max_tol, then the penalty
+        # function at that point is PFtol times greater than the maximum
+        # value of the original cost functional.
+
+        PFmode = pConf.con['PFmode']
+        costFuncVals = pConf.con['T'] / pConf.con['g0'] / pConf.con['Isp']
+        maxCost = costFuncVals
+
+        PFtol = pConf.con['PFtol']
+        acc_max_relTol = pConf.con['acc_max_relTol']
+        acc_max_tol = acc_max_relTol * acc_max
+        if PFmode == 'lin':
+            Kpf = PFtol * maxCost / acc_max_tol
+        elif PFmode == 'quad':
+            Kpf = PFtol * maxCost / (acc_max_tol ** 2)
+        elif PFmode == 'tanh':
+            Kpf = PFtol * maxCost / numpy.tanh(acc_max_relTol)
+        else:
+            self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
+            raise KeyError
+        input("Kpf = "+str(Kpf))
+        self.constants['PFmode'] =  PFmode
+        self.constants['Kpf'] = Kpf
+
 
     def initGues(self,opt={}):
 
@@ -397,6 +427,26 @@ class prob(sgra):
         g = self.constants['g']
         Thrust = self.constants['T'] * self.calcDimCtrl()
         dTdu = self.constants['T'] * self.calcDimCtrl(driv=True)
+
+        # penalty function terms
+        acc = self.calcAcc()
+        acc_max = self.restrictions['acc_max']
+        Kpf = self.constants['Kpf']
+        PFmode = self.constants['PFmode']
+        PenaltyIsTrue = (acc > acc_max)
+        if PFmode == 'lin':
+            K2dAPen = Kpf * PenaltyIsTrue
+        elif PFmode == 'quad':
+            K2dAPen = 2.0 * Kpf * (acc - acc_max) * PenaltyIsTrue
+        elif PFmode == 'tanh':
+            tanh = numpy.tanh
+            K2dAPen = Kpf * PenaltyIsTrue * \
+                      (1.0 - tanh(acc / acc_max - 1.0) ** 2) * (1.0 / acc_max)
+        else:
+            self.log.printL("Unknown PFmode '"+str(PFmode)+"'.")
+            raise KeyError
+        #self.log.printL("\nK2dAPen = "+str(K2dAPen))
+
         for arc in range(s):
 
             phix[:,0,1,arc] = pi[arc]
@@ -409,7 +459,11 @@ class prob(sgra):
             phip[:,1,arc,arc] = Thrust[:,arc] / self.x[:,2,arc] - g
             phip[:,2,arc,arc] = - Thrust[:,arc] / g0Isp
 
-            fp[:,arc,arc] = Thrust[:,arc] / g0Isp
+            # acc = self.pi[arc] * (-g + Thrust[:,arc]/self.x[:,2,arc])
+            #fp[:, arc, arc] = Thrust[:, arc] / g0Isp
+            fp[:,arc,arc] = Thrust[:,arc] / g0Isp + \
+                            Kpf * PenaltyIsTrue[:,arc] * (acc[:,arc]-acc_max)**2
+
 #            fp[:,arc,arc] = sttCostWeig11 * (ex1**2) + \
 #                            sttCostWeig22 * (ex2**2) + \
 #                            2. * sttCostWeig12 * ex1 * ex2 + \
@@ -426,7 +480,10 @@ class prob(sgra):
 #                           (self.u[:,0,arc]>self.uLim) + \
 #                           (self.u[:,0,arc]+self.uLim) *  \
 #                           (self.u[:,0,arc]<-self.uLim) )
-            fu[:,0,arc] = self.pi[arc] * dTdu[:,arc] / g0Isp
+            fu[:,0,arc] = self.pi[arc] * dTdu[:,arc] * \
+                          (1./g0Isp + K2dAPen[:,arc]/self.x[:,2,arc])
+
+            fx[:,2,arc] = K2dAPen[:,arc] * phix[:,1,2,arc]
         #
 
         Grads['phix'] = phix
@@ -518,32 +575,33 @@ class prob(sgra):
 #        sttCostWeig22 = self.constants['sttCostWeig22']
         g0Isp = self.constants['g0'] * self.constants['Isp']
         Thr = self.constants['T'] * self.calcDimCtrl()
+
+        acc = self.calcAcc()
+        acc_max = self.restrictions['acc_max']
         for arc in range(s):
             fOrig[:,arc] = (self.pi[arc] / g0Isp) * Thr[:,arc]
 
-#            fPF[:,arc] = self.pi[arc] * self.Kpf * \
-#                        ((self.u[:,0,arc]>self.uLim) * \
-#                          (self.u[:,0,arc]- self.uLim)**2 + \
-#                         (self.u[:,0,arc]<-self.uLim) * \
-#                          (self.u[:,0,arc]+self.uLim)**2)
+            fPF[:,arc] = self.pi[arc] * self.constants['Kpf'] * \
+                        ((acc[:,arc]>acc_max) * (acc[:,arc]-acc_max)**2)
 
         return fOrig+fPF, fOrig, fPF
 
     def calcI(self):
-#        N,s = self.N,self.s
-#        _, fOrig, fPF = self.calcF()
+        N,s = self.N,self.s
+        _, fOrig, fPF = self.calcF()
 
-#        IvecOrig = numpy.empty(s)
-#        IvecPF = numpy.empty(s)
-#        for arc in range(s):
-#            IvecOrig[arc] = simp(fOrig[:,arc],N)
-#            IvecPF[arc] = simp(fPF[:,arc],N)
+        IvecOrig = numpy.empty(s)
+        IvecPF = numpy.empty(s)
+        for arc in range(s):
+            IvecOrig[arc] = simp(fOrig[:,arc],N)
+            IvecPF[arc] = simp(fPF[:,arc],N)
 #
-#        IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
-#        return IOrig+IPF, IOrig, IPF
+        IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
+        IOrig = self.x[0, 2, 0] - self.x[-1, 2, -1]
+        return IOrig+IPF, IOrig, IPF
 
-        IOrig = self.x[0,2,0] - self.x[-1,2,-1]
-        return IOrig, IOrig, 0.0
+#        IOrig = self.x[0,2,0] - self.x[-1,2,-1]
+#        return IOrig, IOrig, 0.0
 #%%
     def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):
@@ -553,8 +611,10 @@ class prob(sgra):
 
         if piIsTime:
             timeLabl = 't [s]'
+            tVec = [0.0, self.pi.sum()]
         else:
             timeLabl = 'adim. t [-]'
+            tVec = [0.0, float(self.s)]
 
 
         if opt.get('mode','sol') == 'sol':
@@ -597,7 +657,11 @@ class prob(sgra):
             acc = self.calcAcc()
             self.plotCat(acc/self.constants['g'], intv=intv, labl='acc',
                          piIsTime=piIsTime)
+            plt.plot(tVec, self.restrictions['acc_max'] * \
+                     numpy.array([1.0, 1.0])/self.constants['g'], '--',
+                     label='acc_lim')
             plt.grid(True)
+            plt.legend()
             plt.ylabel("Acceleration [g]")
             plt.xlabel(timeLabl)
 

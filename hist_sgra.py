@@ -277,13 +277,18 @@ def showHistQ(self,tolZoom=True):
 
 def showHistI(self):
     IterGrad = numpy.arange(0,self.NIterGrad+1,1)
-    titl = "Convergence report on I"
-    plt.plot(IterGrad,self.histI[IterGrad],label='I')
+    I = self.histI[self.NIterGrad]
+    Iorig = self.histIorig[self.NIterGrad]
+    Ipf = self.histIpf[self.NIterGrad]
+    titl = "Convergence report on I\nFinal values: (Iorig,Ipf) = " + \
+           "({:.4E}, {:.4E})".format(Iorig,Ipf)
     if self.histIpf[IterGrad].any() > 0.:
-        plt.plot(IterGrad,self.histIorig[IterGrad],label='Iorig')
-        plt.plot(IterGrad,self.histIpf[IterGrad],label='Ipf')
+        plt.semilogy(IterGrad, self.histI[IterGrad], label='I')
+        plt.semilogy(IterGrad,self.histIorig[IterGrad],label='Iorig')
+        plt.semilogy(IterGrad,self.histIpf[IterGrad],label='Ipf')
     else:
         titl += "\n(Ipf omitted: identically zero)"
+        plt.plot(IterGrad, self.histI[IterGrad], label='I')
     plt.grid(True)
     plt.title(titl)
     plt.xlabel("Gradient iterations")
