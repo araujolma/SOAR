@@ -433,7 +433,7 @@ class prob(sgra):
         acc_max = self.restrictions['acc_max']
         Kpf = self.constants['Kpf']
         PFmode = self.constants['PFmode']
-        PenaltyIsTrue = (acc > acc_max)
+        PenaltyIsTrue = (acc >= acc_max)
         if PFmode == 'lin':
             K2dAPen = Kpf * PenaltyIsTrue
         elif PFmode == 'quad':
@@ -582,7 +582,7 @@ class prob(sgra):
             fOrig[:,arc] = (self.pi[arc] / g0Isp) * Thr[:,arc]
 
             fPF[:,arc] = self.pi[arc] * self.constants['Kpf'] * \
-                        ((acc[:,arc]>acc_max) * (acc[:,arc]-acc_max)**2)
+                        ((acc[:,arc]>=acc_max) * (acc[:,arc]-acc_max)**2)
 
         return fOrig+fPF, fOrig, fPF
 
