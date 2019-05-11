@@ -14,9 +14,14 @@ velocity.
 
 """
 
-import numpy
+import numpy, utils
 from sgra import sgra
 import matplotlib.pyplot as plt
+
+# TODO: these parameters really should go the external configuration file...
+Kpf = 0.#10.#0.
+# This is irrelevant if Kpf is zero
+vLim = .5
 
 class prob(sgra):
     probName = 'probCart'
@@ -172,6 +177,8 @@ class prob(sgra):
 #        psiy[1,2] = -1.0
 #        psiy[2,3] = 1.0
         psip = numpy.zeros((q,p))
+        CostIncrActv = (self.x[:,1,:] >= vLim)
+        SpeedVio = (self.x[:,1,:]-vLim) * CostIncrActv
 
         for arc in range(s):
             tanh_u = tanh(u[:,0,arc])
@@ -180,7 +187,9 @@ class prob(sgra):
             phip[:,0,arc,arc] = x[:,1,arc]
             phip[:,1,arc,arc] = tanh_u
 
-            fp[:,arc,arc] = numpy.ones(N)
+            fx[:,1,arc] = pi[arc] * 2. * Kpf * SpeedVio[:,arc]
+
+            fp[:,arc,arc] = 1. + Kpf * (SpeedVio[:,arc]**2)
 #        DynMat = array([[0.0,1.0],[0.0,0.0]])
 #        for k in range(N):
 #            for arc in range(s):
@@ -209,15 +218,17 @@ class prob(sgra):
         N = self.N
 #        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
 #                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
-        return numpy.array([x[0,0,0],x[0,1,0],\
-                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],\
+        return numpy.array([x[0,0,0],x[0,1,0],
+                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],
                             x[N-1,0,1]-1.0,x[N-1,1,1]])
 
     def calcF(self):
         N,s = self.N,self.s
         f = numpy.empty((N,s))
+        CostIncrActv = (self.x[:, 1, :] >= vLim)
+        SpeedVio = (self.x[:, 1, :] - vLim) * CostIncrActv
         for arc in range(s):
-            f[:,arc] = self.pi[arc] * numpy.ones(N)
+            f[:,arc] = self.pi[arc] * (1. + Kpf*SpeedVio[:,arc]**2)
 
         return f, f, 0.0*f
 
@@ -225,11 +236,15 @@ class prob(sgra):
         #N,s = self.N,self.s
         #f, _, _ = self.calcF()
 
-        Ivec = self.pi
+        #Ivec = self.pi
 #        for arc in range(s):
 #            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
 #            Ivec[arc] += f[1:(N-1),arc].sum()
 #        Ivec *= 1.0/(N-1)
+        Ivec = numpy.empty(self.s)
+        f,_,_ = self.calcF()
+        for arc in range(self.s):
+            Ivec[arc] = utils.simp(f[:,arc],self.N)
         I = Ivec.sum()
         return I, I, 0.0
 #%%
