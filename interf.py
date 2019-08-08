@@ -8,6 +8,7 @@ Created on Wed Jun 28 09:35:29 2017
 
 import dill, datetime, pprint, os, shutil
 from utils import getNowStr
+from configparser import ConfigParser
 
 class logger:
     """ Class for the handler of log messages."""
@@ -72,7 +73,11 @@ class ITman:
     dashStr = '\n'+'-'*88
 
     def __init__(self,confFile='',probName='prob',isInteractive=False):
-        # TODO: these parameters should go to an external file!
+
+        # default values for overall settings; these will be overridden if
+        # there is anything with the same name on the [settings] section of
+        # the configuration file.
+
         self.probName = probName
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
@@ -90,12 +95,77 @@ class ITman:
         self.ShowGRrateRate = 20
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
+        self.default_dbugOptRest = {'pausRest': False,
+                                    'pausCalcP': False,
+                                    'plotP_int': False,
+                                    'plotP_intZoom': False,
+                                    'plotIntP_int': False,
+                                    'plotSolMaxP': False,
+                                    'plotRsidMaxP': False,
+                                    'plotErr': False,
+                                    'plotCorr': False,
+                                    'plotCorrFin': False}
+        flag = False
+        self.default_dbugOptGrad = {'pausGrad':flag,#True,#
+                                    'pausCalcQ':flag,
+                                    'prntCalcStepGrad':True,#flag,#
+                                    'plotCalcStepGrad': flag,#True,#flag,#
+                                    'manuInptStepGrad': flag,
+                                    'pausCalcStepGrad':flag,#True,#
+                                    'plotQx':flag,
+                                    'plotQu':flag,
+                                    'plotLam':flag,
+                                    'plotQxZoom':flag,
+                                    'plotQuZoom':flag,
+                                    'plotQuComp':flag,
+                                    'plotQuCompZoom':flag,
+                                    'plotSolQxMax':flag,
+                                    'plotSolQuMax':flag,
+                                    'plotCorr':flag,
+                                    'plotCorrFin':flag,
+                                    'plotF':flag,#True,
+                                    'plotFint':flag,
+                                    'plotI':flag}
 
         if isInteractive:
             self.log = logger(probName,runName='interactive',makeDir=False)
         else:
             # Create directory for logs and stuff
             self.log = logger(probName)
+
+        if len(confFile) > 0:
+            # Get the configurations in the file.
+            Pars = ConfigParser()
+            Pars.optionxform = str
+            Pars.read(confFile)
+
+            # TODO: The best way would be to iterate since the names of the
+            #  fields are essentially the same as the ones in the file...
+            sec = 'settings'
+            if 'defOpt' in Pars.options(sec):
+                self.defOpt = Pars.get(sec, 'defOpt')
+            if 'initOpt' in Pars.options(sec):
+                self.initOpt = Pars.get(sec, 'initOpt')
+            if 'GRplotSolRate' in Pars.options(sec):
+                self.GRplotSolRate = Pars.getint(sec, 'GRplotSolRate')
+            if 'GRsaveSolRate' in Pars.options(sec):
+                self.GRsaveSolRate = Pars.getint(sec, 'GRsaveSolRate')
+            if 'GRpausRate' in Pars.options(sec):
+                self.GRpausRate = Pars.getint(sec, 'GRpausRate')
+            if 'GradHistShowRate' in Pars.options(sec):
+                self.GradHistShowRate = Pars.getint(sec, 'GradHistShowRate')
+            if 'RestPlotSolRate' in Pars.options(sec):
+                self.RestPlotSolRate = Pars.getint(sec, 'RestPlotSolRate')
+            if 'ShowEigRate' in Pars.options(sec):
+                self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
+            if 'ShowGRrateRate' in Pars.options(sec):
+                self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
+            if 'PrllGradLMPBVP' in Pars.options(sec):
+                self.parallelOpt['gradLMPBVP'] = \
+                    Pars.getboolean(sec, 'PrllGradLMPBVP')
+            if 'PrllRestLMPBVP' in Pars.options(sec):
+                self.parallelOpt['restLMPBVP'] = \
+                    Pars.getboolean(sec, 'PrllRestLMPBVP')
 
         self.overrideParallel()
 
@@ -188,7 +258,7 @@ class ITman:
                 # a valid solution.
 
                 # TODO: it should not be so hard to actually check the
-                # existence of the file...
+                #  existence of the file...
                 keepAsk = True
                 while keepAsk:
                     msg = "\nThe default path to loading " + \
@@ -431,38 +501,10 @@ class ITman:
         sol.plotTraj()
 
         # TODO: these parameters should go to an external file!
-        # Setting debugging options (rest and grad). Declaration is in sgra.py!
-        sol.dbugOptRest.setAll(opt={'pausRest':False,
-                           'pausCalcP':False,
-                           'plotP_int':False,
-                           'plotP_intZoom':False,
-                           'plotIntP_int':False,
-                           'plotSolMaxP':False,
-                           'plotRsidMaxP':False,
-                           'plotErr':False,
-                           'plotCorr':False,
-                           'plotCorrFin':False})
-        flag = False#True#
-        sol.dbugOptGrad.setAll(opt={'pausGrad':flag,#True,#
-                           'pausCalcQ':flag,
-                           'prntCalcStepGrad':True,#flag,#
-                           'plotCalcStepGrad': flag,#True,#flag,#
-                           'manuInptStepGrad': flag,
-                           'pausCalcStepGrad':flag,#True,#
-                           'plotQx':flag,
-                           'plotQu':flag,
-                           'plotLam':flag,
-                           'plotQxZoom':flag,
-                           'plotQuZoom':flag,
-                           'plotQuComp':flag,
-                           'plotQuCompZoom':flag,
-                           'plotSolQxMax':flag,
-                           'plotSolQuMax':flag,
-                           'plotCorr':flag,
-                           'plotCorrFin':flag,
-                           'plotF':flag,#True,
-                           'plotFint':flag,
-                           'plotI':flag})
+        # Setting debugging options (rest and grad).
+        # Declaration is in sgra.py!
+        sol.dbugOptRest.setAll(opt=self.default_dbugOptRest)
+        sol.dbugOptGrad.setAll(opt=self.default_dbugOptGrad)
 #        sol.log = self.log
 #        solInit.log = self.log
 

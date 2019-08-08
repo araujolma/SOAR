@@ -3,6 +3,60 @@
 #
 ###############################################################################
 
+[settings] # Overall settings for SGRA
+#
+# Default initialization option (either 'newSol or 'loadSol')
+defOpt = newSol
+#
+# Source for initial guess (either 'extSol' or 'naive' or 'default')
+initOpt = extSol
+#
+# Directory for loading a starting solution
+#loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+#
+# Directory for loading and alternative solution (for comparing)
+#loadAltSolDir = ''
+#
+# Gradient-restoration cycle: solution plotting rate
+GRplotSolRate = 20
+#
+#
+# Gradient-restoration cycle: solution saving rate
+GRsaveSolRate = 100
+#
+#
+# Gradient-restoration cycle: pausing rate
+GRpausRate = 10000
+#
+# 
+# Gradient phase: gradient step history plotting rate
+GradHistShowRate = 20
+#
+#
+# ??? Restoration phase: restoration solution plotting rate ??
+RestPlotSolRate = 20
+#
+#
+# ??? Restoration phase: restoration step history plotting rate ??
+RestHistShowRate = 100
+#
+#
+# Gradient-restoration cycle: eigenvalue plotting rate
+ShowEigRate = 20
+#
+#
+# Gradient-restoration cycle: "gradient-restoration ratio" showing rate
+ShowGRrateRate = 20
+#
+#
+# Gradient phase: use parallel computing?
+PrllGradLMPBVP = True
+#
+# Restoration phase: use parallel computing?
+PrllRestLMPBVP = True
+#
+###############################################################################
+
 ###############################################################################
 [sgra] # Internal SGRA parameters
 #
@@ -22,7 +76,7 @@ pi_max = None, None
 N = 101
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e5
+GSS_PLimCte = 1.0e8
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
@@ -97,7 +151,7 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 10.
-#e-3
+PFtol = 1e-3
+#3e-2
 #
 
