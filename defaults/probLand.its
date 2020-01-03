@@ -6,10 +6,11 @@
 [settings] # Overall settings for SGRA
 #
 # Default initialization option (either 'newSol or 'loadSol')
-defOpt = newSol
+defOpt = loadSol
+#newSol
 #
 # Source for initial guess (either 'extSol' or 'naive' or 'default')
-initOpt = extSol
+#initOpt = extSol
 #
 # Directory for loading a starting solution
 #loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'

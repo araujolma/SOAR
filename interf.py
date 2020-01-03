@@ -79,6 +79,7 @@ class ITman:
         # the configuration file.
 
         self.probName = probName
+        self.isNewSol = True
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
@@ -196,12 +197,22 @@ class ITman:
         self.log.pprint(self.__dict__)
 
     def greet(self):
-        """This is the first command to be run at the beggining of the
+        """This is the first command to be run at the beginning of the
         MSGRA.
 
         The idea is to let the user choose whether he/she wants to load a
-        previously prepared solution, or generate a new one."""
+        previously prepared solution, or generate a new one.
 
+        This function does not return anything, but at least these parameters
+        must be set (or confirmed):
+        - self.isNewSol (boolean): false only for loaded solutions
+        - self.initOpt (str): 'extSol', 'default' or 'naive(2)', applicable
+        only when isNewSol==True
+        - self.loadSolDir (str): directory for loading solution, applicable
+        only when isNewSol==False, of course
+        - self.altSolDir (str):  directory for loading alternative solution,
+        applicable only when isNewSol==False, of course
+        """
 
         # First greetings to user
         self.prntDashStr()
@@ -213,8 +224,9 @@ class ITman:
         self.prntDashStr()
         # Show parameters for ITman
         self.printPars()
-        self.log.printL("\n(You can always change these here in '" + \
-                            __name__ + ".py').")
+        msg = "\n(You can always change these in the [Settings] '" +\
+              "section \nof the configuration file)."
+        self.log.printL(msg)
 
         # Default option: generate new solution from scratch
         if self.defOpt == 'newSol':
@@ -225,9 +237,17 @@ class ITman:
             self.log.printL(msg)
             inp = self.prom()
             if inp == '':
-                # Proceed with solution generating.
+
+                # TODO: SOL GEN
+
+                # Proceed with solution generation.
                 # Find out solution generating mode (default, external, naive)
-                # TODO: not all these options apply to every problem. Fix this
+                # TODO: not all of these options apply to every problem.
+                #  Fix this!
+                #  A good idea would be to define a list of "standard" modes
+                #  in sgra.py and then redefine the modes in each problem
+                #  instance (if it is the case).
+
                 self.isNewSol = True
                 msg = "\nOk, default mode (initOpt) is '" + self.initOpt + "'."
                 msg += "\nHit 'enter' to proceed with it, " + \
@@ -249,6 +269,9 @@ class ITman:
 
                 return
             else:
+
+                # TODO: SOL LOAD
+
                 # execution only gets here if the default init is to generate
                 # new init guess, but user wants to load solution
 
@@ -325,7 +348,13 @@ class ITman:
             elif inp == 'i' or inp == 'I':
                 self.isNewSol = True
                 self.log.printL("\nOk, generating new initial guess...\n")
+                # TODO: there should be a self.initOpt assignment here...
+                #  without one, it just defaults to the value in this class's
+                #  init method
             else:
+
+                # TODO: SOL LOAD
+
                 self.isNewSol = False
                 self.loadSolDir = inp
             return
@@ -468,7 +497,7 @@ class ITman:
             sol = self.loadSol()
             self.log.printL("Saving a copy of the default configuration " + \
                             "file in this run's folder.\n(Just for " + \
-                            "alterring later, if necessary).")
+                            "altering later, if necessary).")
             self.confFile = shutil.copy2(self.confFile, self.log.folderName + \
                                          os.sep)
             self.log.printL('Loading "initial" solution ' + \

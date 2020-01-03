@@ -42,9 +42,11 @@ class sgra:
 
     probName = 'probSGRA'
 
-    def __init__(self,parallel={}):
+    def __init__(self, parallel=None):
         # these numbers should not make any sense;
         # they should change with the problem
+        if parallel is None:
+            parallel = {}
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s

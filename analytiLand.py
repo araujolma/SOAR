@@ -17,9 +17,9 @@ from utils import simp
 #from scipy.optimize import optimize
 from scipy.optimize import root
 
-pars_def = {'g0Isp': 200.*9.8e-3,      # km/s
+pars_def = {'g0Isp': 200.*9.81e-3,      # km/s
             'T': 10.,                  # kN
-            'g': 4903.89/(1737.0**2),  # km/s²
+            'g': 4903.8958016507195/(1737.0**2),  # km/s²
             'h0': 10.,                 # km
             'v0': 0.,                  # km/s
             'M0': 100. + 1000./.9}     # kg
@@ -503,8 +503,8 @@ def getInitGuesLargK(aL,pars=None, mustPlot=False, numPlot=1000):
 
 if __name__ == "__main__":
 
-    aL = 4. * pars_def['g']
-    K = 1e8#3e4#7.5e3
+    aL = 5. * pars_def['g']
+    K = 2.32e5#7.72e4#1e8#3e4#7.5e3
 
     # try_pi_noLim(0.)
     # try_pi_noLim(1.)
