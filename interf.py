@@ -143,30 +143,35 @@ class ITman:
             # TODO: The best way would be to iterate since the names of the
             #  fields are essentially the same as the ones in the file...
             sec = 'settings'
-            if 'defOpt' in Pars.options(sec):
-                self.defOpt = Pars.get(sec, 'defOpt')
-            if 'initOpt' in Pars.options(sec):
-                self.initOpt = Pars.get(sec, 'initOpt')
-            if 'GRplotSolRate' in Pars.options(sec):
-                self.GRplotSolRate = Pars.getint(sec, 'GRplotSolRate')
-            if 'GRsaveSolRate' in Pars.options(sec):
-                self.GRsaveSolRate = Pars.getint(sec, 'GRsaveSolRate')
-            if 'GRpausRate' in Pars.options(sec):
-                self.GRpausRate = Pars.getint(sec, 'GRpausRate')
-            if 'GradHistShowRate' in Pars.options(sec):
-                self.GradHistShowRate = Pars.getint(sec, 'GradHistShowRate')
-            if 'RestPlotSolRate' in Pars.options(sec):
-                self.RestPlotSolRate = Pars.getint(sec, 'RestPlotSolRate')
-            if 'ShowEigRate' in Pars.options(sec):
-                self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
-            if 'ShowGRrateRate' in Pars.options(sec):
-                self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
-            if 'PrllGradLMPBVP' in Pars.options(sec):
-                self.parallelOpt['gradLMPBVP'] = \
-                    Pars.getboolean(sec, 'PrllGradLMPBVP')
-            if 'PrllRestLMPBVP' in Pars.options(sec):
-                self.parallelOpt['restLMPBVP'] = \
-                    Pars.getboolean(sec, 'PrllRestLMPBVP')
+            if sec in Pars.sections():
+                if 'defOpt' in Pars.options(sec):
+                    self.defOpt = Pars.get(sec, 'defOpt')
+                if 'initOpt' in Pars.options(sec):
+                    self.initOpt = Pars.get(sec, 'initOpt')
+                if 'GRplotSolRate' in Pars.options(sec):
+                    self.GRplotSolRate = Pars.getint(sec, 'GRplotSolRate')
+                if 'GRsaveSolRate' in Pars.options(sec):
+                    self.GRsaveSolRate = Pars.getint(sec, 'GRsaveSolRate')
+                if 'GRpausRate' in Pars.options(sec):
+                    self.GRpausRate = Pars.getint(sec, 'GRpausRate')
+                if 'GradHistShowRate' in Pars.options(sec):
+                    self.GradHistShowRate = Pars.getint(sec, 'GradHistShowRate')
+                if 'RestPlotSolRate' in Pars.options(sec):
+                    self.RestPlotSolRate = Pars.getint(sec, 'RestPlotSolRate')
+                if 'ShowEigRate' in Pars.options(sec):
+                    self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
+                if 'ShowGRrateRate' in Pars.options(sec):
+                    self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
+                if 'PrllGradLMPBVP' in Pars.options(sec):
+                    self.parallelOpt['gradLMPBVP'] = \
+                        Pars.getboolean(sec, 'PrllGradLMPBVP')
+                if 'PrllRestLMPBVP' in Pars.options(sec):
+                    self.parallelOpt['restLMPBVP'] = \
+                        Pars.getboolean(sec, 'PrllRestLMPBVP')
+            else:
+                msg = '\nWarning: no [settings] section on input file "' + \
+                        confFile + '".\nProceeding with default values.'
+                self.log.printL(msg)
 
         self.overrideParallel()
 
@@ -224,7 +229,7 @@ class ITman:
         self.prntDashStr()
         # Show parameters for ITman
         self.printPars()
-        msg = "\n(You can always change these in the [Settings] '" +\
+        msg = "\n(You can always change these in the [Settings] " +\
               "section \nof the configuration file)."
         self.log.printL(msg)
 

@@ -7,6 +7,60 @@
 # author: Carlos Souza
 ###############################################################################
 
+
+###############################################################################
+[settings] # Overall settings for SGRA
+#
+# Default initialization option (either 'newSol or 'loadSol')
+defOpt = newSol
+#
+# Source for initial guess (either 'extSol' or 'naive' or 'default')
+#initOpt = extSol
+#
+# Directory for loading a starting solution
+#loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+#
+# Directory for loading and alternative solution (for comparing)
+#loadAltSolDir = ''
+#
+# Gradient-restoration cycle: solution plotting rate
+GRplotSolRate = 20
+#
+#
+# Gradient-restoration cycle: solution saving rate
+GRsaveSolRate = 100
+#
+#
+# Gradient-restoration cycle: pausing rate
+GRpausRate = 10000
+#
+# 
+# Gradient phase: gradient step history plotting rate
+GradHistShowRate = 20
+#
+#
+# ??? Restoration phase: restoration solution plotting rate ??
+RestPlotSolRate = 20
+#
+#
+# ??? Restoration phase: restoration step history plotting rate ??
+RestHistShowRate = 100
+#
+#
+# Gradient-restoration cycle: eigenvalue plotting rate
+ShowEigRate = 20
+#
+#
+# Gradient-restoration cycle: "gradient-restoration ratio" showing rate
+ShowGRrateRate = 20
+#
+#
+# Gradient phase: use parallel computing?
+PrllGradLMPBVP = True
+#
+# Restoration phase: use parallel computing?
+PrllRestLMPBVP = True
+#
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]

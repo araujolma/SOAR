@@ -3,11 +3,11 @@
 #
 ###############################################################################
 
+###############################################################################
 [settings] # Overall settings for SGRA
 #
 # Default initialization option (either 'newSol or 'loadSol')
-defOpt = loadSol
-#newSol
+defOpt = newSol
 #
 # Source for initial guess (either 'extSol' or 'naive' or 'default')
 #initOpt = extSol
@@ -56,8 +56,6 @@ PrllGradLMPBVP = True
 # Restoration phase: use parallel computing?
 PrllRestLMPBVP = True
 #
-###############################################################################
-
 ###############################################################################
 [sgra] # Internal SGRA parameters
 #
