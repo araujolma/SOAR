@@ -7,27 +7,24 @@ Created on Tue Jun 27 14:19:46 2017
 """
 
 import datetime, time, sys, os
-from interf import ITman
 
-if __name__ == "__main__":
-    line = "#" * 66
-    print(line)
-    print('\nRunning main.py with arguments:')
-    print(sys.argv)
-    print(datetime.datetime.now())
+
+def main(args):
+
+    from interf import ITman
 
     # This is the default problem, for users who want to just run "main.py"
     defaultProb = None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
 
-    if defaultProb is None and (len(sys.argv) == 1):
+    if defaultProb is None and (len(args) == 1):
         # Default of the default, rocket problem
         import probRock as prob
         confFile = 'defaults/probRock - saturn1B.its'
     else:
         # if the user runs the program from the command line,
         # check for the problem choice as an optional argument.
-        if len(sys.argv) > 1:
-            probName = sys.argv[1].lower()
+        if len(args) > 1:
+            probName = args[1].lower()
         else:
             probName = defaultProb.lower()
 
@@ -66,8 +63,8 @@ if __name__ == "__main__":
             import probRock as prob
             confFile = 'defaults'+ os.sep + 'probRock.its'
 
-        if len(sys.argv) > 2:
-            confFile = sys.argv[2]
+        if len(args) > 2:
+            confFile = args[2]
 
 
     sol = prob.prob()
@@ -131,3 +128,13 @@ if __name__ == "__main__":
     finally:
         ITman.log.printL("Terminating now.\n")
         ITman.log.close()
+
+if __name__ == "__main__":
+    line = "#" * 66
+    print(line)
+    print('\nRunning main.py with arguments:')
+    print(sys.argv)
+    print(datetime.datetime.now())
+
+    main(sys.argv)
+
