@@ -5,9 +5,12 @@ Created on Sun Jan  5 15:31:15 2020
 
 @author: levi
 """
-import sys, datetime, shutil, os
-from interf import logger
+import sys, datetime, shutil, os, traceback, numpy
 from configparser import ConfigParser
+from interf import logger
+from main import main
+
+line = "#" * 66
 
 class batMan:
     """This is a class for the manager of batch runs, the BATch MANager."""
@@ -49,7 +52,6 @@ class batMan:
 
 
 if __name__ == "__main__":
-    line = "#" * 66
     print('\n'+line)
     print('\nRunning batch.py with arguments:')
     print(sys.argv)
@@ -64,16 +66,27 @@ if __name__ == "__main__":
 
     BM = batMan(confFile=confFile)
 
-    try:
-        pass
-    # Manage the exceptions.
-    # Basically, the logger must be safely shut down.
-    except KeyboardInterrupt:
-        BM.log.printL("\n\n\nUser has stopped the program.")
-        raise
-    except:
-        BM.log.printL("\n\n\nI'm sorry, something bad happened.")
-        raise
-    finally:
-        BM.log.printL("\nTerminating now.\n")
-        BM.log.close()
+    for runNr in range(BM.NCases):
+        thisProb, thisFile = BM.probList[runNr], BM.baseFileList[runNr]
+        BM.log.printL('\n'+line)
+        msg = '\nBATCH: Running case {} of {}:' \
+              '\n       Problem: {}, file: {}\n'.format(runNr+1,BM.NCases,thisProb,thisFile)
+        BM.log.printL(msg)
+        BM.log.printL(line+'\n')
+        # set up the string for this run's number
+        # (zero padded for keeping alphabetical order in case of more than 9 runs)
+        runNrStr = str(runNr + 1).zfill(int(numpy.floor(numpy.log(BM.NCases))))
+        # set up the this run's folder, inside the batch folder
+        folder = BM.log.folderName + os.sep + runNrStr + '_'
+
+        try:
+            main(('',thisProb,thisFile), isManu=False, destFold=folder)
+            BM.log.printL("\nBATCH: This run was completed successfully.")
+        except KeyboardInterrupt:
+            BM.log.printL("\nBATCH: User has stopped the program.")
+        except Exception:
+            BM.log.printL('\nBATCH: Sorry, there was something wrong with this run:')
+            BM.log.printL(traceback.format_exc())
+
+    BM.log.printL("\nBATCH: Execution finished. Terminating now.\n")
+    BM.log.close()

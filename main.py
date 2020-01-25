@@ -8,8 +8,9 @@ Created on Tue Jun 27 14:19:46 2017
 
 import datetime, time, sys, os
 
+line = "#" * 66
 
-def main(args):
+def main(args,isManu=True,destFold=''):
 
     from interf import ITman
 
@@ -69,7 +70,10 @@ def main(args):
 
     sol = prob.prob()
 
-    ITman = ITman(probName=sol.probName,confFile=confFile)
+    # Declare iterations manager
+    ITman = ITman(probName=sol.probName,confFile=confFile,isManu=isManu,
+                  destFold=destFold)
+    # the logger object for the solution is the same for the iterations manager
     sol.log = ITman.log
 
     try:
@@ -120,17 +124,16 @@ def main(args):
     # Manage the exceptions.
     # Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
-        ITman.log.printL("\n\n\nUser has stopped the program.")
+        ITman.log.printL("\n\n\nmain: User has stopped the program.")
         raise
     except:
-        ITman.log.printL("\n\n\nI'm sorry, something bad happened.")
+        ITman.log.printL("\n\n\nmain: I'm sorry, something bad happened.")
         raise
     finally:
-        ITman.log.printL("Terminating now.\n")
+        ITman.log.printL("main: Terminating now.\n")
         ITman.log.close()
 
 if __name__ == "__main__":
-    line = "#" * 66
     print(line)
     print('\nRunning main.py with arguments:')
     print(sys.argv)

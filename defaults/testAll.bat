@@ -24,21 +24,27 @@ logMode = both
 #	 (all parameters marked with * must be either a single
 #	  value or a tuple with the same size as this number,
 #         in the case of a tuple, separate items via , and 'enter')
-NCases = 5
+NCases = 8
 
 # Problem names('probRock', 'probLand', etc) *
 probs = prob9_1, 
-        prob9_2, 
+        prob9_2,
         prob10_1, 
         prob10_2, 
-        probBrac
+        probBrac,
+        probCart,
+        probZer,
+        probLand
 
 # Configuration file (.its) (one for each case) *
 baseFiles = defaults/prob9_1.its, 
             defaults/prob9_2.its, 
             defaults/prob10_1.its, 
             defaults/prob10_2.its, 
-            defaults/probBrac.its
+            defaults/probBrac.its,
+            defaults/probCart.its,
+            defaults/probZer.its,
+            defaults/probLand.its
 
 # Initial guess mode for subsequent cases ('scratch', 'base', '') *
 initGues = scratch

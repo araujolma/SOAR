@@ -13,16 +13,28 @@ from configparser import ConfigParser
 class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,runName='',makeDir=True,mode='both'):
+    def __init__(self,probName,makeDir=True,path='',runName='',mode='both',dateTag=True):
+        """
+        :param probName: Problem name (for a proper folder name);
+        :param makeDir: flag for making the directory or not.
+                        It overrides all following parameters;
+        :param path: Allows user specification for where the folder should be
+        :param runName: further customization for folder name, seldom used
+        :param mode: logging output. 'screen' prints to screen, 'file' prints to file only;
+                     and 'both' does both;
+        :param dateTag: flag for putting or not a date tag at the end of the folder.
+        """
+
+
         # Mode ('both', 'file' or 'screen') sets the target output
         self.mode = mode
 
         if makeDir:
             # Results folder for this run
-            if len(runName)>0:
-                self.folderName = probName + '_' + runName + '_' + getNowStr()
-            else:
-                self.folderName = probName + '_' + getNowStr()
+            self.folderName = path + probName + '_' + runName
+            # put the date on the folder to avoid mix-ups with other runs
+            if dateTag:
+                self.folderName += '_' + getNowStr()
             # Create the folder
             os.makedirs(self.folderName)
 
@@ -35,6 +47,8 @@ class logger:
             self.mode = 'screen'
             self.folderName = os.getcwd()
 
+    # TODO: when grinding for performance, changing 'mode' to an integer would be
+    #  significantly faster than checking strings every single time!!
 
     def printL(self,msg,mode=''):
         if mode in '':
@@ -72,13 +86,23 @@ class ITman:
     bscImpStr = "\n >> "
     dashStr = '\n'+'-'*88
 
-    def __init__(self,confFile='',probName='prob',isInteractive=False):
+    def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
+                 destFold=''):
+        """
+
+        :param confFile: Configuration file name/path (.its file)
+        :param probName: Problem name
+        :param isInteractive: flag for interactive mode
+        :param isManu: flag for manual mode (true unless being run in batch mode)
+        :param destFold: destination folder path
+        """
 
         # default values for overall settings; these will be overridden if
         # there is anything with the same name on the [settings] section of
         # the configuration file.
 
         self.probName = probName
+        self.isManu = isManu
         self.isNewSol = True
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
@@ -129,10 +153,11 @@ class ITman:
                                     'plotI':flag}
 
         if isInteractive:
+            # screen only mode
             self.log = logger(probName,runName='interactive',makeDir=False)
         else:
-            # Create directory for logs and stuff
-            self.log = logger(probName)
+            # Create directory for logs and stuff; dateTag only if manual flag is true
+            self.log = logger(probName, path=destFold, dateTag=self.isManu)
 
         if len(confFile) > 0:
             # Get the configurations in the file.
