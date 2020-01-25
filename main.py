@@ -19,7 +19,7 @@ def main(args):
     if defaultProb is None and (len(args) == 1):
         # Default of the default, rocket problem
         import probRock as prob
-        confFile = 'defaults/probRock - saturn1B.its'
+        confFile = 'defaults' + os.sep + 'probRock - saturn1B.its'
     else:
         # if the user runs the program from the command line,
         # check for the problem choice as an optional argument.
