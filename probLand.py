@@ -96,7 +96,7 @@ class prob(sgra):
             self.log.printL('Error: unknown PF mode "' + str(PFmode) + '"')
             raise KeyError
         self.log.printL("Kpf = " + str(Kpf) + "\n")
-        input("Please confirm Kpf value. ")
+        self.log.prom("Please confirm Kpf value. ")
         self.constants['PFmode'] =  PFmode
         self.constants['Kpf'] = Kpf
 

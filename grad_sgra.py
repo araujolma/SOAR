@@ -928,7 +928,7 @@ def calcQ(self,mustPlotQs=False,addName=''):
 
 
     if self.dbugOptGrad['pausCalcQ']:
-        input("calcQ in debug mode. Press any key to continue...")
+        self.log.prom("calcQ in debug mode. Press any key to continue...")
 
     return Q, Qx, Qu, Qp, Qt
 
@@ -1020,10 +1020,10 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                       "\n> Type S for entering a step value, or" + \
                                 " any other key to quit:"
                 self.log.printL(msg)
-                inp = input("> ")
+                inp = self.log.prom("> ")
                 if inp == 's':
                     self.log.printL("\n> Type the step value.")
-                    inp = input("> ")
+                    inp = self.log.prom("> ")
                     alfaRef = float(inp)
                 else:
                     keepSrch = False
@@ -1067,7 +1067,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     stepMan.endPrntPlot(alfa,mustPlot=self.dbugOptGrad['plotCalcStepGrad'])
 
     if self.dbugOptGrad['pausCalcStepGrad']:
-        input("\n> Run of calcStepGrad terminated. Press any key to continue.")
+        self.log.prom("\n> Run of calcStepGrad terminated. Press any key to continue.")
 
     return alfa, stepMan
 
@@ -1096,6 +1096,6 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("Delta pi = "+str(alfa*corr['pi']))
 
     if self.dbugOptGrad['pausGrad']:
-        input('Grad in debug mode. Press any key to continue...')
+        self.log.prom('Grad in debug mode. Press any key to continue...')
 
     return alfa, newSol, stepMan

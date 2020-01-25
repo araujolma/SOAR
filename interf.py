@@ -6,16 +6,21 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os, shutil
+import dill, datetime, pprint, os, shutil, time
 from utils import getNowStr
 from configparser import ConfigParser
+
+bscImpStr = "\n >> "
+dashStr = '\n' + '-' * 88
 
 class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,makeDir=True,path='',runName='',mode='both',dateTag=True):
+    def __init__(self,probName,isManu=True,makeDir=True,path='',runName='',mode='both',
+                 dateTag=True):
         """
         :param probName: Problem name (for a proper folder name);
+        :param isManu: flag for determinating if in manual mode or not;
         :param makeDir: flag for making the directory or not.
                         It overrides all following parameters;
         :param path: Allows user specification for where the folder should be
@@ -26,12 +31,18 @@ class logger:
         """
 
 
-        # Mode ('both', 'file' or 'screen') sets the target output
+        # Mode ('both', 'file' or 'screen') sets the target output.
+        # This can be overriden in each .printL() call, though
         self.mode = mode
+        # this determines the necessity of manual input:
+        self.isManu = isManu
 
         if makeDir:
             # Results folder for this run
-            self.folderName = path + probName + '_' + runName
+            self.folderName = path + probName
+            # Append run name, if it is the case
+            if len(runName) > 0:
+                self.folderName += '_' + runName
             # put the date on the folder to avoid mix-ups with other runs
             if dateTag:
                 self.folderName += '_' + getNowStr()
@@ -71,6 +82,22 @@ class logger:
         elif self.mode.startswith('screen'):
             pprint.pprint(obj)
 
+    def prntDashStr(self):
+        self.printL(dashStr)
+
+    def prom(self,msg=''):
+        """Prompt the user for some input"""
+
+        if msg not in '':
+            self.printL(msg)
+
+        if self.isManu:
+            inp = input(bscImpStr)
+        else:
+            inp = ''
+        self.printL(bscImpStr + inp, mode='file')
+        return inp
+
     def close(self):
         self.fhand.close()
 
@@ -83,8 +110,6 @@ class ITman:
 
     """
 
-    bscImpStr = "\n >> "
-    dashStr = '\n'+'-'*88
 
     def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
                  destFold=''):
@@ -100,7 +125,6 @@ class ITman:
         # default values for overall settings; these will be overridden if
         # there is anything with the same name on the [settings] section of
         # the configuration file.
-
         self.probName = probName
         self.isManu = isManu
         self.isNewSol = True
@@ -157,7 +181,8 @@ class ITman:
             self.log = logger(probName,runName='interactive',makeDir=False)
         else:
             # Create directory for logs and stuff; dateTag only if manual flag is true
-            self.log = logger(probName, path=destFold, dateTag=self.isManu)
+            self.log = logger(probName, isManu=self.isManu, path=destFold,
+                              dateTag=self.isManu)
 
         if len(confFile) > 0:
             # Get the configurations in the file.
@@ -206,25 +231,27 @@ class ITman:
 
         if os.sep != '/':
             # windows systems!
-            msg = "\n" + self.dashStr + \
+            msg = "\n" + dashStr + \
                   "\nOverriding the parallel settings to False!" + \
-                  self.dashStr + "\n\n"
+                  dashStr + "\n\n"
             self.log.printL(msg)
             self.parallelOpt = {'gradLMPBVP':False,
                                 'restLMPBVP':False}
-
-    def prntDashStr(self):
-        self.log.printL(self.dashStr)
-
-    def prom(self):
-        inp = input(self.bscImpStr)
-        self.log.printL(self.bscImpStr+inp,mode='file')
-        return inp
 
     def printPars(self):
         self.log.printL("\nThese are the attributes for the" + \
                         " Iterations manager:\n")
         self.log.pprint(self.__dict__)
+
+    def bell(self,lag=0.1,nRing=3):
+        """ Make some sounds to warn the user. Only works in manual mode.
+         :param lag: lag between successive rings, in seconds;
+         :param nRing: number of rings."""
+
+        if self.isManu:
+            for k in range(nRing):
+                print("\a")
+                time.sleep(lag)
 
     def greet(self):
         """This is the first command to be run at the beginning of the
@@ -245,13 +272,13 @@ class ITman:
         """
 
         # First greetings to user
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nWelcome to SGRA!\n")
         # Inform problem
         self.log.printL("Loading settings for problem: "+self.probName)
         # Inform results folder for this run
         self.log.printL('Saving results and log in '+self.log.folderName+'.')
-        self.prntDashStr()
+        self.log.prntDashStr()
         # Show parameters for ITman
         self.printPars()
         msg = "\n(You can always change these in the [Settings] " +\
@@ -264,8 +291,7 @@ class ITman:
                   "generate new initial guess.\n" + \
                   "Hit 'enter' to do it, or any other key to " + \
                   "load a previously started solution."
-            self.log.printL(msg)
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp == '':
 
                 # TODO: SOL GEN
@@ -283,8 +309,7 @@ class ITman:
                 msg += "\nHit 'enter' to proceed with it, " + \
                        "or 'd' for 'default',\nor 'n' for 'naive'. " + \
                        "See '" + self.probName + ".py' for details. "
-                self.log.printL(msg)
-                inp = self.prom().lower()
+                inp = self.log.prom(msg).lower()
                 if inp=='d':
                     self.initOpt='default'
                     self.log.printL("\nProceeding with 'default' mode.\n")
@@ -318,9 +343,7 @@ class ITman:
                           "a solution (loadSolDir) is: " + self.loadSolDir + \
                           "\nHit 'enter' to load it, or type the " + \
                           "path to the alternative solution to be loaded."
-                    self.log.printL(msg)
-
-                    inp = self.prom()
+                    inp = self.log.prom(msg)
                     if inp == '':
                         keepAsk = False
                     else:
@@ -345,9 +368,7 @@ class ITman:
                     msg = "\nHit 'enter' to use the same path " + "(" + \
                           self.loadSolDir + "),\nor type the path to the" + \
                           " alternative solution to be loaded."
-                    self.log.printL(msg)
-
-                    inp = self.prom()
+                    inp = self.log.prom(msg)
                     if inp == '':
                         keepAsk = False
                         self.loadAltSolDir = self.loadSolDir
@@ -370,9 +391,7 @@ class ITman:
                   self.loadSolDir + " .\nHit 'enter' to do it, hit " + \
                   "'I' to generate new initial guess,\n" + \
                   "or type the path to alternative solution to be loaded."
-            self.log.printL(msg)
-
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp == '':
                 self.isNewSol = False
             elif inp == 'i' or inp == 'I':
@@ -435,8 +454,7 @@ class ITman:
 
         if len(msg) > 0:
             msg += "\nPress any key to continue...\n"
-            self.log.printL(msg)
-            self.prom()
+            self.log.prom(msg)
 
         # Ok, now check if the given pi's respect the limitations. If some of
         # them does not, then it's pretty much game over...
@@ -462,11 +480,11 @@ class ITman:
         # All tests ok! Let's proceed to the usual parameter checking.
         keepLoop = True
         while keepLoop:
-            self.prntDashStr()
+            self.log.prntDashStr()
             sol.printPars()
             #sol.plotSol()
-            self.prntDashStr()
-            print("\a")
+            self.log.prntDashStr()
+            self.bell(lag=1e-8,nRing=1)
             msg = "\nAre these parameters OK?\n" + \
                   "Press 'enter' to continue, or update the configuration " + \
                   "file:\n    (" + self.confFile + ")\n" + \
@@ -475,9 +493,7 @@ class ITman:
                   "Please notice that this only reloads parameters, not " + \
                   "necessarily\nregenerating the initial guess.\n" + \
                   "(See 'loadParsFromFile' method in 'sgra.py'.)"
-            self.log.printL(msg)
-
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp != '':
                 self.log.printL("\nFine, reloading parameters...")
                 sol.loadParsFromFile(file=self.confFile)
@@ -535,7 +551,7 @@ class ITman:
             solInit = self.loadSol(path=self.loadAltSolDir)
 
         # Plot obtained solution, check parameters
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nProposed initial guess:\n")
         sol.plotSol()
         self.checkPars(sol)
@@ -604,7 +620,7 @@ class ITman:
         return sol, contRest
 
     def frstRestRnds(self,sol):
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP(mustPlotPint=True)
         sol, contRest = self.restRnds(sol)
@@ -665,7 +681,7 @@ class ITman:
 
     def gradRestCycl(self,sol,altSol=None):
 
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
         evnt = 'init'
         do_GR_cycle = True
@@ -681,7 +697,7 @@ class ITman:
 
             P_base = sol.P
             I_base, _, _ = sol.calcI()
-            self.prntDashStr()
+            self.log.prntDashStr()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(P_base)
             self.log.printL(msg)
@@ -823,13 +839,13 @@ class ITman:
 
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
-                #self.prntDashStr()
+                #self.log.prntDashStr()
                 name = self.log.folderName + os.sep + \
                        'sol-{}gradIts.pkl'.format(sol.NIterGrad)
                 self.saveSol(sol,name)
 
             if self.plotSolGradCond(sol):
-                #self.prntDashStr()
+                #self.log.prntDashStr()
                 self.log.printL("\nSolution showing condition is met!")
                 self.log.printL("\nSolution so far:")
                 sol.plotSol()
@@ -846,15 +862,14 @@ class ITman:
 
             if self.gradRestPausCond(sol):
                 print("\a")
-                self.prntDashStr()
+                self.log.prntDashStr()
                 self.log.printL(str(datetime.datetime.now()))
                 msg = "\nAfter " + str(sol.NIterGrad) + \
                       " gradient iterations,\n" + \
                       "Grad-Rest cycle pause condition has been reached.\n" + \
                       "Press any key to continue, or ctrl+C to stop.\n" + \
                       "Load last saved solution to go back to GR cycle."
-                self.log.printL(msg)
-                self.prom()
+                self.log.prom(msg)
             #
         #
 

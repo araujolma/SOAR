@@ -114,9 +114,7 @@ def main(args,isManu=True,destFold=''):
         ITman.log.printL("\nHistI: "+str(sol.histI[:(sol.NIterGrad+1)]))
 
         # Make a sound!
-        for k in range(3):
-            print("\a")
-            time.sleep(.1)
+        ITman.bell()
 
         # Check Hamiltonian conditions (just to be sure)
         sol.checkHamMin(mustPlot=True)

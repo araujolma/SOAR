@@ -351,5 +351,5 @@ def rest(self,parallelOpt={}):
     self.log.printL("Leaving rest with alfa = "+str(alfa))
     if self.dbugOptRest['pausRest']:
         self.plotSol()
-        input('Rest in debug mode. Press any key to continue...')
+        self.log.prom('Rest in debug mode. Press any key to continue...')
 
