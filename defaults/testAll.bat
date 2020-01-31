@@ -23,7 +23,7 @@ logMode = both
 # number of cases to be run 
 #	 (all parameters marked with * must be either a single
 #	  value or a tuple with the same size as this number,
-#         in the case of a tuple, separate items via , and 'enter')
+#         in the case of a tuple, separate items via ', ' and 'enter')
 NCases = 8
 
 # Problem names('probRock', 'probLand', etc) *
@@ -45,9 +45,6 @@ baseFiles = defaults/prob9_1.its,
             defaults/probCart.its,
             defaults/probZer.its,
             defaults/probLand.its
-
-# Initial guess mode for subsequent cases ('scratch', 'base', '') *
-initGues = scratch
 
 ###############################################################################
 [variations_mode] # Parameters for batch runner in variations mode
