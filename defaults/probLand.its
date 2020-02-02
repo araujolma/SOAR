@@ -150,7 +150,7 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 1e-3
+PFtol = 1e-2
 #3e-2
 #
 

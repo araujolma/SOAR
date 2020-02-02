@@ -5,7 +5,7 @@ Created on Sun Jan  5 15:31:15 2020
 
 @author: levi
 """
-import sys, datetime, shutil, os, traceback, numpy, ast
+import sys, datetime, shutil, os, traceback, numpy, random, string
 from configparser import ConfigParser
 from interf import logger
 from main import main
@@ -51,8 +51,6 @@ class batMan:
 
         elif self.mode == 'variations':
             sec = 'variations_mode'
-            #self.NCases = Pars.getint(sec, 'NCases')
-            self.probName = Pars.get(sec, 'probName')
             self.baseFile = Pars.get(sec, 'baseFile')
             # TODO: actually use this somewhere. It makes a lot of sense for variations
             self.initGuesMode = Pars.get(sec, 'initGuesMode')
@@ -62,12 +60,19 @@ class batMan:
             varSets = self.parseVars(varsSets_list)
             self.varSets = varSets
             self.NCases = len(varSets)+1
+            self.probList = [Pars.get(sec, 'probName').strip()] * self.NCases
 
             # Generate the files corresponding to the cases to be run:
             self.genFiles()
 
         self.log.printL("\nThese are the parameters for the batch:")
         self.log.pprint(self.__dict__)
+
+    def runNumbAsStr(self,runNr):
+        """Produce the standard run number, starting from 1, zero padded for keeping
+        alphabetical order in case of more than 9 runs."""
+
+        return str(runNr + 1).zfill(int(numpy.floor(numpy.log(self.NCases))))
 
 
     def parseVars(self,varsSets_list):
@@ -112,13 +117,93 @@ class batMan:
                 thisVarSet.append(var)
             varSets.append(thisVarSet)
 
-        self.log.printL("\n" + b + "This is the parsed varSets:")
-        self.log.pprint(varSets)
         return varSets
 
     def genFiles(self):
         # generate the different files here, load their names to BM.baseFileList
-        pass
+
+        self.log.printL("\n"+b+"Generating the files for the variations...")
+
+        l = len(self.baseFile)
+
+        # generate a random code for minimizing the chance of file conflict
+        # TODO: actually checking for conflicts should not be that hard!
+        rand = ''.join(random.choice(string.ascii_letters + string.digits)
+                       for _ in range(10))
+
+        # base file list starts with the first case, which is the base file
+        baseFileList = [self.baseFile]
+
+        # one file for each of the runs, except the first
+        for nRun in range(self.NCases-1):
+            name = self.baseFile[:l-4] + '_' + rand + \
+                   '_var' + self.runNumbAsStr(nRun) + '.its'
+            self.log.printL("Name of the file for run #{}: {}".format(nRun+1,name))
+            # Append the name of the file to the list of base files, for running later!
+            baseFileList.append(name)
+            # List of Variations for this run
+            theseVars = self.varSets[nRun]
+
+            # List (actually, set) of sections
+            secList = set()
+            for var in theseVars:
+                secList.add(var['section'])
+
+            # open the file pointers
+            targHand = open(name,'w+')           # target file
+            baseHand = open(self.baseFile, 'r')  # source file
+
+            secName = ''; newLine = ''
+            for line in baseHand:
+                # remove spaces, \n and other funny characters
+                stripLine = line.strip()
+
+                # check if this line has to be changed (implement variation) or not
+                mustChange = False
+                # get current section name (if it changes)
+                if stripLine.startswith('['):
+                    # new section found, maybe?
+                    ind = stripLine.find(']')
+                    if ind > -1:
+                        # closing bracket found; new section confirmed
+                        secName = stripLine[1:ind]
+                else:
+                    # not a new section. Maybe a comment!
+                    if not(stripLine.startswith('#')):
+                        # Not a comment... Now it has to be a variable assignment.
+                        if secName in secList:
+                            # if this section is not even in the list, no need for checking
+                            # get the equal sign for separating variable name
+                            ind = stripLine.find('=')
+                            if ind > -1:
+                                # variable name goes right up to the =
+                                varbName = stripLine[:ind].strip()
+                                # check for matches: the section must be equal to the current
+                                # section and the variable name must match the 'parName'
+                                for var in theseVars:
+                                    # DISCLAIMER:
+                                    # if the user is crazy enough so that there are two or
+                                    # more variations on the same set for the same variable,
+                                    # only the last one will be applied.
+
+                                    if var['section'] == secName and \
+                                        var['parName'] == varbName:
+
+                                        # Finally! Change the line
+                                        mustChange = True
+                                        newLine = stripLine[:ind+1] + ' ' + var['val']
+
+                # finally, write either the original line or the changed line
+                if mustChange:
+                    targHand.write(newLine + '\n')
+                else:
+                    targHand.write(stripLine + '\n')
+            # close file handlers
+            targHand.close()
+            baseHand.close()
+
+        self.baseFileList = baseFileList
+
 
 if __name__ == "__main__":
     print('\n'+line)
@@ -143,19 +228,25 @@ if __name__ == "__main__":
         BM.log.printL(msg)
         BM.log.printL(line+'\n')
         # set up the string for this run's number
-        # (zero padded for keeping alphabetical order in case of more than 9 runs)
-        runNrStr = str(runNr + 1).zfill(int(numpy.floor(numpy.log(BM.NCases))))
+        runNrStr = BM.runNumbAsStr(runNr)
         # set up the this run's folder, inside the batch folder
         folder = BM.log.folderName + os.sep + runNrStr + '_'
 
         try:
             main(('',thisProb,thisFile), isManu=False, destFold=folder)
-            BM.log.printL("\nBATCH: This run was completed successfully.")
+            BM.log.printL("\n"+b+"This run was completed successfully.")
         except KeyboardInterrupt:
-            BM.log.printL("\nBATCH: User has stopped the program.")
+            BM.log.printL("\n"+b+"User has stopped the program during this run.")
         except Exception:
-            BM.log.printL('\nBATCH: Sorry, there was something wrong with this run:')
+            BM.log.printL('\n'+b+'Sorry, there was something wrong with this run:')
             BM.log.printL(traceback.format_exc())
+        finally:
+            if BM.mode == 'variations':
+                # clean up the generated .its files
+                if runNr > 0:
+                    file = BM.baseFileList[runNr]
+                    BM.log.printL("\n"+b+"Removing file: "+file)
+                    os.remove(file)
 
     BM.log.printL("\nBATCH: Execution finished. Terminating now.\n")
     BM.log.close()
