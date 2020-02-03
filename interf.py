@@ -782,12 +782,10 @@ class ITman:
                         evnt = 'gradOK'
                         keep_walking_grad = False
                         next_grad += 1
-
-                        self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad) + \
-                                        "\nLast grad counter = " + \
-                                        str(last_grad))
-                        self.log.printL("\nI was lowered, step given!")
+                        msg = "\nNext grad counter = {}" \
+                              "\nLast grad counter = {}" \
+                              "\nI was lowered, step given!".format(next_grad,last_grad)
+                        self.log.printL(msg)
                     else:
                         # The conditions were not met. Discard this solution
                         # and try a new gradStep on the previous baseline
@@ -798,12 +796,11 @@ class ITman:
                         # Save in 'sol' the histories from sol_new,
                         # otherwise the last grad and the rests would be lost!
                         sol.copyHistFrom(sol_new)
-                        self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad))
-                        self.log.printL("Last grad counter = " + \
-                                        str(last_grad))
                         alfa_base = alfa
-                        self.log.printL("\nI was not lowered... trying again!")
+                        msg = "\nNext grad counter = {}" \
+                              "\nLast grad counter = {}\nI was not lowered... " \
+                              "trying again!".format(next_grad,last_grad)
+                        self.log.printL(msg)
                     #
                     #input("Press any key to continue... ")
                 #
@@ -817,6 +814,7 @@ class ITman:
             if self.showHistQCond(sol):
                 self.log.printL("\nHistQ showing condition is met!")
                 sol.showHistQ()
+                sol.showHistQvsI()
 
             if self.showHistICond(sol):
                 self.log.printL("\nHistI showing condition is met!")

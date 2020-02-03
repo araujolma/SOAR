@@ -94,7 +94,7 @@ def main(args,isManu=True,destFold=''):
         # Save solution to disk
         ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
         # Show all convergence histories
-        sol.showHistP(); sol.showHistQ(); sol.showHistI()
+        sol.showHistP(); sol.showHistQ(); sol.showHistI(); sol.showHistQvsI()
         sol.showHistGradStep()
 
         msg = "\n\n\n" + line + '\n' + (' '*19) + \

@@ -107,7 +107,6 @@ def updtHistRest(self,alfa):
     self.NIterRest = NIterRest
     self.histStepRest[NIterRest] = alfa
 
-
 def showHistP(self):
     """ Show the history of P, Pint and Ppsi."""
 
@@ -167,7 +166,6 @@ def showHistP(self):
 
     self.savefig(keyName='histP',fullName='P convergence history')
 
-
 #def updtGradCont(self,alfa):
 #    """ Updates the gradient counter, as well as gradStep."""
 #    self.log.printL("\nhist_sgra: Updating grad counters.")
@@ -204,7 +202,6 @@ def updtHistGrad(self,alfa,GSSstopMotv,mustPlotQs=False):
     self.histGSSstopMotv[NIterGrad] = GSSstopMotv
     self.NIterGrad = NIterGrad
     self.ContRest = 0
-
 
 def showHistQ(self,tolZoom=True):
     """ Show the Q, Qx, Qu, Qp, Qt histories."""
@@ -297,6 +294,61 @@ def showHistI(self):
 
     self.savefig(keyName='histI',fullName='I convergence history')
 
+def showHistQvsI(self, tolZoom=True, nptsMark=10):
+    """Plot a curve of Q against I
+    (which should be strictly descending, hence a proper variable for plotting...)"""
+
+    # Assemble the plotting array (x-axis)
+    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    # I reduction, %, w.r.t. the first actual value of I.
+    # It is best to use I[1] instead of I[0] because the latter could be a very low value
+    # due to a possibly high P value.
+    Ired = 100*(self.histI[1] - self.histI)/self.histI[1]
+
+    # Perform the plots
+    if self.histQ[IterGrad].any() > 0:
+        plt.semilogy(Ired[IterGrad],self.histQ[IterGrad],'b',label='Q')
+
+    if self.histQx[IterGrad].any() > 0:
+        plt.semilogy(Ired[IterGrad],self.histQx[IterGrad],'k',label='Qx')
+
+    if self.histQu[IterGrad].any() > 0:
+        plt.semilogy(Ired[IterGrad],self.histQu[IterGrad],'r',label='Qu')
+
+    if self.histQp[IterGrad].any() > 0:
+        plt.semilogy(Ired[IterGrad],self.histQp[IterGrad],'g',label='Qp')
+
+    if self.histQt[IterGrad].any() > 0:
+        plt.semilogy(Ired[IterGrad],self.histQt[IterGrad],'y',label='Qt')
+
+    # mark points (use supplied value of the number of points themselves)
+    if nptsMark > self.NIterGrad:
+        nptsMark = self.NIterGrad
+    per = self.NIterGrad // nptsMark # period
+    # mark the first point
+    plt.semilogy(Ired[1], self.histQ[1], 'ob')
+    # mark each point
+    for k in range(1, nptsMark + 1):
+        plt.semilogy(Ired[k*per],self.histQ[k*per],'ob')
+    # mark the last point
+    plt.semilogy(Ired[self.NIterGrad],self.histQ[self.NIterGrad],'ob')
+
+    # Draw the Q tolerance line
+    plt.plot(Ired[IterGrad],self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
+
+    msg = "Convergence: Q vs I behavior\nCircles mark points every " + \
+          "{} grad iterations".format(per)
+    plt.title(msg)
+    # If applicable, remove from the plot everything that is way too small
+    if tolZoom:
+        plt.ylim(ymin=(self.tol['Q'])**2)
+    plt.grid(True)
+    plt.xlabel("I reduction, % (w.r.t. I0 = {:.4E})".format(self.histI[1]))
+    plt.ylabel("Q values")
+    plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+    self.savefig(keyName='histQvsI',fullName='Q vs. I convergence history')
+
 def showHistGradStep(self):
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
 
@@ -328,7 +380,6 @@ def showHistGradStep(self):
     fig.tight_layout()
 
     self.savefig(keyName='histGradStep',fullName='GradStep history')
-
 
 def showHistGRrate(self):
     """Show the history of the GR rate (rests per grad).

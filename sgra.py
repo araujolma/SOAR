@@ -477,6 +477,9 @@ class sgra:
     def showHistI(self,*args,**kwargs):
         return hist_sgra.showHistI(self,*args,**kwargs)
 
+    def showHistQvsI(self,*args,**kwargs):
+        return hist_sgra.showHistQvsI(self,*args,**kwargs)
+
     def showHistGradStep(self,*args,**kwargs):
         return hist_sgra.showHistGradStep(self,*args,**kwargs)
 
