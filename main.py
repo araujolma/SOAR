@@ -104,6 +104,14 @@ def main(args,isManu=True,destFold=''):
         # Show solution, compare it with initial guess, show trajectory
         sol.plotSol(); sol.compWith(solInit); sol.plotTraj()
 
+        red = 100. * (sol.histI[1] - sol.I) / sol.histI[1]
+        msg = '\nFinal value of I: {:.7E},\n"initial" value of I: {:.7E} ' \
+              '(after restoration).\nReduction: {:.3G}%'.format(sol.I, sol.histI[1], red)
+        ITman.log.printL(msg)
+
+        msg = '\nFinal values: P = {:.3E}, Q = {:.3E}.\n'.format(sol.P, sol.Q)
+        ITman.log.printL(msg)
+
         ITman.log.printL("\n"+line)
         msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % \
               (time.time() - start_time)
