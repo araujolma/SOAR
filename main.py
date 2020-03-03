@@ -77,6 +77,9 @@ def main(args,isManu=True,destFold=''):
     sol.log = ITman.log
 
     try:
+        ## RUN STATUS: initializing
+        ITman.log.repoStat('init')
+
         # Greet the user, confirm basic settings
         ITman.greet()
         start_time = time.time()
@@ -84,6 +87,8 @@ def main(args,isManu=True,destFold=''):
         sol,solInit = ITman.setInitSol(sol)
         # Perform the first restoration rounds
         sol = ITman.frstRestRnds(sol)
+        ## RUN STATUS: in progress
+        ITman.log.repoStat('inProg')
         # Proceed to the gradient-restoration cycles
         sol = ITman.gradRestCycl(sol,solInit)
 
@@ -91,6 +96,8 @@ def main(args,isManu=True,destFold=''):
         msg = "\n\n\n" + line + '\n' + (' '*22) + \
               "OPTIMIZATION FINISHED!" + (' '*22) + '\n' + line
         ITman.log.printL(msg)
+        ## RUN STATUS: sucess!
+        ITman.log.repoStat('ok')
         # Save solution to disk
         ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
         # Show all convergence histories
@@ -131,9 +138,15 @@ def main(args,isManu=True,destFold=''):
     # Basically, the logger must be safely shut down.
     except KeyboardInterrupt:
         ITman.log.printL("\n\n\nmain: User has stopped the program.")
+        ## RUN STATUS: stopped by user
+        ITman.log.repoStat('usrStop')#,iterN=sol.NIterGrad)
         raise
     except:
         ITman.log.printL("\n\n\nmain: I'm sorry, something bad happened.")
+        # TODO: the exception should be printed onto the log file!!
+
+        ## RUN STATUS: error
+        ITman.log.repoStat('err')#,iterN=sol.NIterGrad)
         raise
     finally:
         ITman.log.printL("main: Terminating now.\n")

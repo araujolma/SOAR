@@ -37,6 +37,9 @@ class logger:
         # this determines the necessity of manual input:
         self.isManu = isManu
 
+        # Run status (for repoStat), by default it begins with 'none'
+        self.runStatRep = 'none'
+
         if makeDir:
             # Results folder for this run
             self.folderName = path + probName
@@ -60,6 +63,46 @@ class logger:
 
     # TODO: when grinding for performance, changing 'mode' to an integer would be
     #  significantly faster than checking strings every single time!!
+
+    def repoStat(self,runStat):#,iterN=None):
+        """ Report the status of the current run, as commanded.
+        The report is simply the creation of an empty .txt file whose title reports the
+        progress of the run. There is a simple mechanism to prevent creation of the same
+        file again.
+        :param runStat: the status to be reported.
+            Either 'init' or 'inProg', 'ok', 'usrStop' or 'err'.
+        :return: None
+        """
+        if runStat == self.runStatRep:
+            # Nothing changed. The program should only get here if some programmer called
+            # this method by mistake.
+            self.printL("\nThis run's status remains the same. Ignoring report command.")
+        else:
+            self.runStatRep = runStat #updating the reported status
+
+            # Delete previous status file(s)
+            if not(self.runStatRep == 'none'):
+                currDir = os.getcwd() + '/' + self.folderName
+                listedDir = os.listdir(currDir)
+                for f in listedDir:
+                    if f.startswith('!runStatus-') and f.endswith('.txt'):
+                        os.remove(currDir + '/' + f)
+
+            fname = self.folderName + '/!runStatus-'
+            if runStat == 'init':
+                fname += 'initializing.txt'
+            elif runStat == 'inProg':
+                fname += 'in_progress.txt'
+            elif runStat == 'ok':
+                fname += 'successful!.txt'
+            elif runStat == 'usrStop':
+                fname += 'stopped_by_user.txt'#_in_it#{}.txt'.format(iterN)
+            elif runStat == 'err':
+                fname += 'error!'#_in_it#{}.txt'.format(iterN)
+            self.printL("\nReporting status with file '{}'".format(fname))
+            fhand = open(fname,'w+') # create the file
+            fhand.close() # close handler
+
 
     def printL(self,msg,mode=''):
         if mode in '':
