@@ -14,9 +14,14 @@ velocity.
 
 """
 
-import numpy
+import numpy, utils
 from sgra import sgra
 import matplotlib.pyplot as plt
+
+# TODO: these parameters really should go the external configuration file...
+Kpf = 0.#10.#0.
+# This is irrelevant if Kpf is zero
+vLim = .5
 
 class prob(sgra):
     probName = 'probCart'
@@ -156,7 +161,7 @@ class prob(sgra):
 
         fx = numpy.zeros((N,n,s))
         fu = numpy.zeros((N,m,s))
-        fp = numpy.ones((N,p,s))
+        fp = numpy.zeros((N,p,s))
 
         #psiy = numpy.eye(q,2*n*s)
         psiy = numpy.zeros((q,2*n*s))
@@ -172,6 +177,8 @@ class prob(sgra):
 #        psiy[1,2] = -1.0
 #        psiy[2,3] = 1.0
         psip = numpy.zeros((q,p))
+        CostIncrActv = (self.x[:,1,:] >= vLim)
+        SpeedVio = (self.x[:,1,:]-vLim) * CostIncrActv
 
         for arc in range(s):
             tanh_u = tanh(u[:,0,arc])
@@ -179,6 +186,10 @@ class prob(sgra):
             phiu[:,1,0,arc] = pi[arc] * (1.0 - tanh_u**2)
             phip[:,0,arc,arc] = x[:,1,arc]
             phip[:,1,arc,arc] = tanh_u
+
+            fx[:,1,arc] = pi[arc] * 2. * Kpf * SpeedVio[:,arc]
+
+            fp[:,arc,arc] = 1. + Kpf * (SpeedVio[:,arc]**2)
 #        DynMat = array([[0.0,1.0],[0.0,0.0]])
 #        for k in range(N):
 #            for arc in range(s):
@@ -207,15 +218,17 @@ class prob(sgra):
         N = self.N
 #        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
 #                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
-        return numpy.array([x[0,0,0],x[0,1,0],\
-                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],\
+        return numpy.array([x[0,0,0],x[0,1,0],
+                            x[N-1,0,0]-x[0,0,1],x[N-1,1,0]-x[0,1,1],
                             x[N-1,0,1]-1.0,x[N-1,1,1]])
 
     def calcF(self):
         N,s = self.N,self.s
         f = numpy.empty((N,s))
+        CostIncrActv = (self.x[:, 1, :] >= vLim)
+        SpeedVio = (self.x[:, 1, :] - vLim) * CostIncrActv
         for arc in range(s):
-            f[:,arc] = self.pi[arc] * numpy.ones(N)
+            f[:,arc] = self.pi[arc] * (1. + Kpf*SpeedVio[:,arc]**2)
 
         return f, f, 0.0*f
 
@@ -223,16 +236,21 @@ class prob(sgra):
         #N,s = self.N,self.s
         #f, _, _ = self.calcF()
 
-        Ivec = self.pi
+        #Ivec = self.pi
 #        for arc in range(s):
 #            Ivec[arc] = .5*(f[0,arc]+f[N-1,arc])
 #            Ivec[arc] += f[1:(N-1),arc].sum()
 #        Ivec *= 1.0/(N-1)
+        Ivec = numpy.empty(self.s)
+        f,_,_ = self.calcF()
+        for arc in range(self.s):
+            Ivec[arc] = utils.simp(f[:,arc],self.N)
         I = Ivec.sum()
         return I, I, 0.0
 #%%
 
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
 
         x = self.x
         u = self.u
@@ -277,9 +295,7 @@ class prob(sgra):
 
             self.log.printL("pi = "+str(pi))
         elif opt['mode'] == 'var':
-            dx = opt['x']
-            du = opt['u']
-            dp = opt['pi']
+            dx, du, dp = opt['x'], opt['u'], opt['pi']
 
             titlStr = "Proposed variations (grad iter #" + \
                       str(self.NIterGrad+1) + ")\n"+"Delta pi: "
@@ -347,51 +363,52 @@ class prob(sgra):
             titlStr = opt['mode']
 
     def compWith(self,altSol,altSolLabl='altSol',mustSaveFig=True,\
-        subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
-                     'top':2.5,'wspace':0.2,'hspace':0.2}):
+                 piIsTime=True,
+                 subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                              'top':2.8,'wspace':0.2,'hspace':0.5}):
         self.log.printL("\nComparing solutions...\n")
         pi = self.pi
-        currSolLabl = 'currentSol'
+        currSolLabl = 'Final solution'
 
         # Plotting the curves
         plt.subplots_adjust(**subPlotAdjs)
 
         plt.subplot2grid((4,1),(0,0))
-        altSol.plotCat(altSol.x[:,0,:],labl=altSolLabl)
-        self.plotCat(self.x[:,0,:],mark='--',color='r',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,0,:],color='r',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("Position")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
-        titlStr = "Comparing solutions: " + currSolLabl + " and " + \
-                  altSolLabl
-        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
-        plt.title(titlStr)
+        #titlStr = "Comparing solutions: " + currSolLabl + " and " + \
+        #          altSolLabl
+        #titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+        #plt.title(titlStr)
         plt.xlabel("Adimensional time")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((4,1),(1,0))
-        altSol.plotCat(altSol.x[:,1,:],labl=altSolLabl)
-        self.plotCat(self.x[:,1,:],mark='--',color='g',labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,1,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.x[:,1,:],color='g',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("Speed")
         plt.xlabel("Adimensional time")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((4,1),(2,0))
-        altSol.plotCat(altSol.u[:,0,:],labl=altSolLabl)
-        self.plotCat(self.u[:,0,:],mark='--',color='k',\
+        altSol.plotCat(altSol.u[:,0,:],mark='--',labl=altSolLabl)
+        self.plotCat(self.u[:,0,:],color='k',\
                      labl=currSolLabl)
         plt.grid(True)
         plt.ylabel("u1 [-]")
         plt.xlabel("Adimensional time")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
         plt.subplot2grid((4,1),(3,0))
-        altSol.plotCat(numpy.tanh(altSol.u[:,0,:]),labl=altSolLabl)
-        self.plotCat(numpy.tanh(self.u[:,0,:]),mark='--',color='k',labl=currSolLabl)
+        altSol.plotCat(numpy.tanh(altSol.u[:,0,:]),mark='--',labl=altSolLabl)
+        self.plotCat(numpy.tanh(self.u[:,0,:]),color='k',labl=currSolLabl)
         plt.grid(True)
         plt.ylabel('Acceleration')
         plt.xlabel("Adimensional time")
-        plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
 
 
         self.savefig(keyName='comp',fullName='comparisons')

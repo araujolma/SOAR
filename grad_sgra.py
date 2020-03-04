@@ -6,12 +6,12 @@ Created on Tue Jun 27 14:39:08 2017
 @author: levi
 """
 
-import numpy
+import numpy #, time
 #from utils import testAlgn
 from utils import simp, testAlgn
 import matplotlib.pyplot as plt
 
-class stepMngr():
+class stepMngr:
     """ Class for the step manager, the object used to calculate the step
     value for the gradient phase. The step is chosen through (rudimentary)
     minimization of an objective function "Obj".
@@ -37,7 +37,8 @@ class stepMngr():
         self.findLimStepTol = ctes['findLimStepTol'] # been using 1e-2
         self.piLowLim = ctes['piLowLim']
         self.piHighLim = ctes['piHighLim']
-
+        # New: dJ/dAlfa
+        self.dJdStepTheo = corr['dJdStepTheo']
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
@@ -46,13 +47,17 @@ class stepMngr():
         self.maxGoodStep = 0.0
         self.minBadStep = 1e100
 
+        self.stopMotv = -1
+        self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1.
 
-    def calcObj(self,P,I,J):
+
+    @staticmethod
+    def calcObj(P, I, J):
         """This is the function which defines the objective function."""
 
-        # TODO: Find a way to properly parameterize this so that the user can
-        # set the objective function by setting numerical (or enumerative)
-        # parameters in the .its file.
+        # TODO: Find a way to properly parametrize this so that the user can
+        #  set the objective function by setting numerical (or enumerable)
+        #  parameters in the .its file.
 
         return J
 
@@ -64,7 +69,7 @@ class stepMngr():
 
 
     def getLast(self):
-        """ Get the atributes for the last applied step. """
+        """ Get the attributes for the last applied step. """
 
         P = self.histP[self.cont]
         I = self.histI[self.cont]
@@ -89,14 +94,36 @@ class stepMngr():
         #
 
         # "Bad point" conditions:
-        if Obj > self.Obj0 or Obj < 0.0 or P >= self.limP or PiCondVio:
-            # Bad point!
-            self.log.printL("In check. Got a bad point, with alfa = " + \
-                            str(alfa) + ", Obj = "+str(Obj))
+        BadPntCode = False; BadPntMsg = ''
+        ObjRtrn = 1.1 * self.Obj0
+        if Obj > self.Obj0:
+            BadPntCode = True
+            BadPntMsg += ("\n-  Obj-Obj0 = {:.4E}".format(Obj-self.Obj0) +
+                         " > 0")
+            ObjRtrn = Obj
+        if Obj < 0.0:
+            BadPntCode = True
+            BadPntMsg += ("\n-  Obj = {:.4E} < 0".format(Obj))
+        if P >= self.limP:
+            BadPntCode = True
+            BadPntMsg += ("\n-  P = {:.4E}".format(P) +
+                         " > {:.4E} = limP".format(self.limP))
+        if PiCondVio:
+            BadPntCode = True
+            BadPntMsg += ("\n-   piLowLim: " + str(self.piLowLim) +
+                          "\n          pi: " + str(pi) +
+                          "\n   piHighLim: " + str(self.piHighLim))
+
+        if BadPntCode:
+            # Bad point! Return saturated version of Obj (if necessary)
+            if self.mustPrnt:
+                self.log.printL("> In check. Got a bad point," + \
+                                BadPntMsg + "\nwith alfa = " + str(alfa) + \
+                                ", Obj = "+str(Obj))
             # update minimum bad step, if necessary
             if alfa < self.minBadStep:
                 self.minBadStep = alfa
-            return False, 1.1 * self.Obj0
+            return False, ObjRtrn
         else:
             # Good point; update maximum good step, if necessary
             if alfa > self.maxGoodStep:
@@ -112,13 +139,11 @@ class stepMngr():
         these guys twice. """
 
         Obj0 = self.calcObj(P0,I0,J0)
-        self.log.printL("> I0 = {:.4E}, ".format(I0) + \
-                        "Obj0 = {:.4E}".format(Obj0))
-        self.P0 = P0
-        self.I0 = I0
-        self.J0 = J0
-        self.Obj0 = Obj0
-        self.log.printL("\n> Setting Obj0 to "+str(Obj0))
+        if self.mustPrnt:
+            self.log.printL("> I0 = {:.4E}, ".format(I0) + \
+                            "Obj0 = {:.4E}".format(Obj0))
+            self.log.printL("\n> Setting Obj0 to "+str(Obj0))
+        self.P0, self.I0, self.J0, self.Obj0 = P0, I0, J0, Obj0
         self.best['obj'] = Obj0
         return Obj0
 
@@ -140,9 +165,11 @@ class stepMngr():
 
         P,_,_ = newSol.calcP(mustPlotPint=plotPint)
         J,_,_,I,_,_ = newSol.calcJ()
+        JrelRed = 100.*((J - self.J0)/alfa/self.dJdStepTheo)
+        IrelRed = 100.*((I - self.I0)/alfa/self.dJdStepTheo)
         Obj = self.calcObj(P,I,J)
-        isOk, Obj = self.check(alfa,Obj,P,newSol.pi)#self.check(alfa,Obj,P)
-
+        isOk, Obj = self.check(alfa,Obj,P,newSol.pi)
+        resStr = ''
         if isOk:
             # Update best value (if it is the case)
             if self.best['obj'] > Obj:
@@ -154,17 +181,23 @@ class stepMngr():
             #
 
             if self.mustPrnt:
+
                 resStr = "\n- Results (good point):\n" + \
                          "step = {:.4E}".format(alfa) + \
                          " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                         " J = {:.7E}".format(J) + " Obj = {:.7E}".format(Obj)
+                         " J = {:.7E}".format(J) + \
+                         " Obj = {:.7E}\n ".format(Obj) + \
+                         " Rel. reduction of J = {:.1F}%,".format(JrelRed) + \
+                         " Rel. reduction of I = {:.1F}%".format(IrelRed)
         else:
             if self.mustPrnt:
                 resStr = "\n- Results (bad point):\n" + \
                          "step = {:.4E}".format(alfa) + \
                          " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
                          " J = {:.7E}".format(J) + \
-                         " CorrObj = {:.7E}".format(Obj)
+                         " CorrObj = {:.7E}\n ".format(Obj) + \
+                         " J reduction eff. = {:.1F}%,".format(JrelRed) + \
+                         " I reduction eff. = {:.1F}%".format(JrelRed)
         #
 
         if self.mustPrnt:
@@ -180,7 +213,7 @@ class stepMngr():
         self.histI.append(I)
         self.histObj.append(Obj)
 
-        return self.getLast()
+        return P, I, Obj#self.getLast()
 
     def tryStepSens(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try a given step and the sensitivity as well. """
@@ -188,7 +221,7 @@ class stepMngr():
         da = self.findLimStepTol * .1
         NotAlgn = True
         P, I, Obj = self.tryStep(sol, alfa, plotSol=plotSol, plotPint=plotPint)
-
+        outp = {}
         while NotAlgn:
             stepArry = numpy.array([alfa*(1.-da), alfa, alfa*(1.+da)])
             Pm, Im, Objm = self.tryStep(sol, stepArry[0])
@@ -223,15 +256,17 @@ class stepMngr():
         M[:,1] = alfaList
         # find the quadratic coefficients
         coefList = numpy.linalg.solve(M,ObjList)
-        self.log.printL("\n> Objective list: "+str(ObjList))
-        self.log.printL("\n> Step value list: "+str(alfaList))
-        self.log.printL("\n> Quadratic interpolation coefficients: " + \
-                        str(coefList))
+        if self.mustPrnt:
+            self.log.printL("\n> Objective list: "+str(ObjList))
+            self.log.printL("\n> Step value list: "+str(alfaList))
+            self.log.printL("\n> Quadratic interpolation coefficients: " + \
+                            str(coefList))
 
         # this corresponds to the vertex of the parabola
         alfaOpt = -coefList[1]/coefList[0]/2.0
-        self.log.printL("> According to this quadratic fit, best step " + \
-                        "value is {:.4E}.".format(alfaOpt))
+        if self.mustPrnt:
+            self.log.printL("> According to this quadratic fit, best step " + \
+                            "value is {:.4E}.".format(alfaOpt))
 
         # The quadratic model is obviously wrong if the x^2 coefficient is
         # negative, or if the appointed step is negative, or invalid.
@@ -242,82 +277,99 @@ class stepMngr():
             # Check direction of max decrease in objective
             gradLeft = (ObjList[1]-ObjList[0])/(alfaList[1]-alfaList[0])
             gradRight = (ObjList[2]-ObjList[1])/(alfaList[2]-alfaList[1])
-            self.log.printL("\n> Inverted parabola detected.\n" + \
-                            "Slopes: left = {:.4E}".format(gradLeft) + \
-                            ", right = {:.4E}".format(gradRight))
+            if self.mustPrnt:
+                self.log.printL("\n> Inverted parabola detected.\n" + \
+                                "Slopes: left = {:.4E}".format(gradLeft) + \
+                                ", right = {:.4E}".format(gradRight))
 
             if gradLeft * gradRight > 0.0:
                 # Both sides have the same tendency; use medium gradient
                 grad = (ObjList[2]-ObjList[0])/(alfaList[2]-alfaList[0])
-                print("> Using medium slope: {:.4E}".format(grad))
+                if self.mustPrnt:
+                    self.log.printL("> Using medium slope: " + \
+                                    "{:.4E}".format(grad))
             else:
                 if abs(gradLeft) > abs(gradRight):
                     grad = gradLeft
-                    print("> Using left slope.")
+                    if self.mustPrnt:
+                        self.log.printL("> Using left slope.")
                 else:
                     grad = gradRight
-                    print("> Using right slope.")
+                    if self.mustPrnt:
+                        self.log.printL("> Using right slope.")
                 #
             #
 
             alfaOpt = alfaList[1] - 0.5 * ObjList[1]/grad
-            self.log.printL("\n> Using the slope in a Newton-Raphson-ish" + \
-                            " iteration, next step value is " + \
-                            "{:.4E}...".format(alfaOpt))
+            if self.mustPrnt:
+                msg = "\n> Using the slope in a Newton-Raphson-ish iter" + \
+                      "ation, next step value is {:.4E}...".format(alfaOpt)
+                self.log.printL(msg)
 
             if alfaOpt > self.minBadStep:
                 alfaOpt = .5 * (alfaList[1] + self.minBadStep)
-                self.log.printL("> ...but since that would violate" + \
-                                " the max step condition,\n" + \
-                                " let's bisect forward to " + \
-                                "{:.4E}".format(alfaOpt) + " instead!")
+                if self.mustPrnt:
+                    self.log.printL("> ...but since that would violate" + \
+                                    " the max step condition,\n" + \
+                                    " let's bisect forward to " + \
+                                    "{:.4E}".format(alfaOpt) + " instead!")
             elif alfaOpt < 0.0:
                 alfaOpt = .5 * alfaList[1]
-                self.log.printL("> ...but since that would be " + \
-                                "negative,\nlet's bisect back to " + \
-                                "{:.4E}".format(alfaOpt) + " instead!")
+                if self.mustPrnt:
+                    self.log.printL("> ...but since that would be " + \
+                                    "negative,\nlet's bisect back to " + \
+                                    "{:.4E}".format(alfaOpt) + " instead!")
 
             else:
-                self.log.printL("> ... seems legit!")
+                if self.mustPrnt:
+                    self.log.printL("> ... seems legit!")
 
         elif alfaOpt < 0.0:
             alfaOpt = .5 * min(alfaList)
-            self.log.printL("> Quadratic fit suggested a negative step.\n" + \
-                           "  Bisecting back into that region with " + \
-                            "alfa = {:.4E} instead.".format(alfaOpt))
+            if self.mustPrnt:
+                msg = "> Quadratic fit suggested a negative step.\n" + \
+                      "  Bisecting back into that region with " + \
+                      "alfa = {:.4E} instead.".format(alfaOpt)
+                self.log.printL(msg)
         elif alfaOpt > self.minBadStep:
             alfaOpt = .5 * (alfaList[1] + self.maxGoodStep)
-            self.log.printL("> Quadratic fit suggested a bad step.\n" + \
-                            "  Bisecting forward into that region with " + \
-                            "alfa = {:.4E} instead.".format(alfaOpt))
+            if self.mustPrnt:
+                msg = "> Quadratic fit suggested a bad step.\n" + \
+                      "  Bisecting forward into that region with " + \
+                      "alfa = {:.4E} instead.".format(alfaOpt)
+                self.log.printL(msg)
         else:
-            self.log.printL("  Let's do it!")
+            if self.mustPrnt:
+                self.log.printL("  Let's do it!")
 
         return alfaOpt
 
     def stopCond(self,alfa,outp):
         """ Decide if the step search can be stopped. """
-        gradObj = outp['gradObj']/outp['obj'][1]
+        relGradObj = outp['gradObj']/outp['obj'][1]
 
         #outp = {'P': numpy.array([Pm,P,PM]), 'I': numpy.array([Im,I,IM]),
         #        'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
         #        'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
 
-        if abs(gradObj) < self.stopObjDerTol:
-            if self.mustPrnt:
-                self.log.printL("\n> Stopping step search: low sensitivity" + \
+        if abs(relGradObj) < self.stopObjDerTol:
+            #if self.mustPrnt:
+            self.log.printL("\n> Stopping step search: low sensitivity" + \
                                 " of objective function with step.\n" + \
                                 "(local minimum, perhaps?)")
+            self.stopMotv = 1
             return True
         elif abs(alfa/self.maxGoodStep - 1.0) < self.stopStepLimTol \
-                and gradObj < 0.0:
+                and relGradObj < 0.0:
             self.log.printL("\n> Stopping step search: high proximity" + \
                             " to the step limit value.")
+            self.stopMotv = 2
             return True
 
         elif self.cont+1 > self.stopNEvalLim:
             self.log.printL("\n> Stopping step search: too many objective" + \
                             " evaluations.")
+            self.stopMotv = 3
             return True
 
         else:
@@ -364,14 +416,17 @@ class stepMngr():
             StepSep = (abs(1.0-alfaLow/alfaHigh) > self.findLimStepTol)
         #
 
-        self.log.printL("\n> Found it! Leaving findStepLim now.")
+        if self.mustPrnt:
+            self.log.printL("\n> Found it! Leaving findStepLim now.")
         return .5*(alfaLow+alfaHigh)
     #
 
     def endPrntPlot(self,alfa,mustPlot=False):
         """Final plots and prints for this run of calcStepGrad. """
+        P, I, Obj = 1., 1., 1.
         if mustPlot or self.mustPrnt:
             # Get index for applied step
+            k = 0
             for k in range(len(self.histStep)):
                 if abs(self.histStep[k]-alfa)<1e-14:
                     break
@@ -386,11 +441,12 @@ class stepMngr():
             # Plot history of P
             a = min(self.histStep)
             cont = 0
-            if a == 0:
+            if a == 0.:
                 newhistStep = sorted(self.histStep)
-            while a == 0.0:
-                cont += 1
-                a = newhistStep[cont]
+                while a == 0.0:
+                    cont += 1
+                    a = newhistStep[cont]
+                #
             linhAlfa = numpy.array([0.9*a,max(self.histStep)])
             plt.loglog(self.histStep,self.histP,'o',label='P(alfa)')
             linP0 = self.P0 + numpy.zeros(len(linhAlfa))
@@ -409,9 +465,10 @@ class stepMngr():
             plt.show()
 
             # Plot history of I
-            plt.semilogx(self.histStep, 100.0*(self.histI/self.I0-1.0), 'o',\
+            # noinspection PyTypeChecker
+            plt.semilogx(self.histStep, 100.0*(self.histI/self.I0-1.0), 'o',
                          label='I(alfa)')
-            plt.semilogx(alfa, 100.0*(I/self.I0-1.0), 's', \
+            plt.semilogx(alfa, 100.0*(I/self.I0-1.0), 's',
                          label='Chosen value')
             xlim = max([.99*self.maxGoodStep, 1.01*alfa])
             plt.ylabel("I variation (%)")
@@ -432,10 +489,18 @@ class stepMngr():
             plt.show()
 
             # Plot history of Obj
-            plt.semilogx(self.histStep, 100.0*(self.histObj/self.Obj0-1.0), \
+            # noinspection PyTypeChecker
+            plt.semilogx(self.histStep, 100.0*(self.histObj/self.Obj0-1.0),
                          'o', label='Obj(alfa)')
-            plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's', \
+            plt.semilogx(alfa, 100.0*(Obj/self.Obj0-1.0), 's',
                          label='Chosen value')
+            #minStep, maxStep = min(self.histStep), max(self.histStep)
+            #steps = numpy.linspace(minStep,maxStep,num=1000)
+            #dJTheoPerc = (100.0 * self.dJdStepTheo / self.Obj0) * steps
+            #plt.semilogx(steps, dJTheoPerc, label='TheoObj(alfa)')
+            # noinspection PyTypeChecker
+            dJTheoPerc = (100.0 * self.dJdStepTheo) * (self.histStep/self.Obj0)
+            plt.semilogx(self.histStep, dJTheoPerc,'o', label='TheoObj(alfa)')
             plt.ylabel("Obj variation (%)")
             plt.xlabel("alpha")
             plt.title("Obj variation versus grad step for this grad run." + \
@@ -452,23 +517,56 @@ class stepMngr():
             plt.xlim(right = xlim)
             plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
+
+            # Plot history of Objective NonLinearity
+#            plt.semilogx(self.histStep, \
+#                         100.0*(self.histNonLinErr/abs(self.dJdStepTheo)), \
+#                         'o', label='NL(alfa)')
+#            plt.semilogx(alfa, 100. * NonLinErr/abs(self.dJdStepTheo), 's', \
+#                         label='Chosen value')
+#            plt.ylabel("Obj Non-linearity (%)")
+#            plt.xlabel("alpha")
+#            Adim_dJdStep = 100. * self.dJdStepTheo / self.Obj0
+#            plt.title("Relative objective sensitivity." + \
+#                      " dJ/dStep|_0 / J0 = {:.1F}%".format(Adim_dJdStep))
+#            plt.legend()
+#            plt.grid(True)
+##            NLmin = max(abs(self.histNonLinErr/abs(self.dJdStepTheo))
+##            self.log.printL("NLmin = " + str(NLmin))
+##            if NLmin < 0.0:
+##                ymax = 100.0 * NLmin
+##                ymin = - 1.1 * ymax
+##            else:
+##                ymax = 50.0 * NLmin
+##                ymin = - ymax
+#            plt.xlim(right = xlim)
+##            plt.ylim(ymax = ymax, ymin = ymin)
+#            plt.show()
         #
 
         if self.mustPrnt:
             dIp = 100.0 * (I/self.I0 - 1.0)
             dObjp = 100.0 * (Obj/self.Obj0 - 1.0)
-            self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
-                            "\n> I0 = {:.4E}".format(self.I0) + \
-                            ", I = {:.4E}".format(I) + \
-                            ", dI = {:.4E}".format(I-self.I0) + \
-                            " ({:.4E})%".format(dIp) + \
-                            "\n> Obj0 = {:.4E}".format(self.Obj0) + \
-                            ", Obj = {:.4E}".format(Obj) + \
-                            ", dObj = {:.4E}".format(Obj-self.Obj0) + \
-                            " ({:.4E})%".format(dObjp))
+            if self.mustPrnt:
+                self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
+                                "\n> I0 = {:.4E}".format(self.I0) + \
+                                ", I = {:.4E}".format(I) + \
+                                ", dI = {:.4E}".format(I-self.I0) + \
+                                " ({:.4E})%".format(dIp) + \
+                                "\n> Obj0 = {:.4E}".format(self.Obj0) + \
+                                ", Obj = {:.4E}".format(Obj) + \
+                                ", dObj = {:.4E}".format(Obj-self.Obj0) + \
+                                " ({:.4E})%".format(dObjp))
 
-            self.log.printL("> Number of objective evaluations: " + \
-                            str(self.cont))
+                self.log.printL(">  Number of objective evaluations: " + \
+                                str(self.cont))
+
+            # NEW STUFF:
+            if self.mustPrnt:
+                self.log.printL("  HistStep = " + str(self.histStep))
+                self.log.printL("  HistI = " + str(self.histI))
+                self.log.printL("  HistObj = " + str(self.histObj))
+                self.log.printL("  HistP = " + str(self.histP))
         #
     #
 #
@@ -486,13 +584,13 @@ def plotF(self,piIsTime=False):
             f, fOrig, fPF = argout
             self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
             self.plotCat(fOrig, piIsTime=piIsTime, color='k', labl='Orig cost')
-            self.plotCat(fPF, piIsTime=piIsTime, color='r', \
+            self.plotCat(fPF, piIsTime=piIsTime, color='r',
                          labl='Penalty function')
         else:
             f = argout[0]
             self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
     else:
-        self.plotCat(f, piIsTime=piIsTime, color='b', labl='Total cost')
+        self.plotCat(argout, piIsTime=piIsTime, color='b', labl='Total cost')
     #
     plt.title('Integrand of cost function (grad iter #' + \
               str(self.NIterGrad) + ')')
@@ -505,50 +603,68 @@ def plotF(self,piIsTime=False):
     plt.legend()
     self.savefig(keyName='F',fullName='F')
 
-def plotQRes(self,args):
-    "Generic plots of the Q residuals"
+def plotQRes(self,args,mustSaveFig=True,addName=''):
+    """ Generic plots of the Q residuals. """
 
     iterStr = "\n(grad iter #" + str(self.NIterGrad) + \
                   ", rest iter #"+str(self.NIterRest) + \
                   ", event #" + str(int((self.EvntIndx+1)/2)) + ")"
     # Qx error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-    nm1 = self.n+1
-    plt.subplot2grid((nm1,1),(0,0))
-    self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+    nm2 = self.n+2
+    plt.subplot2grid((nm2,1),(0,0))
+    self.plotCat(args['accQx'],color='b',piIsTime=False)
     plt.grid(True)
-    plt.ylabel("Integrand of Qx")
+    plt.ylabel("Accumulated int.")
     titlStr = "Qx = int || dlam - f_x + phi_x^T*lam || " + \
               "= {:.4E}".format(args['Qx'])
     titlStr += iterStr
     plt.title(titlStr)
+    plt.subplot2grid((nm2,1),(1,0))
+    self.plotCat(args['normErrQx'],color='b',piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand of Qx")
     errQx = args['errQx']
     for i in range(self.n):
-        plt.subplot2grid((nm1,1),(i+1,0))
+        plt.subplot2grid((nm2,1),(i+1,0))
         self.plotCat(errQx[:,i,:],piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQx_"+str(i))
-    plt.xlabel("t [s]")
-    self.savefig(keyName='Qx',fullName='Qx')
+    plt.xlabel("t [-]")
+
+    if mustSaveFig:
+        self.savefig(keyName=('Qx'+addName),fullName='Qx')
+    else:
+        plt.show()
+        plt.clf()
 
     # Qu error plot
     plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-    mm1 = self.m+1
-    plt.subplot2grid((mm1,1),(0,0))
-    self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+    mm2 = self.m+2
+    plt.subplot2grid((mm2,1),(0,0))
+    self.plotCat(args['accQu'],color='b',piIsTime=False)
     plt.grid(True)
-    plt.ylabel("Integrand of Qu")
+    plt.ylabel("Accumulated int.")
     titlStr = "Qu = int || f_u - phi_u^T*lam || = {:.4E}".format(args['Qu'])
     titlStr += iterStr
     plt.title(titlStr)
+    plt.subplot2grid((mm2,1),(1,0))
+    self.plotCat(args['normErrQu'],color='b',piIsTime=False)
+    plt.grid(True)
+    plt.ylabel("Integrand")
     errQu = args['errQu']
     for i in range(self.m):
-        plt.subplot2grid((mm1,1),(i+1,0))
+        plt.subplot2grid((mm2,1),(i+2,0))
         self.plotCat(errQu[:,i,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("Qu_"+str(i))
-    plt.xlabel("t")
-    self.savefig(keyName='Qu',fullName='Qu')
+    plt.xlabel("t [-]")
+    if mustSaveFig:
+        self.savefig(keyName=('Qu'+addName),fullName='Qu')
+    else:
+        plt.show()
+        plt.clf()
+
 
     # Qp error plot
     errQp = args['errQp']; resVecIntQp = args['resVecIntQp']
@@ -565,12 +681,15 @@ def plotQRes(self,args):
     plt.title(titlStr)
     for j in range(1,p):
         plt.subplot2grid((p,1),(j,0))
-        self.plotCat(errQp[:,j,:],color='k')
+        self.plotCat(errQp[:,j,:],color='k',piIsTime=False)
         plt.grid(True)
         plt.ylabel("ErrQp, j ="+str(j))
-    plt.xlabel("t [s]")
-
-    self.savefig(keyName='Qp',fullName='Qp')
+    plt.xlabel("t [-]")
+    if mustSaveFig:
+        self.savefig(keyName=('Qp'+addName),fullName='Qp')
+    else:
+        plt.show()
+        plt.clf()
 
 def calcJ(self):
     N, s = self.N, self.s
@@ -592,10 +711,12 @@ def calcJ(self):
             vetL[t,arc] = lam[t,:,arc].transpose().dot(func[t,:,arc])
 
     # Perform the integration of Lint array by Simpson's method
+    vetIL = numpy.empty(s)
     Lint = 0.0
     for arc in range(self.s):
-        Lint += simp(vetL[:,arc],N)
-
+        vetIL[arc] = simp(vetL[:,arc],N)
+        Lint += vetIL[arc]
+    self.log.printL("L components, by arc: "+str(vetIL))
     #Lint = vetIL[N-1,:].sum()
     Lpsi = mu.transpose().dot(psi)
     L = Lint + Lpsi
@@ -604,13 +725,13 @@ def calcJ(self):
     J_Lpsi = Lpsi
     J_I = I
     J = L + J_I
-    strJs = "J = {:.6E}".format(J)+", J_Lint = {:.6E}".format(J_Lint)+\
-          ", J_Lpsi = {:.6E}".format(J_Lpsi)+", J_I = {:.6E}".format(J_I)
+    strJs = "J = {:.6E}, J_Lint = {:.6E}, ".format(J,J_Lint) + \
+            "J_Lpsi = {:.6E}, J_I = {:.6E}".format(J_Lpsi,J_I)
     self.log.printL(strJs)
 
     return J, J_Lint, J_Lpsi, I, Iorig, Ipf
 
-def calcQ(self,mustPlotQs=False):
+def calcQ(self,mustPlotQs=False,addName=''):
     # Q expression from (15).
     # FYI: Miele (2003) is wrong in oh so many ways...
     self.log.printL("In calcQ.")
@@ -633,8 +754,10 @@ def calcQ(self,mustPlotQs=False):
     auxVecIntQp = numpy.zeros((p,s))
 
     errQx = numpy.empty((N,n,s)); normErrQx = numpy.empty((N,s))
+    accQx = numpy.empty((N,s))
     errQu = numpy.empty((N,m,s)); normErrQu = numpy.empty((N,s))
-    errQp = numpy.empty((N,p,s)); #normErrQp = numpy.empty(N)
+    accQu = numpy.empty((N,s))
+    errQp = numpy.empty((N,p,s))#; normErrQp = numpy.empty(N)
 
     coefList = simp([],N,onlyCoef=True)
     z = numpy.empty(2*n*s)
@@ -643,11 +766,11 @@ def calcQ(self,mustPlotQs=False):
         z[2*arc*n : (2*arc+1)*n] = -lam[0,:,arc]
         z[(2*arc+1)*n : (2*arc+2)*n] = lam[N-1,:,arc]
 
-        # calculate Qx separately. In this way, the derivative avaliation is
+        # calculate Qx separately. In this way, the derivative evaluation is
         # adequate with the trapezoidal integration method
         med = (lam[1,:,arc]-lam[0,:,arc])/dt -.5*(fx[0,:,arc]+fx[1,:,arc]) + \
-                .5 * phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) + \
-                .5 * phix[1,:,:,arc].transpose().dot(lam[1,:,arc])
+                .5 * (phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) +
+                      phix[1,:,:,arc].transpose().dot(lam[1,:,arc])    )
 
         errQx[0,:,arc] = med
         errQx[1,:,arc] = med
@@ -658,7 +781,16 @@ def calcQ(self,mustPlotQs=False):
                         phix[k-1,:,:,arc].transpose().dot(lam[k-1,:,arc]) + \
                         -errQx[k-1,:,arc]
 
-        for k in range(N):
+        errQu[0,:,arc] = fu[0,:,arc] +  \
+                            - phiu[0,:,:,arc].transpose().dot(lam[0,:,arc])
+        errQp[0,:,arc] = fp[0,:,arc] + \
+                            - phip[0,:,:,arc].transpose().dot(lam[0,:,arc])
+        normErrQx[0,arc] = errQx[0,:,arc].transpose().dot(errQx[0,:,arc])
+        normErrQu[0,arc] = errQu[0,:,arc].transpose().dot(errQu[0,:,arc])
+        accQx[0,arc] = normErrQx[0,arc] * coefList[0]
+        accQu[0,arc] = normErrQu[0,arc] * coefList[0]
+        auxVecIntQp[:,arc] += errQp[0,:,arc] * coefList[0]
+        for k in range(1,N):
             errQu[k,:,arc] = fu[k,:,arc] +  \
                             - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
             errQp[k,:,arc] = fp[k,:,arc] + \
@@ -666,14 +798,21 @@ def calcQ(self,mustPlotQs=False):
 
             normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
             normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
-
-            Qx += normErrQx[k,arc] * coefList[k]
-            Qu += normErrQu[k,arc] * coefList[k]
+            accQx[k,arc] = accQx[k-1,arc] + normErrQx[k,arc] * coefList[k]
+            accQu[k,arc] = accQu[k-1,arc] + normErrQu[k,arc] * coefList[k]
             auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
         #
+        Qx += accQx[N-1,arc]; Qu += accQu[N-1,arc]
+
     #
 
-    auxVecIntQp *= dt; Qx *= dt; Qu *= dt
+    # Correct the accumulation
+    for arc in range(1,s):
+        accQx[:,arc] += accQx[-1,arc-1]
+        accQu[:,arc] += accQu[-1,arc-1]
+
+    # Using this is wrong, unless the integration is being done by hand!
+    #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
 
     resVecIntQp = numpy.zeros(p)
     for arc in range(s):
@@ -690,14 +829,12 @@ def calcQ(self,mustPlotQs=False):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
-    #self.Q = Q
-
 ###############################################################################
     if mustPlotQs:
         args = {'errQx':errQx, 'errQu':errQu, 'errQp':errQp, 'Qx':Qx, 'Qu':Qu,
                 'normErrQx':normErrQx, 'normErrQu':normErrQu,
-                'resVecIntQp':resVecIntQp}
-        self.plotQRes(args)
+                'resVecIntQp':resVecIntQp, 'accQx':accQx, 'accQu':accQu}
+        self.plotQRes(args,addName=addName)
 
 ###############################################################################
 
@@ -789,203 +926,9 @@ def calcQ(self,mustPlotQs=False):
                     plt.title("Lambda_m")
                     plt.show()
 
-    # TODO: break these plots into more conditions
-
-#    if numpy.array(self.dbugOptGrad.values()).any:
-#        print("\nDebug plots for this calcQ run:")
-#
-#        if self.dbugOptGrad['plotQx']:
-#            plt.plot(self.t,normErrQx)
-#            plt.grid(True)
-#            plt.title("Integrand of Qx")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotQu']:
-#            plt.plot(self.t,normErrQu)
-#            plt.grid(True)
-#            plt.title("Integrand of Qu")
-#            plt.show()
-#
-#        # for zoomed version:
-#        indMaxQx = normErrQx.argmax()
-#        ind1 = numpy.array([indMaxQx-20,0]).max()
-#        ind2 = numpy.array([indMaxQx+20,N-1]).min()
-#
-#        if self.dbugOptGrad['plotQxZoom']:
-#            plt.plot(self.t[ind1:ind2],normErrQx[ind1:ind2],'o')
-#            plt.grid(True)
-#            plt.title("Integrand of Qx (zoom)")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotSolQxMax']:
-#            print("\nSolution on the region of MaxQx:")
-#            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-#
-#        # for zoomed version:
-#        indMaxQu = normErrQu.argmax()
-#        ind1 = numpy.array([indMaxQu-20,0]).max()
-#        ind2 = numpy.array([indMaxQu+20,N-1]).min()
-#
-#        if self.dbugOptGrad['plotQuZoom']:
-#            plt.plot(self.t[ind1:ind2],normErrQu[ind1:ind2],'o')
-#            plt.grid(True)
-#            plt.title("Integrand of Qu (zoom)")
-#            plt.show()
-#
-#        if self.dbugOptGrad['plotSolQuMax']:
-#            print("\nSolution on the region of MaxQu:")
-#            self.plotSol(intv=numpy.arange(ind1,ind2,1,dtype='int'))
-#
-#
-##        if n==4 and m==2:
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("Qx_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("Qx_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,2],'r')
-##            plt.grid(True)
-##            plt.ylabel("Qx_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],errQx[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("Qx_m")
-##            plt.show()
-##
-##            print("\nStates, controls, lambda on the region of maxQx:")
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("h [km]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("V [km/s]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,2]*180/numpy.pi,'r')
-##            plt.grid(True)
-##            plt.ylabel("gamma [deg]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],x[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("m [kg]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,0],'k')
-##            plt.grid(True)
-##            plt.ylabel("u1 [-]")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],u[ind1:ind2,1],'c')
-##            plt.grid(True)
-##            plt.xlabel("t")
-##            plt.ylabel("u2 [-]")
-##            plt.show()
-##
-##            print("Lambda:")
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,0])
-##            plt.grid(True)
-##            plt.ylabel("lam_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,1],'g')
-##            plt.grid(True)
-##            plt.ylabel("lam_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,2],'r')
-##            plt.grid(True)
-##            plt.ylabel("lam_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],lam[ind1:ind2,3],'m')
-##            plt.grid(True)
-##            plt.ylabel("lam_m")
-##            plt.show()
-##
-###            print("dLambda/dt:")
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
-###            plt.grid(True)
-###            plt.ylabel("dlam_h")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
-###            plt.grid(True)
-###            plt.ylabel("dlam_V")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2],'r')
-###            plt.grid(True)
-###            plt.ylabel("dlam_gamma")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3],'m')
-###            plt.grid(True)
-###            plt.ylabel("dlam_m")
-###            plt.show()
-###
-###            print("-phix*lambda:")
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0])
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_h")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'g')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_V")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'r')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_gamma")
-###            plt.show()
-###
-###            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'m')
-###            plt.grid(True)
-###            plt.ylabel("-phix*lambda_m")
-###            plt.show()
-##
-##            print("\nBlue: dLambda/dt; Black: -phix*lam")
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,0]-errQx[ind1:ind2,0],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_h")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,1]-errQx[ind1:ind2,1],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_V")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,2]-errQx[ind1:ind2,2],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_gamma")
-##            plt.show()
-##
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3])
-##            plt.plot(tPlot[ind1:ind2],dlam[ind1:ind2,3]-errQx[ind1:ind2,3],'k')
-##            plt.grid(True)
-##            plt.ylabel("z_m")
-##            plt.show()
 
     if self.dbugOptGrad['pausCalcQ']:
-        input("calcQ in debug mode. Press any key to continue...")
+        self.log.prom("calcQ in debug mode. Press any key to continue...")
 
     return Q, Qx, Qu, Qp, Qt
 
@@ -995,24 +938,27 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     prntCond = self.dbugOptGrad['prntCalcStepGrad']
 
     if retry_grad:
+        stepFact = 0.1#0.9 #
         if prntCond:
             self.log.printL("\n> Retrying alfa." + \
                             " Base value: {:.4E}".format(alfa_0))
         # LOWER alfa!
-        alfa = .1 * alfa_0
+        alfa = stepFact * alfa_0
         if prntCond:
-            self.log.printL("\n> Let's try alfa 90% lower.")
+            self.log.printL("\n> Let's try alfa" + \
+                            " {:.1F}% lower.".format(100.*(1.-stepFact)))
         P, I, Obj = stepMan.tryStep(self,alfa)
 
         while Obj > stepMan.Obj0:
-            alfa *= .1
+            alfa *= stepFact
             if prntCond:
-                self.log.printL("\n> Let's try alfa 90% lower.")
+                self.log.printL("\n> Let's try alfa" + \
+                                " {:.1F}% lower.".format(100.*(1.-stepFact)))
             P, I, Obj = stepMan.tryStep(self,alfa)
 
         if prntCond:
             self.log.printL("\n> Ok, this value should work.")
-
+        stepMan.stopMotv = 0
     else:
         # Get initial status (no correction applied)
         if prntCond:
@@ -1021,11 +967,11 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         J0,_,_,I0,_,_ = self.calcJ()
         # Get all the constants
         ctes = {'tolP': self.tol['P'], #from sgra already,
-                'limP': self.constants['GSS_PLimCte'] * self.tol['P'], #1e5
-                'stopStepLimTol': self.constants['GSS_stopStepLimTol'], # been using 1e-4
-                'stopObjDerTol': self.constants['GSS_stopObjDerTol'],  # been using 1e-4
-                'stopNEvalLim': self.constants['GSS_stopNEvalLim'], # been using 100
-                'findLimStepTol': self.constants['GSS_findLimStepTol'],# been using 1e-2
+                'limP': self.constants['GSS_PLimCte'] * self.tol['P'],
+                'stopStepLimTol': self.constants['GSS_stopStepLimTol'],
+                'stopObjDerTol': self.constants['GSS_stopObjDerTol'],
+                'stopNEvalLim': self.constants['GSS_stopNEvalLim'],
+                'findLimStepTol': self.constants['GSS_findLimStepTol'],
                 'piLowLim': self.restrictions['pi_min'],
                 'piHighLim': self.restrictions['pi_max']}
 
@@ -1052,7 +998,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         alfaRef = alfaLim * .5
 
         while keepSrch:
-            outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
+            outp = stepMan.tryStepSens(self,alfaRef)
+            #,plotSol=True,plotPint=True)
             alfaList, ObjList = outp['step'], outp['obj']
             gradObj = outp['gradObj']
             ObjRef = ObjList[1]
@@ -1062,21 +1009,21 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                                 ", dObj/dAlfa = {:.4E}".format(gradObj))
 
             alfaRef = stepMan.fitNewStep(alfaList,ObjList)
-            outp = stepMan.tryStepSens(self,alfaRef)#,plotSol=True,plotPint=True)
+            outp = stepMan.tryStepSens(self,alfaRef)
+            #,plotSol=True,plotPint=True)
             if self.dbugOptGrad['manuInptStepGrad']:
 
-                gradObj = outp['gradObj']
-                ObjPos = outp['obj'][1]
-                self.log.printL("\n> Now, with alfa = {:.4E}".format(alfaRef) + \
-                                ", Obj = {:.4E}".format(ObjPos) + \
-                                ", dObj/dAlfa = {:.4E}".format(gradObj))
-
-                self.log.printL("\n> Type S for entering a step value, or" + \
-                                " any other key to quit:")
-                inp = input("> ")
+                gradObj = outp['gradObj']; ObjPos = outp['obj'][1]
+                msg = "\n> Now, with alfa = {:.4E}".format(alfaRef) + \
+                      ", Obj = {:.4E}".format(ObjPos) + \
+                      ", dObj/dAlfa = {:.4E}".format(gradObj) + \
+                      "\n> Type S for entering a step value, or" + \
+                                " any other key to quit:"
+                self.log.printL(msg)
+                inp = self.log.prom("> ")
                 if inp == 's':
                     self.log.printL("\n> Type the step value.")
-                    inp = input("> ")
+                    inp = self.log.prom("> ")
                     alfaRef = float(inp)
                 else:
                     keepSrch = False
@@ -1087,8 +1034,9 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         alfa = stepMan.best['step']
     #
 
-    # "Assured rejection prevention": if P<tolP, make sure I<I0, otherwise
-    # there will be a guaranteed rejection later...
+    # TODO: "Assured rejection prevention"
+    #  if P<tolP, make sure I<I0, otherwise,
+    #  there will be a guaranteed rejection later...
 
     if self.dbugOptGrad['plotCalcStepGrad']:
         # SCREENING:
@@ -1119,7 +1067,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     stepMan.endPrntPlot(alfa,mustPlot=self.dbugOptGrad['plotCalcStepGrad'])
 
     if self.dbugOptGrad['pausCalcStepGrad']:
-        input("\n> Run of calcStepGrad terminated. Press any key to continue.")
+        self.log.prom("\n> Run of calcStepGrad terminated. Press any key to continue.")
 
     return alfa, stepMan
 
@@ -1128,30 +1076,26 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
 
-    #self.plotSol(opt={'mode':'var','x':corr['x'],'u':corr['u'],'pi':corr['pi']})
-    #input("Olha lá a correção...")
-
     # Calculation of alfa
     alfa, stepMan = self.calcStepGrad(corr,alfa_0,retry_grad,stepMan)
     #alfa = 0.1
-    #self.log.printL('\n\nBypass cabuloso: alfa arbitrado em '+str(alfa)+'!\n\n')
-
-    self.updtHistGrad(alfa)
-
-    self.plotSol(opt={'mode':'lambda'})
-    A, B, C = corr['x'], corr['u'], corr['pi']
-    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-    #input("@Grad: Waiting for lambda/corrections check...")
+    #self.log.printL('\n\nBypass: alfa arbitrado em '+str(alfa)+'!\n\n')
+    self.updtHistGrad(alfa,stepMan.stopMotv)
 
     # Apply correction, update histories in alternative solution
+#    dummySol = self.copy()
+#    dummySol.aplyCorr(1.0,corr)
+#    dummySol.calcQ(mustPlotQs=True,addName='-FullCorr')
+
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
+#    newSol.calcQ(mustPlotQs=True,addName='-PartCorr')
     newSol.updtHistP()
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))
-    self.log.printL("Delta pi = "+str(alfa*C))
+    self.log.printL("Delta pi = "+str(alfa*corr['pi']))
 
     if self.dbugOptGrad['pausGrad']:
-        input('Grad in debug mode. Press any key to continue...')
+        self.log.prom('Grad in debug mode. Press any key to continue...')
 
     return alfa, newSol, stepMan

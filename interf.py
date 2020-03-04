@@ -6,52 +6,145 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os, shutil
-from utils import getNowStr#, logPrint
+import dill, datetime, pprint, os, shutil, time
+from utils import getNowStr
+from configparser import ConfigParser
 
-class logger():
+bscImpStr = "\n >> "
+dashStr = '\n' + '-' * 88
+
+class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,mode='both'):
-        # Mode ('both', 'file' or 'screen') sets the target output
-        self.mode = mode
-        # Results folder for this run
-        self.folderName = probName + '_' + getNowStr()
-        # Create the folder
-        os.makedirs(self.folderName)
+    def __init__(self,probName,isManu=True,makeDir=True,path='',runName='',mode='both',
+                 dateTag=True):
+        """
+        :param probName: Problem name (for a proper folder name);
+        :param isManu: flag for determinating if in manual mode or not;
+        :param makeDir: flag for making the directory or not.
+                        It overrides all following parameters;
+        :param path: Allows user specification for where the folder should be
+        :param runName: further customization for folder name, seldom used
+        :param mode: logging output. 'screen' prints to screen, 'file' prints to file only;
+                     and 'both' does both;
+        :param dateTag: flag for putting or not a date tag at the end of the folder.
+        """
 
-        try:
-            self.fhand = open(self.folderName + os.sep + 'log.txt','w+')
-        except:
-            print("Sorry, could not open/create the file!")
-            exit()
+
+        # Mode ('both', 'file' or 'screen') sets the target output.
+        # This can be overriden in each .printL() call, though
+        self.mode = mode
+        # this determines the necessity of manual input:
+        self.isManu = isManu
+
+        # Run status (for repoStat), by default it begins with 'none'
+        self.runStatRep = 'none'
+
+        if makeDir:
+            # Results folder for this run
+            self.folderName = path + probName
+            # Append run name, if it is the case
+            if len(runName) > 0:
+                self.folderName += '_' + runName
+            # put the date on the folder to avoid mix-ups with other runs
+            if dateTag:
+                self.folderName += '_' + getNowStr()
+            # Create the folder
+            os.makedirs(self.folderName)
+
+            try:
+                self.fhand = open(self.folderName + os.sep + 'log.txt', 'w+')
+            except:
+                print("Sorry, could not open/create the file!")
+                raise
+        else:
+            self.mode = 'screen'
+            self.folderName = os.getcwd()
+
+    # TODO: when grinding for performance, changing 'mode' to an integer would be
+    #  significantly faster than checking strings every single time!!
+
+    def repoStat(self,runStat):#,iterN=None):
+        """ Report the status of the current run, as commanded.
+        The report is simply the creation of an empty .txt file whose title reports the
+        progress of the run. There is a simple mechanism to prevent creation of the same
+        file again.
+        :param runStat: the status to be reported.
+            Either 'init' or 'inProg', 'ok', 'usrStop' or 'err'.
+        :return: None
+        """
+        if runStat == self.runStatRep:
+            # Nothing changed. The program should only get here if some programmer called
+            # this method by mistake.
+            self.printL("\nThis run's status remains the same. Ignoring report command.")
+        else:
+            self.runStatRep = runStat #updating the reported status
+
+            # Delete previous status file(s)
+            if not(self.runStatRep == 'none'):
+                currDir = os.getcwd() + '/' + self.folderName
+                listedDir = os.listdir(currDir)
+                for f in listedDir:
+                    if f.startswith('!runStatus-') and f.endswith('.txt'):
+                        os.remove(currDir + '/' + f)
+
+            fname = self.folderName + '/!runStatus-'
+            if runStat == 'init':
+                fname += 'initializing.txt'
+            elif runStat == 'inProg':
+                fname += 'in_progress.txt'
+            elif runStat == 'ok':
+                fname += 'successful!.txt'
+            elif runStat == 'usrStop':
+                fname += 'stopped_by_user.txt'#_in_it#{}.txt'.format(iterN)
+            elif runStat == 'err':
+                fname += 'error!'#_in_it#{}.txt'.format(iterN)
+            self.printL("\nReporting status with file '{}'".format(fname))
+            fhand = open(fname,'w+') # create the file
+            fhand.close() # close handler
+
 
     def printL(self,msg,mode=''):
         if mode in '':
             mode = self.mode
 
-        if mode in 'both':
+        if mode.startswith('both'):
             print(msg)
             self.fhand.write('\n'+msg)
-        elif mode in 'file':
+        elif mode.startswith('file'):
             self.fhand.write('\n'+msg)
-        elif mode in 'screen':
+        elif mode.startswith('screen'):
             print(msg)
 
     def pprint(self,obj):
-        if self.mode in 'both':
+        if self.mode.startswith('both'):
             pprint.pprint(obj)
             pprint.pprint(obj,self.fhand)
-        elif self.mode in 'file':
+        elif self.mode.startswith('file'):
             pprint.pprint(obj,self.fhand)
-        elif self.mode in 'screen':
+        elif self.mode.startswith('screen'):
             pprint.pprint(obj)
+
+    def prntDashStr(self):
+        self.printL(dashStr)
+
+    def prom(self,msg=''):
+        """Prompt the user for some input"""
+
+        if msg not in '':
+            self.printL(msg)
+
+        if self.isManu:
+            inp = input(bscImpStr)
+        else:
+            inp = ''
+        self.printL(bscImpStr + inp, mode='file')
+        return inp
 
     def close(self):
         self.fhand.close()
 
-
-class ITman():
+class ITman:
     """Class for the ITerations MANager.
 
     Only one object from this class is intended to be active during a program
@@ -60,29 +153,119 @@ class ITman():
 
     """
 
-    bscImpStr = "\n >> "
-    dashStr = '\n'+'-'*88
 
-    def __init__(self,confFile='',probName='prob'):
+    def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
+                 destFold=''):
+        """
+
+        :param confFile: Configuration file name/path (.its file)
+        :param probName: Problem name
+        :param isInteractive: flag for interactive mode
+        :param isManu: flag for manual mode (true unless being run in batch mode)
+        :param destFold: destination folder path
+        """
+
+        # default values for overall settings; these will be overridden if
+        # there is anything with the same name on the [settings] section of
+        # the configuration file.
         self.probName = probName
+        self.isManu = isManu
+        self.isNewSol = True
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
         self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
-        self.GRplotSolRate = 1
-        self.GRsaveSolRate = 5
-        self.GRpausRate = 1000#1000#10
-        self.GradHistShowRate = 5
-        self.RestPlotSolRate = 5
-        self.RestHistShowRate = 5
-        self.ShowEigRate = 10
+        self.GRplotSolRate = 20#1#
+        self.GRsaveSolRate = 100
+        self.GRpausRate = 10000#1000#10
+        self.GradHistShowRate = 20
+        self.RestPlotSolRate = 20
+        self.RestHistShowRate = 100#20
+        self.ShowEigRate = 100
+        self.ShowGRrateRate = 20
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
+        self.default_dbugOptRest = {'pausRest': False,
+                                    'pausCalcP': False,
+                                    'plotP_int': False,
+                                    'plotP_intZoom': False,
+                                    'plotIntP_int': False,
+                                    'plotSolMaxP': False,
+                                    'plotRsidMaxP': False,
+                                    'plotErr': False,
+                                    'plotCorr': False,
+                                    'plotCorrFin': False}
+        flag = False
+        self.default_dbugOptGrad = {'pausGrad':flag,#True,#
+                                    'pausCalcQ':flag,
+                                    'prntCalcStepGrad':True,#flag,#
+                                    'plotCalcStepGrad': flag,#True,#flag,#
+                                    'manuInptStepGrad': flag,
+                                    'pausCalcStepGrad':flag,#True,#
+                                    'plotQx':flag,
+                                    'plotQu':flag,
+                                    'plotLam':flag,
+                                    'plotQxZoom':flag,
+                                    'plotQuZoom':flag,
+                                    'plotQuComp':flag,
+                                    'plotQuCompZoom':flag,
+                                    'plotSolQxMax':flag,
+                                    'plotSolQuMax':flag,
+                                    'plotCorr':flag,
+                                    'plotCorrFin':flag,
+                                    'plotF':flag,#True,
+                                    'plotFint':flag,
+                                    'plotI':flag}
 
-        # Create directory for logs and stuff
-        self.log = logger(probName)
+        if isInteractive:
+            # screen only mode
+            self.log = logger(probName,runName='interactive',makeDir=False)
+        else:
+            # Create directory for logs and stuff; dateTag only if manual flag is true
+            self.log = logger(probName, isManu=self.isManu, path=destFold,
+                              dateTag=self.isManu)
+
+        if len(confFile) > 0:
+            # Get the configurations in the file.
+            Pars = ConfigParser()
+            Pars.optionxform = str
+            Pars.read(confFile)
+
+            # TODO: The best way would be to iterate since the names of the
+            #  fields are essentially the same as the ones in the file...
+            sec = 'settings'
+            if sec in Pars.sections():
+                if 'defOpt' in Pars.options(sec):
+                    self.defOpt = Pars.get(sec, 'defOpt')
+                if 'initOpt' in Pars.options(sec):
+                    self.initOpt = Pars.get(sec, 'initOpt')
+                if 'GRplotSolRate' in Pars.options(sec):
+                    self.GRplotSolRate = Pars.getint(sec, 'GRplotSolRate')
+                if 'GRsaveSolRate' in Pars.options(sec):
+                    self.GRsaveSolRate = Pars.getint(sec, 'GRsaveSolRate')
+                if 'GRpausRate' in Pars.options(sec):
+                    self.GRpausRate = Pars.getint(sec, 'GRpausRate')
+                if 'GradHistShowRate' in Pars.options(sec):
+                    self.GradHistShowRate = Pars.getint(sec, 'GradHistShowRate')
+                if 'RestPlotSolRate' in Pars.options(sec):
+                    self.RestPlotSolRate = Pars.getint(sec, 'RestPlotSolRate')
+                if 'ShowEigRate' in Pars.options(sec):
+                    self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
+                if 'ShowGRrateRate' in Pars.options(sec):
+                    self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
+                if 'PrllGradLMPBVP' in Pars.options(sec):
+                    self.parallelOpt['gradLMPBVP'] = \
+                        Pars.getboolean(sec, 'PrllGradLMPBVP')
+                if 'PrllRestLMPBVP' in Pars.options(sec):
+                    self.parallelOpt['restLMPBVP'] = \
+                        Pars.getboolean(sec, 'PrllRestLMPBVP')
+            else:
+                msg = '\nWarning: no [settings] section on input file "' + \
+                        confFile + '".\nProceeding with default values.'
+                self.log.printL(msg)
+
         self.overrideParallel()
 
     def overrideParallel(self):
@@ -91,46 +274,59 @@ class ITman():
 
         if os.sep != '/':
             # windows systems!
-            msg = "\n" + self.dashStr + \
+            msg = "\n" + dashStr + \
                   "\nOverriding the parallel settings to False!" + \
-                  self.dashStr + "\n\n"
+                  dashStr + "\n\n"
             self.log.printL(msg)
             self.parallelOpt = {'gradLMPBVP':False,
                                 'restLMPBVP':False}
-
-    def prntDashStr(self):
-        self.log.printL(self.dashStr)
-
-    def prom(self):
-        inp = input(self.bscImpStr)
-        self.log.printL(self.bscImpStr+inp,mode='file')
-        return inp
 
     def printPars(self):
         self.log.printL("\nThese are the attributes for the" + \
                         " Iterations manager:\n")
         self.log.pprint(self.__dict__)
 
+    def bell(self,lag=0.1,nRing=3):
+        """ Make some sounds to warn the user. Only works in manual mode.
+         :param lag: lag between successive rings, in seconds;
+         :param nRing: number of rings."""
+
+        if self.isManu:
+            for k in range(nRing):
+                print("\a")
+                time.sleep(lag)
+
     def greet(self):
-        """This is the first command to be run at the beggining of the
+        """This is the first command to be run at the beginning of the
         MSGRA.
 
         The idea is to let the user choose whether he/she wants to load a
-        previously prepared solution, or generate a new one."""
+        previously prepared solution, or generate a new one.
 
+        This function does not return anything, but at least these parameters
+        must be set (or confirmed):
+        - self.isNewSol (boolean): false only for loaded solutions
+        - self.initOpt (str): 'extSol', 'default' or 'naive(2)', applicable
+        only when isNewSol==True
+        - self.loadSolDir (str): directory for loading solution, applicable
+        only when isNewSol==False, of course
+        - self.altSolDir (str):  directory for loading alternative solution,
+        applicable only when isNewSol==False, of course
+        """
 
         # First greetings to user
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nWelcome to SGRA!\n")
         # Inform problem
         self.log.printL("Loading settings for problem: "+self.probName)
         # Inform results folder for this run
         self.log.printL('Saving results and log in '+self.log.folderName+'.')
-        self.prntDashStr()
+        self.log.prntDashStr()
         # Show parameters for ITman
         self.printPars()
-        self.log.printL("\n(You can always change these here in '" + \
-                            __name__ + ".py').")
+        msg = "\n(You can always change these in the [Settings] " +\
+              "section \nof the configuration file)."
+        self.log.printL(msg)
 
         # Default option: generate new solution from scratch
         if self.defOpt == 'newSol':
@@ -138,25 +334,31 @@ class ITman():
                   "generate new initial guess.\n" + \
                   "Hit 'enter' to do it, or any other key to " + \
                   "load a previously started solution."
-            self.log.printL(msg)
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp == '':
-                # Proceed with solution generating.
+
+                # TODO: SOL GEN
+
+                # Proceed with solution generation.
                 # Find out solution generating mode (default, external, naive)
-                # TODO: not all these options apply to every problem. Fix this
+                # TODO: not all of these options apply to every problem.
+                #  Fix this!
+                #  A good idea would be to define a list of "standard" modes
+                #  in sgra.py and then redefine the modes in each problem
+                #  instance (if it is the case).
+
                 self.isNewSol = True
                 msg = "\nOk, default mode (initOpt) is '" + self.initOpt + "'."
                 msg += "\nHit 'enter' to proceed with it, " + \
                        "or 'd' for 'default',\nor 'n' for 'naive'. " + \
                        "See '" + self.probName + ".py' for details. "
-                self.log.printL(msg)
-                inp = self.prom().lower()
+                inp = self.log.prom(msg).lower()
                 if inp=='d':
                     self.initOpt='default'
                     self.log.printL("\nProceeding with 'default' mode.\n")
                 elif inp=='n':
-                    self.initOpt='naive'
-                    self.log.printL("\nProceeding with 'naive' mode.\n")
+                    self.initOpt='naive2'
+                    self.log.printL("\nProceeding with 'naive2' mode.\n")
                 else:
                     self.initOpt='extSol'
                     self.log.printL("\nProceeding with 'extSol' mode.\n" + \
@@ -165,6 +367,9 @@ class ITman():
 
                 return
             else:
+
+                # TODO: SOL LOAD
+
                 # execution only gets here if the default init is to generate
                 # new init guess, but user wants to load solution
 
@@ -174,16 +379,14 @@ class ITman():
                 # a valid solution.
 
                 # TODO: it should not be so hard to actually check the
-                # existence of the file...
+                #  existence of the file...
                 keepAsk = True
                 while keepAsk:
                     msg = "\nThe default path to loading " + \
                           "a solution (loadSolDir) is: " + self.loadSolDir + \
                           "\nHit 'enter' to load it, or type the " + \
                           "path to the alternative solution to be loaded."
-                    self.log.printL(msg)
-
-                    inp = self.prom()
+                    inp = self.log.prom(msg)
                     if inp == '':
                         keepAsk = False
                     else:
@@ -208,15 +411,13 @@ class ITman():
                     msg = "\nHit 'enter' to use the same path " + "(" + \
                           self.loadSolDir + "),\nor type the path to the" + \
                           " alternative solution to be loaded."
-                    self.log.printL(msg)
-
-                    inp = self.prom()
+                    inp = self.log.prom(msg)
                     if inp == '':
                         keepAsk = False
                         self.loadAltSolDir = self.loadSolDir
                     else:
                         if inp.lower().endswith('.pkl'):
-                            self.loadSolDir = inp
+                            self.loadAltSolDir = inp
                             keepAsk = False
                         else:
                             self.log.printL('\nSorry, this is not a valid ' + \
@@ -233,65 +434,100 @@ class ITman():
                   self.loadSolDir + " .\nHit 'enter' to do it, hit " + \
                   "'I' to generate new initial guess,\n" + \
                   "or type the path to alternative solution to be loaded."
-            self.log.printL(msg)
-
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp == '':
                 self.isNewSol = False
             elif inp == 'i' or inp == 'I':
                 self.isNewSol = True
                 self.log.printL("\nOk, generating new initial guess...\n")
+                # TODO: there should be a self.initOpt assignment here...
+                #  without one, it just defaults to the value in this class's
+                #  init method
             else:
+
+                # TODO: SOL LOAD
+
                 self.isNewSol = False
                 self.loadSolDir = inp
             return
         else:
-            self.log.printL('\nUnknown starting option "' + self.defOpt + \
-                            '".\nLeaving now.')
-            raise
+            msg = '\nUnknown starting option "' + self.defOpt + \
+                            '".\nLeaving now.'
+            self.log.printL(msg)
+            raise Exception(msg)
         #
     #
-
     def checkPars(self,sol):
-        """Performs a check in the parameters of a initial solution. """
+        """Makes the user check the parameters of an initial solution,
+         and performs an automatic check as well."""
 
         pLimMin = len(sol.restrictions['pi_min'])
         pLimMax = len(sol.restrictions['pi_max'])
 
         msg = ''
-
-        Fail = False
         if not(pLimMin == pLimMax):
             msg += "\nPi max and min limitation arrays' dimensions mismatch. "
-            Fail = True
-        if not(pLimMin == sol.p):
+            if pLimMin < pLimMax:
+                msg += "\nExtending Pi min limitation array..."
+                pi_min = sol.restrictions['pi_min']; val_min = pi_min[-1]
+                for i in range(pLimMax-pLimMin):
+                    pi_min.append(val_min)
+                sol.restrictions['pi_min'] = pi_min
+            else:
+                msg += "\nExtending Pi max limitation array..."
+                pi_max = sol.restrictions['pi_max']; val_max = pi_max[-1]
+                for i in range(pLimMin-pLimMax):
+                    pi_max.append(val_max)
+                sol.restrictions['pi_max'] = pi_max
+            #
+            pLimMin = len(sol.restrictions['pi_min'])
+            pLimMax = len(sol.restrictions['pi_max'])
+        #
+        # now the limitation arrays are all equal. Check compatibility with p
+        if pLimMin < sol.p:
             msg += "\nPi limitation and pi arrays' dimensions mismatch. "
-            Fail = True
+            pi_min = sol.restrictions['pi_min']; val_min = pi_min[-1]
+            pi_max = sol.restrictions['pi_max']; val_max = pi_max[-1]
+            msg += "\nExtending Pi min and Pi max limitation arrays..."
+            for i in range(sol.p-pLimMin):
+                pi_min.append(val_min)
+                pi_max.append(val_max)
+            sol.restrictions['pi_min'] = pi_min
+            sol.restrictions['pi_max'] = pi_max
 
-        if not(Fail):
-            for i in range(sol.p):
-                thisPiMin = sol.restrictions['pi_min'][i]
-                if thisPiMin is not None:
-                    if sol.pi[i] < thisPiMin:
-                        msg += "\nPi[" + str(i) + "] < pi_min."
-                        Fail = True
-                thisPiMax = sol.restrictions['pi_max'][i]
-                if thisPiMax is not None:
-                    if sol.pi[i] > thisPiMax:
-                        msg += "\nPi[" + str(i) + "] > pi_max."
-                        Fail = True
+        if len(msg) > 0:
+            msg += "\nPress any key to continue...\n"
+            self.log.prom(msg)
+
+        # Ok, now check if the given pi's respect the limitations. If some of
+        # them does not, then it's pretty much game over...
+
+        msg = ''
+        Fail = False
+        for i in range(sol.p):
+            thisPiMin = sol.restrictions['pi_min'][i]
+            if thisPiMin is not None:
+                if sol.pi[i] < thisPiMin:
+                    msg += "\nPi[" + str(i) + "] < pi_min."
+                    Fail = True
+            thisPiMax = sol.restrictions['pi_max'][i]
+            if thisPiMax is not None:
+                if sol.pi[i] > thisPiMax:
+                    msg += "\nPi[" + str(i) + "] > pi_max."
+                    Fail = True
         if Fail:
             msg += '\nExiting the program.'
             self.log.printL(msg)
-            raise
+            raise Exception(msg)
 
+        # All tests ok! Let's proceed to the usual parameter checking.
         keepLoop = True
         while keepLoop:
-            self.prntDashStr()
+            self.log.prntDashStr()
             sol.printPars()
-            sol.plotSol()
-            self.prntDashStr()
-            print("\a")
+            #sol.plotSol()
+            self.log.prntDashStr()
+            self.bell(lag=1e-8,nRing=1)
             msg = "\nAre these parameters OK?\n" + \
                   "Press 'enter' to continue, or update the configuration " + \
                   "file:\n    (" + self.confFile + ")\n" + \
@@ -300,16 +536,15 @@ class ITman():
                   "Please notice that this only reloads parameters, not " + \
                   "necessarily\nregenerating the initial guess.\n" + \
                   "(See 'loadParsFromFile' method in 'sgra.py'.)"
-            self.log.printL(msg)
-
-            inp = self.prom()
+            inp = self.log.prom(msg)
             if inp != '':
                 self.log.printL("\nFine, reloading parameters...")
                 sol.loadParsFromFile(file=self.confFile)
             else:
                 self.log.printL("\nGreat! Moving on then...\n")
                 keepLoop = False
-
+            #
+        #
 
     def loadSol(self,path=''):
         if path == '':
@@ -338,7 +573,7 @@ class ITman():
         self.log.printL(msg)
         if self.isNewSol:
             # declare problem:
-            solInit = sol.initGues({'initMode':self.initOpt,\
+            solInit = sol.initGues({'initMode':self.initOpt,
                                     'confFile':self.confFile})
             self.log.printL("Saving a copy of the configuration file " + \
                             "in this run's folder.")
@@ -351,7 +586,7 @@ class ITman():
             sol = self.loadSol()
             self.log.printL("Saving a copy of the default configuration " + \
                             "file in this run's folder.\n(Just for " + \
-                            "alterring later, if necessary).")
+                            "altering later, if necessary).")
             self.confFile = shutil.copy2(self.confFile, self.log.folderName + \
                                          os.sep)
             self.log.printL('Loading "initial" solution ' + \
@@ -359,7 +594,7 @@ class ITman():
             solInit = self.loadSol(path=self.loadAltSolDir)
 
         # Plot obtained solution, check parameters
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nProposed initial guess:\n")
         sol.plotSol()
         self.checkPars(sol)
@@ -383,38 +618,11 @@ class ITman():
         # Plot trajectory
         sol.plotTraj()
 
-        # Setting debugging options (rest and grad). Declaration is in sgra.py!
-        sol.dbugOptRest.setAll(opt={'pausRest':False,
-                           'pausCalcP':False,
-                           'plotP_int':False,
-                           'plotP_intZoom':False,
-                           'plotIntP_int':False,
-                           'plotSolMaxP':False,
-                           'plotRsidMaxP':False,
-                           'plotErr':False,
-                           'plotCorr':False,
-                           'plotCorrFin':False})
-        flag = False#True#
-        sol.dbugOptGrad.setAll(opt={'pausGrad':flag,
-                           'pausCalcQ':flag,
-                           'prntCalcStepGrad':True,
-                           'plotCalcStepGrad': flag,#True,#
-                           'manuInptStepGrad': flag,
-                           'pausCalcStepGrad':flag,#True,#
-                           'plotQx':flag,
-                           'plotQu':flag,
-                           'plotLam':flag,
-                           'plotQxZoom':flag,
-                           'plotQuZoom':flag,
-                           'plotQuComp':flag,
-                           'plotQuCompZoom':flag,
-                           'plotSolQxMax':flag,
-                           'plotSolQuMax':flag,
-                           'plotCorr':flag,
-                           'plotCorrFin':flag,
-                           'plotF':flag,#True,
-                           'plotFint':flag,
-                           'plotI':flag})
+        # TODO: these parameters should go to an external file!
+        # Setting debugging options (rest and grad).
+        # Declaration is in sgra.py!
+        sol.dbugOptRest.setAll(opt=self.default_dbugOptRest)
+        sol.dbugOptGrad.setAll(opt=self.default_dbugOptGrad)
 #        sol.log = self.log
 #        solInit.log = self.log
 
@@ -445,7 +653,7 @@ class ITman():
             #input("\nOne more restoration complete.")
         #
 
-        sol.showHistP()
+#        sol.showHistP()
 #        self.log.printL("\nEnd of restoration rounds (" + str(contRest) + \
 #                        "), P = {:.4E}".format(sol.P) + ". Solution so far:")
 #        sol.plotSol()
@@ -455,9 +663,9 @@ class ITman():
         return sol, contRest
 
     def frstRestRnds(self,sol):
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
-        sol.P,_,_ = sol.calcP()
+        sol.P,_,_ = sol.calcP(mustPlotPint=True)
         sol, contRest = self.restRnds(sol)
 
         self.saveSol(sol,self.log.folderName + os.sep + 'solInitRest.pkl')
@@ -483,7 +691,10 @@ class ITman():
             return False
 
     def showHistGRrateCond(self,sol):
-        return True
+        if sol.NIterGrad % self.ShowGRrateRate == 0:
+            return True
+        else:
+            return False
 
     def showEigCond(self,sol):
         if sol.NIterGrad % self.ShowEigRate == 0:
@@ -513,7 +724,7 @@ class ITman():
 
     def gradRestCycl(self,sol,altSol=None):
 
-        self.prntDashStr()
+        self.log.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
         evnt = 'init'
         do_GR_cycle = True
@@ -524,29 +735,32 @@ class ITman():
             # Start of new cycle: calc P, I, as well as a new grad correction
             # in order to update lambda and mu, and therefore calculate Q for
             # checking.
+            plotResPQ = sol.NIterGrad % 10 == 0
+            sol.P,_,_ = sol.calcP(mustPlotPint=plotResPQ)
 
-            sol.P,_,_ = sol.calcP(mustPlotPint=True)
             P_base = sol.P
             I_base, _, _ = sol.calcI()
-            self.prntDashStr()
+            self.log.prntDashStr()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(P_base)
             self.log.printL(msg)
 
             isParallel = self.parallelOpt.get('gradLMPBVP',False)
-            A, B, C, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
+            corr, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
-            # Store corrections in solution (even though it may not be needed)
-            corr = {'x':A, 'u':B, 'pi':C}
-            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=True)
+
+            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResPQ)
 
 
             if sol.Q <= sol.tol['Q']:
+                # Run again calcQ, making sure the residuals are plotted.
+                # This is good for debugging eventual convergence errors
+                _,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 self.log.printL("\nTerminate program. Solution is sol_r.")
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.
                 sol.updtEvntList(evnt)
-                sol.updtHistGrad(0.0)
+                sol.updtHistGrad(0.,1)
                 sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
 
@@ -555,8 +769,8 @@ class ITman():
                       " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
                       "so let's keep improving the solution!\n"
                 self.log.printL(msg)
-                sol.plotSol()
-                sol.plotF()
+                #sol.plotSol()
+                #sol.plotF()
                 #sol.plotTraj()
                 #input("\nVamos tentar dar um passo de grad pra frente!")
 
@@ -571,7 +785,11 @@ class ITman():
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
 
-                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base, \
+                    # DEBUG: start plotting
+                    #if sol.NIterGrad > 11:
+                    #     sol.dbugOptGrad['plotCalcStepGrad'] = True
+
+                    alfa, sol_new, stepMan = sol.grad(corr, alfa_base,
                                                       retry_grad, stepMan)
                     # BEGIN_DEBUG:
                     I_mid,_,_ = sol_new.calcI()
@@ -593,7 +811,9 @@ class ITman():
                           "  dI = {:.6E}".format(sol_new.I-I_base) + \
                           ", P = {:.4E}".format(sol_new.P) + \
                           "\nVariation in I: " + \
-                            str(100.0*(sol_new.I/I_base-1.0)) + "%"
+                            str(100.0*(sol_new.I/I_base-1.0)) + "%" + \
+                          '\nRelative reduction of I (w.r.t. theoretical dI/dStep): ' + \
+                          str(100.0 * ((sol_new.I-I_base)/alfa/(-sol.Q))) + "%"
                     self.log.printL(msg)
 
                     if sol_new.I <= I_base:
@@ -605,12 +825,10 @@ class ITman():
                         evnt = 'gradOK'
                         keep_walking_grad = False
                         next_grad += 1
-
-                        self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad) + \
-                                        "\nLast grad counter = " + \
-                                        str(last_grad))
-                        self.log.printL("\nI was lowered, step given!")
+                        msg = "\nNext grad counter = {}" \
+                              "\nLast grad counter = {}" \
+                              "\nI was lowered, step given!".format(next_grad,last_grad)
+                        self.log.printL(msg)
                     else:
                         # The conditions were not met. Discard this solution
                         # and try a new gradStep on the previous baseline
@@ -621,12 +839,11 @@ class ITman():
                         # Save in 'sol' the histories from sol_new,
                         # otherwise the last grad and the rests would be lost!
                         sol.copyHistFrom(sol_new)
-                        self.log.printL("\nNext grad counter = " + \
-                                        str(next_grad))
-                        self.log.printL("Last grad counter = " + \
-                                        str(last_grad))
                         alfa_base = alfa
-                        self.log.printL("\nI was not lowered... trying again!")
+                        msg = "\nNext grad counter = {}" \
+                              "\nLast grad counter = {}\nI was not lowered... " \
+                              "trying again!".format(next_grad,last_grad)
+                        self.log.printL(msg)
                     #
                     #input("Press any key to continue... ")
                 #
@@ -640,6 +857,7 @@ class ITman():
             if self.showHistQCond(sol):
                 self.log.printL("\nHistQ showing condition is met!")
                 sol.showHistQ()
+                sol.showHistQvsI()
 
             if self.showHistICond(sol):
                 self.log.printL("\nHistI showing condition is met!")
@@ -662,11 +880,13 @@ class ITman():
 
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
-                #self.prntDashStr()
-                self.saveSol(sol,self.log.folderName + os.sep + 'currSol.pkl')
+                #self.log.prntDashStr()
+                name = self.log.folderName + os.sep + \
+                       'sol-{}gradIts.pkl'.format(sol.NIterGrad)
+                self.saveSol(sol,name)
 
             if self.plotSolGradCond(sol):
-                #self.prntDashStr()
+                #self.log.prntDashStr()
                 self.log.printL("\nSolution showing condition is met!")
                 self.log.printL("\nSolution so far:")
                 sol.plotSol()
@@ -674,21 +894,23 @@ class ITman():
 
                 if altSol is not None:
                     sol.compWith(altSol,'Initial guess')
+                    sol.compWith(altSol,'Initial guess',piIsTime=False)
+#                    sol.plotTraj(True,altSol,'Initial guess',\
+#                                 mustSaveFig=False)
                     sol.plotTraj(True,altSol,'Initial guess')
                 else:
                     sol.plotTraj()
 
             if self.gradRestPausCond(sol):
                 print("\a")
-                self.prntDashStr()
-                self.log.printL(datetime.datetime.now())
+                self.log.prntDashStr()
+                self.log.printL(str(datetime.datetime.now()))
                 msg = "\nAfter " + str(sol.NIterGrad) + \
                       " gradient iterations,\n" + \
                       "Grad-Rest cycle pause condition has been reached.\n" + \
                       "Press any key to continue, or ctrl+C to stop.\n" + \
                       "Load last saved solution to go back to GR cycle."
-                self.log.printL(msg)
-                self.prom()
+                self.log.prom(msg)
             #
         #
 

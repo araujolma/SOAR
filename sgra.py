@@ -9,6 +9,7 @@ Created on Tue Jun 27 13:07:35 2017
 import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
+from utils import simp, getNowStr
 from multiprocessing import Pool
 from itsme import problemConfigurationSGRA
 #from utils import ddt
@@ -30,7 +31,7 @@ class binFlagDict(dict):
 #        self.log.printL("\nSetting '"+self.name+"' as follows:")
 #        self.log.pprint(self)
 
-class sgra():
+class sgra:
     """Class for a general instance of the SGRA problem.
 
     Here are all the methods and variables that are independent of a specific
@@ -41,12 +42,18 @@ class sgra():
 
     probName = 'probSGRA'
 
-    def __init__(self,parallel={}):
+    def __init__(self, parallel=None):
         # these numbers should not make any sense;
         # they should change with the problem
+        if parallel is None:
+            parallel = {}
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
+        # TODO: since this formula actually does not change, this should be a method here...
+        self.Ns = 2*n*s + p
+        self.dt = 1.0/(N-1)
+        self.t = numpy.linspace(0,1.0,N)
 
         self.x = numpy.zeros((N,n))
         self.u = numpy.zeros((N,m))
@@ -59,6 +66,7 @@ class sgra():
 
         # Histories
         self.declHist()
+        self.NIterGrad = 0
 
         self.tol = {'P':1e-7,'Q':1e-7}
 
@@ -73,7 +81,7 @@ class sgra():
                             'plotRsidMaxP':tf,
                             'plotErr':tf,
                             'plotCorr':tf,
-                            'plotCorrFin':tf},\
+                            'plotCorrFin':tf},
                                         inpName='Debug options for Rest')
         tf = False#True#
         self.dbugOptGrad = binFlagDict(inpDict={'pausGrad':tf,
@@ -94,7 +102,7 @@ class sgra():
                             'plotCorr':tf,
                             'plotCorrFin':tf,
                             'plotF':tf,
-                            'plotFint':tf},\
+                            'plotFint':tf},
                                         inpName='Debug options for Grad')
 
         # Solution plot saving status:
@@ -105,14 +113,15 @@ class sgra():
                      'histGradStep':True,
                      'traj':True,
                      'comp':True,
-                     'eig':True},\
+                     'eig':True,
+                     'hamCheck':True},
                                 inpName='Plot saving options')
 
-        # Paralellism options
-        self.isParallel = dict()
-        self.isParallel['gradLMPBVP'] = parallel.get('gradLMPBVP',False)
-        self.isParallel['restLMPBVP'] = parallel.get('restLMPBVP',False)
+        # Parallelism options
+        self.isParallel = {'gradLMPBVP': parallel.get('gradLMPBVP',False),
+                           'restLMPBVP': parallel.get('restLMPBVP',False)}
 
+    # Basic "utility" methods
 
     def copy(self):
         """Copy the solution. It is useful for applying corrections, generating
@@ -136,29 +145,21 @@ class sgra():
         self.u  += alfa * corr['u']
         self.pi += alfa * corr['pi']
 
-    def initGues(self):
-        # Must be implemented by child classes
-        pass
-
     def loadParsFromFile(self,file):
         pConf = problemConfigurationSGRA(fileAdress=file)
         pConf.sgra()
 
         N = pConf.con['N']
-        tolP = pConf.con['tolP']
-        tolQ = pConf.con['tolQ']
 
-        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',\
+        for key in ['GSS_PLimCte','GSS_stopStepLimTol','GSS_stopObjDerTol',
                     'GSS_stopNEvalLim','GSS_findLimStepTol']:
             self.constants[key] = pConf.con[key]
 
         for key in ['pi_min','pi_max']:
             self.restrictions[key] = pConf.con[key]
 
-        self.tol = {'P': tolP,
-                    'Q': tolQ}
+        self.tol = {'P': pConf.con['tolP'], 'Q': pConf.con['tolQ']}
         self.N = N
-
         self.dt = 1.0/(N-1)
         self.t = numpy.linspace(0,1.0,N)
 
@@ -168,7 +169,8 @@ class sgra():
         self.log.printL("These are the attributes for the current solution:\n")
         self.log.pprint(dPars)
 
-    def plotCat(self,func,mark='',color='b',labl='',piIsTime=True,intv=[]):
+    def plotCat(self,func,mark='',markSize=1.,color='b',labl='',
+                piIsTime=True,intv=None):
         """Plot a given function with several subarcs.
             Since this function should serve all the SGRA instances, the pi
             parameters (if exist!) are not necessarily the times for each
@@ -182,97 +184,118 @@ class sgra():
         s, t, N = self.s, self.t, self.N
         pi = self.pi
         dt = 1.0/(N-1)
-        dtd = dt
 
         # Set upper and lower bounds
         lowrBnd = 0.0
         if piIsTime:
             uperBnd = pi.sum()
+            arcsDur = pi.copy()
         else:
-            TimeDur = t[-1]
-            uperBnd = TimeDur * s
+            uperBnd = t[-1] * s
+            arcsDur = [t[-1]] * s
 
-        if len(intv)==0:
-            intv = [lowrBnd,uperBnd]
+        # First and last arcs to be plotted
+        FrstArc, LastArc = 0, s
+        # Indexes for begin and and of plot
+        BginPlotIndx, EndPlotIndx = [0] * s, [N] * s
 
-        # Check consistency of requested time interval, override if necessary
-        if intv[0] < lowrBnd or intv[1] > uperBnd:
-            self.log.printL("plotCat: inadequate time interval used!" + \
-                            " Ignoring...")
-            if intv[0] < lowrBnd:
-                intv[0] = lowrBnd
-            if intv[1] > uperBnd:
-                intv[1] = uperBnd
+        # if no interval is specified, default to a full plot.
+        # else, we need to find out what gets plotted!
+        if intv is not None:
 
-        accTime = 0.0
-        mustLabl = True
-        isBgin = True
+            # Check consistency of requested time interval,
+            # override if necessary
+            if intv[0] < lowrBnd or intv[1] > uperBnd:
+                msg = "plotCat: bounds: [{},{}], ".format(lowrBnd, uperBnd) + \
+                      "given interval: [{},{}]".format(intv[0], intv[1]) + \
+                      "\nInadequate time interval used! Ignoring..."
+                self.log.printL(msg)
+                if intv[0] < lowrBnd:
+                    intv[0] = lowrBnd - 1.
+                if intv[1] > uperBnd:
+                    intv[1] = uperBnd + 1.
 
-        for arc in range(s):
-            if piIsTime:
-                TimeDur = pi[arc]
-                dtd = dt * TimeDur
+            # Find out which arcs get plotted, which don't; and for those who
+            # do get plotted, find the proper indexes to start and end plot.
 
-            # check if this arc gets plotted at all
-            #print("\narc =",arc)
-            #print("accTime =",accTime)
-            #print("TimeDur =",TimeDur)
-            #print("intv =",intv)
-            #print("condition1:",accTime <= intv[1])
-            #print("condition2:",accTime + TimeDur >= intv[0])
-            if (accTime <= intv[1]) and (accTime + TimeDur >= intv[0]):
+            # This is a partial sum of times (like a CDF)
+            PartSumTimeArry = numpy.zeros(s)
+            # accumulated time since beginning
+            accTime = 0.0
+            # Flag for finding the first and last arcs
+            MustFindFrstArc, MustFindLastArc = True, True
+            for arc in range(s):
+                # update accumulated time, partial sums array
+                accTime += arcsDur[arc]
+                PartSumTimeArry[arc] = accTime
 
-                # From this point on, the arc will be plotted.
-                # Find the index for the first point to be plotted:
+                dtd = dt * arcsDur[arc] # dimensional dt
+                if MustFindFrstArc and intv[0] <= PartSumTimeArry[arc]:
+                    # Found the first arc!
+                    MustFindFrstArc=False
+                    FrstArc = arc
+                    # Find the index for start of plot
+                    indFlt = (intv[0] - PartSumTimeArry[arc]+arcsDur[arc]) /\
+                             dtd
 
-                if isBgin:
-                    # accTime + ind * dtd = intv[0]
-                    indBgin = int((intv[0] - accTime)/dtd)
-                    isBgin = False
-                    if intv[0] <= accTime:
-                        plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
-                else:
-                    indBgin = 0
-                    # arc beginning with circle
-                    plt.plot(accTime + TimeDur*t[0],func[0,arc],'o'+color)
+                    BginPlotIndx[arc] = max([int(numpy.floor(indFlt)),0])
+                if MustFindLastArc and intv[1] <= PartSumTimeArry[arc]:
+                    # Found last arc!
+                    MustFindLastArc = False
+                    LastArc = arc+1 # python indexing
+                    # Find the index for end of plot
+                    indFlt = (intv[1] - PartSumTimeArry[arc]+arcsDur[arc]) /\
+                             dtd
 
-                #print("indBgin =",indBgin)
-                if accTime + TimeDur > intv[1]:
-                    indEnd = int((intv[1] - accTime)/dtd)
-                    if indEnd == (N-1):
-                        plt.plot(accTime + TimeDur*t[-1], \
-                         func[-1,arc],'s'+color)
-                else:
-                    indEnd = N-1
-                    # arc end with square
-                    plt.plot(accTime + TimeDur*t[-1],func[-1,arc],'s'+color)
-
-                #print("indEnd =",indEnd)
-
-                # Plot the function at each arc.
-                #Label only the first drawed arc
-                if mustLabl:
-                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
-                             func[indBgin:indEnd,arc],\
-                             mark+color,label=labl)
-                    mustLabl = False
-                else:
-                    plt.plot(accTime + TimeDur * t[indBgin:indEnd], \
-                             func[indBgin:indEnd,arc],\
-                             mark+color)
-                #
+                    EndPlotIndx[arc] = min([int(numpy.ceil(indFlt))+1,N]) # idem
             #
-            accTime += TimeDur
+        #
+
+        # Accumulated time between arcs
+        accTime = sum(arcsDur[0:FrstArc])
+        # Flag for labeling plots
+        # (so that only the first plotted arc is labeled)
+        mustLabl = True
+
+        for arc in range(FrstArc,LastArc):
+            # Plot the function at each arc.
+            # Label only the first drawn arc
+            indBgin, indEnd = BginPlotIndx[arc], EndPlotIndx[arc]
+            if mustLabl:
+                plt.plot(accTime + arcsDur[arc] * t[indBgin:indEnd],
+                         func[indBgin:indEnd, arc],
+                         mark + color, label=labl)
+                mustLabl = False
+            else:
+                plt.plot(accTime + arcsDur[arc] * t[indBgin:indEnd],
+                         func[indBgin:indEnd, arc],
+                         mark + color)
+            #
+            # Plot arc beginning with circle
+            if indBgin == 0:
+                plt.plot(accTime + arcsDur[arc] * t[0], func[0, arc],
+                         'o' + color, ms=markSize)
+            # Plot the last point of the arc, with square
+            if indEnd == N:
+                plt.plot(accTime + arcsDur[arc] * t[-1], func[-1, arc],
+                         's' + color, ms=markSize)
+
+            #
+            # Correct accumulated time, for next arc
+            accTime += arcsDur[arc]
 
     def savefig(self,keyName='',fullName=''):
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            fileName = self.log.folderName + os.sep + keyName + '.pdf'
+            now = ''#'_' + getNowStr()
+            fileName = self.log.folderName + os.sep + keyName + now + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
             try:
                 plt.savefig(fileName, bbox_inches='tight', pad_inches=0.1)
+            except KeyboardInterrupt:
+                raise
             except:
                 self.log.printL("Sorry, pdf saving failed... " + \
                                 "Are you using Windows?\n" + \
@@ -285,8 +308,57 @@ class sgra():
         plt.clf()
         plt.close('all')
 
-#%% Just for avoiding compatibilization issues with other problems
-    # These methods are all properly implemented in probRock class.
+    def pack(self, f: numpy.array) -> numpy.array:
+        """ 'Stacks' an array of size N*s x 1 into a N x s array."""
+
+        Nf = len(f)
+        if not (Nf == self.N * self.s):
+            raise(Exception("Unable to pack from array with size " +
+                            str(Nf) + "."))
+
+        F = numpy.empty((self.N,self.s))
+
+        for arc in range(self.s):
+            F[:,arc] = f[arc*self.N : (arc+1)*self.N]
+
+        return F
+
+    def unpack(self,F: numpy.array) -> numpy.array:
+        """ 'Unpacks' an array of size N x s into a long N*s array."""
+
+        NF, sF = F.shape
+        if not ((NF == self.N) and (sF == self.s)):
+            raise(Exception("Unable to unpack array with shape " +
+                            str(NF) + " x " +str(sF) + "."))
+
+        f = numpy.empty(self.N*self.s)
+
+        for arc in range(self.s):
+            f[arc * self.N : (arc + 1) * self.N] = F[:,arc]
+
+        return f
+
+    def intgEulr(self, df: numpy.array, f0: float):
+        """ Integrate a given function, by Euler method.
+        Just one initial condition (f0) is required, since the arcs are
+        concatenated. """
+
+        f = numpy.empty((self.N,self.s))
+
+        for arc in range(self.s):
+            # initial condition
+            f[0, arc] = f0
+            # dimensional dt
+            dtd = self.dt * self.pi[arc]
+            for i in range(1, self.N):
+                # Integrate by Euler method using derivative, df
+                f[i, arc] = f[i - 1, arc] + dtd * df[i - 1,arc]
+            # Set initial condition for next arc
+            f0 = f[-1, arc]
+
+        return f
+
+    # These methods SHOULD all be properly implemented in each problem class.
 
     def plotTraj(self,*args,**kwargs):
         self.log.printL("plotTraj: unimplemented method.")
@@ -328,10 +400,19 @@ class sgra():
 
         self.savefig(keyName='currSol',fullName='solution')
 
+    # These methods MUST all be properly implemented in each problem class.
+
+    def initGues(self):
+        # Must be implemented by child classes
+        pass
+
     def calcI(self,*args,**kwargs):
         pass
 
     def calcF(self,*args,**kwargs):
+        pass
+
+    def calcPhi(self,*args,**kwargs):
         pass
 
 #%% RESTORATION-WISE METHODS
@@ -359,8 +440,8 @@ class sgra():
     def calcQ(self,*args,**kwargs):
         return grad_sgra.calcQ(self,*args,**kwargs)
 
-    def plotQRes(self,args):
-        return grad_sgra.plotQRes(self,args)
+    def plotQRes(self,*args,**kwargs):
+        return grad_sgra.plotQRes(self,*args,**kwargs)
 
     def plotF(self,*args,**kwargs):
         return grad_sgra.plotF(self,*args,**kwargs)
@@ -396,6 +477,9 @@ class sgra():
     def showHistI(self,*args,**kwargs):
         return hist_sgra.showHistI(self,*args,**kwargs)
 
+    def showHistQvsI(self,*args,**kwargs):
+        return hist_sgra.showHistQvsI(self,*args,**kwargs)
+
     def showHistGradStep(self,*args,**kwargs):
         return hist_sgra.showHistGradStep(self,*args,**kwargs)
 
@@ -406,7 +490,7 @@ class sgra():
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
-    def calcErr(self):#,inRest=False):
+    def calcErr(self):
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
 #        phi = self.calcPhi()
@@ -416,7 +500,6 @@ class sgra():
         phi = self.calcPhi()
         err = numpy.zeros((self.N,self.n,self.s))
 
-        #if inRest:
         m = .5*(phi[0,:,:] + phi[1,:,:]) + \
                 -(self.x[1,:,:]-self.x[0,:,:])/self.dt
         err[0,:,:] = m
@@ -425,11 +508,6 @@ class sgra():
             err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
             -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
             -err[k-1,:,:]
-        #else:
-        #    for k in range(2,self.N-1):
-        #        err[k,:,:] = phi[k,:,:] + \
-        #                    -(self.x[k+1,:,:]-self.x[k-1,:,:])/self.dt
-
 
         return err
 
@@ -456,12 +534,142 @@ class sgra():
             #
         #
 
-        # TODO: put also other conditions here to avoid calculating and
-        # plotting in every grad step
-        if self.save.get('eig',False) and rho > 0.5:
-            helper.showEig(self.N,self.n,self.s)#,mustShow=True)
-            self.savefig(keyName='eig',fullName='eigenvalues')
-
         A,B,C,lam,mu = helper.getCorr(res,self.log)
+        corr = {'x':A, 'u':B, 'pi':C}
 
-        return A,B,C,lam,mu
+        if rho > 0.5:
+            if self.save.get('eig',False):
+                helper.showEig(self.N,self.n,self.s)#,mustShow=True)
+                self.savefig(keyName='eig',fullName='eigenvalues')
+
+            # TODO: Use the 'self.save' dictionary here as well...
+            if self.NIterGrad % 20 == 0:
+                self.plotSol(opt={'mode':'lambda'})
+                self.plotSol(opt={'mode':'lambda'},piIsTime=False)
+
+            BBvec = numpy.empty((self.N,self.s))
+            BB = 0.0
+            for arc in range(self.s):
+                for k in range(self.N):
+                    BBvec[k,arc] = B[k,:,arc].transpose().dot(B[k,:,arc])
+                #
+                BB += simp(BBvec[:,arc],self.N)
+            #
+
+            CC = C.transpose().dot(C)
+            dJdStep = -BB-CC; corr['dJdStepTheo'] = dJdStep
+
+            self.log.printL("\nBB = {:.4E}".format(BB) + \
+                            ", CC = {:.4E},".format(CC) + \
+                            " dJ/dAlfa = {:.4E}".format(dJdStep))
+            # TODO: Use the 'self.save' dictionary here as well...
+
+            if self.NIterGrad % 20 == 0:
+                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
+                             piIsTime=False)
+            #if self.NIterGrad > 380:
+            #    raise Exception("Mandou parar, parei.")
+
+            #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
+            #time.sleep(5.0)
+            #input("\n@Grad: Waiting for lambda/corrections check...")
+        #
+
+        return corr,lam,mu
+
+#%% Validation
+    def calcHam(self):
+        """Calculate Hamiltonian."""
+
+        # noinspection PyTupleAssignmentBalance
+        H,_,_ = self.calcF()
+        phi = self.calcPhi()
+
+        for arc in range(self.s):
+            for k in range(self.N):
+                H[k,arc] -= self.lam[k,:,arc].transpose().dot(phi[k,:,arc])
+
+        return H
+
+    def checkHamMin(self,mustPlot=False):
+        """Check Hamiltonian minimality conditions."""
+
+        # TODO: something
+        self.log.printL("\nChecking Hamiltonian conditions.")
+        H0 = self.calcHam()
+
+        warnMsg = "\nHAMILTONIAN CHECK FAILED!\n"
+        testFail = False
+
+        if mustPlot:
+            colorList = ['k','b','r', 'g','y','m','c']; c = 0
+            nc = len(colorList)
+
+        # For each control, check for the effect of small variations on H
+        delta = 0.01
+        for j in range(self.m):
+            # get a dummy copy of solution for applying variations
+            dummySol = self.copy()
+
+            # apply positive increment
+            dummySol.u[:,j,:] += delta
+            DHp = dummySol.calcHam() - H0
+            argMinDHp = numpy.argmin(DHp)
+            indMinDHp = numpy.unravel_index(argMinDHp,(self.N,self.s))
+            minDHp = DHp[indMinDHp]
+            msg = "Positive increment on control #{}:".format(j)
+            if minDHp>0.:
+                msg += " min H-H0 = {:.1E} > 0.".format(minDHp)
+            else:
+                msg += " min H-H0 = {:.1E} < 0 !".format(minDHp)
+                msg += warnMsg
+                testFail = True
+
+            self.log.printL(msg)
+            if mustPlot:
+                labl = 'DH(u'+str(j)+'+)'
+
+                # noinspection PyUnboundLocalVariable
+                self.plotCat(DHp, labl=labl, color=colorList[c%nc],
+                             piIsTime=False)
+                c+=1
+
+            # apply negative increment
+            dummySol.u[:, j, :] += -2. * delta
+            DHm = dummySol.calcHam() - H0
+            argMinDHm = numpy.argmin(DHm)
+            indMinDHm = numpy.unravel_index(argMinDHm, (self.N, self.s))
+            minDHm = DHm[indMinDHm]
+            msg = "Negative increment on control #{}:".format(j)
+            if minDHm > 0.:
+                msg += " min H-H0 = {:.1E} > 0.".format(minDHm)
+            else:
+                msg += " min H-H0 = {:.1E} < 0 !".format(minDHm)
+                msg += warnMsg
+                testFail = True
+
+            self.log.printL(msg)
+            if mustPlot:
+                labl = 'DH(u' + str(j) + '-)'
+                # noinspection PyUnboundLocalVariable
+                self.plotCat(DHm, labl=labl, color=colorList[c%nc],
+                             piIsTime=False)
+                c+=1
+
+        if testFail:
+           self.log.printL("\nSome test has failed. "
+                           "Solution is not truly optimal...")
+        else:
+            self.log.printL("\nAll tests passed.")
+
+        if mustPlot:
+            plt.xlabel("Non-dim. time [-]")
+            plt.grid(True)
+            plt.legend()
+            plt.title("Hamiltonian variations")
+            self.savefig(keyName='hamCheck',fullName='Hamiltonian check')
+
+
+
+        # TODO: add tests for pi conditions as well!

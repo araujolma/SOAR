@@ -43,7 +43,7 @@ def its(*arg):
     else:
         raise Exception('itsme saying: too many arguments on its')
 
-    print("itsme: Inital Trajectory Setup Module")
+    print("itsme: Initial Trajectory Setup Module")
     print("Opening case: ", fname)
 
     con = initialize(fname).resultShow()
@@ -68,7 +68,7 @@ def sgra(fname: str):
 
     # arguments analisys
 
-    print("itsme: Inital Trajectory Setup Module")
+    print("itsme: Initial Trajectory Setup Module")
     print("Opening case: ", fname)
 
     con = initializeSGRA(fname).result()

@@ -1,6 +1,17 @@
 
 .spyderworkspace
+.idea
 .DS_Store
+
+# these ones are for araujolma's convenience, give me a sign if this bothers you
+unversioned/
+issues.txt
+proxPassos.txt
+thisCommit.txt
+runs/
+naivRuns/
+/terte*.py
+
 **/*.pkl
 **/*.pdf
 **/*.pyc

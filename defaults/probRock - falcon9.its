@@ -1,7 +1,9 @@
 ###############################################################################
 # itsme configuration file (.its)
 #
-# author: Carlos Souza
+# Falcon 9 v1.1
+#
+# Font: wikipedia: https://en.wikipedia.org/wiki/Falcon_9
 ###############################################################################
 
 
@@ -9,8 +11,7 @@
 [settings] # Overall settings for SGRA
 #
 # Default initialization option (either 'newSol or 'loadSol')
-defOpt = loadSol
-#newSol
+defOpt = newSol
 #
 # Source for initial guess (either 'extSol' or 'naive' or 'default')
 #initOpt = extSol
@@ -62,22 +63,22 @@ PrllRestLMPBVP = True
 ###############################################################################
 [vehicle] # Vehicle parameters
 # Payload mass [kg]
-Mu = 100
+Mu = 5000
 #
 # Number of stages
-NStag = 4
+NStag = 2
 #
 # Specific impulse [s]
-Isp = 450
+Isp = 282, 340
 #
 # Structural inefficiency (defined by Cornelisse as efficiency)
-efes = 0.05
+efes = 0.05, 0.09
 #
 # Thrust [kN]
-T = 40.0
+T = 5885, 801
 #
 # softness of the transions of propulsive curve
-softness = 0.3
+softness = 0.5
 #
 # Aerodynamic coefficients
 #
@@ -86,14 +87,14 @@ CL0 = 0.0
 # (B1 Miele 1998)
 CL1 = 0.8
 #
-# (A0 Miele 1998)
-CD0 = 0.05
+#
+CD0 = 0.5
 #
 # (A2 Miele 1998)
 CD2 = 0.5
 #
 # Reference area in [km2]
-s_ref = 0.7853981633974482e-06
+s_ref = 10.7e-06
 #
 ###############################################################################
 [initial] # Initial state constants
@@ -111,7 +112,7 @@ gamma = 90.0
 [final] # Final state constants
 #
 # Final orbital altitude [km]
-h = 463.0
+h = 780.0
 #
 # Final flight path angle [°]
 gamma = 0.0
@@ -120,31 +121,31 @@ gamma = 0.0
 [trajectory] # Trajectory parameters
 #
 # Maximal angle of attack for attitude maneuver [°]
-AoAmax = 3.0
+AoAmax = 1.0
 #
 # Initial time for attitude maneuver [s]
-tAoA1 = 3.7
+tAoA1 = 2
 #
-# Duration of attitude maneuver [s]
-tAoA = 10.0
+# Duration of attitude maneuver [°]
+tAoA = 2.0
 #
 ###############################################################################
 [trajmods] # Trajectory modifications
 #
 # Pitch-damping center [s]
-DampCent = -10.0
+DampCent = 3.0
 #
 # Pitch-damping slope [-]
 DampSlop = 3.0
 #
 # Target heights for extra arcs (without stage separation) [km]
-TargHeig = 250.
+TargHeig = 50.0e-3, 2.0
 #
 ###############################################################################
 [accel] # Acceleration limitation parameters
 #
 # Maximum tangential acceleration [g]
-acc_max = 3.0
+acc_max = 35.0
 #
 # Penalty function mode [‘lin’,’quad’,’tanh’]
 PFmode = quad
@@ -153,28 +154,28 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 1.0e-3
+PFtol = 1.0e-2
 #
 ###############################################################################
 [sgra] # Internal SGRA parameters
 #
 # Tolerance for P functional
-tolP = 1e-12
+tolP = 1e-8
 #
 # Tolerance for Q functional
 tolQ = 1e-4
 #
 # Pi lower limits
-pi_min = 0.0, 0.0, 0.0, 0.0, 0.0
+pi_min = 0.0, 0.0, 0.0, 0.0
 #
 # Pi upper limits
-pi_max = None, None, None, None, None
+pi_max = None, None, None, None
 #
 # Number of divisions in time array [-]
 N = 501
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e12
+GSS_PLimCte = 1.0e5
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
@@ -183,7 +184,7 @@ GSS_stopStepLimTol = 1.0e-2
 GSS_stopObjDerTol = 1.0e-4
 #
 # Grad Step Search: max number of objective evaluations (see grad_sgra.py) [-]
-GSS_stopNEvalLim = 500
+GSS_stopNEvalLim = 100
 #
 # Grad Step Search: step tolerance for finding limit (see grad_sgra.py) [-]
 GSS_findLimStepTol = 1.0e-2
@@ -197,17 +198,18 @@ GM = 398600.4415
 # Earth radius [km]
 R = 6371.0
 #
-# Earth amgular velocity of ratation [rad/2]
+# Earth angular velocity of rotation [rad/s]
 we = 0.0
 #
 ###############################################################################
 [solver] # Solver parameters
 #
-guess = 1, 1, 1
+guess = 1, 1.5, 1.0
 #
-limit = 1, 1, 1
+limit = 1, 1.5, 1.0
 #
-tol = 1e-8
+tol = 1e-7
 #
-margin = 0.04
+fracVel = 0.5
 #
+Ndiv = 100

@@ -164,7 +164,7 @@ class prob(sgra):
             self.lam = lam
             self.mu = mu
 
-            self.Kpf = 100.0
+            self.Kpf = 10.0
             self.uLim = 1.0
 
             solInit = self.copy()
@@ -350,8 +350,8 @@ class prob(sgra):
         IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
         return IOrig+IPF, IOrig, IPF
 #%%
-
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,\
+                subPlotAdjs={}):
 
         pi = self.pi
 
@@ -360,9 +360,6 @@ class prob(sgra):
 #        else:
 #             intv = list(intv)
 
-        if len(intv)>0:
-            self.log.printL("plotSol: Sorry, ignoring plotting range.")
-
 
         if opt.get('mode','sol') == 'sol':
             I, _, _ = self.calcI()
@@ -370,16 +367,16 @@ class prob(sgra):
             " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
             plt.subplot2grid((5,1),(0,0),colspan=5)
-            self.plotCat(self.x[:,0,:])
+            self.plotCat(self.x[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("x1")
             plt.title(titlStr)
             plt.subplot2grid((5,1),(1,0),colspan=5)
-            self.plotCat(self.x[:,1,:],color='g')
+            self.plotCat(self.x[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("x2")
             plt.subplot2grid((5,1),(2,0),colspan=5)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1")
             plt.xlabel("Time [s]")
@@ -403,18 +400,18 @@ class prob(sgra):
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
             plt.subplot2grid((5,1),(0,0))
-            self.plotCat(dx[:,0,:])
+            self.plotCat(dx[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("x1")
             plt.title(titlStr)
 
             plt.subplot2grid((5,1),(1,0))
-            self.plotCat(dx[:,1,:],color='g')
+            self.plotCat(dx[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("x2")
 
             plt.subplot2grid((5,1),(2,0))
-            self.plotCat(du[:,0,:],color='k')
+            self.plotCat(du[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1")
 
@@ -426,16 +423,16 @@ class prob(sgra):
             titlStr = "Lambda for current solution"
 
             plt.subplot2grid((5,1),(0,0),colspan=5)
-            self.plotCat(self.lam[:,0,:])
+            self.plotCat(self.lam[:,0,:],intv=intv)
             plt.grid(True)
             plt.ylabel("lambda: x1")
             plt.title(titlStr)
             plt.subplot2grid((5,1),(1,0),colspan=5)
-            self.plotCat(self.lam[:,1,:],color='g')
+            self.plotCat(self.lam[:,1,:],intv=intv,color='g')
             plt.grid(True)
             plt.ylabel("lambda: x2")
             plt.subplot2grid((5,1),(2,0),colspan=5)
-            self.plotCat(self.u[:,0,:],color='k')
+            self.plotCat(self.u[:,0,:],intv=intv,color='k')
             plt.grid(True)
             plt.ylabel("u1 [-]")
             plt.xlabel("Time [s]")

@@ -190,9 +190,9 @@ class prob(sgra):
     def calcPsi(self):
         x = self.x
         N = self.N
-        return numpy.array([x[0,0,0],\
-                            x[0,1,0],\
-                            x[N-1,0,0],\
+        return numpy.array([x[0,0,0],
+                            x[0,1,0],
+                            x[N-1,0,0],
                             x[N-1,1,0]-0.3])
 
     def calcF(self):
@@ -213,7 +213,8 @@ class prob(sgra):
 
         return I, I, 0.0
 #%%
-    def plotSol(self,opt={},intv=[]):
+    def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,
+                subPlotAdjs={}):
         t = self.t
         x = self.x
         u = self.u
@@ -224,28 +225,37 @@ class prob(sgra):
         else:
              intv = list(intv)
 
+        if piIsTime:
+            timeLabl = 't [s]'
+        else:
+            timeLabl = 'adim. t [-]'
+
+        I, _, _ = self.calcI()
+        titlStr = "Current solution: I = {:.4E}".format(I) + \
+                  " P = {:.4E} ".format(self.P) + \
+                  " Q = {:.4E} ".format(self.Q)
+        titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
 
         if opt.get('mode','sol') == 'sol':
-            I,_,_ = self.calcI()
-            titlStr = "Current solution: I = {:.4E}".format(I) + \
-            " P = {:.4E} ".format(self.P) + " Q = {:.4E} ".format(self.Q)
-            titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
 
-            plt.subplot2grid((8,4),(0,0),colspan=5)
+            plt.subplot2grid((3,1),(0,0),colspan=5)
             plt.plot(t[intv],x[intv,0,0],)
             plt.grid(True)
             plt.ylabel("x")
+            plt.xlabel(timeLabl)
             plt.title(titlStr)
 
-            plt.subplot2grid((8,4),(1,0),colspan=5)
+            plt.subplot2grid((3,1),(1,0),colspan=5)
             plt.plot(t[intv],x[intv,1,0],'g')
             plt.grid(True)
             plt.ylabel("y")
+            plt.xlabel(timeLabl)
 
-            plt.subplot2grid((8,4),(2,0),colspan=5)
+            plt.subplot2grid((3,1),(2,0),colspan=5)
             plt.plot(t[intv],u[intv,0,0],'k')
             plt.grid(True)
             plt.ylabel("u")
+            plt.xlabel(timeLabl)
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='currSol',fullName='solution')
@@ -255,30 +265,98 @@ class prob(sgra):
             du = opt['u']
             dp = opt['pi']
 
-            plt.subplot2grid((8,4),(0,0),colspan=5)
+            plt.subplot2grid((3,1),(0,0),colspan=5)
             plt.plot(t[intv],dx[intv,0,0],)
             plt.grid(True)
             plt.ylabel("x")
+            plt.xlabel(timeLabl)
 
             titlStr = "Proposed variations\n"+"Delta pi: "
             for i in range(self.p):
                 titlStr += "{:.4E}, ".format(dp[i])
             titlStr += "\n(grad iter #" + str(self.NIterGrad) + ")"
+
             plt.title(titlStr)
 
-            plt.subplot2grid((8,4),(1,0),colspan=5)
+            plt.subplot2grid((3,1),(1,0),colspan=5)
             plt.plot(t[intv],dx[intv,1,0],'g')
             plt.grid(True)
             plt.ylabel("y")
+            plt.xlabel(timeLabl)
 
-            plt.subplot2grid((8,4),(2,0),colspan=5)
+            plt.subplot2grid((3,1),(2,0),colspan=5)
             plt.plot(t[intv],du[intv,0,0],'k')
             plt.grid(True)
             plt.ylabel("u")
+            plt.xlabel(timeLabl)
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='corr',fullName='corrections')
+        elif opt['mode'] == 'lambda':
+            titlStr = "Lambdas (grad iter #" + str(self.NIterGrad + 1) + ")"
+
+            plt.subplot2grid((3, 1), (0, 0))
+            self.plotCat(self.lam[:, 0, :], piIsTime=piIsTime, intv=intv)
+            plt.grid(True)
+            plt.ylabel("lam - x")
+            plt.xlabel(timeLabl)
+            plt.title(titlStr)
+
+            plt.subplot2grid((3, 1), (1, 0))
+            self.plotCat(self.lam[:, 1, :], color='g', piIsTime=piIsTime,
+                         intv=intv)
+            plt.grid(True)
+            plt.ylabel("lam - y")
+            plt.xlabel(timeLabl)
+
+            plt.subplot2grid((3, 1), (2, 0))
+            self.plotCat(u[:, 0, :], color='r', piIsTime=piIsTime, intv=intv)
+            plt.grid(True)
+            plt.ylabel("u")
+            plt.xlabel(timeLabl)
 
         else:
-            titlStr = opt['mode']
+            raise Exception("plotSol: Unknown mode '"+str(opt['mode'])+"'")
     #
+
+    def compWith(self,altSol,altSolLabl='altSol',piIsTime=True,
+                 mustSaveFig=True,subPlotAdjs={'left':0.0,'right':1.0,'bottom':0.0,
+                     'top':2.1,'wspace':0.2,'hspace':0.4}):
+        self.log.printL("\nComparing solutions...\n")
+        pi = self.pi
+        currSolLabl = 'Final solution'
+
+        # Plotting the curves
+        plt.subplots_adjust(**subPlotAdjs)
+
+        plt.subplot2grid((3,1),(0,0))
+        self.plotCat(self.x[:,0,:],color='c',piIsTime=piIsTime,
+                     labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,0,:],mark='--',labl=altSolLabl)
+        plt.grid(True)
+        plt.ylabel("x [-]")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+        plt.xlabel("Time")
+
+        plt.subplot2grid((3,1),(1,0))
+        self.plotCat(self.x[:,1,:],color='g',piIsTime=piIsTime,
+                     labl=currSolLabl)
+        altSol.plotCat(altSol.x[:,1,:],mark='--',piIsTime=piIsTime,
+                       labl=altSolLabl)
+        plt.grid(True)
+        plt.ylabel("y [-]")
+        plt.xlabel("Time")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+
+        plt.subplot2grid((3,1),(2,0))
+        self.plotCat(self.u[:,0,:],color='k',piIsTime=piIsTime,
+                     labl=currSolLabl)
+        altSol.plotCat(altSol.u[:,0,:],mark='--',piIsTime=piIsTime,
+                       labl=altSolLabl)
+        plt.grid(True)
+        plt.ylabel("u [-]")
+        plt.xlabel("Time")
+        plt.legend(loc="lower center",bbox_to_anchor=(0.5,1),ncol=2)
+
+        self.savefig(keyName='comp',fullName='comparisons')
+        self.log.printL("pi = "+str(pi)+"\n")

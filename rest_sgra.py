@@ -10,9 +10,10 @@ from utils import simp
 import matplotlib.pyplot as plt
 
 def calcP(self,mustPlotPint=False):
-    N,s,dt = self.N,self.s,self.dt
+    N, s = self.N, self.s
 
     psi = self.calcPsi()
+    #print("psi = "+str(psi))
     func = self.calcErr()
 
     vetP = numpy.empty((N,s))
@@ -23,6 +24,30 @@ def calcP(self,mustPlotPint=False):
         for t in range(N):
             vetP[t,arc] = func[t,:,arc].dot(func[t,:,arc].transpose())
     coefList = simp([],N,onlyCoef=True)
+
+    for arc in range(s):
+        vetIP[0,arc] = coefList[0] * vetP[0,arc]
+        for t in range(1,N):
+            vetIP[t,arc] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
+    #
+
+    #vetIP *= self.dt # THIS IS WRONG!! REMOVE IT!!
+
+    # TEST FOR VIOLATIONS!
+    PiCondVio = False
+    piLowLim = self.restrictions['pi_min']
+    piHighLim = self.restrictions['pi_max']
+    for i in range(self.s):
+        # violated here in lower limit condition
+        if piLowLim[i] is not None and self.pi[i] < piLowLim[i]:
+            PiCondVio = True; break # already violated, no need to continue
+        # violated here in upper limit condition
+        if piHighLim[i] is not None and self.pi[i] > piHighLim[i]:
+            PiCondVio = True; break # already violated, no need to continue
+    #
+    if PiCondVio:
+        vetIP *= 1e300
+
 
 #    for arc in range(s):
 #        vetIP[0,arc] = (17.0/48.0) * vetP[0,arc]
@@ -35,12 +60,13 @@ def calcP(self,mustPlotPint=False):
 #        vetIP[N-3,arc] = vetIP[N-4,arc] + (43.0/48.0) * vetP[N-3,arc]
 #        vetIP[N-2,arc] = vetIP[N-3,arc] + (59.0/48.0) * vetP[N-2,arc]
 #        vetIP[N-1,arc] = vetIP[N-2,arc] + (17.0/48.0) * vetP[N-1,arc]
-    for arc in range(s):
-        vetIP[0,arc] = coefList[0] * vetP[0,arc]
-        for t in range(1,N):
-            vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
 
-    vetIP *= dt
+    # for arc in range(s):
+    #     vetIP[0,arc] = coefList[0] * vetP[0,arc]
+    #     for t in range(1,N):
+    #         vetIP[t] = vetIP[t-1,arc] + coefList[t] * vetP[t,arc]
+
+    #vetIP *= dt
 
     # Look for some debug plot
 #    someDbugPlot = False
@@ -203,81 +229,103 @@ def calcP(self,mustPlotPint=False):
 
     return P,Pint,Ppsi
 
-def calcStepRest(self,corr):
-    self.log.printL("\nIn calcStepRest.\n")
+def getPvalue(self,step,corr,mustPlotPint=False):
+    """Abbreviation function for testing step values."""
 
     newSol = self.copy()
-    newSol.aplyCorr(1.0,corr)
-    P1,_,_ = newSol.calcP()
+    newSol.aplyCorr(step,corr)
+    P,_,_ = newSol.calcP(mustPlotPint=mustPlotPint)
+    return P
+
+def calcStepRest(self,corr):
+    """Calculate the restoration step (referred to as  "alfa" or "alpha").
+
+    The idea is to search for a value that reduces the value of the P
+    functional, so that eventually P < tolP. It may be possible to meet that
+    condition with a single restoration, if not, sequential restorations
+    will be performed. """
+
+    self.log.printL("\nIn calcStepRest.\n")
+    plotPint = False
+
+    # Get P value for "full restoration"
+    P1 = getPvalue(self,1.0,corr,mustPlotPint=plotPint)
 
     # if applying alfa = 1.0 already meets the tolerance requirements,
     # why waste time decreasing alfa?
     if P1 < self.tol['P']:
+        msg = "Unitary step already satisfies tolerances.\n" + \
+              "Leaving rest with alfa = 1.\nDelta pi = " + str(corr['pi'])
+        self.log.printL(msg)
         return 1.0
 
-    #P0,_,_ = calcP(self)
+    # Avoid a new P calculation by loading P value from the sol object
     P0 = self.P
-    dalfa = 0.9
-    newSol = self.copy()
-    newSol.aplyCorr(dalfa,corr)
-    P1m,_,_ = newSol.calcP()
 
-    if P1 >= P1m or P1 >= P0:
-        self.log.printL("\nalfa = 1.0 is too much.")
-        # alfa = 1.0 is too much. Reduce alfa.
-        nP = P1m; alfa = dalfa#1.0
-        cont = 0; keepSearch = (nP>P0)
-        while keepSearch and alfa > 1.0e-15:
-            cont += 1
-            P = nP
-            alfa *= dalfa
-            newSol = self.copy()
-            newSol.aplyCorr(alfa,corr)
-            nP,_,_ = newSol.calcP()
-            if P < P0:
-                keepSearch = (nP>P)#((nP-P)/P < -.01)#((nP-P)/P < -.05)
-        if cont>0:
-            alfa /= dalfa
-    else:
-        # no "overdrive!"
-        self.log.printL("Leaving rest with alfa = 1.")
-        self.log.printL("Delta pi = "+str(corr['pi']))
+    # If alfa = 1 already lowers the P value, it is best to stop here
+    # and return alfa = 1.
+    if P1 < P0:
+        msg = "Unitary step lowers P.\n" + \
+              "Leaving rest with alfa = 1.\nDelta pi = " + str(corr['pi'])
+        self.log.printL(msg)
         return 1.0
 
+    # Beginning actual search: get the maximum value of alfa so that P<=P0
+    self.log.printL("\nSearching for proper step...")
+    # Perform a simple bisection monitoring the "error" P-P0:
+    # alfaLow is maximum step so that P<=P0,
+    # alfaHigh is minimum step so that P>=P0,
+    alfaLow, alfa, alfaHigh = 0., 0.5,  1.
 
-        # with "overdrive":
-        newSol = self.copy()
-        newSol.aplyCorr(1.2,corr)
-        P1M,_,_ = newSol.calcP()
+    # Stop conditions on "error" (1% of P0) and step variation (also 1%)
+    #while abs(P-P0) > tolSrch and (alfaHigh-alfaLow) > 1e-2 * alfa:
 
-
-        if P1 <= P1M:
-            # alfa = 1.0 is likely to be best value.
-            # Better not to waste time and return 1.0
-            return 1.0
+    # Stop condition on step variation (1%)
+    while (alfaHigh - alfaLow) > 1e-2 * alfa:
+        # Try P in the middle
+        alfa = .5 * (alfaLow + alfaHigh)
+        P = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
+        if P < P0:
+            # Negative error: go forward
+            alfaLow = alfa
         else:
-            # There is still a descending gradient here. Increase alfa!
-            nP = P1M
-            cont = 0; keepSearch = True#(nPint>Pint1M)
-            alfa = 1.2
-            while keepSearch:
-                cont += 1
-                P = nP
-                alfa *= 1.2
-                newSol = self.copy()
-                newSol.aplyCorr(alfa,corr)
-                nP,_,_ = newSol.calcP()
-                self.log.printL("\n alfa =",alfa,", P = {:.4E}".format(nP),\
-                      " (P0 = {:.4E})".format(P0))
-                keepSearch = nP<P #( nP<P and alfa < 1.5)#2.0)#
-                #if nPint < Pint0:
-            alfa /= 1.2
-        #
-    #
-
-    self.log.printL("Leaving rest with alfa = "+str(alfa))
-    self.log.printL("Delta pi = "+str(alfa*corr['pi']))
+            # Positive error: go backwards
+            alfaHigh = alfa
+    # Get a step so that P<P0, just to be sure
+    alfa = alfaLow
+    msg =  "\nLeaving rest with alfa = {:.4E}".format(alfa) + \
+           "\nDelta pi = " + str(alfa * corr['pi'])
+    self.log.printL(msg)
     return alfa
+
+    # Manual input of step
+    # alfa = 1.
+    # promptMsg = "Please enter new value of step to be used, or hit " + \
+    #             "'enter' to finish:\n>> "
+    # while True:
+    #     inp = input(promptMsg)
+    #
+    #     if inp == '':
+    #         break
+    #
+    #     try:
+    #         alfa = float(inp)
+    #         P = getPvalue(self,alfa,corr,mustPlotPint=plotPint)
+    #         msg = "alfa = {:.4E}, P = {:.4E}, P0 = {:.4E}, tolP = {:.1E}\n".format(alfa,P,P0,self.tol['P'])
+    #         self.log.printL(msg)
+    #
+    #     except KeyboardInterrupt:
+    #         self.log.printL("Okay then.")
+    #         raise
+    #     except:
+    #         msg = "\nSorry, could not cast '{}' to float.\n".format(inp)
+    #         self.log.printL(msg)
+    #
+    # self.log.printL("Leaving rest with alfa = " + str(alfa))
+    # self.log.printL("Delta pi = " + str(alfa * corr['pi']))
+    # return alfa
+
+    #
 
 
 def rest(self,parallelOpt={}):
@@ -285,17 +333,15 @@ def rest(self,parallelOpt={}):
     self.log.printL("\nIn rest, P0 = {:.4E}.".format(self.P))
 
     isParallel = parallelOpt.get('restLMPBVP',False)
-    A,B,C,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
+    corr,_,_ = self.LMPBVP(rho=0.0,isParallel=isParallel)
 
-    corr = {'x':A,
-            'u':B,
-            'pi':C}
-#    self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+    #A, B, C = corr['x'], corr['u'], corr['pi']
+    #self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
 #    input("rest_sgra: Olha lá a correção!")
 
     alfa = self.calcStepRest(corr)
- #   self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
-#    input("rest_sgra: Olha lá a correção!")
+#    self.plotSol(opt={'mode':'var','x':alfa*A,'u':alfa*B,'pi':alfa*C})
+#    input("rest_sgra: Olha lá a correção ponderada!")
     self.aplyCorr(alfa,corr)
 
     self.updtEvntList('rest')
@@ -305,5 +351,5 @@ def rest(self,parallelOpt={}):
     self.log.printL("Leaving rest with alfa = "+str(alfa))
     if self.dbugOptRest['pausRest']:
         self.plotSol()
-        input('Rest in debug mode. Press any key to continue...')
+        self.log.prom('Rest in debug mode. Press any key to continue...')
 

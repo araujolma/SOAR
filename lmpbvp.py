@@ -8,7 +8,7 @@ Created on Fri Apr  6 14:09:52 2018
 
 import numpy
 import matplotlib.pyplot as plt
-from utils import ddt
+from utils import simp
 from scipy.linalg import expm
 
 class LMPBVPhelp():
@@ -198,11 +198,9 @@ class LMPBVPhelp():
                 nonHom[k,:n,arc] = nonHA#.copy()
                 nonHom[k,n:,arc] = nonHL#.copy()
 
-        coefList = numpy.ones(N)
-        coefList[0] = 17.0/48.0; coefList[N-1] = coefList[0]
-        coefList[1] = 59.0/48.0; coefList[N-2] = coefList[1]
-        coefList[2] = 43.0/48.0; coefList[N-3] = coefList[2]
-        coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
+        # This command probably broke the compatibility with other integration
+        # methods. They weren't working anyway, so...
+        coefList = simp([],N,onlyCoef=True)
 
         for arc in range(s):
             if self.solver == 'heun':
@@ -251,7 +249,8 @@ class LMPBVPhelp():
                 # Integrate the LSODE by trapezoidal (implicit) method
                 B[0,:,arc] = -rhoFu[0,:,arc] + \
                                     phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                phiLamIntCol += .5*(phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+                phiLamIntCol += coefList[0] * \
+                                (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
                 for k in range(N-1):
                     Xi[k+1,:,arc] = numpy.linalg.solve(I - .5 * dt * DynMat[k+1,:,:,arc],\
@@ -260,9 +259,10 @@ class LMPBVPhelp():
                     lam[k+1,:,arc] = Xi[k+1,n:,arc]
                     B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
                                     phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                    phiLamIntCol += coefList[k+1] * \
+                                    phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
+                #
 
-                phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
 ###############################################################################
             elif self.solver == 'BEI':
             # Integrate the LSODE by "original" Euler Backwards implicit
@@ -512,7 +512,8 @@ class LMPBVPhelp():
             EtCol[(2*arc+1)*n : (2*arc+2)*n] =  lam[N-1,:,arc] # eq (32b)
         #
         # All integrations ready!
-        phiLamIntCol *= dt
+        # no longer used, because coefList from simp already includes dt
+        #phiLamIntCol *= dt
 
 ###############################################################################
         if (rho > 0.5 and self.dbugOptGrad['plotCorr']) or \
@@ -655,13 +656,21 @@ class LMPBVPhelp():
         # Integral term
         if self.rho > 0.5:
             # eq (34b) - only applicable for grad
+
+#            sumIntFpi = numpy.zeros(p)
+#            for arc in range(s):
+#                for ind in range(p):
+#                    sumIntFpi[ind] += self.fp[:,ind,arc].sum()
+#                    sumIntFpi[ind] -= .5 * ( self.fp[0,ind,arc] + \
+#                             self.fp[-1,ind,arc])
+#            sumIntFpi *= self.dt
+
             sumIntFpi = numpy.zeros(p)
             for arc in range(s):
                 for ind in range(p):
-                    sumIntFpi[ind] += self.fp[:,ind,arc].sum()
-                    sumIntFpi[ind] -= .5 * ( self.fp[0,ind,arc] + \
-                             self.fp[-1,ind,arc])
-            sumIntFpi *= self.dt
+                    sumIntFpi[ind] += simp(self.fp[:,ind,arc],N)
+                #
+            #
             col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
         else:
             # eq (34a) - only applicable for rest
@@ -671,9 +680,11 @@ class LMPBVPhelp():
         # Calculations of weights k:
         KMi = numpy.linalg.solve(M,col)
         Res = M.dot(KMi)-col
-        log.printL("Residual of the Linear System: " + \
+        log.printL("LMPBVP: Residual of the Linear System: " + \
                    str(Res.transpose().dot(Res)))
         K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
+        log.printL("LMPBVP: coefficients of particular solutions: " + \
+                   str(K))
 
         # summing up linear combinations
         A = numpy.zeros((N,n,s))
