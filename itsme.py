@@ -14,7 +14,7 @@ Version: Heterogeneous
 import numpy
 import os
 import sys
-from time import clock
+from time import perf_counter as clock  #from time import clock - changed for python 3.8
 from itsFolder.itsModelComplex import model
 from itsFolder.itsModelConfiguration import modelConfiguration
 from itsFolder.itsProblem import problem, problemConfiguration
