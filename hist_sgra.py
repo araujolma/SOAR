@@ -199,6 +199,10 @@ def updtHistGrad(self,alfa,GSSstopMotv,mustPlotQs=False):
     self.histIpf[NIterGrad] = Ipf
 
     self.histStepGrad[NIterGrad] = alfa
+    # "Stop motive" codes:  0 - step rejected
+    #                       1 - local min found
+    #                       2 - step limit hit
+    #                       3 - too many evals
     self.histGSSstopMotv[NIterGrad] = GSSstopMotv
     self.NIterGrad = NIterGrad
     self.ContRest = 0

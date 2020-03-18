@@ -47,7 +47,11 @@ class stepMngr:
         self.maxGoodStep = 0.0
         self.minBadStep = 1e100
 
-        self.stopMotv = -1
+        # "Stop motive" codes:  0 - step rejected
+        #                       1 - local min found
+        #                       2 - step limit hit
+        #                       3 - too many evals
+        self.stopMotv = -1 # placeholder, this will be updated later.
         self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1.
 
 
@@ -79,7 +83,17 @@ class stepMngr:
 
     def check(self,alfa,Obj,P,pi):
         """ Perform a validity check in this step value, updating the limit
-        values for searching step values if it is the case."""
+        values for searching step values if it is the case.
+
+        Conditions checked:  - limits in each of the pi parameters
+                             - P <= limP
+                             - Obj <= Obj0
+                             - Obj >= 0 [why?]
+
+        If any of these conditions are not met, the actual obtained value of Obj is not
+        meaningful. Hence, the strategy adopted is to artificially increase the Obj value
+        if the P<limP condition is not met.
+        """
 
         # Check for violations on the pi conditions.
         # Again, some limit is 'None' when it is not active.
@@ -149,6 +163,8 @@ class stepMngr:
 
     def tryStep(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try this given step value.
+
+        It returns the values of P, I and Obj associated* with the tried step (alfa).
 
         Some additional procedures are performed, though:
             - update "best step" record ...       """
@@ -377,7 +393,21 @@ class stepMngr:
 
     def findStepLim(self,sol):
         """ Find the limit value for the step.
-        This means the minimum value so that P = limP, or Obj = Obj(0). """
+        This means the minimum value so that the constraints are violated
+        (P = limP, or Obj = Obj(0), etc)
+        or conversely, the maximum value so that the constraints are respected
+        (P<=limP, and Obj<=Obj(0), etc).
+
+        Due to the "convention" of artificially increasing Obj when any constraint is
+        violated, only Obj>Obj0 is tested.
+
+        This algorithm works by simple bisection. First, a value of violating step is
+        found (alfaHigh). The non-violating step, alfaLow is set to 0.
+        The program bisects, bringing alfaHigh down as lower violating steps are found
+        and bringing alfaLow up as higher non-violating steps are found.
+        The program halts when alfaHigh and alfaLow are sufficiently close together and
+        returns the average of these two.
+        """
 
         if self.mustPrnt:
             self.log.printL("\n> This is findStepLim." + \
@@ -396,10 +426,10 @@ class stepMngr:
                 IsGoodPnt = False
 
         alfaLow = 0.0
-        StepSep, ObjSep = True, True
+        StepSep = True
         if self.mustPrnt:
             self.log.printL("\n> Going for simple bisection.")
-        while ObjSep and StepSep:
+        while StepSep:
             alfaMid = .5 * (alfaLow + alfaHigh)
             P, I, Obj = self.tryStep(sol,alfaMid)
             # Based on the condition...
@@ -412,13 +442,12 @@ class stepMngr:
             if self.mustPrnt:
                 self.log.printL("- alfaLow = {:.4E}, ".format(alfaLow) + \
                                 "alfaHigh = {:.4E}".format(alfaHigh))
-            #ObjSep = (abs(Obj/self.Obj0 - 1.0) > self.findLimObjTol)
-            StepSep = (abs(1.0-alfaLow/alfaHigh) > self.findLimStepTol)
+            StepSep = (abs(alfaHigh-alfaLow) > self.findLimStepTol * alfaHigh)
         #
 
         if self.mustPrnt:
             self.log.printL("\n> Found it! Leaving findStepLim now.")
-        return .5*(alfaLow+alfaHigh)
+        return .5 * ( alfaLow + alfaHigh )
     #
 
     def endPrntPlot(self,alfa,mustPlot=False):
@@ -933,11 +962,47 @@ def calcQ(self,mustPlotQs=False,addName=''):
     return Q, Qx, Qu, Qp, Qt
 
 def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
+    """This method calculates the gradient step.
+     It is a key function, called in each gradient phase.
+
+     The first major bifurcation is if this Gradient phase is actually a "retry" from
+     a previous gradient phase. If it is the case, all this function does is to return
+     a lesser value of the step, hoping that after restoration, the I<I_old condition
+     will hold. No further checks are performed because the step value is lower than a
+     previous "successful" value in terms of all the other conditions.
+
+     Outside of this condition, the main algorithm applies.
+
+     The main idea is to find the step value (alpha value) so that the objective
+     function is minimized, subject to the P <= limP condition (P condition). In reality
+     there are other restrictions that apply as well and are not automatically satisfied
+     when the P condition is, so they must be checked as well.
+
+     Miele (2003) recommends using the J function as the objective instead of the I
+     function, because the J function somehow incorporates the I and P functions.
+     Nevertheless, the P value (and the other constraints) still has to be monitored.
+     Naturally, the idea is to lower the value of I, so the objective function is
+     expected to be lowered as well.
+
+     This search can be stopped for different reasons, either the local minimum in Obj
+     is found, or the step limit was hit (with a negative gradient on Obj),
+     or there have been too many evaluations of the Objective function (this is to
+     prevent infinite loops).
+
+     After creating the stepMngr object, the stepLimit is found, which is the highest
+     value of step so that the constraints are still respected. Then, the program
+     proceeds to making successive quadratic interpolations until a local minimum is
+     found. At that point the program halts and the best feasible value of step is
+     returned.
+
+     """
 
     self.log.printL("\nIn calcStepGrad.\n")
+    # flag for printing all the steps tried.
     prntCond = self.dbugOptGrad['prntCalcStepGrad']
 
     if retry_grad:
+        # Retrying a same gradient correction
         stepFact = 0.1#0.9 #
         if prntCond:
             self.log.printL("\n> Retrying alfa." + \
@@ -980,6 +1045,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         # Set the base values
         stepMan.calcBase(self,P0,I0,J0)
 
+        # First, find the step limit. That is the greatest value of step so that the
+        # constraints are still respected.
         alfaLim = stepMan.findStepLim(self)
 
         # Start search by quadratic interpolation
@@ -1012,7 +1079,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
             outp = stepMan.tryStepSens(self,alfaRef)
             #,plotSol=True,plotPint=True)
             if self.dbugOptGrad['manuInptStepGrad']:
-
+                # "Manual mode": the user inputs the step values to be attempted.
                 gradObj = outp['gradObj']; ObjPos = outp['obj'][1]
                 msg = "\n> Now, with alfa = {:.4E}".format(alfaRef) + \
                       ", Obj = {:.4E}".format(ObjPos) + \
