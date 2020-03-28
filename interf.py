@@ -82,13 +82,13 @@ class logger:
 
             # Delete previous status file(s)
             if not(self.runStatRep == 'none'):
-                currDir = os.getcwd() + '/' + self.folderName
+                currDir = os.getcwd() + os.sep + self.folderName
                 listedDir = os.listdir(currDir)
                 for f in listedDir:
                     if f.startswith('!runStatus-') and f.endswith('.txt'):
-                        os.remove(currDir + '/' + f)
+                        os.remove(currDir + os.sep + f)
 
-            fname = self.folderName + '/!runStatus-'
+            fname = self.folderName + os.sep + '!runStatus-'
             if runStat == 'init':
                 fname += 'initializing.txt'
             elif runStat == 'inProg':
@@ -185,6 +185,12 @@ class ITman:
         self.RestHistShowRate = 100#20
         self.ShowEigRate = 100
         self.ShowGRrateRate = 20
+        # TODO: Are these rates too large? Add these parameters to the .its file and
+        #  change them there!
+        self.ShowLambRate = 10000
+        self.ShowVarRate = 10000
+        self.plotResPRate = 10000
+        self.plotResQRate = 10000
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
         self.default_dbugOptRest = {'pausRest': False,
@@ -200,8 +206,8 @@ class ITman:
         flag = False
         self.default_dbugOptGrad = {'pausGrad':flag,#True,#
                                     'pausCalcQ':flag,
-                                    'prntCalcStepGrad':True,#flag,#
-                                    'plotCalcStepGrad': flag,#True,#flag,#
+                                    'prntCalcStepGrad': flag,#True,#
+                                    'plotCalcStepGrad': flag,#True,#
                                     'manuInptStepGrad': flag,
                                     'pausCalcStepGrad':flag,#True,#
                                     'plotQx':flag,
@@ -255,6 +261,14 @@ class ITman:
                     self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
                 if 'ShowGRrateRate' in Pars.options(sec):
                     self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
+                if 'ShowLambRate' in Pars.options(sec):
+                    self.ShowLambRate = Pars.getint(sec, 'ShowLambRate')
+                if 'ShowVarRate' in Pars.options(sec):
+                    self.ShowVarRate = Pars.getint(sec, 'ShowVarRate')
+                if 'PlotResPRate' in Pars.options(sec):
+                    self.plotResPRate = Pars.getint(sec, 'PlotResPRate')
+                if 'PlotResQRate' in Pars.options(sec):
+                    self.plotResQRate = Pars.getint(sec, 'PlotResQRate')
                 if 'PrllGradLMPBVP' in Pars.options(sec):
                     self.parallelOpt['gradLMPBVP'] = \
                         Pars.getboolean(sec, 'PrllGradLMPBVP')
@@ -702,6 +716,18 @@ class ITman:
         else:
             return False
 
+    def showLambCond(self, sol):
+        if sol.NIterGrad % self.ShowLambRate == 0:
+            return True
+        else:
+            return False
+
+    def showVarCond(self, sol):
+        if sol.NIterGrad % self.ShowVarRate == 0:
+            return True
+        else:
+            return False
+
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
@@ -722,6 +748,18 @@ class ITman:
         else:
             return False
 
+    def plotResPCond(self, sol):
+        if sol.NIterGrad % self.plotResPRate == 0:
+            return True
+        else:
+            return False
+
+    def plotResQCond(self, sol):
+        if sol.NIterGrad % self.plotResQRate == 0:
+            return True
+        else:
+            return False
+
     def gradRestCycl(self,sol,altSol=None):
 
         self.log.prntDashStr()
@@ -730,13 +768,17 @@ class ITman:
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
+        plotResP, plotResQ = False, False
+        #stopAt = 200
         while do_GR_cycle:
+        #    if next_grad >= stopAt:
+        #        raise(Exception("Parei em {} iterações.".format(stopAt)))
 
             # Start of new cycle: calc P, I, as well as a new grad correction
             # in order to update lambda and mu, and therefore calculate Q for
             # checking.
-            plotResPQ = sol.NIterGrad % 10 == 0
-            sol.P,_,_ = sol.calcP(mustPlotPint=plotResPQ)
+
+            sol.P,_,_ = sol.calcP(mustPlotPint=plotResP)
 
             P_base = sol.P
             I_base, _, _ = sol.calcI()
@@ -749,7 +791,7 @@ class ITman:
             corr, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
 
-            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResPQ)
+            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResQ)
 
 
             if sol.Q <= sol.tol['Q']:
@@ -878,6 +920,20 @@ class ITman:
             else:
                 sol.save['eig'] = False
 
+            if self.showLambCond(sol):
+                self.log.printL("\nLambda showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['lambda'] = True
+            else:
+                sol.save['lambda'] = False
+
+            if self.showVarCond(sol):
+                self.log.printL("\nVariation showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['var'] = True
+            else:
+                sol.save['var'] = False
+
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
                 #self.log.prntDashStr()
@@ -911,6 +967,20 @@ class ITman:
                       "Press any key to continue, or ctrl+C to stop.\n" + \
                       "Load last saved solution to go back to GR cycle."
                 self.log.prom(msg)
+
+            if self.plotResPCond(sol):
+                self.log.printL("\nP residual showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                plotResP = True
+            else:
+                plotResP = False
+
+            if self.plotResQCond(sol):
+                self.log.printL("\nQ residual showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                plotResQ = True
+            else:
+                plotResQ = False
             #
         #
 

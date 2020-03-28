@@ -211,6 +211,7 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
     args = sys.argv
+    allGood = True
     if len(args) == 1:
         # change this line to run this from the editor
         confFile = 'defaults' + os.sep + 'testAll.bat'
@@ -237,9 +238,11 @@ if __name__ == "__main__":
             BM.log.printL("\n"+b+"This run was completed successfully.")
         except KeyboardInterrupt:
             BM.log.printL("\n"+b+"User has stopped the program during this run.")
+            allGood = False
         except Exception:
             BM.log.printL('\n'+b+'Sorry, there was something wrong with this run:')
             BM.log.printL(traceback.format_exc())
+            allGood = False
         finally:
             if BM.mode == 'variations':
                 # clean up the generated .its files
@@ -248,5 +251,7 @@ if __name__ == "__main__":
                     BM.log.printL("\n"+b+"Removing file: "+file)
                     os.remove(file)
 
+    if allGood:
+        BM.log.printL("\nBATCH: * * * Every run was successful! * * *")
     BM.log.printL("\nBATCH: Execution finished. Terminating now.\n")
     BM.log.close()

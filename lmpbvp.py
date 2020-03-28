@@ -115,6 +115,23 @@ class LMPBVPhelp():
                 DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
         self.DynMat = DynMat
 
+        # This is a strategy for lowering the cost of the trapezoidal solver.
+        # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n, resulting in a
+        # cost in the order of (N-1) * s * (2ns+p) * 4n² ; it is better to pre-invert
+        # (N-1) * s matrices of order 2n, resulting in a cost in the order of
+        # (N-1) * s * 8n³. This should always result in an increased performance because
+        #         (N-1) * s * 8n³ < (N-1) * s * (2ns+p) * 4n²
+
+        if self.solver == 'trap':
+            I = numpy.eye(2 * n)
+            InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
+            mhdt = -.5 * self.dt
+            for arc in range(s):
+                for k in range(1,N):
+                    InvDynMat[k, :, :, arc] = numpy.linalg.inv(
+                        I + mhdt * DynMat[k, :, :, arc])
+            self.InvDynMat = InvDynMat
+
         #self.showEig(N,n,s)
 
     def showEig(self,N,n,s,mustShow=False):
@@ -253,7 +270,7 @@ class LMPBVPhelp():
                                 (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
                 for k in range(N-1):
-                    Xi[k+1,:,arc] = numpy.linalg.solve(I - .5 * dt * DynMat[k+1,:,:,arc],\
+                    Xi[k+1,:,arc] = self.InvDynMat[k+1,:,:,arc].dot(
                       (I + .5 * dt * DynMat[k,:,:,arc]).dot(Xi[k,:,arc]) + \
                       .5 * dt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
                     lam[k+1,:,arc] = Xi[k+1,n:,arc]

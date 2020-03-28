@@ -19,7 +19,8 @@ class binFlagDict(dict):
     """Class for binary flag dictionaries.
     Provides good grounding for any settings or options dictionary. """
 
-    def __init__(self,inpDict={},inpName='options'):
+    def __init__(self, inpDict={}, inpName='options'):
+        super().__init__()
         self.name = inpName
         for key in inpDict.keys():
             self[key] = inpDict[key]
@@ -496,7 +497,7 @@ class sgra:
 #        phi = self.calcPhi()
 #        err = phi - ddt(self.x,self.N)
 
-        # New method, adequate for trapezoidal intergration scheme
+        # New method, adequate for trapezoidal integration scheme
         phi = self.calcPhi()
         err = numpy.zeros((self.N,self.n,self.s))
 
@@ -537,13 +538,13 @@ class sgra:
         A,B,C,lam,mu = helper.getCorr(res,self.log)
         corr = {'x':A, 'u':B, 'pi':C}
 
+        # these are all non-essential for the algorithm itself
         if rho > 0.5:
             if self.save.get('eig',False):
                 helper.showEig(self.N,self.n,self.s)#,mustShow=True)
                 self.savefig(keyName='eig',fullName='eigenvalues')
 
-            # TODO: Use the 'self.save' dictionary here as well...
-            if self.NIterGrad % 20 == 0:
+            if self.save.get('lambda', False):
                 self.plotSol(opt={'mode':'lambda'})
                 self.plotSol(opt={'mode':'lambda'},piIsTime=False)
 
@@ -564,7 +565,7 @@ class sgra:
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
             # TODO: Use the 'self.save' dictionary here as well...
 
-            if self.NIterGrad % 20 == 0:
+            if self.save.get('var', False):
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)
