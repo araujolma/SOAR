@@ -123,6 +123,71 @@ class prob(sgra):
         self.Ns = 2*n*s + p
         self.ctrlPar = 'tanh'#'sin' #
 
+        # omission configurations
+        if s == 1:
+            # psi = numpy.array([self.x[0,0,0] - h0,   ---> 0, omitted
+            #                     self.x[0,1,0] - V0,  ---> 1, omitted
+            #                     self.x[0,2,0] - M0,  ---> 2, omitted
+            #                     self.x[N-1,0,0],
+            #                     self.x[N-1,1,0]])
+            mat = numpy.eye(self.q)
+            # matrix for omitting equations
+            self.omitEqMat = mat[[3, 4], :]
+            # list of variations after omission
+            self.omitVarList = [           # states for 1st arc (all omitted)
+                                3, 4, 5,   # Lambdas for 1st arc
+                                6,         # pi for 1st arc
+                                7]         # final variation
+            self.omit = True
+        elif s == 2:
+            # hBound = self.restrictions['hList'][0]
+            # psi = numpy.array([self.x[0,0,0] - h0,               ---> 0, omitted
+            #                    self.x[0,1,0] - V0,               ---> 1, omitted
+            #                    self.x[0,2,0] - M0,               ---> 2, omitted
+            #                    self.x[N - 1, 0, 0] - hBound,
+            #                    self.x[0,0,1] - hBound,           ---> 4, omitted
+            #                    self.x[0,1,1] - self.x[N-1,1,0],
+            #                    self.x[0,2,1] - self.x[N-1,2,0],
+            #                    self.x[N-1,0,1],
+            #                    self.x[N-1,1,1]])
+            # list of variations after omission
+            mat = numpy.eye(self.q)
+            # matrix for omitting equations
+            self.omitEqMat = mat[[3, 5, 6, 7, 8], :]
+            # list of variations after omission
+            self.omitVarList = [           # states for 1st arc (all omitted)
+                                3, 4, 5,   # Lambdas for 1st arc
+                                7, 8,      # states for 2nd arc (height omitted)
+                                9, 10, 11, # Lambdas for 2nd arc
+                                12, 13,    # pi's, 1st and 2nd arc
+                                14]        # final variation
+            self.omit = True
+        elif s % 2 == 0:
+            # psi = numpy.empty(q)
+            # psi[0] = self.x[0, 0, 0] - h0
+            # psi[1] = self.x[0, 1, 0] - V0
+            # psi[2] = self.x[0, 2, 0] - M0
+            #
+            # hList = self.restrictions['hList']
+            # i = 2
+            # for arc in range(s-1):
+            #     i += 1
+            #     psi[i] = self.x[N - 1, 0, arc] - hList[arc]
+            #     i += 1
+            #     psi[i] = self.x[0, 0, arc + 1] - hList[arc]
+            #     i += 1
+            #     psi[i] = self.x[0, 1, arc + 1] - self.x[N - 1, 1, arc]
+            #     i += 1
+            #     psi[i] = self.x[0, 2, arc + 1] - self.x[N - 1, 2, arc]
+            #
+            # psi[q-2] = self.x[N - 1, 0, -1]
+            # psi[q-1] = self.x[N - 1, 1, -1]
+            self.log.printL("\nNo omission available yet for this value of s. Sorry.")
+            self.omit = False
+        else:
+            # Not even a psi calculation for this configuration.
+            self.omit = False
+
         initMode = opt.get('initMode','default')
         if initMode == 'default':
             # matrix sizes

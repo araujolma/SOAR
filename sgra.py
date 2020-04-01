@@ -51,7 +51,7 @@ class sgra:
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
-        # TODO: since this formula actually does not change, this should be a method here...
+        # TODO: since this formula actually does not change, this should be a method...
         self.Ns = 2*n*s + p
         self.dt = 1.0/(N-1)
         self.t = numpy.linspace(0,1.0,N)
@@ -61,6 +61,15 @@ class sgra:
         self.pi = numpy.zeros(p)
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
+
+        # If the problem has unnecessary variations(typically, boundary conditions
+        # containing begin of arc specified values for states), it should override this
+        # attribute with a cropped version of the Ns+1 identity matrix, omitting the
+        # columns corresponding to the unnecessary variations, according to the order
+        # shown in equation (26) in Miele and Wang(2003).
+        self.omitEqMat = numpy.eye(self.Ns+1)
+        self.omitVarList = list(range(self.Ns+1))
+        self.omit = False
 
         self.boundary, self.constants, self.restrictions = {}, {}, {}
         self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
@@ -516,9 +525,17 @@ class sgra:
 
         helper = LMPBVPhelp(self,rho)
 
+        # get proper range according to grad or rest and omit or not
+        if rho > .5 and self.omit:
+            # Grad and omit: use only the elements from the omitted list
+            rang = self.omitVarList
+        else:
+            # Rest or no omit: use all the elements
+            rang = list(range(self.Ns+1))
+
         if isParallel:
             pool = Pool()
-            res = pool.map(helper.propagate,range(self.Ns+1))
+            res = pool.map(helper.propagate, rang)
             pool.close()
             pool.join()
         else:
@@ -529,7 +546,7 @@ class sgra:
                 self.log.printL("\nRunning REST in sequential " + \
                                 "(non-parallel) mode...\n")
             res = list()
-            for j in range(self.Ns+1):
+            for j in rang:
                 outp = helper.propagate(j)
                 res.append(outp)
             #
@@ -563,7 +580,6 @@ class sgra:
             self.log.printL("\nBB = {:.4E}".format(BB) + \
                             ", CC = {:.4E},".format(CC) + \
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
-            # TODO: Use the 'self.save' dictionary here as well...
 
             if self.save.get('var', False):
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})

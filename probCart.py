@@ -47,6 +47,13 @@ class prob(sgra):
         self.s = s
         self.Ns = 2*n*s + p
 
+        self.omit = True
+        # list of variations after omission
+        self.omitVarList = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # matrix for omitting equations
+        mat = numpy.eye(self.q)
+        self.omitEqMat = mat[[2,3,4,5],:]
+
         initMode = opt.get('initMode','default')
         if initMode == 'default':
 
@@ -113,7 +120,7 @@ class prob(sgra):
             self.u = u
             self.pi = pi
             self.lam = lam
-            self.mu= mu
+            self.mu = mu
 
             solInit = self.copy()
             self.compWith(solInit,'Initial Guess')

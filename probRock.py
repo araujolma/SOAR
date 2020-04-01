@@ -443,6 +443,42 @@ class prob(sgra):
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
 
+            # Set up the variation omission configuration:
+
+            # list of variations after omission
+            mat = numpy.eye(self.q)
+            # matrix for omitting equations
+            # Assemble the list of equations to be omitted (start by omitting none)
+            omitEqMatList = list(range(self.q))
+            # Omit one equation for each assigned state (height)
+            Ns = 2 * self.n * self.s + self.p
+            for arc in range(addArcs-1,-1,-1):
+                i = 5 + 5 * arc
+                #psi[i + 1] = x[0, 0, arc + 1] - TargHeig[arc]
+                omitEqMatList.pop(i)
+            # Removing the first n elements, corresponding to the initial states
+            for i in range(self.n):
+                omitEqMatList.pop(0)
+            self.omitEqMat = mat[omitEqMatList, :]
+            # list of variations after omission
+            omitVarList = list(range(Ns + 1))
+            # this is how it works with 1 added arc
+            #self.omitVarList = [  # states for 1st arc (all omitted)
+            #    4, 5, 6, 7,  # Lambdas for 1st arc
+            #    9, 10, 11,  # states for 2nd arc (height omitted)
+            #    12, 13, 14, 15,  # Lambdas for 2nd arc
+            #    16, 17,  # pi's, 1st and 2nd arc
+            #    18]  # final variation
+            for arc in range(addArcs - 1, -1, -1):
+                i = 2 * self.n * (arc+1)
+                # states in order: height (2x), speed, flight angle and mass
+                # psi[i + 1] = x[0, 0, arc + 1] - TargHeig[arc]
+                omitVarList.pop(i)
+            # Removing the first n elements, corresponding to the initial states
+            for i in range(self.n):
+                omitVarList.pop(0)
+            self.omitVarList = omitVarList
+            self.omit = True
 
             ###################################################################
             # STEP 4: Re-integrate the differential equation with a fixed step
