@@ -47,6 +47,10 @@ class stepMngr:
         self.maxGoodStep = 0.0
         self.minBadStep = 1e100
 
+        self.isDecr = True
+        self.sortHistObj = list()
+        self.sortHistStep = list()
+
         # "Stop motive" codes:  0 - step rejected
         #                       1 - local min found
         #                       2 - step limit hit
@@ -70,7 +74,6 @@ class stepMngr:
 #            return (I + (self.k)*(P-self.tolP))
 #        else:
 #            return I
-
 
     def getLast(self):
         """ Get the attributes for the last applied step. """
@@ -161,6 +164,73 @@ class stepMngr:
         self.best['obj'] = Obj0
         return Obj0
 
+    def testDecr(self,alfa:float,Obj:float):
+        """
+        Test if the decrescent behavior of the objective as a function of the step
+         is still maintained.
+
+        This is implemented by keeping ordered lists of the steps and the corresponding
+        objective values.
+
+        Only the valid (non-violating) steps are kept, of course.
+
+        :return: None
+        """
+
+        # TODO: this function is only called if self.isDecr is True.
+        #  Thus, the condition can be changed to a simpler and cheaper one.
+
+
+        # test if non-ascending monotonicity is maintained
+        if self.isDecr and len(self.sortHistStep) > 0:
+            # the test is different depending on the position of the current step
+            # in respect to the list of previous steps.
+
+            if alfa > self.sortHistStep[-1]:
+                # step bigger than all previous steps
+                ind = len(self.sortHistStep)
+                if Obj > self.sortHistObj[-1]:
+                    self.isDecr = False
+            elif alfa < self.sortHistStep[0]:
+                # step smaller than all previous steps
+                ind = 0
+                if Obj < self.sortHistObj[0]:
+                    self.isDecr = False
+            else:
+                # step is in between. Find proper values of steps for comparison
+                for i, alfa_ in enumerate(self.sortHistStep):
+                    if alfa_ <= alfa <= self.sortHistStep[i + 1]:
+                        ind = i
+                        break
+                else:
+                    # this condition should never be reached!
+                    msg = "Something is very weird here. Debugging is recommended."
+                    raise (Exception(msg))
+
+                if Obj < self.sortHistObj[ind + 1] or Obj > self.sortHistObj[ind]:
+                    self.isDecr = False
+
+            # insert the current step at the proper place in the sorted list
+            self.sortHistStep.insert(ind, alfa)
+
+            if self.isDecr:
+                # monotonicity is kept! Insert the objective in the proper place in the
+                # sorted list
+                self.sortHistObj.insert(ind, Obj)
+                # self.log.printL("\nMonotonicity is kept!")
+                # self.log.printL("Alfas:\n{}".format(self.sortHistStep))
+                # self.log.printL("Objs:\n{}".format(self.sortHistObj))
+            else:
+                # self.log.printL("\nMonotonicity was just lost... :(")
+                # No monotonicity; save it anywhere, sort the list later.
+                self.sortHistObj.append(Obj)
+                self.sortHistObj = sorted(self.sortHistObj)
+        else:
+            self.sortHistStep.append(alfa)
+            self.sortHistStep = sorted(self.sortHistStep)
+            self.sortHistObj.append(Obj)
+            self.sortHistObj = sorted(self.sortHistObj)
+
     def tryStep(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try this given step value.
 
@@ -192,26 +262,22 @@ class stepMngr:
                 self.best = {'step': alfa, 'obj': Obj}
                 if self.mustPrnt:
                     self.log.printL("\n> Updating best result: \n" + \
-                                    "alfa = {:.4E}, ".format(alfa) + \
-                                    "Obj = {:.4E}".format(Obj))
+                                    "step = {:.4E}, Obj = {:.4E}".format(alfa, Obj))
             #
-
             if self.mustPrnt:
-
                 resStr = "\n- Results (good point):\n" + \
-                         "step = {:.4E}".format(alfa) + \
-                         " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                         " J = {:.7E}".format(J) + \
-                         " Obj = {:.7E}\n ".format(Obj) + \
+                         "step = {:.4E} P = {:.4E} I = {:.4E}".format(alfa,P,I) + \
+                         " J = {:.7E} Obj = {:.7E}\n ".format(J,Obj) + \
                          " Rel. reduction of J = {:.1F}%,".format(JrelRed) + \
                          " Rel. reduction of I = {:.1F}%".format(IrelRed)
+            # test the non-ascending monotonicity of Obj = f(step).
+            if self.isDecr: # no need to keep testing if the monotonicity is not kept!
+                self.testDecr(alfa,Obj)
         else:
             if self.mustPrnt:
                 resStr = "\n- Results (bad point):\n" + \
-                         "step = {:.4E}".format(alfa) + \
-                         " P = {:.4E}".format(P) + " I = {:.4E}".format(I) + \
-                         " J = {:.7E}".format(J) + \
-                         " CorrObj = {:.7E}\n ".format(Obj) + \
+                         "step = {:.4E} P = {:.4E} I = {:.4E}".format(alfa,P,I) + \
+                         " J = {:.7E} CorrObj = {:.7E}\n ".format(J,Obj) + \
                          " J reduction eff. = {:.1F}%,".format(JrelRed) + \
                          " I reduction eff. = {:.1F}%".format(JrelRed)
         #
@@ -415,10 +481,52 @@ class stepMngr:
                             " which Obj=Obj0." + \
                             "\n> Trying first alfa = 1 and its neighborhood.")
 
+        # Try to find a proper limit for the step
+
+        # initialize arrays with -1
+        alfaLimLowPi = numpy.zeros_like(self.piLowLim) - 1.
+        alfaLimHighPi = numpy.zeros_like(self.piHighLim) - 1.
+        # Find the limit with respect to the pi Limits (lower and upper)
+        # pi + alfa * corr['pi'] = piLim => alfa = (piLim-pi)/corr['pi']
+        for i in range(len(self.piLowLim)):
+            if self.piLowLim[i] is not None and self.corr['pi'][i] < 0.:
+                alfaLimLowPi[i] = (self.piLowLim[i] - sol.pi[i]) / self.corr['pi'][i]
+            if self.piHighLim[i] is not None and self.corr['pi'][i] > 0.:
+                alfaLimHighPi[i] = (self.piHighLim[i] - sol.pi[i]) / self.corr['pi'][i]
+
+        noLimPi = True
+        alfaLimPi = alfaLimLowPi[0]
+        for alfa1, alfa2 in zip(alfaLimLowPi,alfaLimHighPi):
+            if alfa1 > 0.:
+                if alfa1 < alfaLimPi or noLimPi:
+                    alfaLimPi = alfa1
+                    noLimPi = False
+            if alfa2 > 0.:
+                if alfa2 < alfaLimPi or noLimPi:
+                    alfaLimPi = alfa2
+                    noLimPi = False
+        if self.mustPrnt:
+            if noLimPi:
+                msg = "No limit in step due to pi conditions. Moving on."
+            else:
+                msg = "Limit in step due to pi conditions: {}".format(alfaLimPi)
+            self.log.printL(msg)
+
+        # try to find a value of step for which P = limP
+        P1, I1, Obj1 = self.tryStep(sol, 1.)
+        # P = P0 + alfa * c => c = P1-P0
+        # P0 + alfaLimP * c = limP => alfaLimP = limP-P0 / c
+        alfaLimP = (self.limP - self.P0)/(P1 - self.P0)
+        self.log.printL("\nAlfaLimP = {}".format(alfaLimP))
+
+        # Proceed to findStepLim
+        if noLimPi:
+            alfaHigh = alfaLimP / 10.
+        else:
+            alfaHigh = min([alfaLimP, alfaLimPi]) / 10.
         IsGoodPnt = True
         # Start with alfaHigh = 1.0, multiply by 10.0 until some condition is
         # violated.
-        alfaHigh = .1
         while IsGoodPnt:
             alfaHigh *= 10.0
             P, I, Obj = self.tryStep(sol,alfaHigh)
@@ -1049,56 +1157,66 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         # constraints are still respected.
         alfaLim = stepMan.findStepLim(self)
 
-        # Start search by quadratic interpolation
-        if prntCond:
-            self.log.printL("\n> Starting detailed step search...\n")
-
-        # Quadratic interpolation: for each point candidate for best step
-        # value, its neighborhood (+1% and -1%) is also tested. With these 3
-        # points, a quadratic interpolant is obtained, resulting in a parabola
-        # whose minimum is the new candidate for optimal value.
-        # The stop criterion is based in small changes to step value (prof.
-        # Azevedo would hate this...), basically because it was easy to
-        # implement.
-
-        keepSrch = True
-        alfaRef = alfaLim * .5
-
-        while keepSrch:
-            outp = stepMan.tryStepSens(self,alfaRef)
-            #,plotSol=True,plotPint=True)
-            alfaList, ObjList = outp['step'], outp['obj']
-            gradObj = outp['gradObj']
-            ObjRef = ObjList[1]
+        if stepMan.isDecr:
+            # if the objective is strictly descending with step for the range of valid
+            # steps, no need to keep searching
+            alfa = stepMan.best['step']
+            stepMan.stopMotv = 2 # step limit hit
             if prntCond:
-                self.log.printL("\n> With alfa = {:.4E}".format(alfaRef) + \
-                                ", Obj = {:.4E}".format(ObjRef) + \
-                                ", dObj/dAlfa = {:.4E}".format(gradObj))
-
-            alfaRef = stepMan.fitNewStep(alfaList,ObjList)
-            outp = stepMan.tryStepSens(self,alfaRef)
-            #,plotSol=True,plotPint=True)
-            if self.dbugOptGrad['manuInptStepGrad']:
-                # "Manual mode": the user inputs the step values to be attempted.
-                gradObj = outp['gradObj']; ObjPos = outp['obj'][1]
-                msg = "\n> Now, with alfa = {:.4E}".format(alfaRef) + \
-                      ", Obj = {:.4E}".format(ObjPos) + \
-                      ", dObj/dAlfa = {:.4E}".format(gradObj) + \
-                      "\n> Type S for entering a step value, or" + \
-                                " any other key to quit:"
+                msg = "\n> Objective seems to be descending with step.\n" + \
+                        "  Leaving calcStepGrad with alfa = {}\n".format(alfa)
                 self.log.printL(msg)
-                inp = self.log.prom("> ")
-                if inp == 's':
-                    self.log.printL("\n> Type the step value.")
+        else:
+            # Start search by quadratic interpolation
+            if prntCond:
+                self.log.printL("\n> Starting detailed step search...\n")
+
+            # Quadratic interpolation: for each point candidate for best step
+            # value, its neighborhood (+1% and -1%) is also tested. With these 3
+            # points, a quadratic interpolant is obtained, resulting in a parabola
+            # whose minimum is the new candidate for optimal value.
+            # The stop criterion is based in small changes to step value (prof.
+            # Azevedo would hate this...), basically because it was easy to
+            # implement.
+
+            keepSrch = True
+            alfaRef = alfaLim * .5
+
+            while keepSrch:
+                outp = stepMan.tryStepSens(self,alfaRef)
+                #,plotSol=True,plotPint=True)
+                alfaList, ObjList = outp['step'], outp['obj']
+                gradObj = outp['gradObj']
+                ObjRef = ObjList[1]
+                if prntCond:
+                    self.log.printL("\n> With alfa = {:.4E}".format(alfaRef) + \
+                                    ", Obj = {:.4E}".format(ObjRef) + \
+                                    ", dObj/dAlfa = {:.4E}".format(gradObj))
+
+                alfaRef = stepMan.fitNewStep(alfaList,ObjList)
+                outp = stepMan.tryStepSens(self,alfaRef)
+                #,plotSol=True,plotPint=True)
+                if self.dbugOptGrad['manuInptStepGrad']:
+                    # "Manual mode": the user inputs the step values to be attempted.
+                    gradObj = outp['gradObj']; ObjPos = outp['obj'][1]
+                    msg = "\n> Now, with alfa = {:.4E}".format(alfaRef) + \
+                          ", Obj = {:.4E}".format(ObjPos) + \
+                          ", dObj/dAlfa = {:.4E}".format(gradObj) + \
+                          "\n> Type S for entering a step value, or" + \
+                                    " any other key to quit:"
+                    self.log.printL(msg)
                     inp = self.log.prom("> ")
-                    alfaRef = float(inp)
+                    if inp == 's':
+                        self.log.printL("\n> Type the step value.")
+                        inp = self.log.prom("> ")
+                        alfaRef = float(inp)
+                    else:
+                        keepSrch = False
                 else:
-                    keepSrch = False
-            else:
-                keepSrch = not(stepMan.stopCond(alfaRef,outp))
+                    keepSrch = not(stepMan.stopCond(alfaRef,outp))
+                #
             #
-        #
-        alfa = stepMan.best['step']
+            alfa = stepMan.best['step']
     #
 
     # TODO: "Assured rejection prevention"
