@@ -226,23 +226,23 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
         plt.semilogy(IterGrad[0],self.histQ[IterGrad[0]],'b',label='Q')
 
     if self.histQx[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQx[IterGrad],'k',label='Qx')
+        plt.semilogy(IterGrad-1,self.histQx[IterGrad],'k',label='Qx')
 
     if self.histQu[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQu[IterGrad],'r',label='Qu')
+        plt.semilogy(IterGrad-1,self.histQu[IterGrad],'r',label='Qu')
 
     if self.histQp[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQp[IterGrad],'g',label='Qp')
+        plt.semilogy(IterGrad-1,self.histQp[IterGrad],'g',label='Qp')
 
     if self.histQt[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
+        plt.semilogy(IterGrad-1,self.histQt[IterGrad],'y',label='Qt')
 
     # Plot the tolerance line
-    plt.plot(IterGrad, self.tol['Q'] + 0.0 * IterGrad, '-.b', label='tolQ')
+    plt.plot(IterGrad-1, self.tol['Q'] + 0.0 * IterGrad, '-.b', label='tolQ')
 
     if self.histQ[IterGrad].any() > 0:
         # plot it again, now to ensure it stays on top of the other plots!
-        plt.semilogy(IterGrad, self.histQ[IterGrad], 'b')
+        plt.semilogy(IterGrad-1, self.histQ[IterGrad], 'b')
 
     # Assemble lists for the indexes (relative to the gradient event list)
     # where there is each gradient (init, accept, reject)
@@ -265,8 +265,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
 
     # Mark the first point(s?)
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*C0',
-                 label='GradInit')
+        plt.semilogy(numpy.array(GradInitIndx)-1, self.histQ[GradInitIndx],
+                     '*C0', label='GradInit')
 
     # get number of acceptance and rejection iterations, figure out what events to mark
     nGA, nGR = len(GradAcptIndxList), len(GradRjecIndxList)
@@ -387,23 +387,27 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
     # FINALLY, the plots of the event points themselves
     if nGA>0:
         # mark just the first acceptance event, for proper labeling
-        plt.semilogy(newGradAcptIndxList[0], self.histQ[newGradAcptIndxList[0]],
-                     'ob', label='GradAccept')
+        plt.semilogy(newGradAcptIndxList[0]-1,
+                     self.histQ[newGradAcptIndxList[0]], 'ob',
+                     label='GradAccept')
         for k in range(1,nGA):
             # mark the remaining acceptance events
-            plt.semilogy(newGradAcptIndxList[k],self.histQ[newGradAcptIndxList[k]],'ob')
+            plt.semilogy(newGradAcptIndxList[k]-1,
+                         self.histQ[newGradAcptIndxList[k]],'ob')
 
     if nGR>0:
         # mark just the first rejection event, for proper labeling
-        plt.semilogy(GradRjecIndxList[0], self.histQ[GradRjecIndxList[0]],
+        plt.semilogy(GradRjecIndxList[0]-1, self.histQ[GradRjecIndxList[0]],
                      'xC0', label='GradReject')
         for k in range(1, nGR):
             # mark the remaining rejection events
-            plt.semilogy(newGradRjecIndxList[k],self.histQ[newGradRjecIndxList[k]],'xC0')
+            plt.semilogy(newGradRjecIndxList[k]-1,
+                         self.histQ[newGradRjecIndxList[k]],'xC0')
 
     # make sure the star is visible, by marking it again!
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*C0')
+        plt.semilogy(numpy.array(GradInitIndx)-1,
+                     self.histQ[GradInitIndx], '*C0')
 
     if isDecim:
         plt.title("Convergence report on Q\n(some redundant events not shown)")
@@ -423,8 +427,9 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
 def showHistI(self,tolZoom=True):
     IterGrad = numpy.arange(0,self.NIterGrad+1,1)
     # Get first and final values of I
-    # Ok, technically it is the second value of I because the first one may not be
-    # significant due to a (possibly) high P value associated with the first guess.
+    # Ok, technically it is the second value of I because the first one may
+    # not be significant due to a (possibly) high P value associated with the
+    # first guess.
     I0, I = self.histI[1], self.histI[self.NIterGrad]
     Iorig = self.histIorig[self.NIterGrad]
     Ipf = self.histIpf[self.NIterGrad]
@@ -504,7 +509,7 @@ def showHistQvsI(self, tolZoom=True, nptsMark=10):
     self.savefig(keyName='histQvsI',fullName='Q vs. I convergence history')
 
 def showHistGradStep(self):
-    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(1,self.NIterGrad,1)
 
     fig, ax1 = plt.subplots()
     color = 'tab:blue'

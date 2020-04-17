@@ -204,9 +204,9 @@ class ITman:
                                     'plotCorr': False,
                                     'plotCorrFin': False}
         flag = False
-        self.default_dbugOptGrad = {'pausGrad':flag,#True,#
-                                    'pausCalcQ':flag,
-                                    'prntCalcStepGrad': flag,#True,#
+        self.default_dbugOptGrad = {'pausGrad': flag,#True,#
+                                    'pausCalcQ': flag,#True,#
+                                    'prntCalcStepGrad': True,#flag,#
                                     'plotCalcStepGrad': flag,#True,#
                                     'manuInptStepGrad': flag,
                                     'pausCalcStepGrad':flag,#True,#
@@ -844,8 +844,9 @@ class ITman:
                     msg = "\nBefore:\n" + \
                           "  I = {:.6E}".format(I_base) + \
                           ", P = {:.4E}".format(P_base) + \
-                          "\n... after grad with " + \
-                          "alfa = {:.4E}:\n".format(alfa) + \
+                          "\n... after grad " + \
+                          "(with {} evaluations)".format(stepMan.cont+1) + \
+                          " gave alfa = {:.4E}:\n".format(alfa) + \
                           "  dI = {:.6E}".format(I_mid-I_base) + \
                           ", P = {:.4E}".format(P_mid) + \
                           "\n... and after restoring " + str(contRest) + \
