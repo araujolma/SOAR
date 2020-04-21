@@ -25,7 +25,6 @@ class stepMngr:
         self.histI = list()
         self.histP = list()
         self.histObj = list()
-        self.histObjUncs = list()
         LARG = 1e100
 
         #Overall parameters
@@ -81,7 +80,8 @@ class stepMngr:
             if noLimPi:
                 msg = "\n> No limit in step due to pi conditions. Moving on."
             else:
-                msg = "\n> Limit in step due to pi conditions: {}".format(alfaLimPi)
+                msg = "\n> Limit in step due to pi conditions: " + \
+                      "{}".format(alfaLimPi)
             self.log.printL(msg)
 
         # convention: 0: pi limits,
@@ -101,7 +101,6 @@ class stepMngr:
             # highest step that does NOT violate each condition
             self.StepLimLowr = [alfaLimPi, 0., 0., 0.]
 
-        self.mapStepLim = True
         # "Stop motive" codes:  0 - step rejected
         #                       1 - local min found
         #                       2 - step limit hit
@@ -109,9 +108,9 @@ class stepMngr:
         self.stopMotv = -1 # placeholder, this will be updated later.
         self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1.
 
+        # this is for the "trissection" search
         self.trio = {'obj': [0.,0.,0.],
                      'step': [0.,0.,0.]}
-
 
     @staticmethod
     def calcObj(P, I, J):
@@ -147,12 +146,11 @@ class stepMngr:
                              - Obj <= Obj0
                              - Obj >= 0 [why?]
 
-        If any of these conditions are not met, the actual obtained value of Obj is not
-        meaningful. Hence, the strategy adopted is to artificially increase the Obj value
-        if any of the conditions (except the third, of course) is not met.
+        If any of these conditions are not met, the actual obtained value of Obj
+        is not meaningful. Hence, the strategy adopted is to artificially increase
+        the Obj value if any of the conditions (except the third, of course) is not
+        met.
         """
-
-        self.histObjUncs.append(Obj)
 
         # Check for violations on the pi conditions.
         # Again, some limit is 'None' when it is not active.
@@ -214,7 +212,9 @@ class stepMngr:
                 for j in range(4):
                     if not (j == i):
                         if self.StepLimUppr[j] <= self.StepLimLowr[i]:
-                            domMsg += "\nIndex {} was dominated by index {}. No longer active.".format(i,j)
+                            domMsg += "\nIndex {} was ".format(i) + \
+                                      "dominated by index {}".format(j) + \
+                                      ". No longer active."
                             self.StepLimActv[i] = False
                             break
 
@@ -263,8 +263,8 @@ class stepMngr:
         Test if the decrescent behavior of the objective as a function of the step
          is still maintained.
 
-        This is implemented by keeping ordered lists of the steps and the corresponding
-        objective values.
+        This is implemented by keeping ordered lists of the steps and the
+        corresponding objective values.
 
         Only the valid (non-violating) steps are kept, of course.
 
@@ -277,8 +277,8 @@ class stepMngr:
 
         # test if non-ascending monotonicity is maintained
         if self.isDecr and len(self.sortHistStep) > 0:
-            # the test is different depending on the position of the current step
-            # in respect to the list of previous steps.
+            # the test is different depending on the position of the current
+            # step in respect to the list of previous steps.
 
             if alfa > self.sortHistStep[-1]:
                 # step bigger than all previous steps
@@ -308,8 +308,8 @@ class stepMngr:
             self.sortHistStep.insert(ind, alfa)
 
             if self.isDecr:
-                # monotonicity is kept! Insert the objective in the proper place in the
-                # sorted list
+                # monotonicity is kept! Insert the objective in the proper
+                # place in the sorted list
                 self.sortHistObj.insert(ind, Obj)
                 # self.log.printL("\nMonotonicity is kept!")
                 # self.log.printL("Alfas:\n{}".format(self.sortHistStep))
@@ -428,234 +428,6 @@ class stepMngr:
 
         return outp
 
-    def fitNewStep(self,alfaList,ObjList):
-        """ Fit a quadratic curve through the points given; then use this model
-        to find the optimum step value (to minimize objective function)."""
-
-        M = numpy.ones((3,3))
-        M[:,0] = alfaList ** 2.0
-        M[:,1] = alfaList
-        # find the quadratic coefficients
-        coefList = numpy.linalg.solve(M,ObjList)
-        if self.mustPrnt:
-            self.log.printL("\n> Objective list: "+str(ObjList))
-            self.log.printL("\n> Step value list: "+str(alfaList))
-            self.log.printL("\n> Quadratic interpolation coefficients: " + \
-                            str(coefList))
-
-        # this corresponds to the vertex of the parabola
-        alfaOpt = -coefList[1]/coefList[0]/2.0
-        if self.mustPrnt:
-            self.log.printL("> According to this quadratic fit, best step " + \
-                            "value is {:.4E}.".format(alfaOpt))
-
-        # The quadratic model is obviously wrong if the x^2 coefficient is
-        # negative, or if the appointed step is negative, or invalid.
-        # These cases must be handled differently.
-
-        if coefList[0] < 0.0:
-            # There seems to be a local maximum nearby.
-            # Check direction of max decrease in objective
-            gradLeft = (ObjList[1]-ObjList[0])/(alfaList[1]-alfaList[0])
-            gradRight = (ObjList[2]-ObjList[1])/(alfaList[2]-alfaList[1])
-            if self.mustPrnt:
-                self.log.printL("\n> Inverted parabola detected.\n" + \
-                                "Slopes: left = {:.4E}".format(gradLeft) + \
-                                ", right = {:.4E}".format(gradRight))
-
-            if gradLeft * gradRight > 0.0:
-                # Both sides have the same tendency; use medium gradient
-                grad = (ObjList[2]-ObjList[0])/(alfaList[2]-alfaList[0])
-                if self.mustPrnt:
-                    self.log.printL("> Using medium slope: " + \
-                                    "{:.4E}".format(grad))
-            else:
-                if abs(gradLeft) > abs(gradRight):
-                    grad = gradLeft
-                    if self.mustPrnt:
-                        self.log.printL("> Using left slope.")
-                else:
-                    grad = gradRight
-                    if self.mustPrnt:
-                        self.log.printL("> Using right slope.")
-                #
-            #
-
-            alfaOpt = alfaList[1] - 0.5 * ObjList[1]/grad
-            if self.mustPrnt:
-                msg = "\n> Using the slope in a Newton-Raphson-ish iter" + \
-                      "ation, next step value is {:.4E}...".format(alfaOpt)
-                self.log.printL(msg)
-
-            if alfaOpt > self.minBadStep:
-                alfaOpt = .5 * (alfaList[1] + self.minBadStep)
-                if self.mustPrnt:
-                    self.log.printL("> ...but since that would violate" + \
-                                    " the max step condition,\n" + \
-                                    " let's bisect forward to " + \
-                                    "{:.4E}".format(alfaOpt) + " instead!")
-            elif alfaOpt < 0.0:
-                alfaOpt = .5 * alfaList[1]
-                if self.mustPrnt:
-                    self.log.printL("> ...but since that would be " + \
-                                    "negative,\nlet's bisect back to " + \
-                                    "{:.4E}".format(alfaOpt) + " instead!")
-
-            else:
-                if self.mustPrnt:
-                    self.log.printL("> ... seems legit!")
-
-        elif alfaOpt < 0.0:
-            alfaOpt = .5 * min(alfaList)
-            if self.mustPrnt:
-                msg = "> Quadratic fit suggested a negative step.\n" + \
-                      "  Bisecting back into that region with " + \
-                      "alfa = {:.4E} instead.".format(alfaOpt)
-                self.log.printL(msg)
-        elif alfaOpt > self.minBadStep:
-            alfaOpt = .5 * (alfaList[1] + self.maxGoodStep)
-            if self.mustPrnt:
-                msg = "> Quadratic fit suggested a bad step.\n" + \
-                      "  Bisecting forward into that region with " + \
-                      "alfa = {:.4E} instead.".format(alfaOpt)
-                self.log.printL(msg)
-        else:
-            if self.mustPrnt:
-                self.log.printL("  Let's do it!")
-
-        return alfaOpt
-
-    def stopCond(self,alfa,outp):
-        """ Decide if the step search can be stopped. """
-        relGradObj = outp['gradObj']/outp['obj'][1]
-
-        #outp = {'P': numpy.array([Pm,P,PM]), 'I': numpy.array([Im,I,IM]),
-        #        'obj': numpy.array([Objm,Obj,ObjM]), 'step': stepArry,
-        #        'gradP': gradP, 'gradI': gradI, 'gradObj': gradObj}
-
-        if abs(relGradObj) < self.stopObjDerTol:
-            #if self.mustPrnt:
-            self.log.printL("\n> Stopping step search: low sensitivity" + \
-                                " of objective function with step.\n" + \
-                                "(local minimum, perhaps?)")
-            self.stopMotv = 1
-            return True
-        elif abs(alfa/self.maxGoodStep - 1.0) < self.stopStepLimTol \
-                and relGradObj < 0.0:
-            self.log.printL("\n> Stopping step search: high proximity" + \
-                            " to the step limit value.")
-            self.stopMotv = 2
-            return True
-
-        elif self.cont+1 > self.stopNEvalLim:
-            self.log.printL("\n> Stopping step search: too many objective" + \
-                            " evaluations.")
-            self.stopMotv = 3
-            return True
-
-        else:
-            return False
-
-    def findStepLim(self,sol):
-        """ Find the limit value for the step.
-        This means the minimum value so that the constraints are violated
-        (P = limP, or Obj = Obj(0), etc)
-        or conversely, the maximum value so that the constraints are respected
-        (P<=limP, and Obj<=Obj(0), etc).
-
-        Due to the "convention" of artificially increasing Obj when any constraint is
-        violated, only Obj>Obj0 is tested.
-
-        This algorithm works by simple bisection. First, a value of violating step is
-        found (alfaHigh). The non-violating step, alfaLow is set to 0.
-        The program bisects, bringing alfaHigh down as lower violating steps are found
-        and bringing alfaLow up as higher non-violating steps are found.
-        The program halts when alfaHigh and alfaLow are sufficiently close together and
-        returns the average of these two.
-        """
-
-        if self.mustPrnt:
-            self.log.printL("\n> This is findStepLim." + \
-                            "\n> I will try to find the step value for" + \
-                            " which Obj=Obj0." + \
-                            "\n> Trying first alfa = 1 and its neighborhood.")
-
-        # Try to find a proper limit for the step
-
-        # initialize arrays with -1
-        alfaLimLowPi = numpy.zeros_like(self.piLowLim) - 1.
-        alfaLimHighPi = numpy.zeros_like(self.piHighLim) - 1.
-        # Find the limit with respect to the pi Limits (lower and upper)
-        # pi + alfa * corr['pi'] = piLim => alfa = (piLim-pi)/corr['pi']
-        for i in range(len(self.piLowLim)):
-            if self.piLowLim[i] is not None and self.corr['pi'][i] < 0.:
-                alfaLimLowPi[i] = (self.piLowLim[i] - sol.pi[i]) / self.corr['pi'][i]
-            if self.piHighLim[i] is not None and self.corr['pi'][i] > 0.:
-                alfaLimHighPi[i] = (self.piHighLim[i] - sol.pi[i]) / self.corr['pi'][i]
-
-        noLimPi = True
-        alfaLimPi = alfaLimLowPi[0]
-        for alfa1, alfa2 in zip(alfaLimLowPi,alfaLimHighPi):
-            if alfa1 > 0.:
-                if alfa1 < alfaLimPi or noLimPi:
-                    alfaLimPi = alfa1
-                    noLimPi = False
-            if alfa2 > 0.:
-                if alfa2 < alfaLimPi or noLimPi:
-                    alfaLimPi = alfa2
-                    noLimPi = False
-        if self.mustPrnt:
-            if noLimPi:
-                msg = "No limit in step due to pi conditions. Moving on."
-            else:
-                msg = "Limit in step due to pi conditions: {}".format(alfaLimPi)
-            self.log.printL(msg)
-
-        # try to find a value of step for which P = limP
-        P1, I1, Obj1 = self.tryStep(sol, 1.)
-        # P = P0 + alfa * c => c = P1-P0
-        # P0 + alfaLimP * c = limP => alfaLimP = limP-P0 / c
-        alfaLimP = (self.limP - self.P0)/(P1 - self.P0)
-        self.log.printL("\nAlfaLimP = {}".format(alfaLimP))
-
-        # Proceed to findStepLim
-        if noLimPi:
-            alfaHigh = alfaLimP / 10.
-        else:
-            alfaHigh = min([alfaLimP, alfaLimPi]) / 10.
-        IsGoodPnt = True
-        # Start with alfaHigh = 1.0, multiply by 10.0 until some condition is
-        # violated.
-        while IsGoodPnt:
-            alfaHigh *= 10.0
-            P, I, Obj = self.tryStep(sol,alfaHigh)
-            if Obj > self.Obj0:
-                IsGoodPnt = False
-
-        alfaLow = 0.0
-        StepSep = True
-        if self.mustPrnt:
-            self.log.printL("\n> Going for simple bisection.")
-        while StepSep:
-            alfaMid = .5 * (alfaLow + alfaHigh)
-            P, I, Obj = self.tryStep(sol,alfaMid)
-            # Based on the condition...
-            if Obj >= self.Obj0:
-                # Bisect down
-                alfaHigh = alfaMid
-            else:
-                # Bisect up
-                alfaLow = alfaMid
-            if self.mustPrnt:
-                self.log.printL("- alfaLow = {:.4E}, ".format(alfaLow) + \
-                                "alfaHigh = {:.4E}".format(alfaHigh))
-            StepSep = (abs(alfaHigh-alfaLow) > self.findLimStepTol * alfaHigh)
-        #
-
-        if self.mustPrnt:
-            self.log.printL("\n> Found it! Leaving findStepLim now.")
-        return .5 * ( alfaLow + alfaHigh )
-
     def showTrios(self):
         msg =  "\nStepTrio: {}\n ObjTrio: {}".format(self.trio['step'],
                                                      self.trio['obj'])
@@ -718,7 +490,8 @@ class stepMngr:
         condition is met.
         """
 
-        self.log.printL("\n   ULTIMATE STEP SEARCH!\n")
+        if self.mustPrnt:
+            self.log.printL("\n> Entering ULTIMATE STEP SEARCH!\n")
         # TODO: these parameters should go to the config file...
         tolStepObj = 1e-2
         tolStepP = 1e-2
@@ -923,11 +696,10 @@ class stepMngr:
         # to the lesser obj of the 3
         self.adjsTrios(sol)
 
+        # 2.4: Final step search by "trissection"
         # up to this point, stepTrio has three ascending values of step,
         # and objTrio has the corresponding values of Obj, with
         #   objTrio[1] < min(objTrio[0], objTrio[2])
-
-        # 2.4: Final step search by "trissection"
         leftRght = False # indicator of left (True) or right (False) movement
         if self.mustPrnt:
             self.showTrios()
@@ -1110,55 +882,28 @@ class stepMngr:
             plt.ylim(ymax = ymax, ymin = ymin)
             plt.show()
 
-            # Plot history of Objective NonLinearity
-#            plt.semilogx(self.histStep, \
-#                         100.0*(self.histNonLinErr/abs(self.dJdStepTheo)), \
-#                         'o', label='NL(alfa)')
-#            plt.semilogx(alfa, 100. * NonLinErr/abs(self.dJdStepTheo), 's', \
-#                         label='Chosen value')
-#            plt.ylabel("Obj Non-linearity (%)")
-#            plt.xlabel("alpha")
-#            Adim_dJdStep = 100. * self.dJdStepTheo / self.Obj0
-#            plt.title("Relative objective sensitivity." + \
-#                      " dJ/dStep|_0 / J0 = {:.1F}%".format(Adim_dJdStep))
-#            plt.legend()
-#            plt.grid(True)
-##            NLmin = max(abs(self.histNonLinErr/abs(self.dJdStepTheo))
-##            self.log.printL("NLmin = " + str(NLmin))
-##            if NLmin < 0.0:
-##                ymax = 100.0 * NLmin
-##                ymin = - 1.1 * ymax
-##            else:
-##                ymax = 50.0 * NLmin
-##                ymin = - ymax
-#            plt.xlim(right = xlim)
-##            plt.ylim(ymax = ymax, ymin = ymin)
-#            plt.show()
-        #
-
         if self.mustPrnt:
             dIp = 100.0 * (I/self.I0 - 1.0)
             dObjp = 100.0 * (Obj/self.Obj0 - 1.0)
-            if self.mustPrnt:
-                self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
-                                "\n> I0 = {:.4E}".format(self.I0) + \
-                                ", I = {:.4E}".format(I) + \
-                                ", dI = {:.4E}".format(I-self.I0) + \
-                                " ({:.4E})%".format(dIp) + \
-                                "\n> Obj0 = {:.4E}".format(self.Obj0) + \
-                                ", Obj = {:.4E}".format(Obj) + \
-                                ", dObj = {:.4E}".format(Obj-self.Obj0) + \
-                                " ({:.4E})%".format(dObjp))
 
-                self.log.printL(">  Number of objective evaluations: " + \
-                                str(self.cont+1))
+            self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
+                            "\n> I0 = {:.4E}".format(self.I0) + \
+                            ", I = {:.4E}".format(I) + \
+                            ", dI = {:.4E}".format(I-self.I0) + \
+                            " ({:.4E})%".format(dIp) + \
+                            "\n> Obj0 = {:.4E}".format(self.Obj0) + \
+                            ", Obj = {:.4E}".format(Obj) + \
+                            ", dObj = {:.4E}".format(Obj-self.Obj0) + \
+                            " ({:.4E})%".format(dObjp))
+
+            self.log.printL(">  Number of objective evaluations: " + \
+                            str(self.cont+1))
 
             # NEW STUFF:
-            if self.mustPrnt:
-                self.log.printL("  HistStep = " + str(self.histStep))
-                self.log.printL("  HistI = " + str(self.histI))
-                self.log.printL("  HistObj = " + str(self.histObj))
-                self.log.printL("  HistP = " + str(self.histP))
+            self.log.printL("  HistStep = " + str(self.histStep))
+            self.log.printL("  HistI = " + str(self.histI))
+            self.log.printL("  HistObj = " + str(self.histObj))
+            self.log.printL("  HistP = " + str(self.histP))
         #
     #
 #
@@ -1537,9 +1282,9 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
      Outside of this condition, the main algorithm applies.
 
      The main idea is to find the step value (alpha value) so that the objective
-     function is minimized, subject to the P <= limP condition (P condition). In reality
-     there are other restrictions that apply as well and are not automatically satisfied
-     when the P condition is, so they must be checked as well.
+     function is minimized, subject to the P <= limP condition (P condition).
+     Actually, there are other restrictions that apply as well and are not
+     automatically satisfied when the P condition is, so they must be checked as well.
 
      Miele (2003) recommends using the J function as the objective instead of the I
      function, because the J function somehow incorporates the I and P functions.
@@ -1547,10 +1292,10 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
      Naturally, the idea is to lower the value of I, so the objective function is
      expected to be lowered as well.
 
-     This search can be stopped for different reasons, either the local minimum in Obj
-     is found, or the step limit was hit (with a negative gradient on Obj),
-     or there have been too many evaluations of the Objective function (this is to
-     prevent infinite loops).
+     This search can be stopped for different reasons, either the local
+     minimum in Obj is found, or the step limit was hit (with a negative gradient
+     on Obj), or there have been too many evaluations of the Objective function
+     (this is to prevent infinite loops).
 
      After creating the stepMngr object, the stepLimit is found, which is the highest
      value of step so that the constraints are still respected. Then, the program
@@ -1580,8 +1325,9 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
         while Obj > stepMan.Obj0:
             alfa *= stepFact
             if prntCond:
-                self.log.printL("\n> Let's try alfa" + \
-                                " {:.1F}% lower.".format(100.*(1.-stepFact)))
+                msg = "\n> Let's try alfa" + \
+                      " {:.1F}% lower.".format(100.*(1.-stepFact))
+                self.log.printL(msg)
             P, I, Obj = stepMan.tryStep(self,alfa)
 
         if prntCond:
@@ -1604,7 +1350,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                 'piHighLim': self.restrictions['pi_max']}
 
         # Create new stepManager object
-        stepMan = stepMngr(self.log, ctes, corr, self.pi, prntCond = prntCond)
+        stepMan = stepMngr(self.log,ctes,corr,self.pi,prntCond = prntCond)
         # Set the base values
         stepMan.calcBase(self,P0,I0,J0)
         # Proceed to the step search itself
@@ -1643,7 +1389,8 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
     stepMan.endPrntPlot(alfa,mustPlot=self.dbugOptGrad['plotCalcStepGrad'])
 
     if self.dbugOptGrad['pausCalcStepGrad']:
-        msg = "\n> Run of calcStepGrad terminated. Press any key to continue."
+        msg = "\n> Run of calcStepGrad terminated. "+\
+              "Press any key to continue."
         self.log.prom(msg)
 
     return alfa, stepMan

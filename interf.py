@@ -25,8 +25,8 @@ class logger:
                         It overrides all following parameters;
         :param path: Allows user specification for where the folder should be
         :param runName: further customization for folder name, seldom used
-        :param mode: logging output. 'screen' prints to screen, 'file' prints to file only;
-                     and 'both' does both;
+        :param mode: logging output. 'screen' prints to screen, 'file' prints to file
+                     only, and 'both' does both;
         :param dateTag: flag for putting or not a date tag at the end of the folder.
         """
 
@@ -66,17 +66,20 @@ class logger:
 
     def repoStat(self,runStat):#,iterN=None):
         """ Report the status of the current run, as commanded.
-        The report is simply the creation of an empty .txt file whose title reports the
-        progress of the run. There is a simple mechanism to prevent creation of the same
+        The report is simply the creation of an empty .txt file whose title reports
+         the
+        progress of the run. There is a simple mechanism to prevent creation of the
+         same
         file again.
         :param runStat: the status to be reported.
             Either 'init' or 'inProg', 'ok', 'usrStop' or 'err'.
         :return: None
         """
         if runStat == self.runStatRep:
-            # Nothing changed. The program should only get here if some programmer called
-            # this method by mistake.
-            self.printL("\nThis run's status remains the same. Ignoring report command.")
+            # Nothing changed. The program should only get here if some programmer
+            # called this method by mistake.
+            self.printL("\nThis run's status remains the same. "
+                        "Ignoring report command.")
         else:
             self.runStatRep = runStat #updating the reported status
 
@@ -153,7 +156,6 @@ class ITman:
 
     """
 
-
     def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
                  destFold=''):
         """
@@ -185,8 +187,8 @@ class ITman:
         self.RestHistShowRate = 100#20
         self.ShowEigRate = 100
         self.ShowGRrateRate = 20
-        # TODO: Are these rates too large? Add these parameters to the .its file and
-        #  change them there!
+        # TODO: Are these rates too large? Add these parameters to the .its file
+        #  and change them there!
         self.ShowLambRate = 10000
         self.ShowVarRate = 10000
         self.plotResPRate = 10000
@@ -229,7 +231,8 @@ class ITman:
             # screen only mode
             self.log = logger(probName,runName='interactive',makeDir=False)
         else:
-            # Create directory for logs and stuff; dateTag only if manual flag is true
+            # Create directory for logs and stuff;
+            # dateTag only if manual flag is true
             self.log = logger(probName, isManu=self.isManu, path=destFold,
                               dateTag=self.isManu)
 
@@ -793,7 +796,6 @@ class ITman:
 
             sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResQ)
 
-
             if sol.Q <= sol.tol['Q']:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
@@ -805,11 +807,9 @@ class ITman:
                 sol.updtHistGrad(0.,1)
                 sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
-
             else:
-                msg = "\nOk, now Q = {:.4E}".format(sol.Q) + \
-                      " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
-                      "so let's keep improving the solution!\n"
+                msg = "\nOk, now Q = {:.4E} > {:.4E} = tolQ,\nso let's keep" \
+                      " improving the solution!\n".format(sol.Q,sol.tol['Q'])
                 self.log.printL(msg)
                 #sol.plotSol()
                 #sol.plotF()
@@ -822,7 +822,6 @@ class ITman:
                 alfa_base = sol.histStepGrad[sol.NIterGrad]
                 stepMan = None
                 while keep_walking_grad:
-
                     # This stays here in order to properly register the
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
@@ -841,21 +840,18 @@ class ITman:
                     # Up to this point, the solution is fully restored!
 
                     sol_new.I,_,_ = sol_new.calcI()
-                    msg = "\nBefore:\n" + \
-                          "  I = {:.6E}".format(I_base) + \
-                          ", P = {:.4E}".format(P_base) + \
-                          "\n... after grad " + \
-                          "(with {} evaluations)".format(stepMan.cont+1) + \
+                    msg = "\nBefore:\n" \
+                          "  I = {:.6E}, P = {:.4E}\n... ".format(I_base,P_base) + \
+                          "after grad (with {} evaluations)".format(stepMan.cont+1) + \
                           " gave alfa = {:.4E}:\n".format(alfa) + \
-                          "  dI = {:.6E}".format(I_mid-I_base) + \
-                          ", P = {:.4E}".format(P_mid) + \
-                          "\n... and after restoring " + str(contRest) + \
-                          " times:\n" + \
-                          "  dI = {:.6E}".format(sol_new.I-I_base) + \
+                          "  dI = {:.6E}, P = {:.4E}".format(I_mid-I_base,P_mid) + \
+                          "\n... and after restoring {} times:".format(contRest) + \
+                          "\n  dI = {:.6E}".format(sol_new.I-I_base) + \
                           ", P = {:.4E}".format(sol_new.P) + \
                           "\nVariation in I: " + \
                             str(100.0*(sol_new.I/I_base-1.0)) + "%" + \
-                          '\nRelative reduction of I (w.r.t. theoretical dI/dStep): ' + \
+                          '\nRelative reduction of I' \
+                          ' (w.r.t. theoretical dI/dStep): ' + \
                           str(100.0 * ((sol_new.I-I_base)/alfa/(-sol.Q))) + "%"
                     self.log.printL(msg)
 
@@ -870,7 +866,8 @@ class ITman:
                         next_grad += 1
                         msg = "\nNext grad counter = {}" \
                               "\nLast grad counter = {}" \
-                              "\nI was lowered, step given!".format(next_grad,last_grad)
+                              "\nI was lowered, step given!".format(next_grad,
+                                                                    last_grad)
                         self.log.printL(msg)
                     else:
                         # The conditions were not met. Discard this solution
@@ -887,10 +884,12 @@ class ITman:
                               "\nLast grad counter = {}\nI was not lowered... " \
                               "trying again!".format(next_grad,last_grad)
                         self.log.printL(msg)
+                    sol.histObjEval[next_grad + last_grad] = stepMan.cont+1
+                    #input("Writing on position {}: {}... ".format(next_grad+last_grad,
+                    #                                              stepMan.cont+1))
                     #
                     #input("Press any key to continue... ")
                 #
-
                 if retry_grad:
                     sol.rest(parallelOpt=self.parallelOpt)
                 #

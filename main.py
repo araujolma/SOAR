@@ -102,7 +102,7 @@ def main(args,isManu=True,destFold=''):
         ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
         # Show all convergence histories
         sol.showHistP(); sol.showHistQ(); sol.showHistI(); sol.showHistQvsI()
-        sol.showHistGradStep()
+        sol.showHistGradStep(); sol.showHistObjEval()
 
         msg = "\n\n\n" + line + '\n' + (' '*19) + \
               "THIS IS THE FINAL SOLUTION:" + (' '*19) + '\n' + line

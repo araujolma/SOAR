@@ -496,6 +496,9 @@ class sgra:
     def showHistGRrate(self,*args,**kwargs):
         return hist_sgra.showHistGRrate(self,*args,**kwargs)
 
+    def showHistObjEval(self,*args,**kwargs):
+        return hist_sgra.showHistObjEval(self,*args,**kwargs)
+
     def copyHistFrom(self,*args,**kwargs):
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 

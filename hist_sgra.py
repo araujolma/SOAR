@@ -56,6 +56,7 @@ def declHist(self):
     self.histGRrate = numpy.zeros(MaxIterGrad)
     self.histGaRrate = numpy.zeros(MaxIterGrad)
     self.histGaGrRate = numpy.zeros(MaxIterGrad)
+    self.histObjEval = numpy.zeros(MaxIterGrad,dtype=numpy.int16)
 
 def updtEvntList(self,evnt):
     """ Update the event list.
@@ -304,7 +305,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             else:
                 # ind does not belong to the same block. End it and begin another
                 #self.log.printL("Block is finished.")
-                # if it is a meaningful block (3 or more equal events, add to block list)
+                # if it is a meaningful block (3 or more equal events),
+                # add to block list
                 if blockA[1]-blockA[0] > 1:
                     blockListA.append(blockA.copy())
                     nremA += blockA[1]-blockA[0]-1
@@ -332,7 +334,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             else:
                 # ind does not belong to the same block. End it and begin another
                 #self.log.printL("Block is finished.")
-                # if it is a meaningful block (3 or more equal events, add to block list)
+                # if it is a meaningful block  (3 or more equal events),
+                # add to block list
                 if blockR[1] - blockR[0] > 1:
                     blockListR.append(blockR.copy())
                     nremR += blockR[1] - blockR[0] - 1
@@ -345,8 +348,10 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             blockListR.append(blockR.copy())
             nremR += blockR[1] - blockR[0] - 1
 
-        # Decision about which points to be actually removed. The objective of this section
-        # is to define a remove function rmFunc to remove or not each point from the plot
+        # Decision about which points to be actually removed. The objective of this
+        # section
+        # is to define a remove function rmFunc to remove or not each point from the
+        # plot
         nrem = nremA + nremR #total number of points that can be omitted
         #self.log.printL("\nThese are the acceptance blocks:\n"+str(blockListA))
         #self.log.printL("\nThese are the rejection blocks:\n" + str(blockListR))
@@ -380,9 +385,6 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
              for k in range(blockR[0] + 1, blockR[1]):
                  newGradRjecIndxList.remove(GradRjecIndxList[k])
                  nGR -= 1
-
-        #self.log.printL("This is the NEW gradAcptIndxList: " + str(newGradAcptIndxList))
-        #self.log.printL("This is the NEW gradRjecIndxList: " + str(newGradRjecIndxList))
 
     # FINALLY, the plots of the event points themselves
     if nGA>0:
@@ -460,8 +462,8 @@ def showHistQvsI(self, tolZoom=True, nptsMark=10):
     # Assemble the plotting array (x-axis)
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
     # I reduction, %, w.r.t. the first actual value of I.
-    # It is best to use I[1] instead of I[0] because the latter could be a very low value
-    # due to a possibly high P value.
+    # It is best to use I[1] instead of I[0] because the latter could be a very low
+    # value due to a possibly high P value.
     Ired = 100*(self.histI[1] - self.histI)/self.histI[1]
 
     # Perform the plots
@@ -556,6 +558,80 @@ def showHistGRrate(self):
     self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
     #else:
     #    self.log.printL("showHistGRrate: No positive values. Skipping...")
+
+def showHistObjEval(self,onlyAcpt=True):
+    """ Show the history of object evaluations"""
+
+    # "onlyAcpt": supress the items corresponding to the rejections
+    if onlyAcpt:
+
+        indPlot = list()
+        noRejc = False
+        for ind in range(1, self.NIterGrad):
+            if self.histGSSstopMotv[ind] == 0:
+                # rejection!
+                if noRejc:
+                    # new rejection! Flag it
+                    noRejc = False
+            else:
+                # no rejection, record previous index
+                indPlot.append(ind - 1)
+                if not noRejc: # recovery from rejection, reset flag
+                    noRejc = True
+
+        # remove the index 0
+        indPlot.remove(0)
+        # include the last index
+        indPlot.append(self.NIterGrad-1)
+
+        # Now plot the evaluations
+        plt.plot(range(1,len(indPlot)+1), self.histObjEval[indPlot],
+                 label = 'Total evaluations')
+        totEval = sum(self.histObjEval[indPlot])
+        avgEval = totEval / len(indPlot)
+
+        # Mark the points with rejections
+        KeepLabl = True
+        for i in range(1,len(indPlot)):
+            if indPlot[i] > indPlot[i-1]+1:
+                if KeepLabl:
+                    # label only the first point
+                    plt.plot(i+1, self.histObjEval[indPlot[i]], 'xr',
+                             label='Rejections included')
+                    KeepLabl = False
+                else:
+                    plt.plot(i+1, self.histObjEval[indPlot[i]], 'xr')
+
+        plt.xlabel("Accepted gradient iterations")
+        plt.ylabel("Obj. evaluations per gradient")
+    else:
+        IterGrad = numpy.arange(1, self.NIterGrad, 1)
+        plt.plot(IterGrad, self.histObjEval[IterGrad], label='Obj. evaluations')
+        totEval = sum(self.histObjEval[IterGrad])
+        avgEval = totEval / (self.NIterGrad-1)
+        KeepLabl = True
+
+        for ind in range(1, self.NIterGrad):
+            if self.histGSSstopMotv[ind] == 0:
+                if KeepLabl:
+                    plt.plot(ind-1,self.histObjEval[ind-1],'xr',
+                             label='Rejections')
+                    KeepLabl = False # label only the first one
+                else:
+                    plt.plot(ind-1,self.histObjEval[ind-1],'xr')
+
+        plt.grid(True)
+        plt.xlabel("Gradient iterations")
+        plt.ylabel("Obj. evaluations per gradient")
+    plt.title("Objective function evaluation history\n"
+              "Total evaluations = {}, average = {:.3G}".format(totEval,avgEval))
+    plt.grid(True)
+    # No need for legend if there is just the first curve...
+    if not KeepLabl:
+        plt.legend()
+    self.savefig(keyName='histObjEval',
+                 fullName='Objective function evaluation history')
+
 
 def copyHistFrom(self,sol_from):
     self.EvntList = sol_from.EvntList
