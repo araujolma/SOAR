@@ -185,19 +185,19 @@ def updtHistGrad(self,alfa,GSSstopMotv,mustPlotQs=False):
     NIterGrad = self.NIterGrad+1
     self.log.printL("\nhist_sgra: Updating histGrad.")
 
-    Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
-    self.Q = Q; self.histQ[NIterGrad] = Q
-    self.histQx[NIterGrad] = Qx; self.histQu[NIterGrad] = Qu
-    self.histQp[NIterGrad] = Qp; self.histQt[NIterGrad] = Qt
+    #Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
+    self.histQ[NIterGrad] = self.Q
+    self.histQx[NIterGrad] = self.Qx; self.histQu[NIterGrad] = self.Qu
+    self.histQp[NIterGrad] = self.Qp; self.histQt[NIterGrad] = self.Qt
 
-    J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
+    #J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
 
-    self.J = J; self.histJ[NIterGrad] = J
-    self.histJLint[NIterGrad] = J_Lint
-    self.histJLpsi[NIterGrad] = J_Lpsi
-    self.I = I; self.histI[NIterGrad] = I
-    self.histIorig[NIterGrad] = Iorig
-    self.histIpf[NIterGrad] = Ipf
+    self.histJ[NIterGrad] = self.J
+    self.histJLint[NIterGrad] = self.J_Lint
+    self.histJLpsi[NIterGrad] = self.J_Lpsi
+    self.histI[NIterGrad] = self.I
+    self.histIorig[NIterGrad] = self.Iorig
+    self.histIpf[NIterGrad] = self.Ipf
 
     self.histStepGrad[NIterGrad] = alfa
     # "Stop motive" codes:  0 - step rejected
@@ -550,7 +550,7 @@ def showHistGRrate(self):
 
     #if self.histGRrate[IterGrad].any() > 0:
     plt.title("Gradient-restoration rate history")
-    plt.plot(IterGrad,self.histGRrate[IterGrad])
+    plt.plot(IterGrad-1,self.histGRrate[IterGrad])
     plt.grid(True)
     plt.xlabel("Gradient iterations")
     plt.ylabel("Restorations per gradient")

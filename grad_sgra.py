@@ -59,7 +59,8 @@ class stepMngr:
         alfaLimHighPi = numpy.zeros_like(self.piHighLim) - 1.
         # Find the limit with respect to the pi Limits (lower and upper)
         # pi + alfa * corr['pi'] = piLim => alfa = (piLim-pi)/corr['pi']
-        for i in range(len(self.piLowLim)):
+        p = min((len(self.piLowLim), len(corr['pi'])))
+        for i in range(p):
             if self.piLowLim[i] is not None and corr['pi'][i] < 0.:
                 alfaLimLowPi[i] = (self.piLowLim[i] - pi[i]) / corr['pi'][i]
             if self.piHighLim[i] is not None and self.corr['pi'][i] > 0.:
@@ -495,6 +496,7 @@ class stepMngr:
         # TODO: these parameters should go to the config file...
         tolStepObj = 1e-2
         tolStepP = 1e-2
+        tol = 1e-3
         leng = 3
 
         # PART 1: alfa_limP search
@@ -646,16 +648,27 @@ class stepMngr:
         # 2.1 shortcut: step limit was found, objective seems to be
         # descending with step. Abandon ship with the best step so far and
         # that's it.
-        alfa = self.best['step']
+        alfa, Obj = self.best['step'], self.best['obj']
         # TODO: self.cont is a bad condition;
         #  implement a gradient test instead
-        if self.isDecr and self.cont > 10:
+        if self.isDecr and not(self.StepLimActv[2]):
+            # calculate the gradient at this point
             if self.mustPrnt:
-                msg = "\n> Objective seems to be descending with step.\n" + \
-                        "  Leaving calcStepGrad with alfa = {}\n".format(alfa)
-                self.log.printL(msg)
-            self.stopMotv = 2 # step limit hit
-            return alfa
+                self.log.printL("\n> Testing gradient...")
+            alfa_ = alfa * (1. - tol)
+            P_,I_,Obj_ = self.tryStep(sol,alfa_)
+            grad = (Obj-Obj_)/(alfa-alfa_)
+
+            if grad < 0.:
+                if self.mustPrnt:
+                    msg = "\n> Objective seems to be descending with step.\n" + \
+                          "  Leaving calcStepGrad with alfa = {}\n".format(alfa)
+                    self.log.printL(msg)
+                self.stopMotv = 2 # step limit hit
+                return alfa
+            else:
+                if self.mustPrnt:
+                    self.log.printL("\n> Positive gradient ({})...".format(grad))
 
         if self.mustPrnt:
             self.log.printL("\n> Starting min obj search...")

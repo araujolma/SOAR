@@ -784,7 +784,8 @@ class ITman:
             sol.P,_,_ = sol.calcP(mustPlotPint=plotResP)
 
             P_base = sol.P
-            I_base, _, _ = sol.calcI()
+            sol.J, sol.J_Lint, sol.J_Lpsi, sol.I, sol.Iorig, sol.Ipf = sol.calcJ()
+            I_base = sol.I
             self.log.prntDashStr()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(P_base)
@@ -794,17 +795,17 @@ class ITman:
             corr, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
 
-            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResQ)
+            sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
 
             if sol.Q <= sol.tol['Q']:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
-                _,_,_,_,_ = sol.calcQ(mustPlotQs=True)
+                #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 self.log.printL("\nTerminate program. Solution is sol_r.")
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.
                 sol.updtEvntList(evnt)
-                sol.updtHistGrad(0.,1)
+                sol.updtHistGrad(0.,1) # why is this here?
                 sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
             else:

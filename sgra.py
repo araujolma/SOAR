@@ -73,6 +73,9 @@ class sgra:
 
         self.boundary, self.constants, self.restrictions = {}, {}, {}
         self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
+        self.Iorig, self.I_pf = 1., 1
+        self.J_Lint, self.J_Lpsi = 1., 1.
+        self.Qx, self.Qu, self.Qp, self.Qt = 1., 1., 1., 1.
 
         # Histories
         self.declHist()
