@@ -5,13 +5,14 @@ Created on Sun Jan  5 15:31:15 2020
 
 @author: levi
 """
-import sys, datetime, shutil, os, traceback, numpy, random, string
+import sys, datetime, shutil, os, traceback, numpy, random, string, time
 from configparser import ConfigParser
 from interf import logger
 from main import main
 
 line = "#" * 66
 b = 'BATCH: '
+nb = '\n'+b
 
 class batMan:
     """This is a class for the manager of batch runs, the BATch MANager."""
@@ -64,7 +65,19 @@ class batMan:
 
             # Generate the files corresponding to the cases to be run:
             self.genFiles()
+        # Reference for successful run
+        self.isGoodRun = numpy.zeros(self.NCases, dtype=numpy.bool_)
 
+        # post processing info
+        self.postProcInfo = {}
+        # TODO: put this on the configuration file!!
+        # this is a list of attributes for the "sol" object which the user wants
+        self.postProcKeyList = ['GSStotObjEval', 'GSSavgObjEval']
+        # basic initialization
+        for key in self.postProcKeyList:
+            self.postProcInfo[key] = [0] * self.NCases
+
+        # show parameters and leave
         self.log.printL("\nThese are the parameters for the batch:")
         self.log.pprint(self.__dict__)
 
@@ -73,7 +86,6 @@ class batMan:
         alphabetical order in case of more than 9 runs."""
 
         return str(runNr + 1).zfill(int(numpy.floor(numpy.log(self.NCases))))
-
 
     def parseVars(self,varsSets_list):
         """Parse the variations to be performed, from the input file.
@@ -204,6 +216,67 @@ class batMan:
 
         self.baseFileList = baseFileList
 
+    def getPostProcData(self,sol,runNr:int):
+        """Post processing data gathering"""
+
+        for key in self.postProcKeyList:
+            self.postProcInfo[key][runNr] = getattr(sol,key)
+
+    def showPostProcData(self):
+        """Post processing data show"""
+        self.log.printL(nb + "Post-processing results:")
+        self.log.pprint(BM.postProcInfo)
+
+        try:
+            import xlsxwriter
+            # declare workbook and worksheet
+            workbook = xlsxwriter.Workbook(self.log.folderName + os.sep +
+                                           'Results.xlsx')
+            ws = workbook.add_worksheet()
+            # heading
+            ws.write(0, 0, 'Run #')
+            ws.write(0, 1, 'Problem name')
+            ws.write(0, 2, 'Base file')
+            ws.write(0, 3, 'Good run?')
+            col = 4
+            # write the key names
+            for key in self.postProcKeyList:
+                ws.write(0,col,key)
+                col += 1
+            # fill in the actual data
+            for runNr in range(self.NCases):
+                row = runNr + 1 # because the first row has the header
+                ws.write(row, 0, runNr)
+                ws.write(row, 1, self.probList[runNr])
+                ws.write(row, 2, self.baseFileList[runNr])
+                ws.write(row, 3, self.isGoodRun[runNr])
+                col = 4
+                for key in self.postProcKeyList:
+                    ws.write(row, col, self.postProcInfo[key][runNr])
+                    col += 1
+            workbook.close()
+
+        except ImportError:
+            self.log.printL(nb+"Error while importing xlsxwriter...")
+
+            # this is an attempt to print out the data
+            titl = "\nRun #\tProbName\tBaseFile\tGood run?"
+            for key in self.postProcKeyList:
+                titl += '\t'+key
+            self.log.printL(titl+'\n')
+            for runNr in range(self.NCases):
+                msg = '{}\t{}\t{}\t{}'.format(runNr,self.probList[runNr],
+                                              self.baseFileList[runNr],
+                                              self.isGoodRun[runNr])
+                for key in self.postProcKeyList:
+                    msg += '\t{}'.format(self.postProcInfo[key][runNr])
+                self.log.printL(msg)
+
+    def countdown(self,sec=3):
+        self.log.printL("\nBATCH: Starting in...")
+        for i in range(sec,0,-1):
+            self.log.printL("{}...".format(i))
+            time.sleep(1.)
 
 if __name__ == "__main__":
     print('\n'+line)
@@ -211,7 +284,6 @@ if __name__ == "__main__":
     print(sys.argv)
     print(datetime.datetime.now())
     args = sys.argv
-    allGood = True
     if len(args) == 1:
         # change this line to run this from the editor
         confFile = 'defaults' + os.sep + 'testAll.bat'
@@ -224,8 +296,9 @@ if __name__ == "__main__":
     for runNr in range(BM.NCases):
         thisProb, thisFile = BM.probList[runNr], BM.baseFileList[runNr]
         BM.log.printL('\n'+line)
-        msg = '\nBATCH: Running case {} of {}:' \
-              '\n       Problem: {}, file: {}\n'.format(runNr+1,BM.NCases,thisProb,thisFile)
+        msg = nb + 'Running case {} of {}:' \
+              '\n       Problem: {}, file: {}\n'.format(runNr+1,BM.NCases,thisProb,
+                                                        thisFile)
         BM.log.printL(msg)
         BM.log.printL(line+'\n')
         # set up the string for this run's number
@@ -234,24 +307,28 @@ if __name__ == "__main__":
         folder = BM.log.folderName + os.sep + runNrStr + '_'
 
         try:
-            main(('',thisProb,thisFile), isManu=False, destFold=folder)
-            BM.log.printL("\n"+b+"This run was completed successfully.")
+            BM.countdown()
+            sol, solInit = main(('',thisProb,thisFile), isManu=False, destFold=folder)
+            BM.log.printL(nb + "This run was completed successfully.")
+            BM.log.printL(nb + "Entering post-processing for this run...")
+            BM.getPostProcData(sol,runNr)
+            BM.log.printL(nb + "Done. Going for the next run.")
+            BM.isGoodRun[runNr] = True # good run
         except KeyboardInterrupt:
-            BM.log.printL("\n"+b+"User has stopped the program during this run.")
-            allGood = False
+            BM.log.printL(nb + "User has stopped the program during this run.")
         except Exception:
-            BM.log.printL('\n'+b+'Sorry, there was something wrong with this run:')
+            BM.log.printL(nb + 'Sorry, there was something wrong with this run:')
             BM.log.printL(traceback.format_exc())
-            allGood = False
         finally:
             if BM.mode == 'variations':
                 # clean up the generated .its files
                 if runNr > 0:
                     file = BM.baseFileList[runNr]
-                    BM.log.printL("\n"+b+"Removing file: "+file)
+                    BM.log.printL(nb + "Removing file: " + file)
                     os.remove(file)
 
-    if allGood:
-        BM.log.printL("\nBATCH: * * * Every run was successful! * * *")
-    BM.log.printL("\nBATCH: Execution finished. Terminating now.\n")
+    if BM.isGoodRun.all():
+        BM.log.printL(nb+"* * * Every run was successful! * * *")
+    BM.showPostProcData()
+    BM.log.printL(nb+"Execution finished. Terminating now.\n")
     BM.log.close()

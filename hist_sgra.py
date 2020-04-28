@@ -562,6 +562,14 @@ def showHistGRrate(self):
 def showHistObjEval(self,onlyAcpt=True):
     """ Show the history of object evaluations"""
 
+    # The next calculations assume a minimum number of iterations.
+    # If this number is not met, leave now.
+    if self.NIterGrad < 2:
+        self.log.printL("showHistObjEval: no gradient iterations, leaving.")
+        self.GSStotObjEval = 0
+        self.GSSavgObjEval = 0
+        return False
+
     # "onlyAcpt": supress the items corresponding to the rejections
     if onlyAcpt:
 
@@ -629,6 +637,12 @@ def showHistObjEval(self,onlyAcpt=True):
     # No need for legend if there is just the first curve...
     if not KeepLabl:
         plt.legend()
+
+    # put the statistics in the 'sol' object for easier post-processing
+    self.GSStotObjEval = totEval
+    self.GSSavgObjEval = avgEval
+
+    # proceed to save the figure
     self.savefig(keyName='histObjEval',
                  fullName='Objective function evaluation history')
 
