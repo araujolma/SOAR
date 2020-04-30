@@ -6,13 +6,13 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime, time, sys, os
+import datetime, time, sys, os, traceback
 
 line = "#" * 66
 
 def main(args,isManu=True,destFold=''):
 
-    from interf import ITman
+    from interf import ITman, logger
 
     # This is the default problem, for users who want to just run "main.py"
     defaultProb = None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
@@ -144,13 +144,17 @@ def main(args,isManu=True,destFold=''):
     except:
         ITman.log.printL("\n\n\nmain: I'm sorry, something bad happened.")
         # TODO: the exception should be printed onto the log file!!
-
+        ITman.log.printL(traceback.format_exc())
         ## RUN STATUS: error
         ITman.log.repoStat('err')#,iterN=sol.NIterGrad)
         raise
     finally:
         ITman.log.printL("main: Terminating now.\n")
         ITman.log.close()
+
+        sol.log = logger(sol.probName,isManu=True,makeDir=False,mode='screen')
+
+    return sol, solInit
 
 if __name__ == "__main__":
     print(line)

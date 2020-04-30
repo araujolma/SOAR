@@ -737,7 +737,7 @@ class prob(sgra):
             stages = numpy.arange(1, s + 1)
             width = 0.4
             ax.bar(position, pi, width, color='b')
-            # Put the values of the arc lenghts on the bars...
+            # Put the values of the arc lengths on the bars...
             for arc in range(s):
                 coord = (float(arc) - .25 * width, pi[arc] + 10.)
                 ax.annotate("{:.1E}".format(pi[arc]), xy=coord, xytext=coord)
@@ -748,9 +748,10 @@ class prob(sgra):
             plt.ylabel("Duration [s]")
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.45)
-
-            self.savefig(keyName='currSol',fullName='solution')
-            #plt.show()
+            if mustSaveFig:
+                self.savefig(keyName='currSol',fullName='solution')
+            else:
+                plt.show()
 
             self.log.printL("pi = "+str(pi)+"\n")
         elif opt['mode'] == 'var':

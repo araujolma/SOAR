@@ -577,7 +577,8 @@ class ITman:
         if path == '':
             path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
-        sol.log = None
+        # set the logger to a manual one for loading later
+        sol.log = logger(sol.probName, makeDir=False, mode='screen')
         self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
@@ -628,9 +629,6 @@ class ITman:
             sol.histI[0] = sol.I
             sol.histIorig[0] = Iorig
             sol.histIpf[0] = Ipf
-
-        # Calculate Q values, just for show. They don't even mean anything.
-        sol.calcQ()
 
         # Plot trajectory
         sol.plotTraj()
@@ -772,10 +770,9 @@ class ITman:
         last_grad = 0
         next_grad = 0
         plotResP, plotResQ = False, False
-        #stopAt = 200
+        # TODO: put this parameter to the external configuration file
+        stopAt = 400
         while do_GR_cycle:
-        #    if next_grad >= stopAt:
-        #        raise(Exception("Parei em {} iterações.".format(stopAt)))
 
             # Start of new cycle: calc P, I, as well as a new grad correction
             # in order to update lambda and mu, and therefore calculate Q for
@@ -797,11 +794,16 @@ class ITman:
 
             sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
 
-            if sol.Q <= sol.tol['Q']:
+            if sol.Q <= sol.tol['Q'] or sol.NIterGrad > stopAt:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
                 #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
-                self.log.printL("\nTerminate program. Solution is sol_r.")
+                if sol.Q <= sol.tol['Q']:
+                    msg = '\nTolerance for Q functional is met!'
+                else:
+                    msg = '\nToo many gradient iterations.'
+                msg += "\nTerminate program. Solution is sol_r."
+                self.log.printL(msg)
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.
                 sol.updtEvntList(evnt)
