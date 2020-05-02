@@ -21,6 +21,7 @@ class stepMngr:
 
     def __init__(self, log, ctes, corr, pi, prntCond=False):
         self.cont = -1
+        # TODO: maybe pre-allocating numpy arrays performs better!!
         self.histStep = list()
         self.histI = list()
         self.histP = list()
@@ -43,12 +44,24 @@ class stepMngr:
         self.corr = corr
         self.log = log
         self.mustPrnt = prntCond
-        self.best = {'step':0.0,
-                     'obj': None}
+        self.best = {'step':0.0,     # this is for the best step so far
+                     'obj': None,    # this is for the best object so far
+                     'stepLimP': 0., # this is for the step closest to P limit
+                     'limP': -1.}    # this is for the smallest distance to P limit
         self.maxGoodStep = 0.0
         self.minBadStep = LARG
 
-        self.isDecr = True
+        self.isDecr = True # the obj function is monotonic until proven otherwise
+
+        # TODO: these parameters should go to the config file...
+        self.tolStepObj = 1e-2
+        self.tolStepLimP = 1e-2
+        self.tolLimP = 1e-2
+
+        # TODO: this implementation of keeping a second list for the steps and the
+        #  objectives is very memory-consuming. This could very well be re-implemented
+        #  using a single integer array for re-ordering both the objectives list and
+        #  the steps list.
         self.sortHistObj = list()
         self.sortHistStep = list()
 
@@ -326,6 +339,9 @@ class stepMngr:
             self.sortHistStep = sorted(self.sortHistStep)
             self.sortHistObj.append(Obj)
             self.sortHistObj = sorted(self.sortHistObj)
+        #self.log.printL("\nLeaving testDecr, these are the sorted lists:")
+        #self.log.printL("SortHistStep = {}\nSortHistObj  = "
+        #                "{}".format(self.sortHistStep,self.sortHistObj))
 
     def tryStep(self,sol,alfa,plotSol=False,plotPint=False):
         """ Try this given step value.
@@ -340,22 +356,45 @@ class stepMngr:
         if self.mustPrnt:
             self.log.printL("\n> Trying alfa = {:.4E}".format(alfa))
 
+        # Apply the correction
         newSol = sol.copy()
         newSol.aplyCorr(alfa,self.corr)
         if plotSol:
             newSol.plotSol()
 
         P,_,_ = newSol.calcP(mustPlotPint=plotPint)
+        # update the step closest to P limit, if still applicable
+        if self.StepLimActv[1] and P < self.limP:
+            distP = 1. - P/self.limP
+            if self.mustPrnt:
+                msg = "\n> Current distP = {}".format(distP)
+            else:
+                msg = ''
+            if self.best['limP'] < 0.:
+                self.best['limP'] = distP
+                self.best['stepLimP'] = alfa
+                if self.mustPrnt:
+                    msg += "  First best steplimP: {}.".format(alfa)
+            else:
+                if distP < self.best['limP']:
+                    self.best['limP'] = distP
+                    self.best['stepLimP'] = alfa
+                    if self.mustPrnt:
+                        msg += "  Updating best steplimP: {}.".format(alfa)
+            if self.mustPrnt:
+                self.log.printL(msg)
+
         J,_,_,I,_,_ = newSol.calcJ()
         JrelRed = 100.*((J - self.J0)/alfa/self.dJdStepTheo)
         IrelRed = 100.*((I - self.I0)/alfa/self.dJdStepTheo)
         Obj = self.calcObj(P,I,J)
+        # check if it is a good step, etc
         isOk, Obj = self.check(alfa,Obj,P,newSol.pi)
         resStr = ''
         if isOk:
             # Update best value (if it is the case)
             if self.best['obj'] > Obj:
-                self.best = {'step': alfa, 'obj': Obj}
+                self.best['step'], self.best['obj'] = alfa, Obj
                 if self.mustPrnt:
                     self.log.printL("\n> Updating best result: \n" + \
                                     "step = {:.4E}, Obj = {:.4E}".format(alfa, Obj))
@@ -392,7 +431,8 @@ class stepMngr:
         self.histObj.append(Obj)
 
         if self.mustPrnt:
-            msg = "Steps: {}\n Objs: {}".format(self.histStep,self.histObj)
+            msg = "Steps: {}\n Objs: {}\n   " \
+                  "Ps: {}".format(self.histStep, self.histObj, self.histP)
             self.log.printL(msg)
 
         return P, I, Obj#self.getLast()
@@ -447,6 +487,12 @@ class stepMngr:
             # the right until the objective rises
             Obj, alfa = self.trio['obj'][2], self.trio['step'][2]
             while Obj <= self.trio['obj'][1]:
+                objMid, stepMid = self.trio['obj'][1], self.trio['step'][1]
+                if objMid < self.trio['obj'][0]:
+                    # The middle objective is lesser than the left one;
+                    # move the latter to the right as well!
+                    self.trio['step'][0], self.trio['obj'][0] = stepMid, objMid
+
                 self.trio['obj'][1] = self.trio['obj'][2]
                 self.trio['step'][1] = self.trio['step'][2]
                 alfa *= 10.
@@ -464,6 +510,12 @@ class stepMngr:
             # the left until the objective rises
             Obj, alfa = self.trio['obj'][0], self.trio['step'][0]
             while Obj <= self.trio['obj'][1]:
+                objMid, stepMid = self.trio['obj'][1], self.trio['step'][1]
+                if objMid < self.trio['obj'][2]:
+                    # The middle objective is lesser than the right one;
+                    # move the latter to the left as well!
+                    self.trio['step'][2], self.trio['obj'][2] = stepMid, objMid
+
                 self.trio['obj'][1] = self.trio['obj'][0]
                 self.trio['step'][1] = self.trio['step'][0]
                 alfa /= 10.
@@ -472,6 +524,35 @@ class stepMngr:
                 self.trio['step'][0] = alfa
 
                 # TODO: checar se dá pra fastar o lado dir pra esq tb!
+
+    def keepSrchPLim(self):
+        """ Decide to keep looking for P step limit or not.
+
+
+        keepLookCode is 0 for keep looking. Other values correspond to different
+        exit conditions:
+
+        1 - P limit is not active
+        2 - upper and lower bounds for P step limit are within tolerance
+        3 - monotonic (descent) behavior was lost, obj min is probably before P limit
+        4 - too many objective function evaluations
+        5 - P limit is within tolerance"""
+
+        if not self.StepLimActv[1]:
+            keepLoopCode = 1
+        elif (self.StepLimUppr[1] - self.StepLimLowr[1]) < \
+                self.StepLimLowr[1] * self.tolStepLimP:
+            keepLoopCode = 2
+        elif not self.isDecr:
+            keepLoopCode = 3
+        elif self.cont >= self.stopNEvalLim:
+            keepLoopCode = 4
+        elif self.tolLimP > self.best['limP'] > 0.:
+            keepLoopCode = 5
+        else:
+            keepLoopCode = 0
+
+        return keepLoopCode
 
     def srchStep(self,sol):
         """The ultimate step search.
@@ -493,11 +574,6 @@ class stepMngr:
 
         if self.mustPrnt:
             self.log.printL("\n> Entering ULTIMATE STEP SEARCH!\n")
-        # TODO: these parameters should go to the config file...
-        tolStepObj = 1e-2
-        tolStepP = 1e-2
-        tol = 1e-3
-        leng = 3
 
         # PART 1: alfa_limP search
 
@@ -520,66 +596,69 @@ class stepMngr:
             alfaLimP = min([alfaLimP, self.StepLimLowr[0]*.99])
 
         # 1.3: main loop for alfaLimP (successive linear regressions)
-        if not self.StepLimActv[1]:
-            keepLoopCode = 1
-        elif (self.StepLimUppr[1] - self.StepLimLowr[1]) < \
-                tolStepP * self.StepLimLowr[1]:
-            keepLoopCode = 2
-        elif not self.isDecr:
-            keepLoopCode = 3
-        else:
-            keepLoopCode = 0
+        keepLoopCode = self.keepSrchPLim()
         while keepLoopCode == 0:
-            # 1.3.1: try newest step value
+            # 1.3.1: Safety in alfaLimP: make sure the guess is in the right interval
+            if alfaLimP > self.minBadStep or alfaLimP < self.best['stepLimP']:
+                alfaLimP = .5 * (self.best['stepLimP'] + self.minBadStep)
+                msg = "\n> Model has retrieved a bad guess for alfaLimP..." \
+                      "\n  Let's go with {} instead.".format(alfaLimP)
+                self.log.printL(msg)
+
+            # 1.3.2: try newest step value
             P, I, Obj = self.tryStep(sol, alfaLimP)
 
-            # 1.3.2: assemble log arrays for regression
-            # (use only the last "leng" elements for the regression)
-            if len(self.histStep) > leng:
-                logStep = numpy.log(numpy.array(self.histStep[(-leng-1):-1]))
-                logP = numpy.log(numpy.array(self.histP[(-leng-1):-1]))
-                n = leng
-            else:
+            # 1.3.3: keep in loop or not
+            keepLoopCode = self.keepSrchPLim()
+
+            # 1.3.4: perform regression
+            if keepLoopCode == 0:
+                # 1.3.4.1: assemble log arrays for regression
                 logStep = numpy.log(numpy.array(self.histStep))
                 logP = numpy.log(numpy.array(self.histP))
                 n = len(self.histStep)
 
-            # 1.3.3: perform actual regression
-            X = numpy.ones((n,2))
-            X[:,0] = logStep
-            mat = numpy.dot(X.transpose(),X)
-            a, b = numpy.linalg.solve(mat,numpy.dot(X.transpose(),logP))
+                # 1.3.4.2: perform actual regression
+                X = numpy.ones((n, 2))
+                X[:, 0] = logStep
+                # weights for regression: priority to points closer to the P limit
+                W = numpy.zeros((n, n))
+                logLim = numpy.log(self.limP)
+                for i, logP_ in enumerate(logP):
+                    W[i, i] = 1. / (logP_ - logLim) ** 2.  # inverse
+                mat = numpy.dot(X.transpose(), numpy.dot(W, X))
+                a, b = numpy.linalg.solve(mat,
+                                          numpy.dot(X.transpose(),
+                                                    numpy.dot(W, logP)))
 
-            # 1.3.4: calculate alfaLimP according to current regression
-            alfaLimP = numpy.exp((numpy.log(self.limP) - b) / a)
-            if self.mustPrnt:
-                self.log.printL("a = {}, b = {}".format(a,b))
-                self.log.printL("alfaLimP = {}".format(alfaLimP))
+                # 1.3.4.3: calculate alfaLimP according to current regression, P
+                # target just below the P limit, in order to try to get a point in
+                # the tolerance
+                # abs(P_targ / self.limP - 1.) = tolLimP/2  =>
+                # P_targ = self.limP * (1-tolLimP/2)
+                P_targ = self.limP * (1. - self.tolLimP / 2.)
+                alfaLimP = numpy.exp((numpy.log(P_targ) - b) / a)
+                if self.mustPrnt:
+                    msg = "\n> Performed fit with n = {} points:\n" \
+                          "    Steps: {}\n      Ps: {}\n Weights: {}\n" \
+                          "  a = {}, b = {}\n" \
+                          "  alfaLimP = {}".format(n, numpy.exp(logStep),
+                                                   numpy.exp(logP), W, a, b, alfaLimP)
+                    self.log.printL(msg)
 
-            # DEBUG PLOT
-            # plt.loglog(self.histStep, self.histP, 'o', label='P')
-            # model = numpy.exp(b) * numpy.array(self.histStep) ** a
-            # plt.loglog(self.histStep, model, '--', label = 'model')
-            # plt.loglog(self.histStep,
-            #            self.limP * numpy.ones_like(self.histP), label='limP')
-            # plt.loglog(alfaLimP, self.limP, 'x', label='Next guess')
-            # plt.grid()
-            # plt.title("P vs step behavior")
-            # plt.xlabel('Step')
-            # plt.ylabel('P')
-            # plt.legend()
-            # plt.show()
-
-            # 1.3.5: check conditions to stay in loop
-            if not self.StepLimActv[1]:
-                keepLoopCode = 1
-            elif (self.StepLimUppr[1]-self.StepLimLowr[1]) < \
-                    self.StepLimLowr[1]* tolStepP:
-                keepLoopCode = 2
-            elif not self.isDecr:
-                keepLoopCode = 3
-            elif self.cont >= self.stopNEvalLim:
-                keepLoopCode = 4
+                # DEBUG PLOT
+                # plt.loglog(self.histStep, self.histP, 'o', label='P')
+                # model = numpy.exp(b) * numpy.array(self.histStep) ** a
+                # plt.loglog(self.histStep, model, '--', label = 'model')
+                # plt.loglog(self.histStep,
+                #            self.limP * numpy.ones_like(self.histP), label='limP')
+                # plt.loglog(alfaLimP, self.limP, 'x', label='Next guess')
+                # plt.grid()
+                # plt.title("P vs step behavior")
+                # plt.xlabel('Step')
+                # plt.ylabel('P')
+                # plt.legend()
+                # plt.show()
         if self.mustPrnt:
             msg = '\n> Stopping alfa_limP search: '
             if keepLoopCode == 1:
@@ -592,9 +671,11 @@ class stepMngr:
                        "\n  Local min is likely before alfa_limP."
             elif keepLoopCode == 4:
                 msg += "Too many Obj evals. Debugging is recommended."
+            elif keepLoopCode == 5:
+                msg += "P limit tolerance is met."
             self.log.printL(msg)
 
-        # 1.4 If the loop was abandoned because of too many evals, leave now.
+        # 1.4: If the loop was abandoned because of too many evals, leave now.
         setTrio = True
         alfa = self.best['step']
         if keepLoopCode == 4:
@@ -606,7 +687,7 @@ class stepMngr:
         # PART 2: min Obj search
 
         # 2.0: Bad condition: Obj>Obj0 in all tested steps
-        if alfa < 1e-14: # alfa = 0 in this case
+        if alfa < 1e-14: # alfa is essentially 0 in this case
             if self.mustPrnt:
                 msg = "\n\n> Bad condition! Obj>Obj0 in all tested steps."
                 self.log.printL(msg)
@@ -649,13 +730,12 @@ class stepMngr:
         # descending with step. Abandon ship with the best step so far and
         # that's it.
         alfa, Obj = self.best['step'], self.best['obj']
-        # TODO: self.cont is a bad condition;
-        #  implement a gradient test instead
         if self.isDecr and not(self.StepLimActv[2]):
             # calculate the gradient at this point
             if self.mustPrnt:
                 self.log.printL("\n> Testing gradient...")
-            alfa_ = alfa * (1. - tol)
+            # TODO: this hardcoded
+            alfa_ = alfa * .999
             P_,I_,Obj_ = self.tryStep(sol,alfa_)
             grad = (Obj-Obj_)/(alfa-alfa_)
 
@@ -672,6 +752,8 @@ class stepMngr:
 
         if self.mustPrnt:
             self.log.printL("\n> Starting min obj search...")
+            #self.log.printL("\n> Sort Hist Step: {}\n  Sort Hist Obj: "
+            #                "{}".format(self.sortHistStep,self.sortHistObj))
 
         # 2.2: If the shortcut 2.1 was not taken, we must set the trios
         if setTrio:
@@ -685,7 +767,7 @@ class stepMngr:
 
             # 2.2.2: Special procedures in case the best step is at the
             # beginning or at the end of the list
-            n = len(self.sortHistStep)-1 # max index
+            n = len(self.sortHistStep) - 1 # max index
             alfa_m, alfa_p, Obj_m, Obj_p = 0., 0., 0., 0.
             if ind > 0: # there is a lesser step
                 alfa_m = self.sortHistStep[ind - 1]
@@ -713,11 +795,20 @@ class stepMngr:
         # up to this point, stepTrio has three ascending values of step,
         # and objTrio has the corresponding values of Obj, with
         #   objTrio[1] < min(objTrio[0], objTrio[2])
+
+        # 2.4.0: Move left or right depending on which side is the largest
+        # if self.trio['step'][1] / self.trio['step'][0] > \
+        #     self.trio['step'][2] / self.trio['step'][1]:
+        #     # left side is largest, move left
+        #     leftRght = True  # indicator of left (True) or right (False) movement
+        # else:
+        #     # right side is largest, move right
+        #     leftRght = False # indicator of left (True) or right (False) movement
         leftRght = False # indicator of left (True) or right (False) movement
         if self.mustPrnt:
             self.showTrios()
-        while abs(self.trio['step'][0]-self.trio['step'][2]) > \
-                tolStepObj * self.trio['step'][1] and \
+        while self.trio['step'][2] - self.trio['step'][0] > \
+                self.tolStepObj * self.trio['step'][1] and \
                 self.cont < self.stopNEvalLim:
             # 2.4.1: Narrow the boundaries either left or right
             # (alternatively)
@@ -777,6 +868,16 @@ class stepMngr:
             # plt.legend()
             # plt.show()
 
+            # 2.4.4: Decide the search direction again
+            # if self.trio['step'][1] / self.trio['step'][0] > \
+            #         self.trio['step'][2] / self.trio['step'][1]:
+            #     # left side is largest, move left
+            #     leftRght = True
+            #     # indicator of left (True) or right (False) movement
+            # else:
+            #     # right side is largest, move right
+            #     leftRght = False
+            #     # indicator of left (True) or right (False) movement
             leftRght = not leftRght # reverse search direction
             #input(">> ")
 
@@ -899,24 +1000,22 @@ class stepMngr:
             dIp = 100.0 * (I/self.I0 - 1.0)
             dObjp = 100.0 * (Obj/self.Obj0 - 1.0)
 
-            self.log.printL("\n> Chosen alfa = {:.4E}".format(alfa) + \
-                            "\n> I0 = {:.4E}".format(self.I0) + \
-                            ", I = {:.4E}".format(I) + \
-                            ", dI = {:.4E}".format(I-self.I0) + \
-                            " ({:.4E})%".format(dIp) + \
-                            "\n> Obj0 = {:.4E}".format(self.Obj0) + \
-                            ", Obj = {:.4E}".format(Obj) + \
-                            ", dObj = {:.4E}".format(Obj-self.Obj0) + \
-                            " ({:.4E})%".format(dObjp))
+            msg = "\n> Chosen alfa = {:.4E}\n> I0 = {:.4E}, I = {:.4E}" \
+                  ", dI = {:.4E} ({:.4E})%".format(alfa,self.I0,I,I-self.I0,dIp) + \
+                  "\n> Obj0 = {:.4E}, Obj = {:.4E}".format(self.Obj0,Obj) + \
+                  ", dObj = {:.4E} ({:.4E})%".format(Obj-self.Obj0, dObjp)
+            self.log.printL(msg)
 
-            self.log.printL(">  Number of objective evaluations: " + \
-                            str(self.cont+1))
+            #self.log.printL(">  Number of objective evaluations: " + \
+            #                str(self.cont+1))
 
             # NEW STUFF:
-            self.log.printL("  HistStep = " + str(self.histStep))
-            self.log.printL("  HistI = " + str(self.histI))
-            self.log.printL("  HistObj = " + str(self.histObj))
-            self.log.printL("  HistP = " + str(self.histP))
+            #self.log.printL("  HistStep = " + str(self.histStep))
+            #self.log.printL("  HistI = " + str(self.histI))
+            #self.log.printL("  HistObj = " + str(self.histObj))
+            #self.log.printL("  HistP = " + str(self.histP))
+            self.log.printL("\n> State of stepMan at the end of the run:")
+            self.log.pprint(self.__dict__)
         #
     #
 #

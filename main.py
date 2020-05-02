@@ -91,6 +91,9 @@ def main(args,isManu=True,destFold=''):
         ITman.log.repoStat('inProg')
         # Proceed to the gradient-restoration cycles
         sol = ITman.gradRestCycl(sol,solInit)
+        # It's over! Stop timer
+        timer = time.time() - start_time
+        sol.timer = timer # store in sol object for further post-processing
 
         # Display final messages, show solution and convergence reports
         msg = "\n\n\n" + line + '\n' + (' '*22) + \
@@ -120,8 +123,7 @@ def main(args,isManu=True,destFold=''):
         ITman.log.printL(msg)
 
         ITman.log.printL("\n"+line)
-        msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % \
-              (time.time() - start_time)
+        msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % timer
         ITman.log.printL(msg)
 
         # This does not add that much information, but...

@@ -51,10 +51,10 @@ ShowGRrateRate = 20
 #
 #
 # Gradient phase: use parallel computing?
-PrllGradLMPBVP = True
+PrllGradLMPBVP = False
 #
 # Restoration phase: use parallel computing?
-PrllRestLMPBVP = True
+PrllRestLMPBVP = False
 #
 ###############################################################################
 [sgra] # Internal SGRA parameters

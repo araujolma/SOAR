@@ -133,6 +133,7 @@ class sgra:
         # Parallelism options
         self.isParallel = {'gradLMPBVP': parallel.get('gradLMPBVP',False),
                            'restLMPBVP': parallel.get('restLMPBVP',False)}
+        self.timer = -1. # timer for the run
 
     # Basic "utility" methods
 

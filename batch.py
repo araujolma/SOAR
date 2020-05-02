@@ -71,8 +71,11 @@ class batMan:
         # post processing info
         self.postProcInfo = {}
         # TODO: put this on the configuration file!!
-        # this is a list of attributes for the "sol" object which the user wants
-        self.postProcKeyList = ['GSStotObjEval', 'GSSavgObjEval']
+        # this is a list of the attributes for the "sol" object that the user wants
+        self.postProcKeyList = ['NIterGrad',
+                                'GSStotObjEval',
+                                'GSSavgObjEval',
+                                'timer']
         # basic initialization
         for key in self.postProcKeyList:
             self.postProcInfo[key] = [0] * self.NCases
@@ -220,7 +223,15 @@ class batMan:
         """Post processing data gathering"""
 
         for key in self.postProcKeyList:
-            self.postProcInfo[key][runNr] = getattr(sol,key)
+            # try...except so that if something goes wrong,
+            # the whole batch is not wasted
+            try:
+                self.postProcInfo[key][runNr] = getattr(sol,key)
+            except AttributeError:
+                msg = "Error while retrieving the attribute" \
+                      " {} in run {}".format(key,runNr)
+                self.log.printL(nb + msg)
+                self.postProcInfo[key][runNr] = 'ERROR!'
 
     def showPostProcData(self):
         """Post processing data show"""
@@ -231,7 +242,7 @@ class batMan:
             import xlsxwriter
             # declare workbook and worksheet
             workbook = xlsxwriter.Workbook(self.log.folderName + os.sep +
-                                           'Results.xlsx')
+                                           'Results_' + self.log.folderName +'.xlsx')
             ws = workbook.add_worksheet()
             # heading
             ws.write(0, 0, 'Run #')
