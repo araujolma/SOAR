@@ -340,6 +340,8 @@ if __name__ == "__main__":
 
     if BM.isGoodRun.all():
         BM.log.printL(nb+"* * * Every run was successful! * * *")
+    else:
+        BM.log.printL(nb + "* * * WARNING!! NOT ALL RUNS WERE SUCCESSFUL!!! * * *")
     BM.showPostProcData()
     BM.log.printL(nb+"Execution finished. Terminating now.\n")
     BM.log.close()

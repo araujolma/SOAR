@@ -176,7 +176,7 @@ class ITman:
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
-        self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+        self.loadSolDir = 'defaults' + os.sep + probName + '_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 20#1#
@@ -211,21 +211,21 @@ class ITman:
                                     'prntCalcStepGrad': True,#flag,#
                                     'plotCalcStepGrad': flag,#True,#
                                     'manuInptStepGrad': flag,
-                                    'pausCalcStepGrad':flag,#True,#
-                                    'plotQx':flag,
-                                    'plotQu':flag,
-                                    'plotLam':flag,
-                                    'plotQxZoom':flag,
-                                    'plotQuZoom':flag,
-                                    'plotQuComp':flag,
-                                    'plotQuCompZoom':flag,
-                                    'plotSolQxMax':flag,
-                                    'plotSolQuMax':flag,
-                                    'plotCorr':flag,
-                                    'plotCorrFin':flag,
-                                    'plotF':flag,#True,
-                                    'plotFint':flag,
-                                    'plotI':flag}
+                                    'pausCalcStepGrad': flag,#True,#
+                                    'plotQx': flag,
+                                    'plotQu': flag,
+                                    'plotLam': flag,
+                                    'plotQxZoom': flag,
+                                    'plotQuZoom': flag,
+                                    'plotQuComp': flag,
+                                    'plotQuCompZoom': flag,
+                                    'plotSolQxMax': flag,
+                                    'plotSolQuMax': flag,
+                                    'plotCorr': flag,
+                                    'plotCorrFin': flag,
+                                    'plotF': flag,#True,
+                                    'plotFint': flag,
+                                    'plotI': flag}
 
         if isInteractive:
             # screen only mode
@@ -772,6 +772,7 @@ class ITman:
         plotResP, plotResQ = False, False
         # TODO: put this parameter to the external configuration file
         stopAt = 400
+        stepMan = None
         while do_GR_cycle:
 
             # Start of new cycle: calc P, I, as well as a new grad correction
@@ -823,7 +824,7 @@ class ITman:
                 retry_grad = False
                 #alfa_g_0 = 1.0
                 alfa_base = sol.histStepGrad[sol.NIterGrad]
-                stepMan = None
+
                 while keep_walking_grad:
                     # This stays here in order to properly register the
                     # gradAccepts and the gradRejects
