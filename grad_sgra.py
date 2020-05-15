@@ -19,7 +19,7 @@ class stepMngr:
     For now, the objective function looks only into J, the extended cost
     functional."""
 
-    def __init__(self, log, ctes, corr, pi, prntCond=False):
+    def __init__(self, log, ctes, corr, pi, prevStepInfo, prntCond=False):
         self.cont = -1
         # TODO: maybe pre-allocating numpy arrays performs better!!
         self.histStep = list()
@@ -49,6 +49,8 @@ class stepMngr:
                      'limP': -1.}    # this is for the smallest distance to P limit
         self.maxGoodStep = 0.0
         self.minBadStep = LARG
+        # Previous step information
+        self.prevStepInfo = prevStepInfo
 
         self.isDecr = True # the obj function is monotonic until proven otherwise
         self.pLimSrchStopMotv = 0 # reason for abandoning the P lim step search.
@@ -121,6 +123,10 @@ class stepMngr:
         #                       3 - too many evals
         self.stopMotv = -1 # placeholder, this will be updated later.
         self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1.
+
+        # this is for the P regression
+        self.PRegrAngCoef = 0.
+        self.PRegrLinCoef = 0.
 
         # this is for the "trissection" search
         self.trio = {'obj': [0.,0.,0.],
@@ -366,6 +372,15 @@ class stepMngr:
         JrelRed = 100.*((J - self.J0)/alfa/self.dJdStepTheo)
         IrelRed = 100.*((I - self.I0)/alfa/self.dJdStepTheo)
         Obj = self.calcObj(P,I,J)
+
+        # Record on the spreadsheets (if it is the case)
+        if self.log.xlsx is not None:
+            col, row = self.prevStepInfo['NIterGrad']+1, self.cont+1
+            self.log.xlsx['step'].write(row,col,alfa)
+            self.log.xlsx['P'].write(row,col,P)
+            self.log.xlsx['I'].write(row,col,I)
+            self.log.xlsx['J'].write(row,col,J)
+            self.log.xlsx['obj'].write(row,col,Obj)
 
         # update trios for objective "trissection"
         if self.isTrioSet:
@@ -699,7 +714,7 @@ class stepMngr:
                 a, b = numpy.linalg.solve(mat,
                                           numpy.dot(X.transpose(),
                                                     numpy.dot(W, logP)))
-
+                self.PRegrAngCoef, self.PRegrLinCoef = a, b
                 # 1.3.4.3: calculate alfaLimP according to current regression, P
                 # target just below the P limit, in order to try to get a point in
                 # the tolerance
@@ -1498,10 +1513,31 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
                 'piLowLim': self.restrictions['pi_min'],
                 'piHighLim': self.restrictions['pi_max']}
 
+        if stepMan is None:
+            prevStepInfo = {}
+        else:
+            prevStepInfo = stepMan.__dict__
+            # remove unuseful entries to shorten the print, and please no recursion!
+            for key in ['corr','prevStepInfo']:
+                prevStepInfo.pop(key)
+
+        prevStepInfo['NIterGrad'] = self.NIterGrad
+
         # Create new stepManager object
-        stepMan = stepMngr(self.log,ctes,corr,self.pi,prntCond = prntCond)
+        stepMan = stepMngr(self.log, ctes, corr, self.pi, prevStepInfo,
+                           prntCond = prntCond)
         # Set the base values
         stepMan.calcBase(self,P0,I0,J0)
+
+        # Write base values on the spreadsheet (if it is the case)
+        if self.log.xlsx is not None:
+            col = self.NIterGrad+1
+            self.log.xlsx['step'].write(0, col, 0.)
+            self.log.xlsx['P'].write(0, col, P0)
+            self.log.xlsx['I'].write(0, col, I0)
+            self.log.xlsx['J'].write(0, col, J0)
+            self.log.xlsx['obj'].write(0, col, stepMan.Obj0)
+
         # Proceed to the step search itself
         alfa = stepMan.srchStep(self)
 
@@ -1551,6 +1587,38 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
 
     # Calculation of alfa
     alfa, stepMan = self.calcStepGrad(corr,alfa_0,retry_grad,stepMan)
+
+    # write on the spreadsheets (if it is the case)
+    if self.log.xlsx is not None:
+        # Update maximum number of evals
+        if self.log.xlsx['maxEvals'] < stepMan.cont:
+            self.log.xlsx['maxEvals'] = stepMan.cont
+
+        row, col = 0, self.NIterGrad+1
+        for i in range(4): # writing step limits and status
+            self.log.xlsx['misc'].write(row, col, stepMan.StepLimActv[i])
+            row += 1
+            self.log.xlsx['misc'].write(row, col, stepMan.StepLimLowr[i])
+            row += 1
+            self.log.xlsx['misc'].write(row, col, stepMan.StepLimUppr[i])
+            row += 2
+        # Writing the trios
+        self.log.xlsx['misc'].write(row, col, stepMan.trio['step'][0])
+        row += 1
+        self.log.xlsx['misc'].write(row, col, alfa)
+        row += 1
+        self.log.xlsx['misc'].write(row, col, stepMan.trio['step'][2])
+        row += 2
+        # Writing the stop motives (for P Lim search and the step search itself)
+        self.log.xlsx['misc'].write(row, col, stepMan.pLimSrchStopMotv)
+        row += 1
+        self.log.xlsx['misc'].write(row, col, stepMan.stopMotv)
+        # Writing the linear and angular coefficients for the P limit regression
+        row += 2
+        self.log.xlsx['misc'].write(row, col, stepMan.PRegrAngCoef)
+        row += 1
+        self.log.xlsx['misc'].write(row, col, stepMan.PRegrLinCoef)
+
     #alfa = 0.1
     #self.log.printL('\n\nBypass: alfa arbitrado em '+str(alfa)+'!\n\n')
     self.updtHistGrad(alfa,stepMan.stopMotv)

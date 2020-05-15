@@ -6,7 +6,7 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os, shutil, time
+import dill, datetime, pprint, os, shutil, time, xlsxwriter
 from utils import getNowStr
 from configparser import ConfigParser
 
@@ -16,8 +16,8 @@ dashStr = '\n' + '-' * 88
 class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,isManu=True,makeDir=True,path='',runName='',mode='both',
-                 dateTag=True):
+    def __init__(self,probName, isManu=True, makeDir=True, path='', runName='',
+                 mode='both', dateTag=True, xlsx=False):
         """
         :param probName: Problem name (for a proper folder name);
         :param isManu: flag for determinating if in manual mode or not;
@@ -40,6 +40,7 @@ class logger:
         # Run status (for repoStat), by default it begins with 'none'
         self.runStatRep = 'none'
 
+        self.xlsx = None
         if makeDir:
             # Results folder for this run
             self.folderName = path + probName
@@ -54,6 +55,22 @@ class logger:
 
             try:
                 self.fhand = open(self.folderName + os.sep + 'log.txt', 'w+')
+                if xlsx:
+                    name = self.folderName + os.sep + 'GradInfo_' + \
+                           self.folderName + '.xlsx'
+                    workbook = xlsxwriter.Workbook(name)
+                    step_tab = workbook.add_worksheet('step')
+                    obj_tab = workbook.add_worksheet('obj')
+                    P_tab = workbook.add_worksheet('P')
+                    I_tab = workbook.add_worksheet('I')
+                    J_tab = workbook.add_worksheet('J')
+                    misc_tab = workbook.add_worksheet('misc')
+
+                    self.xlsx = {'workbook': workbook, 'maxEvals': 0,
+                                 'step': step_tab, 'obj': obj_tab,
+                                 'P': P_tab, 'I': I_tab, 'J': J_tab,
+                                 'misc': misc_tab}
+
             except:
                 print("Sorry, could not open/create the file!")
                 raise
@@ -147,6 +164,42 @@ class logger:
     def close(self):
         self.fhand.close()
 
+        if self.xlsx is not None:
+            # Writing the "legends" for most tabs
+            for key in ['step', 'P', 'I', 'J', 'obj']:
+                self.xlsx[key].write(0, 0, 'Base value')
+                for row in range(1, self.xlsx['maxEvals']+2):
+                    self.xlsx[key].write(row, 0, 'Eval #{}'.format(row))
+
+            # Writing the "legends" for the 'misc' tab - step limits
+            row, col = 0, 0
+            for key in ['pi','PLim','Obj0','ObjNeg']:
+                self.xlsx['misc'].write(row, col, key+'-StepLimActv')
+                row += 1
+                self.xlsx['misc'].write(row, col, key+'-StepLimLowr')
+                row += 1
+                self.xlsx['misc'].write(row, col, key+'-StepLimUppr')
+                row += 2
+            # Writing the "legends" for the 'misc' tab - trios
+            self.xlsx['misc'].write(row, col, 'stepMinObj-lowrBnd')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepMinObj')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepMinObj-upprBnd')
+            row += 2
+            # Writing the "legends" for the 'misc' tab - stop motives
+            self.xlsx['misc'].write(row, col, 'pLimSrchStopMotv')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepSrchStopMotv')
+            # Writing the "legends" for the 'misc' tab - P limit regression coefs
+            row += 2
+            self.xlsx['misc'].write(row, col, 'PLimRegrAngCoef')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'PLimRegrLinCoef')
+
+            # Close the spreadsheet
+            self.xlsx['workbook'].close()
+
 class ITman:
     """Class for the ITerations MANager.
 
@@ -212,6 +265,7 @@ class ITman:
                                     'plotCalcStepGrad': flag,#True,#
                                     'manuInptStepGrad': flag,
                                     'pausCalcStepGrad': flag,#True,#
+                                    'xlsxCalcStepGrad': True,#flag,#
                                     'plotQx': flag,
                                     'plotQu': flag,
                                     'plotLam': flag,
@@ -234,7 +288,8 @@ class ITman:
             # Create directory for logs and stuff;
             # dateTag only if manual flag is true
             self.log = logger(probName, isManu=self.isManu, path=destFold,
-                              dateTag=self.isManu)
+                              dateTag=self.isManu,
+                              xlsx=self.default_dbugOptGrad['xlsxCalcStepGrad'])
 
         if len(confFile) > 0:
             # Get the configurations in the file.
@@ -846,7 +901,7 @@ class ITman:
                     sol_new.I,_,_ = sol_new.calcI()
                     msg = "\nBefore:\n" \
                           "  I = {:.6E}, P = {:.4E}\n... ".format(I_base,P_base) + \
-                          "after grad (with {} evaluations)".format(stepMan.cont+1) + \
+                          "after grad (with {} obj evals)".format(stepMan.cont+1) + \
                           " gave alfa = {:.4E}:\n".format(alfa) + \
                           "  dI = {:.6E}, P = {:.4E}".format(I_mid-I_base,P_mid) + \
                           "\n... and after restoring {} times:".format(contRest) + \
@@ -889,8 +944,6 @@ class ITman:
                               "trying again!".format(next_grad,last_grad)
                         self.log.printL(msg)
                     sol.histObjEval[next_grad + last_grad] = stepMan.cont+1
-                    #input("Writing on position {}: {}... ".format(next_grad+last_grad,
-                    #                                              stepMan.cont+1))
                     #
                     #input("Press any key to continue... ")
                 #
