@@ -33,7 +33,19 @@ class logger:
 
         # Mode ('both', 'file' or 'screen') sets the target output.
         # This can be overriden in each .printL() call, though
-        self.mode = mode
+
+        if mode.startswith('both'):
+            self.mode = 0
+        elif mode.startswith('screen'):
+            self.mode = 1
+        elif mode.startswith('file'):
+            self.mode = 2
+        else:
+            msg = "Unknown logger mode: '{}'. " \
+                  "Proceeding with 'screen' mode.".format(mode)
+            print(msg)
+            self.mode = 1
+
         # this determines the necessity of manual input:
         self.isManu = isManu
 
@@ -54,10 +66,18 @@ class logger:
             os.makedirs(self.folderName)
 
             try:
-                self.fhand = open(self.folderName + os.sep + 'log.txt', 'w+')
+                fullName = self.folderName + os.sep + 'log.txt'
+                self.fhand = open(fullName, 'w+')
+                self.printL("Creating a log in file: " + fullName)
                 if xlsx:
+                    # MS Excel does not allow one to open two spreadsheets with the
+                    # same name, even if they have different paths. So, it was decided
+                    # to replicate the folder name in the .xlsx file as well. Extra
+                    # care must be taken with the os.sep character.
+                    # Thanks, Microsoft!
                     name = self.folderName + os.sep + 'GradInfo_' + \
-                           self.folderName + '.xlsx'
+                           self.folderName.replace(os.sep,'_') + '.xlsx'
+                    self.printL("\nCreating a spreadsheet in file: " + name)
                     workbook = xlsxwriter.Workbook(name)
                     step_tab = workbook.add_worksheet('step')
                     obj_tab = workbook.add_worksheet('obj')
@@ -124,25 +144,45 @@ class logger:
             fhand.close() # close handler
 
 
-    def printL(self,msg,mode=''):
-        if mode in '':
+    def printL(self,msg,mode=-1):
+        """ Print a given message.
+        Depending on the self.mode, it can be on screen or on a file or in both.
+
+        :param msg: the message to be printed
+        :param mode: override the mode of print.
+        :return: None
+        """
+
+        if mode == -1:
             mode = self.mode
 
-        if mode.startswith('both'):
+        if isinstance(mode,str):
+            raise(Exception("logger: 'mode' cannot be used as string anymore. "
+                            "I'm sorry."))
+
+        if mode == 0:
+            # both file and screen
             print(msg)
             self.fhand.write('\n'+msg)
-        elif mode.startswith('file'):
+        elif mode == 2:
+            # file only
             self.fhand.write('\n'+msg)
-        elif mode.startswith('screen'):
+        else:
+            # screen only
             print(msg)
 
     def pprint(self,obj):
-        if self.mode.startswith('both'):
+        """Pretty print."""
+
+        if self.mode == 0:
+            # both file and screen
             pprint.pprint(obj)
+            pprint.pprint(obj, self.fhand)
+        elif self.mode == 2:
+            # file only
             pprint.pprint(obj,self.fhand)
-        elif self.mode.startswith('file'):
-            pprint.pprint(obj,self.fhand)
-        elif self.mode.startswith('screen'):
+        else:
+            # screen only
             pprint.pprint(obj)
 
     def prntDashStr(self):
@@ -155,14 +195,19 @@ class logger:
             self.printL(msg)
 
         if self.isManu:
-            inp = input(bscImpStr)
+            inp = input(bscImpStr) # the string 'bscImpStr' is printed on screen here
         else:
+            # override the input if it is not on manual mode (e.g. batch)
             inp = ''
-        self.printL(bscImpStr + inp, mode='file')
+
+        # If the output options contain "file mode" print to file only, since the
+        # screen was already covered by built-in function 'input'
+        if self.mode == 0 or self.mode == 2: #
+            self.printL(bscImpStr + inp, mode=2)
         return inp
 
     def close(self):
-        self.fhand.close()
+        """ Close the txt file and the spreadsheet if it is the case."""
 
         if self.xlsx is not None:
             # Writing the "legends" for most tabs
@@ -198,7 +243,11 @@ class logger:
             self.xlsx['misc'].write(row, col, 'PLimRegrLinCoef')
 
             # Close the spreadsheet
+            #self.printL("Closing spreadsheet...")
             self.xlsx['workbook'].close()
+            #self.printL("Spreadsheet closed.")
+        #self.printL("Closing logger file...")
+        self.fhand.close()
 
 class ITman:
     """Class for the ITerations MANager.
@@ -633,6 +682,8 @@ class ITman:
             path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
         # set the logger to a manual one for loading later
+        # TODO: is it really necessary to create a new logger?
+        #  Changing the mode to 'screen' should work!
         sol.log = logger(sol.probName, makeDir=False, mode='screen')
         self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
