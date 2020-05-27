@@ -140,17 +140,20 @@ class sgra:
     def copy(self):
         """Copy the solution. It is useful for applying corrections, generating
         baselines for comparison, etc.
-        Special care must be given for the logging object, however."""
 
-        # Get logging object (always by reference)
-        log = self.log
-        # Clear the reference in the solution
-        self.log = None
-        # Do the copy
-        newSol = copy.deepcopy(self)
-        # Point the logging object back into the solutions (original and copy)
-        newSol.log = log
-        self.log = log
+        This used to make deep, recursive copies, but shallow ones are much faster."""
+
+        # Do the copy - shallow copy is much faster, but the elements are passed by
+        # reference... special attention must be given to the elements that will be
+        # changed
+        newSol = copy.copy(self)
+
+        # Assign x, u and pi to proper copies of the former values.
+        newSol.x = self.x.copy()
+        newSol.u = self.u.copy()
+        newSol.pi = self.pi.copy()
+        newSol.P = 1. # This is just to the change the reference from self.P ...
+
         return newSol
 
     def aplyCorr(self,alfa,corr):
