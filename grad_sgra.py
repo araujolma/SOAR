@@ -60,11 +60,8 @@ class stepMngr:
         self.tolStepObj = 1e-2
         self.tolStepLimP = 1e-2
         self.tolLimP = 1e-2
+        self.epsStep = 1e-10#min(self.tolStepObj,self.tolStepLimP) / 100.
 
-        # TODO: this implementation of keeping a second list for the steps and the
-        #  objectives is very memory-consuming. This could very well be re-implemented
-        #  using a single integer array for re-ordering both the objectives list and
-        #  the steps list.
         self.sortIndxHistStep = list()
 
         # Try to find a proper limit for the step
@@ -343,6 +340,49 @@ class stepMngr:
         #self.log.printL("SortHistStep = {}\nSortHistObj  = "
         #                "{}".format(self.sortHistStep,self.sortHistObj))
 
+    def isNewStep(self, alfa):
+        """Check if the step alfa is a new one (not previously tried).
+
+        The (relative) tolerance is self.epsStep.
+        """
+
+        for alfa_ in self.histStep:
+            if abs(alfa_-alfa) < self.epsStep * alfa:
+                return False
+        else:
+            return True
+
+
+    def tryNewStep(self, sol, alfa, ovrdSort=False, plotSol=False, plotPint=False):
+        """ Similar to tryStep(), but making sure it is a new step
+
+        :param sol: sgra
+        :param alfa: the step to be tried
+        :param ovrdSort: flag for overriding the sorting (sort it regardless)
+        :param plotSol: flag for plotting the solution with the correction
+        :param plotPint: flag for plotting the P_int with the correction
+        :return: P, I, Obj just like tryStep()
+        """
+
+        if self.isNewStep(alfa):
+            P, I, Obj = self.tryStep(sol, alfa, ovrdSort=ovrdSort,
+                                     plotSol=plotSol, plotPint=plotPint)
+            return P, I, Obj
+        else:
+            alfa0 = alfa.copy()
+            keepSrch = True
+            while keepSrch:
+                # TODO: this scheme is more than too simple...
+                alfa *= 1.01
+                keepSrch = not self.isNewStep(alfa)
+            if self.mustPrnt:
+                msg = "\n> Changing step from {} to {}".format(alfa0,alfa) + \
+                      " due to conflict."
+                self.log.printL(msg)
+            P, I, Obj = self.tryStep(sol, alfa, ovrdSort=ovrdSort, plotSol=plotSol,
+                                     plotPint=plotPint)
+            return P, I, Obj
+
     def tryStep(self, sol, alfa, ovrdSort=False, plotSol=False, plotPint=False):
         """ Try this given step value.
 
@@ -353,7 +393,12 @@ class stepMngr:
             - update the lower and upper bounds (via self.check())
             - assemble/update the trios for searching the minimum obj"""
 
+        # Increment evaluation counter
         self.cont += 1
+
+        if not self.isNewStep(alfa):
+            self.log.printL("\n> Possible conflict over here! Debugging is "
+                            "recommended...")
 
         if self.mustPrnt:
             self.log.printL("\n> Trying alfa = {:.4E}".format(alfa))
@@ -571,16 +616,16 @@ class stepMngr:
             Obj, alfa = self.trio['obj'][2], self.trio['step'][2]
             while Obj <= self.trio['obj'][1]:
                 if self.mustPrnt:
-                    self.log.printL("\n  Moving the right point of the trio 1 decade"
-                                    " to the right.")
+                    self.log.printL("\n  Moving the right point of the trio 1 "
+                                    "decade to the right.")
                 objMid, stepMid = self.trio['obj'][1], self.trio['step'][1]
                 if objMid < self.trio['obj'][0]:
                     # The middle objective is lesser than the left one;
                     # move the latter to the right as well!
                     self.trio['step'][0], self.trio['obj'][0] = stepMid, objMid
                     if self.mustPrnt:
-                        self.log.printL("\n  Moving the left point of the trio to "
-                                        "the place of the previous middle point.")
+                        self.log.printL("\n  Moving the left point of the trio to"
+                                        " the place of the previous middle point.")
 
                 self.trio['obj'][1] = self.trio['obj'][2]
                 self.trio['step'][1] = self.trio['step'][2]
@@ -608,8 +653,8 @@ class stepMngr:
                     # move the latter to the left as well!
                     self.trio['step'][2], self.trio['obj'][2] = stepMid, objMid
                     if self.mustPrnt:
-                        self.log.printL("\n  Moving the right point of the trio to "
-                                        "the place of the previous middle point.")
+                        self.log.printL("\n  Moving the right point of the trio to"
+                                        " the place of the previous middle point.")
 
                 self.trio['obj'][1] = self.trio['obj'][0]
                 self.trio['step'][1] = self.trio['step'][0]
@@ -628,7 +673,7 @@ class stepMngr:
 
         1 - P limit is not active
         2 - upper and lower bounds for P step limit are within tolerance
-        3 - monotonic (descent) behavior was lost, obj min is probably before P limit
+        3 - monotonic (descent) behavior was lost, obj min is before P limit
         4 - too many objective function evaluations
         5 - P limit is within tolerance"""
 
@@ -671,48 +716,39 @@ class stepMngr:
 
         # PART 1: alfa_limP search
 
-        # 1.0: Get the stop motive of the previous grad step, if it exists
+        # 1.0: Get the stop motive of the previous grad iteration, if it exists
         prevStopMotv = self.prevStepInfo.get('stopMotv', -1)
 
-        # TODO: figure out a way to test the best step of the last grad earlier...
-        # if prevStopMotv == 1 or prevStopMotv == 3:
-        #     # minimized the stop motive or too many attempts.
-        #     isPLimSrchDefault = False
-        #     prevBest = self.prevStepInfo.get('best', None)
-        #     if prevBest is not None:
-        #         alfa = prevBest['step']
-        #         if self.mustPrnt:
-        #             msg = "\n> First of all, let's try the best step of " \
-        #                   "the previous run,\n  alfa = {}".format(alfa)
-        #             self.log.printL(msg)
-        #         self.tryStep(sol, alfa)
-        #         # TODO: if this works, let's get the P value to improve!
-        #         self.keepSrchPLim()
-        #
-        # elif prevStopMotv == 2:
-        #     # step limit hit
-        #     isPLimSrchDefault = False
-        # else:
-        #     isPLimSrchDefault = True
+        # 1.0.1: Get the best step from the previous grad iteration
+        prevBest = self.prevStepInfo.get('best', None)
+        if prevBest is not None:
+            alfa = prevBest['step']
+            if self.mustPrnt:
+                msg = "\n> First of all, let's try the best step of " \
+                      "the previous run,\n  alfa = {}".format(alfa)
+                self.log.printL(msg)
+            self.tryStep(sol, alfa)
 
-        # 1.0.1: Decide the mode for P limit search, default or not
+        # 1.0.2: Decide the mode for P limit search, default or not
         if prevStopMotv == 1 or prevStopMotv == 2 or prevStopMotv == 3:
             isPLimSrchDefault = False
         else:
             isPLimSrchDefault = True
 
-
-        # 1.0.2 If the previous P limit fit is to be used, check validity first
+        # 1.0.3: If the previous P limit fit is to be used, check validity first
         if not isPLimSrchDefault:
             a = self.prevStepInfo['PRegrAngCoef']
             #b = self.prevStepInfo['PRegrLinCoef']
             if a < eps:
                 # Fit is not good, override and return to default
+                if self.mustPrnt:
+                    self.log.printL("\n> Overriding P limit search to default"
+                                    " mode.")
                 isPLimSrchDefault = True
 
-        # 1.0.3: calculate P target (just below P limit, but still within tolerance)
-        # abs(P_targ / self.limP - 1.) = tolLimP/2  =>
+        # 1.0.4: calculate P target (just below P limit, but still within tolerance)
         P_targ = self.limP * (1. - self.tolLimP / 2.)
+        # ^ This is so that abs(P_targ / self.limP - 1.) = tolLimP/2
         logP_targ = numpy.log(P_targ)
 
         if isPLimSrchDefault:
@@ -724,13 +760,33 @@ class stepMngr:
 
             if self.mustPrnt:
                 self.log.printL("\n> Going for default P limit search.")
-            # 1.2: first model for alfa: with P(0) and P(alfa1) only
-            P1, I1, Obj1 = self.tryStep(sol, alfa1)
-            # P1 = P0 + alfa1 * c => c = (P1-P0)/alfa1
-            # P0 + alfaLimP * c = limP => alfaLimP = limP-P0 / c
-            alfaLimP = (self.limP - self.P0) * alfa1 / (P1 - self.P0)
+            P1, I1, Obj1 = self.tryNewStep(sol, alfa1)
+            alfa1 = self.histStep[-1]
+
+            if self.cont > 0:
+                # 1.2: If more than 1 step has been tried, make a line
+                y1, y2 = numpy.log(self.histP[-1]), numpy.log(self.histP[-2])
+                x1 = numpy.log(self.histStep[-1])
+                x2 = numpy.log(self.histStep[-2])
+                a = (y2 - y1) / (x2 - x1)  # angular coefficient
+                b = y1 - x1 * a            # linear coefficient
+                self.PRegrAngCoef, self.PRegrLinCoef = a, b  # store them
+                alfaLimP = numpy.exp((logP_targ - b) / a)
+                if self.mustPrnt:
+                    msg = "\n> Ok, that did not work. " \
+                          "Let's try alfa = {} (linear fit from" \
+                          " the latest tries).".format(alfaLimP)
+                    self.log.printL(msg)
+            else:
+                # 1.2 (alt): first model for alfa with P(0) and P(alfa1) only
+                # was actually very bad. Let's go with +- 10%...
+                if P1 > P_targ:
+                    alfaLimP = alfa1 * 0.9
+                else:
+                    alfaLimP = alfa1 * 1.1
+
             if self.mustPrnt:
-                msg = "\n> AlfaLimP = {} (by first model)".format(alfaLimP)
+                msg = "\n> AlfaLimP = {} (by first model**)".format(alfaLimP)
                 self.log.printL(msg)
             # Proceed with this value, unless the pi conditions don't allow it
             if self.StepLimActv[0]:
@@ -740,7 +796,7 @@ class stepMngr:
             self.keepSrchPLim()
         else:
             if self.pLimSrchStopMotv == 0:
-                # 1.1 (alt): Start with the fit provided by the last grad step...
+                # 1.1 (alt): Start with the fit provided by the last grad step
                 a = self.prevStepInfo['PRegrAngCoef']
                 b = self.prevStepInfo['PRegrLinCoef']
                 alfaLimP = numpy.exp((logP_targ - b) / a)
@@ -749,10 +805,11 @@ class stepMngr:
                     alfaLimP = min([alfaLimP, self.StepLimLowr[0] * .9])
                 if self.mustPrnt:
                     msg = "\n> Using the fit from the previous step search,\n" \
-                          "  (a = {}, b = {}),\n  let's try".format(a,b) + \
-                          " alfa = {} to hit P target = {}.".format(alfaLimP, P_targ)
+                          "  (a = {}, b = {}),\n  let's try alfa".format(a, b) + \
+                          " = {} to hit P target = {}.".format(alfaLimP, P_targ)
                     self.log.printL(msg)
-                P, I, Obj = self.tryStep(sol, alfaLimP)
+                # Try alfaLimP, but there can be a conflict...
+                P, I, Obj = self.tryNewStep(sol, alfaLimP)
 
                 # 1.2 (alt) Checking if we must proceed...
                 self.keepSrchPLim()
@@ -761,20 +818,37 @@ class stepMngr:
 
             # 1.3 (alt): The fit was not that successful... carry on
             if self.pLimSrchStopMotv == 0:
-                if P > P_targ:
-                    alfaLimP *= 0.9 # 10% lower
-                    msg = "\n> Ok, that did not work. Let's try" \
-                          " alfa = {} (10% lower).".format(alfaLimP)
+                if self.cont > 0:
+                    # 1.3.1 (alt1): If more than 1 step was tried, make a line!
+                    y1, y2 = numpy.log(self.histP[-1]), numpy.log(self.histP[-2])
+                    x1 = numpy.log(self.histStep[-1])
+                    x2 = numpy.log(self.histStep[-2])
+                    a = (y2-y1)/(x2-x1) # angular coefficient
+                    b = y1 - x1 * a     # linear coefficient
+                    self.PRegrAngCoef, self.PRegrLinCoef = a, b # store them
+                    alfaLimP = numpy.exp((logP_targ - b) / a)
+                    if self.mustPrnt:
+                        msg = "\n> Ok, that did not work. "\
+                              "Let's try alfa = {} (linear fit from" \
+                              " the latest tries).".format(alfaLimP)
+                        self.log.printL(msg)
                 else:
-                    alfaLimP *= 1.1 # 10% higher
-                    msg = "\n> Ok, that did not work. Let's try" \
-                          " alfa = {} (10% higher).".format(alfaLimP)
-                if self.mustPrnt:
-                    self.log.printL(msg)
+                    # 1.3.1 (alt2): Unable to fit, let's go with +/-10%...
+                    if P > P_targ:
+                        alfaLimP *= 0.9 # 10% lower
+                        msg = "\n> Ok, that did not work. Let's try" \
+                              " alfa = {} (10% lower).".format(alfaLimP)
+                    else:
+                        alfaLimP *= 1.1 # 10% higher
+                        msg = "\n> Ok, that did not work. Let's try" \
+                              " alfa = {} (10% higher).".format(alfaLimP)
+                    if self.mustPrnt:
+                        self.log.printL(msg)
 
         # 1.3: Main loop for P limit search
         while self.pLimSrchStopMotv == 0:
-            # 1.3.1: Safety in alfaLimP: make sure the guess is in the right interval
+            # 1.3.1: Safety in alfaLimP: make sure the guess is in the right
+            # interval
             if alfaLimP > self.minBadStep or alfaLimP < self.StepLimLowr[1]:
                 alfaLimP = .5 * (self.StepLimLowr[1] + self.minBadStep)
                 msg = "\n> Model has retrieved a bad guess for alfaLimP..." \
@@ -782,7 +856,7 @@ class stepMngr:
                 self.log.printL(msg)
 
             # 1.3.2: try newest step value
-            P, I, Obj = self.tryStep(sol, alfaLimP)
+            self.tryStep(sol, alfaLimP)
 
             # 1.3.3: keep in loop or not
             self.keepSrchPLim()
@@ -808,15 +882,16 @@ class stepMngr:
                                                     numpy.dot(W, logP)))
                 self.PRegrAngCoef, self.PRegrLinCoef = a, b
                 # 1.3.4.3: calculate alfaLimP according to current regression, P
-                # target just below the P limit, in order to try to get a point in
-                # the tolerance
+                # target just below the P limit, in order to try to get a point
+                # in the tolerance
                 alfaLimP = numpy.exp((logP_targ - b) / a)
                 if self.mustPrnt:
                     msg = "\n> Performed fit with n = {} points:\n" \
                           "    Steps: {}\n      Ps: {}\n Weights: {}\n" \
                           "  a = {}, b = {}\n" \
                           "  alfaLimP = {}".format(n, numpy.exp(logStep),
-                                                   numpy.exp(logP), W, a, b, alfaLimP)
+                                                   numpy.exp(logP), W,
+                                                   a, b, alfaLimP)
                     self.log.printL(msg)
 
                 # DEBUG PLOT
@@ -931,28 +1006,6 @@ class stepMngr:
         if self.mustPrnt:
             self.log.printL("\n> Starting min obj search...")
 
-        # if prevStopMotv == 1 or prevStopMotv == 3:
-        #     # previous step search either found the minimum,
-        #     # or left with too many evals
-        #     alfa = self.prevStepInfo['best']['step']
-        #     minDist = 1.
-        #     for alfa_ in self.histStep:
-        #         dist = abs(alfa-alfa_)
-        #         if dist < minDist:
-        #             minDist = dist
-        #     if minDist > eps:
-        #         if self.mustPrnt:
-        #             self.log.printL("\n> Since the last run minimized obj, let's " \
-        #                             "try the same step value: {}".format(alfa))
-        #         self.tryStep(sol,alfa,ovrdSort=True)
-        #     else:
-        #         if self.mustPrnt:
-        #             self.log.printL("\n> Apparently last run's best step minimized "
-        #                             "obj, but it was already tried here. Moving on.")
-        #
-        #         alfa, Obj = self.best['step'], self.best['obj']
-
-
         # 2.2: If the shortcut 2.1 was not taken, we must set the trios
         if not self.isTrioSet:
             # 2.2.1: Get index for best step so far
@@ -1029,7 +1082,7 @@ class stepMngr:
                 alfa = .5 * (self.trio['step'][2] + self.trio['step'][1])
 
             # 2.4.2: Try the new step. Updating the trios is done as well
-            P,I,Obj = self.tryStep(sol,alfa)
+            self.tryStep(sol,alfa)
 
             # DEBUG PLOT
             # plt.semilogx(self.histStep, self.histObj, 'o', label='Obj')
