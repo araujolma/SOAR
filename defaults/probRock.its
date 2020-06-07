@@ -131,7 +131,8 @@ tAoA = 10.0
 [trajmods] # Trajectory modifications
 #
 # Pitch-damping center [s]
-DampCent = -10.0
+DampCent = 3.0
+#-10.0
 #
 # Pitch-damping slope [-]
 DampSlop = 3.0
@@ -152,7 +153,8 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 1.0e-3
+PFtol = 1.0e-10
+#1.0e-3
 #
 ###############################################################################
 [sgra] # Internal SGRA parameters

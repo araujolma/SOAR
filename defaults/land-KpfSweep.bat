@@ -24,7 +24,7 @@ logMode = both
 probName = probLand
 
 # Configuration file (.its) for base case
-baseFile = defaults/probLand.its
+baseFile = defaults/probLand-timer.its
 
 # Initial guess for subsequent cases ('scratch', 'base', '')
 initGuesMode = 'scratch'
@@ -35,7 +35,8 @@ initGuesMode = 'scratch'
 #         separate items for each case via ', ' and 'enter')
 vars = accel,PFtol,2e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
        accel,PFtol,5e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001
+       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
+       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,2001 ,
 #vars = sgra,GSS_PLimCte,1.0e5   |  accel,acc_max,100 ,  
 #       sgra,GSS_PLimCte,1.0e10  
 #vars = accel,PFtol,1.1e-2 | sgra,GSS_PLimCte,1.0e4, 
