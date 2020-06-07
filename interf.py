@@ -6,7 +6,7 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os, shutil, time
+import dill, datetime, pprint, os, shutil, time, xlsxwriter
 from utils import getNowStr
 from configparser import ConfigParser
 
@@ -16,8 +16,8 @@ dashStr = '\n' + '-' * 88
 class logger:
     """ Class for the handler of log messages."""
 
-    def __init__(self,probName,isManu=True,makeDir=True,path='',runName='',mode='both',
-                 dateTag=True):
+    def __init__(self,probName, isManu=True, makeDir=True, path='', runName='',
+                 mode='both', dateTag=True, xlsx=False):
         """
         :param probName: Problem name (for a proper folder name);
         :param isManu: flag for determinating if in manual mode or not;
@@ -25,21 +25,34 @@ class logger:
                         It overrides all following parameters;
         :param path: Allows user specification for where the folder should be
         :param runName: further customization for folder name, seldom used
-        :param mode: logging output. 'screen' prints to screen, 'file' prints to file only;
-                     and 'both' does both;
+        :param mode: logging output. 'screen' prints to screen, 'file' prints to file
+                     only, and 'both' does both;
         :param dateTag: flag for putting or not a date tag at the end of the folder.
         """
 
 
         # Mode ('both', 'file' or 'screen') sets the target output.
         # This can be overriden in each .printL() call, though
-        self.mode = mode
+
+        if mode.startswith('both'):
+            self.mode = 0
+        elif mode.startswith('screen'):
+            self.mode = 1
+        elif mode.startswith('file'):
+            self.mode = 2
+        else:
+            msg = "Unknown logger mode: '{}'. " \
+                  "Proceeding with 'screen' mode.".format(mode)
+            print(msg)
+            self.mode = 1
+
         # this determines the necessity of manual input:
         self.isManu = isManu
 
         # Run status (for repoStat), by default it begins with 'none'
         self.runStatRep = 'none'
 
+        self.xlsx = None
         if makeDir:
             # Results folder for this run
             self.folderName = path + probName
@@ -53,7 +66,31 @@ class logger:
             os.makedirs(self.folderName)
 
             try:
-                self.fhand = open(self.folderName + os.sep + 'log.txt', 'w+')
+                fullName = self.folderName + os.sep + 'log.txt'
+                self.fhand = open(fullName, 'w+')
+                self.printL("Creating a log in file: " + fullName)
+                if xlsx:
+                    # MS Excel does not allow one to open two spreadsheets with the
+                    # same name, even if they have different paths. So, it was decided
+                    # to replicate the folder name in the .xlsx file as well. Extra
+                    # care must be taken with the os.sep character.
+                    # Thanks, Microsoft!
+                    name = self.folderName + os.sep + 'GradInfo_' + \
+                           self.folderName.replace(os.sep,'_') + '.xlsx'
+                    self.printL("\nCreating a spreadsheet in file: " + name)
+                    workbook = xlsxwriter.Workbook(name)
+                    step_tab = workbook.add_worksheet('step')
+                    obj_tab = workbook.add_worksheet('obj')
+                    P_tab = workbook.add_worksheet('P')
+                    I_tab = workbook.add_worksheet('I')
+                    J_tab = workbook.add_worksheet('J')
+                    misc_tab = workbook.add_worksheet('misc')
+
+                    self.xlsx = {'workbook': workbook, 'maxEvals': 0,
+                                 'step': step_tab, 'obj': obj_tab,
+                                 'P': P_tab, 'I': I_tab, 'J': J_tab,
+                                 'misc': misc_tab}
+
             except:
                 print("Sorry, could not open/create the file!")
                 raise
@@ -66,29 +103,32 @@ class logger:
 
     def repoStat(self,runStat):#,iterN=None):
         """ Report the status of the current run, as commanded.
-        The report is simply the creation of an empty .txt file whose title reports the
-        progress of the run. There is a simple mechanism to prevent creation of the same
+        The report is simply the creation of an empty .txt file whose title reports
+         the
+        progress of the run. There is a simple mechanism to prevent creation of the
+         same
         file again.
         :param runStat: the status to be reported.
             Either 'init' or 'inProg', 'ok', 'usrStop' or 'err'.
         :return: None
         """
         if runStat == self.runStatRep:
-            # Nothing changed. The program should only get here if some programmer called
-            # this method by mistake.
-            self.printL("\nThis run's status remains the same. Ignoring report command.")
+            # Nothing changed. The program should only get here if some programmer
+            # called this method by mistake.
+            self.printL("\nThis run's status remains the same. "
+                        "Ignoring report command.")
         else:
             self.runStatRep = runStat #updating the reported status
 
             # Delete previous status file(s)
             if not(self.runStatRep == 'none'):
-                currDir = os.getcwd() + '/' + self.folderName
+                currDir = os.getcwd() + os.sep + self.folderName
                 listedDir = os.listdir(currDir)
                 for f in listedDir:
                     if f.startswith('!runStatus-') and f.endswith('.txt'):
-                        os.remove(currDir + '/' + f)
+                        os.remove(currDir + os.sep + f)
 
-            fname = self.folderName + '/!runStatus-'
+            fname = self.folderName + os.sep + '!runStatus-'
             if runStat == 'init':
                 fname += 'initializing.txt'
             elif runStat == 'inProg':
@@ -104,25 +144,45 @@ class logger:
             fhand.close() # close handler
 
 
-    def printL(self,msg,mode=''):
-        if mode in '':
+    def printL(self,msg,mode=-1):
+        """ Print a given message.
+        Depending on the self.mode, it can be on screen or on a file or in both.
+
+        :param msg: the message to be printed
+        :param mode: override the mode of print.
+        :return: None
+        """
+
+        if mode == -1:
             mode = self.mode
 
-        if mode.startswith('both'):
+        if isinstance(mode,str):
+            raise(Exception("logger: 'mode' cannot be used as string anymore. "
+                            "I'm sorry."))
+
+        if mode == 0:
+            # both file and screen
             print(msg)
             self.fhand.write('\n'+msg)
-        elif mode.startswith('file'):
+        elif mode == 2:
+            # file only
             self.fhand.write('\n'+msg)
-        elif mode.startswith('screen'):
+        else:
+            # screen only
             print(msg)
 
     def pprint(self,obj):
-        if self.mode.startswith('both'):
+        """Pretty print."""
+
+        if self.mode == 0:
+            # both file and screen
             pprint.pprint(obj)
+            pprint.pprint(obj, self.fhand)
+        elif self.mode == 2:
+            # file only
             pprint.pprint(obj,self.fhand)
-        elif self.mode.startswith('file'):
-            pprint.pprint(obj,self.fhand)
-        elif self.mode.startswith('screen'):
+        else:
+            # screen only
             pprint.pprint(obj)
 
     def prntDashStr(self):
@@ -135,13 +195,58 @@ class logger:
             self.printL(msg)
 
         if self.isManu:
-            inp = input(bscImpStr)
+            inp = input(bscImpStr) # the string 'bscImpStr' is printed on screen here
         else:
+            # override the input if it is not on manual mode (e.g. batch)
             inp = ''
-        self.printL(bscImpStr + inp, mode='file')
+
+        # If the output options contain "file mode" print to file only, since the
+        # screen was already covered by built-in function 'input'
+        if self.mode == 0 or self.mode == 2: #
+            self.printL(bscImpStr + inp, mode=2)
         return inp
 
     def close(self):
+        """ Close the txt file and the spreadsheet if it is the case."""
+
+        if self.xlsx is not None:
+            # Writing the "legends" for most tabs
+            for key in ['step', 'P', 'I', 'J', 'obj']:
+                self.xlsx[key].write(0, 0, 'Base value')
+                for row in range(1, self.xlsx['maxEvals']+2):
+                    self.xlsx[key].write(row, 0, 'Eval #{}'.format(row))
+
+            # Writing the "legends" for the 'misc' tab - step limits
+            row, col = 0, 0
+            for key in ['pi','PLim','Obj0','ObjNeg']:
+                self.xlsx['misc'].write(row, col, key+'-StepLimActv')
+                row += 1
+                self.xlsx['misc'].write(row, col, key+'-StepLimLowr')
+                row += 1
+                self.xlsx['misc'].write(row, col, key+'-StepLimUppr')
+                row += 2
+            # Writing the "legends" for the 'misc' tab - trios
+            self.xlsx['misc'].write(row, col, 'stepMinObj-lowrBnd')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepMinObj')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepMinObj-upprBnd')
+            row += 2
+            # Writing the "legends" for the 'misc' tab - stop motives
+            self.xlsx['misc'].write(row, col, 'pLimSrchStopMotv')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'stepSrchStopMotv')
+            # Writing the "legends" for the 'misc' tab - P limit regression coefs
+            row += 2
+            self.xlsx['misc'].write(row, col, 'PLimRegrAngCoef')
+            row += 1
+            self.xlsx['misc'].write(row, col, 'PLimRegrLinCoef')
+
+            # Close the spreadsheet
+            #self.printL("Closing spreadsheet...")
+            self.xlsx['workbook'].close()
+            #self.printL("Spreadsheet closed.")
+        #self.printL("Closing logger file...")
         self.fhand.close()
 
 class ITman:
@@ -152,7 +257,6 @@ class ITman:
     plotting, debug modes, etc.
 
     """
-
 
     def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
                  destFold=''):
@@ -174,7 +278,7 @@ class ITman:
         self.defOpt = 'newSol'#'loadSol'#
         self.initOpt = 'extSol'
         self.confFile = confFile
-        self.loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+        self.loadSolDir = 'defaults' + os.sep + probName + '_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
         self.GRplotSolRate = 20#1#
@@ -185,6 +289,12 @@ class ITman:
         self.RestHistShowRate = 100#20
         self.ShowEigRate = 100
         self.ShowGRrateRate = 20
+        # TODO: Are these rates too large? Add these parameters to the .its file
+        #  and change them there!
+        self.ShowLambRate = 10000
+        self.ShowVarRate = 10000
+        self.plotResPRate = 10000
+        self.plotResQRate = 10000
         self.parallelOpt = {'gradLMPBVP': True,
                             'restLMPBVP': True}
         self.default_dbugOptRest = {'pausRest': False,
@@ -198,34 +308,37 @@ class ITman:
                                     'plotCorr': False,
                                     'plotCorrFin': False}
         flag = False
-        self.default_dbugOptGrad = {'pausGrad':flag,#True,#
-                                    'pausCalcQ':flag,
-                                    'prntCalcStepGrad':True,#flag,#
-                                    'plotCalcStepGrad': flag,#True,#flag,#
+        self.default_dbugOptGrad = {'pausGrad': flag,#True,#
+                                    'pausCalcQ': flag,#True,#
+                                    'prntCalcStepGrad': True,#flag,#
+                                    'plotCalcStepGrad': flag,#True,#
                                     'manuInptStepGrad': flag,
-                                    'pausCalcStepGrad':flag,#True,#
-                                    'plotQx':flag,
-                                    'plotQu':flag,
-                                    'plotLam':flag,
-                                    'plotQxZoom':flag,
-                                    'plotQuZoom':flag,
-                                    'plotQuComp':flag,
-                                    'plotQuCompZoom':flag,
-                                    'plotSolQxMax':flag,
-                                    'plotSolQuMax':flag,
-                                    'plotCorr':flag,
-                                    'plotCorrFin':flag,
-                                    'plotF':flag,#True,
-                                    'plotFint':flag,
-                                    'plotI':flag}
+                                    'pausCalcStepGrad': flag,#True,#
+                                    'xlsxCalcStepGrad': True,#flag,#
+                                    'plotQx': flag,
+                                    'plotQu': flag,
+                                    'plotLam': flag,
+                                    'plotQxZoom': flag,
+                                    'plotQuZoom': flag,
+                                    'plotQuComp': flag,
+                                    'plotQuCompZoom': flag,
+                                    'plotSolQxMax': flag,
+                                    'plotSolQuMax': flag,
+                                    'plotCorr': flag,
+                                    'plotCorrFin': flag,
+                                    'plotF': flag,#True,
+                                    'plotFint': flag,
+                                    'plotI': flag}
 
         if isInteractive:
             # screen only mode
             self.log = logger(probName,runName='interactive',makeDir=False)
         else:
-            # Create directory for logs and stuff; dateTag only if manual flag is true
+            # Create directory for logs and stuff;
+            # dateTag only if manual flag is true
             self.log = logger(probName, isManu=self.isManu, path=destFold,
-                              dateTag=self.isManu)
+                              dateTag=self.isManu,
+                              xlsx=self.default_dbugOptGrad['xlsxCalcStepGrad'])
 
         if len(confFile) > 0:
             # Get the configurations in the file.
@@ -255,6 +368,14 @@ class ITman:
                     self.ShowEigRate = Pars.getint(sec, 'ShowEigRate')
                 if 'ShowGRrateRate' in Pars.options(sec):
                     self.ShowGRrateRate = Pars.getint(sec, 'ShowGRrateRate')
+                if 'ShowLambRate' in Pars.options(sec):
+                    self.ShowLambRate = Pars.getint(sec, 'ShowLambRate')
+                if 'ShowVarRate' in Pars.options(sec):
+                    self.ShowVarRate = Pars.getint(sec, 'ShowVarRate')
+                if 'PlotResPRate' in Pars.options(sec):
+                    self.plotResPRate = Pars.getint(sec, 'PlotResPRate')
+                if 'PlotResQRate' in Pars.options(sec):
+                    self.plotResQRate = Pars.getint(sec, 'PlotResQRate')
                 if 'PrllGradLMPBVP' in Pars.options(sec):
                     self.parallelOpt['gradLMPBVP'] = \
                         Pars.getboolean(sec, 'PrllGradLMPBVP')
@@ -560,7 +681,10 @@ class ITman:
         if path == '':
             path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
-        sol.log = None
+        # set the logger to a manual one for loading later
+        # TODO: is it really necessary to create a new logger?
+        #  Changing the mode to 'screen' should work!
+        sol.log = logger(sol.probName, makeDir=False, mode='screen')
         self.log.printL("\nWriting solution to '"+path+"'.")
         with open(path,'wb') as outp:
             dill.dump(sol,outp,-1)
@@ -611,9 +735,6 @@ class ITman:
             sol.histI[0] = sol.I
             sol.histIorig[0] = Iorig
             sol.histIpf[0] = Ipf
-
-        # Calculate Q values, just for show. They don't even mean anything.
-        sol.calcQ()
 
         # Plot trajectory
         sol.plotTraj()
@@ -702,6 +823,18 @@ class ITman:
         else:
             return False
 
+    def showLambCond(self, sol):
+        if sol.NIterGrad % self.ShowLambRate == 0:
+            return True
+        else:
+            return False
+
+    def showVarCond(self, sol):
+        if sol.NIterGrad % self.ShowVarRate == 0:
+            return True
+        else:
+            return False
+
     def plotSolGradCond(self,sol):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
@@ -722,6 +855,18 @@ class ITman:
         else:
             return False
 
+    def plotResPCond(self, sol):
+        if sol.NIterGrad % self.plotResPRate == 0:
+            return True
+        else:
+            return False
+
+    def plotResQCond(self, sol):
+        if sol.NIterGrad % self.plotResQRate == 0:
+            return True
+        else:
+            return False
+
     def gradRestCycl(self,sol,altSol=None):
 
         self.log.prntDashStr()
@@ -730,16 +875,21 @@ class ITman:
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
+        plotResP, plotResQ = False, False
+        # TODO: put this parameter to the external configuration file
+        stopAt = 400
+        stepMan = None
         while do_GR_cycle:
 
             # Start of new cycle: calc P, I, as well as a new grad correction
             # in order to update lambda and mu, and therefore calculate Q for
             # checking.
-            plotResPQ = sol.NIterGrad % 10 == 0
-            sol.P,_,_ = sol.calcP(mustPlotPint=plotResPQ)
+
+            sol.P,_,_ = sol.calcP(mustPlotPint=plotResP)
 
             P_base = sol.P
-            I_base, _, _ = sol.calcI()
+            sol.J, sol.J_Lint, sol.J_Lpsi, sol.I, sol.Iorig, sol.Ipf = sol.calcJ()
+            I_base = sol.I
             self.log.prntDashStr()
             msg = "\nStarting new cycle, I_base = {:.4E}".format(I_base) + \
                   ", P_base = {:.4E}".format(P_base)
@@ -749,25 +899,27 @@ class ITman:
             corr, lam, mu = sol.LMPBVP(rho=1.0,isParallel=isParallel)
             sol.lam, sol.mu = lam, mu
 
-            sol.Q, Qx, Qu, Qp, Qt = sol.calcQ(mustPlotQs=plotResPQ)
+            sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
 
-
-            if sol.Q <= sol.tol['Q']:
+            if sol.Q <= sol.tol['Q'] or sol.NIterGrad > stopAt:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
-                _,_,_,_,_ = sol.calcQ(mustPlotQs=True)
-                self.log.printL("\nTerminate program. Solution is sol_r.")
+                #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
+                if sol.Q <= sol.tol['Q']:
+                    msg = '\nTolerance for Q functional is met!'
+                else:
+                    msg = '\nToo many gradient iterations.'
+                msg += "\nTerminate program. Solution is sol_r."
+                self.log.printL(msg)
                 # This is just to make sure the final values of Q, I, J, etc
                 # get registered.
                 sol.updtEvntList(evnt)
-                sol.updtHistGrad(0.,1)
+                sol.updtHistGrad(0.,1) # why is this here?
                 sol.updtHistP(mustPlotPint=True)
                 do_GR_cycle = False
-
             else:
-                msg = "\nOk, now Q = {:.4E}".format(sol.Q) + \
-                      " > {:.4E}".format(sol.tol['Q']) + " = tolQ,\n"+\
-                      "so let's keep improving the solution!\n"
+                msg = "\nOk, now Q = {:.4E} > {:.4E} = tolQ,\nso let's keep" \
+                      " improving the solution!\n".format(sol.Q,sol.tol['Q'])
                 self.log.printL(msg)
                 #sol.plotSol()
                 #sol.plotF()
@@ -778,9 +930,8 @@ class ITman:
                 retry_grad = False
                 #alfa_g_0 = 1.0
                 alfa_base = sol.histStepGrad[sol.NIterGrad]
-                stepMan = None
-                while keep_walking_grad:
 
+                while keep_walking_grad:
                     # This stays here in order to properly register the
                     # gradAccepts and the gradRejects
                     sol.updtEvntList(evnt)
@@ -799,20 +950,18 @@ class ITman:
                     # Up to this point, the solution is fully restored!
 
                     sol_new.I,_,_ = sol_new.calcI()
-                    msg = "\nBefore:\n" + \
-                          "  I = {:.6E}".format(I_base) + \
-                          ", P = {:.4E}".format(P_base) + \
-                          "\n... after grad with " + \
-                          "alfa = {:.4E}:\n".format(alfa) + \
-                          "  dI = {:.6E}".format(I_mid-I_base) + \
-                          ", P = {:.4E}".format(P_mid) + \
-                          "\n... and after restoring " + str(contRest) + \
-                          " times:\n" + \
-                          "  dI = {:.6E}".format(sol_new.I-I_base) + \
+                    msg = "\nBefore:\n" \
+                          "  I = {:.6E}, P = {:.4E}\n... ".format(I_base,P_base) + \
+                          "after grad (with {} obj evals)".format(stepMan.cont+1) + \
+                          " gave alfa = {:.4E}:\n".format(alfa) + \
+                          "  dI = {:.6E}, P = {:.4E}".format(I_mid-I_base,P_mid) + \
+                          "\n... and after restoring {} times:".format(contRest) + \
+                          "\n  dI = {:.6E}".format(sol_new.I-I_base) + \
                           ", P = {:.4E}".format(sol_new.P) + \
                           "\nVariation in I: " + \
                             str(100.0*(sol_new.I/I_base-1.0)) + "%" + \
-                          '\nRelative reduction of I (w.r.t. theoretical dI/dStep): ' + \
+                          '\nRelative reduction of I' \
+                          ' (w.r.t. theoretical dI/dStep): ' + \
                           str(100.0 * ((sol_new.I-I_base)/alfa/(-sol.Q))) + "%"
                     self.log.printL(msg)
 
@@ -827,7 +976,8 @@ class ITman:
                         next_grad += 1
                         msg = "\nNext grad counter = {}" \
                               "\nLast grad counter = {}" \
-                              "\nI was lowered, step given!".format(next_grad,last_grad)
+                              "\nI was lowered, step given!".format(next_grad,
+                                                                    last_grad)
                         self.log.printL(msg)
                     else:
                         # The conditions were not met. Discard this solution
@@ -844,10 +994,10 @@ class ITman:
                               "\nLast grad counter = {}\nI was not lowered... " \
                               "trying again!".format(next_grad,last_grad)
                         self.log.printL(msg)
+                    sol.histObjEval[next_grad + last_grad] = stepMan.cont+1
                     #
                     #input("Press any key to continue... ")
                 #
-
                 if retry_grad:
                     sol.rest(parallelOpt=self.parallelOpt)
                 #
@@ -877,6 +1027,20 @@ class ITman:
                 sol.save['eig'] = True
             else:
                 sol.save['eig'] = False
+
+            if self.showLambCond(sol):
+                self.log.printL("\nLambda showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['lambda'] = True
+            else:
+                sol.save['lambda'] = False
+
+            if self.showVarCond(sol):
+                self.log.printL("\nVariation showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                sol.save['var'] = True
+            else:
+                sol.save['var'] = False
 
             if self.saveSolCond(sol):
                 self.log.printL("\nSolution saving condition is met!")
@@ -911,6 +1075,20 @@ class ITman:
                       "Press any key to continue, or ctrl+C to stop.\n" + \
                       "Load last saved solution to go back to GR cycle."
                 self.log.prom(msg)
+
+            if self.plotResPCond(sol):
+                self.log.printL("\nP residual showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                plotResP = True
+            else:
+                plotResP = False
+
+            if self.plotResQCond(sol):
+                self.log.printL("\nQ residual showing condition is met!\n" + \
+                                "It will be done in the next gradStep.")
+                plotResQ = True
+            else:
+                plotResQ = False
             #
         #
 

@@ -19,7 +19,8 @@ class binFlagDict(dict):
     """Class for binary flag dictionaries.
     Provides good grounding for any settings or options dictionary. """
 
-    def __init__(self,inpDict={},inpName='options'):
+    def __init__(self, inpDict={}, inpName='options'):
+        super().__init__()
         self.name = inpName
         for key in inpDict.keys():
             self[key] = inpDict[key]
@@ -50,7 +51,7 @@ class sgra:
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
-        # TODO: since this formula actually does not change, this should be a method here...
+        # TODO: since this formula actually does not change, this should be a method...
         self.Ns = 2*n*s + p
         self.dt = 1.0/(N-1)
         self.t = numpy.linspace(0,1.0,N)
@@ -61,8 +62,20 @@ class sgra:
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
 
+        # If the problem has unnecessary variations(typically, boundary conditions
+        # containing begin of arc specified values for states), it should override this
+        # attribute with a cropped version of the Ns+1 identity matrix, omitting the
+        # columns corresponding to the unnecessary variations, according to the order
+        # shown in equation (26) in Miele and Wang(2003).
+        self.omitEqMat = numpy.eye(self.Ns+1)
+        self.omitVarList = list(range(self.Ns+1))
+        self.omit = False
+
         self.boundary, self.constants, self.restrictions = {}, {}, {}
         self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
+        self.Iorig, self.I_pf = 1., 1
+        self.J_Lint, self.J_Lpsi = 1., 1.
+        self.Qx, self.Qu, self.Qp, self.Qt = 1., 1., 1., 1.
 
         # Histories
         self.declHist()
@@ -120,23 +133,27 @@ class sgra:
         # Parallelism options
         self.isParallel = {'gradLMPBVP': parallel.get('gradLMPBVP',False),
                            'restLMPBVP': parallel.get('restLMPBVP',False)}
+        self.timer = -1. # timer for the run
 
     # Basic "utility" methods
 
     def copy(self):
         """Copy the solution. It is useful for applying corrections, generating
         baselines for comparison, etc.
-        Special care must be given for the logging object, however."""
 
-        # Get logging object (always by reference)
-        log = self.log
-        # Clear the reference in the solution
-        self.log = None
-        # Do the copy
-        newSol = copy.deepcopy(self)
-        # Point the logging object back into the solutions (original and copy)
-        newSol.log = log
-        self.log = log
+        This used to make deep, recursive copies, but shallow ones are much faster."""
+
+        # Do the copy - shallow copy is much faster, but the elements are passed by
+        # reference... special attention must be given to the elements that will be
+        # changed
+        newSol = copy.copy(self)
+
+        # Assign x, u and pi to proper copies of the former values.
+        newSol.x = self.x.copy()
+        newSol.u = self.u.copy()
+        newSol.pi = self.pi.copy()
+        newSol.P = 1. # This is just to the change the reference from self.P ...
+
         return newSol
 
     def aplyCorr(self,alfa,corr):
@@ -486,6 +503,9 @@ class sgra:
     def showHistGRrate(self,*args,**kwargs):
         return hist_sgra.showHistGRrate(self,*args,**kwargs)
 
+    def showHistObjEval(self,*args,**kwargs):
+        return hist_sgra.showHistObjEval(self,*args,**kwargs)
+
     def copyHistFrom(self,*args,**kwargs):
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
@@ -496,7 +516,7 @@ class sgra:
 #        phi = self.calcPhi()
 #        err = phi - ddt(self.x,self.N)
 
-        # New method, adequate for trapezoidal intergration scheme
+        # New method, adequate for trapezoidal integration scheme
         phi = self.calcPhi()
         err = numpy.zeros((self.N,self.n,self.s))
 
@@ -515,9 +535,17 @@ class sgra:
 
         helper = LMPBVPhelp(self,rho)
 
+        # get proper range according to grad or rest and omit or not
+        if rho > .5 and self.omit:
+            # Grad and omit: use only the elements from the omitted list
+            rang = self.omitVarList
+        else:
+            # Rest or no omit: use all the elements
+            rang = list(range(self.Ns+1))
+
         if isParallel:
             pool = Pool()
-            res = pool.map(helper.propagate,range(self.Ns+1))
+            res = pool.map(helper.propagate, rang)
             pool.close()
             pool.join()
         else:
@@ -528,7 +556,7 @@ class sgra:
                 self.log.printL("\nRunning REST in sequential " + \
                                 "(non-parallel) mode...\n")
             res = list()
-            for j in range(self.Ns+1):
+            for j in rang:
                 outp = helper.propagate(j)
                 res.append(outp)
             #
@@ -537,13 +565,13 @@ class sgra:
         A,B,C,lam,mu = helper.getCorr(res,self.log)
         corr = {'x':A, 'u':B, 'pi':C}
 
+        # these are all non-essential for the algorithm itself
         if rho > 0.5:
             if self.save.get('eig',False):
                 helper.showEig(self.N,self.n,self.s)#,mustShow=True)
                 self.savefig(keyName='eig',fullName='eigenvalues')
 
-            # TODO: Use the 'self.save' dictionary here as well...
-            if self.NIterGrad % 20 == 0:
+            if self.save.get('lambda', False):
                 self.plotSol(opt={'mode':'lambda'})
                 self.plotSol(opt={'mode':'lambda'},piIsTime=False)
 
@@ -562,9 +590,8 @@ class sgra:
             self.log.printL("\nBB = {:.4E}".format(BB) + \
                             ", CC = {:.4E},".format(CC) + \
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
-            # TODO: Use the 'self.save' dictionary here as well...
 
-            if self.NIterGrad % 20 == 0:
+            if self.save.get('var', False):
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)

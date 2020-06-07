@@ -7,7 +7,7 @@ Created on Tue Jun 27 13:25:28 2017
 """
 import numpy, itsme
 from sgra import sgra
-from atmosphere import rho
+from atmosphere import rho, rhoSGRA
 import matplotlib.pyplot as plt
 from utils import simp#, getNowStr
 from naivRock import naivGues
@@ -443,6 +443,42 @@ class prob(sgra):
             for arc in range(s):
                 pi[arc] = t_its[arcBginIndx[arc+1]] - t_its[arcBginIndx[arc]]
 
+            # Set up the variation omission configuration:
+
+            # list of variations after omission
+            mat = numpy.eye(self.q)
+            # matrix for omitting equations
+            # Assemble the list of equations to be omitted (start by omitting none)
+            omitEqMatList = list(range(self.q))
+            # Omit one equation for each assigned state (height)
+            Ns = 2 * self.n * self.s + self.p
+            for arc in range(addArcs-1,-1,-1):
+                i = 5 + 5 * arc
+                #psi[i + 1] = x[0, 0, arc + 1] - TargHeig[arc]
+                omitEqMatList.pop(i)
+            # Removing the first n elements, corresponding to the initial states
+            for i in range(self.n):
+                omitEqMatList.pop(0)
+            self.omitEqMat = mat[omitEqMatList, :]
+            # list of variations after omission
+            omitVarList = list(range(Ns + 1))
+            # this is how it works with 1 added arc
+            #self.omitVarList = [  # states for 1st arc (all omitted)
+            #    4, 5, 6, 7,  # Lambdas for 1st arc
+            #    9, 10, 11,  # states for 2nd arc (height omitted)
+            #    12, 13, 14, 15,  # Lambdas for 2nd arc
+            #    16, 17,  # pi's, 1st and 2nd arc
+            #    18]  # final variation
+            for arc in range(addArcs - 1, -1, -1):
+                i = 2 * self.n * (arc+1)
+                # states in order: height (2x), speed, flight angle and mass
+                # psi[i + 1] = x[0, 0, arc + 1] - TargHeig[arc]
+                omitVarList.pop(i)
+            # Removing the first n elements, corresponding to the initial states
+            for i in range(self.n):
+                omitVarList.pop(0)
+            self.omitVarList = omitVarList
+            self.omit = True
 
             ###################################################################
             # STEP 4: Re-integrate the differential equation with a fixed step
@@ -533,6 +569,7 @@ class prob(sgra):
         #     while self.P > self.tol['P']:
         #         self.rest(parallelOpt={'restLMPBVP':True})
         #     TWR = self.constants['Thrust'][0] / self.boundary['m_initial'] / self.constants['grav_e']
+        #
         #     #self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
         #
         # S = self.constants['s_ref'][0]  # km²
@@ -541,7 +578,7 @@ class prob(sgra):
         # dS = (S_targ - S) / 10.  # km²
         # print("S = {:.4G} km², S_targ = {:.4G} km²".format(S, S_targ))
         # sign = 1.
-        # while abs(S - S_targ) > S_targ * 1e-7:
+        # while abs(S - S_targ) > S_targ * 1e-8:
         #     self.log.printL(
         #         "WL = {:.4G} kgf/m². Time to change that area!".format(self.boundary['m_initial'] / (S * 1e6)))
         #     # input("\nI am about to mess things up. Be careful. ")
@@ -557,8 +594,14 @@ class prob(sgra):
         #     while self.P > self.tol['P']:
         #         self.rest(parallelOpt={'restLMPBVP': True})
         #     # self.compWith(solInit,altSolLabl='itsme',piIsTime=False)
-
-
+        #
+        # plt.plot(self.t * self.pi[0], self.x[:, 2, 0] / d2r)
+        # plt.xlabel('t [s]')
+        # plt.ylabel('gamma [deg]')
+        # plt.grid()
+        # plt.show()
+        #
+        # self.plotTraj(mustSaveFig=False)
 # =============================================================================
 #        # Basic desaturation:
 #
@@ -708,8 +751,7 @@ class prob(sgra):
 
         dens = numpy.empty((N,s))
         for arc in range(s):
-            for k in range(N):
-                dens[k,arc] = rho(x[k,0,arc])
+            dens[:,arc] = rhoSGRA(x[:,0,arc])
 
         pDynTimesSref = numpy.empty_like(CL)
         for arc in range(s):
@@ -970,16 +1012,8 @@ class prob(sgra):
         dens = numpy.empty((N,s))
         del_rho = numpy.empty((N,s))
         for arc in range(s):
-            for k in range(N):
-                dens[k,arc] = rho(self.x[k,0,arc])
-                del_rho[k,arc] = (rho(self.x[k,0,arc]+.05) - dens[k,arc])/.05
-
-#        rhoS = numpy.empty((N,s)) # density times ref. area!
-#        del_rhoS = numpy.empty((N,s))
-#        for arc in range(s):
-#            for k in range(N):
-#                rhoS[k,arc] = rho(self.x[k,0,arc])
-#                del_rhoS[k,arc] = (rho(self.x[k,0,arc]+.1) - dens[k,arc])/.1
+            dens[:, arc] = rhoSGRA(self.x[:, 0, arc])
+            del_rho[:, arc] = (rhoSGRA(self.x[:, 0, arc] + .05) - dens[:,arc]) / .05
 
 
         # calculate gravity (at each time/arc!)
@@ -1543,8 +1577,7 @@ class prob(sgra):
             s_ref = self.constants['s_ref']
             for arc in range(s):
                 thrust[:,arc] = beta[:,arc] * MaxThrs[arc]
-                for k in range(self.N):
-                    dens[k,arc] = rho(self.x[k,0,arc])
+                dens[:,arc] = rhoSGRA(self.x[:,0,arc])
                 pDyn[:,arc] = .5 * dens[:,arc] * (self.x[:,1,arc])**2
                 L[:,arc] = pDyn[:, arc] * s_ref[arc] * \
                            (CL0[arc] + alpha[:,arc] * CL1[arc])
@@ -2167,9 +2200,8 @@ class prob(sgra):
         for arc in range(s):
             thrust[:, arc] = beta[:, arc] * MaxThrs[arc]
             thrust_alt[:, arc] = beta_alt[:, arc] * MaxThrs[arc]
-            for k in range(self.N):
-                dens[k, arc] = rho(self.x[k, 0, arc])
-                dens_alt[k, arc] = rho(altSol.x[k,0,arc])
+            dens[:, arc] = rhoSGRA(self.x[:, 0, arc])
+            dens_alt[:, arc] = rhoSGRA(altSol.x[:, 0, arc])
             pDyn[:,arc] = .5 * dens[:,arc] * (self.x[:, 1, arc]) ** 2
             pDyn_alt[:,arc] = .5 * dens_alt[:,arc] * \
                               (altSol.x[:, 1, arc]) ** 2
@@ -2406,9 +2438,8 @@ class prob(sgra):
         indBurn.append(0)
         iCont = -1 # continuous counter (all arcs concatenated)
         for arc in range(s):
+            dens[:, arc] = rhoSGRA(self.x[:, 0, arc])
             for i in range(N):#range(strtInd,N):
-
-                dens[i, arc] = rho(self.x[i, 0, arc])
                 iCont += 1
 
                 if isBurn:

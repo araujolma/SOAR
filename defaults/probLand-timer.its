@@ -3,7 +3,6 @@
 #
 ###############################################################################
 
-
 ###############################################################################
 [settings] # Overall settings for SGRA
 #
@@ -20,11 +19,11 @@ defOpt = newSol
 #loadAltSolDir = ''
 #
 # Gradient-restoration cycle: solution plotting rate
-GRplotSolRate = 20
+GRplotSolRate = 10000
 #
 #
 # Gradient-restoration cycle: solution saving rate
-GRsaveSolRate = 100
+GRsaveSolRate = 10000
 #
 #
 # Gradient-restoration cycle: pausing rate
@@ -32,23 +31,23 @@ GRpausRate = 10000
 #
 # 
 # Gradient phase: gradient step history plotting rate
-GradHistShowRate = 20
+GradHistShowRate = 10000
 #
 #
 # ??? Restoration phase: restoration solution plotting rate ??
-RestPlotSolRate = 20
+RestPlotSolRate = 10000
 #
 #
 # ??? Restoration phase: restoration step history plotting rate ??
-RestHistShowRate = 100
+RestHistShowRate = 10000
 #
 #
 # Gradient-restoration cycle: eigenvalue plotting rate
-ShowEigRate = 20
+ShowEigRate = 10000
 #
 #
 # Gradient-restoration cycle: "gradient-restoration ratio" showing rate
-ShowGRrateRate = 20
+ShowGRrateRate = 10000
 #
 #
 # Gradient phase: use parallel computing?
@@ -67,16 +66,16 @@ tolP = 1e-8
 tolQ = 1e-4
 #
 # Pi lower limits
-pi_min = 0.0
+pi_min = 0.0, 0.0
 #
 # Pi upper limits
-pi_max = None
+pi_max = None, None
 #
 # Number of divisions in time array [-]
-N = 51
+N = 101
 #
 # Gradient Step Search: P limit constant (see grad_sgra.py) [-]
-GSS_PLimCte = 1.0e5
+GSS_PLimCte = 1.0e8
 #
 # Grad Step Search: step limit closeness tolerance (see grad_sgra.py) [-]
 GSS_stopStepLimTol = 1.0e-2
@@ -91,3 +90,67 @@ GSS_stopNEvalLim = 100
 GSS_findLimStepTol = 1.0e-2
 #
 ###############################################################################
+
+###############################################################################
+[vehicle] # Vehicle parameters
+# Payload mass [kg]
+Mu = 100.0
+#
+# Initial propellant mass [kg]
+Mp = 1000.0
+#
+# Number of stages
+NStag = 1
+#
+# Specific impulse [s]
+Isp = 200.0
+#
+# Structural efficiency [-]
+efes = .9
+#
+# Max Thrust [kN]
+T = 10.0
+#
+###############################################################################
+[env] # Environment constants
+#
+# Gravitational parameter [km3/s2]
+GM = 4903.8958016507195
+#
+# Planet radius [km]
+R = 1737.0
+#
+# Earth surface gravity [km/s²]
+g0 = 9.81e-3
+#
+###############################################################################
+[dyn] # Dynamics parameters
+#
+
+###############################################################################
+[restr] # Restrictions
+#
+# Initial altitude [km]
+h = 10.0
+#
+# Initial velocity [km/s]
+V = 0.0
+#
+
+###############################################################################
+[accel] # Acceleration limitation parameters
+#
+# Maximum tangential acceleration [g]
+acc_max = 5.
+#
+# Penalty function mode [‘lin’,’quad’,’tanh’]
+PFmode = quad
+#
+# Relative tolerance for maximum acceleration [-]
+acc_max_relTol = 0.1
+#
+# Penalty function value at tolerance acceleration [-]
+PFtol = 1e-2
+#3e-2
+#
+

@@ -20,7 +20,7 @@ class LMPBVPhelp():
         """Initialization method. Comprises all the "common" calculations for
         each independent solution to be added over.
 
-        According to the Miele (2003) convention,
+        According to the Miele and Wang (2003) convention,
             rho = 0 for rest, and rho = 1 for grad.
         """
 
@@ -35,10 +35,18 @@ class LMPBVPhelp():
         self.dt = 1.0/(N-1)
         self.rho = rho
 
-        # calculate integration error (only if necessary)
-        psi = sol.calcPsi()
-        self.psi = psi
+        # get omission status from sol
+        self.omit = sol.omit
+        if self.omit:
+            self.omitEqMat = sol.omitEqMat
+            self.omitVarList = sol.omitVarList
+        # calculate psi
+        self.psi = sol.calcPsi()
+
         if rho < .5:
+            # Restoration. Override the omit
+            self.omit = False
+            # calculate integration error (only if necessary)
             err = sol.calcErr()
         else:
             err = numpy.zeros((N,n,s))
@@ -114,6 +122,23 @@ class LMPBVPhelp():
                 DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
                 DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
         self.DynMat = DynMat
+
+        # This is a strategy for lowering the cost of the trapezoidal solver.
+        # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n, resulting in a
+        # cost in the order of (N-1) * s * (2ns+p) * 4n² ; it is better to pre-invert
+        # (N-1) * s matrices of order 2n, resulting in a cost in the order of
+        # (N-1) * s * 8n³. This should always result in an increased performance because
+        #         (N-1) * s * 8n³ < (N-1) * s * (2ns+p) * 4n²
+
+        if self.solver == 'trap':
+            I = numpy.eye(2 * n)
+            InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
+            mhdt = -.5 * self.dt
+            for arc in range(s):
+                for k in range(1,N):
+                    InvDynMat[k, :, :, arc] = numpy.linalg.inv(
+                        I + mhdt * DynMat[k, :, :, arc])
+            self.InvDynMat = InvDynMat
 
         #self.showEig(N,n,s)
 
@@ -253,7 +278,7 @@ class LMPBVPhelp():
                                 (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
                 for k in range(N-1):
-                    Xi[k+1,:,arc] = numpy.linalg.solve(I - .5 * dt * DynMat[k+1,:,:,arc],\
+                    Xi[k+1,:,arc] = self.InvDynMat[k+1,:,:,arc].dot(
                       (I + .5 * dt * DynMat[k,:,:,arc]).dot(Xi[k,:,arc]) + \
                       .5 * dt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
                     lam[k+1,:,arc] = Xi[k+1,n:,arc]
@@ -617,16 +642,25 @@ class LMPBVPhelp():
 
         # Get sizes
         Ns,N,n,m,p,q,s = self.Ns,self.N,self.n,self.m,self.p,self.q,self.s
-        rho1 = self.rho - 1.0
 
         # Declare matrices Ctilde, Dtilde, Etilde, and the integral term
-        Ct = numpy.empty((p,Ns+1))
-        Dt = numpy.empty((2*n*s,Ns+1))
-        Et = numpy.empty((2*n*s,Ns+1))
-        phiLamInt = numpy.empty((p,Ns+1))
+        if self.omit:
+            # Grad and omit: proceed to omit
+            NsRed = len(self.omitVarList)
+            q_ = q + NsRed - Ns - 1
+            omit = self.omitEqMat
+        else:
+            # nothing is omitted
+            NsRed = Ns + 1
+            q_ = q
+
+        Ct = numpy.empty((p,NsRed))
+        Dt = numpy.empty((2*n*s,NsRed))
+        Et = numpy.empty((2*n*s,NsRed))
+        phiLamInt = numpy.empty((p,NsRed))
 
         # Unpack outputs from 'propagate' into proper matrices Ct, Dt, etc.
-        for j in range(Ns+1):
+        for j in range(NsRed):
             Ct[:,j] = res[j]['C']
             Dt[:,j] = res[j]['Dt']
             Et[:,j] = res[j]['Et']
@@ -635,22 +669,27 @@ class LMPBVPhelp():
         # Assembly of matrix M and column 'Col' for the linear system
 
         # Matrix for linear system involving k's and mu's
-        M = numpy.zeros((Ns+q+1,Ns+q+1))
+        M = numpy.zeros((NsRed+q,NsRed+q))
         # from eq (34d) - k term
-        M[0,:(Ns+1)] = numpy.ones(Ns+1)
+        M[0,:NsRed] = numpy.ones(NsRed)
         # from eq (34b) - mu term
-        M[(q+1):(q+1+p),(Ns+1):] = self.psip.transpose()
+        M[(q_+1):(q_+1+p),NsRed:] = self.psip.transpose()
         # from eq (34c) - mu term
-        M[(p+q+1):,(Ns+1):] = self.psiy.transpose()
+        M[(p+q_+1):,NsRed:] = self.psiy.transpose()
         # from eq (34a) - k term
-        M[1:(q+1),:(Ns+1)] = self.psiy.dot(Dt) + self.psip.dot(Ct)
+        if self.omit:
+            # under omission, less equations are needed
+            M[1:(q_+1), :NsRed] = omit.dot(self.psiy.dot(Dt) + self.psip.dot(Ct))
+        else:
+            # no omission, all the equations are needed
+            M[1:(q_ + 1), :NsRed] = self.psiy.dot(Dt) + self.psip.dot(Ct)
         # from eq (34b) - k term
-        M[(q+1):(q+p+1),:(Ns+1)] = Ct - phiLamInt
+        M[(q_+1):(q_+p+1),:NsRed] = Ct - phiLamInt
         # from eq (34c) - k term
-        M[(q+p+1):,:(Ns+1)] = Et
+        M[(q_+p+1):,:NsRed] = Et
 
         # column vector for linear system involving k's and mu's  [eqs (34)]
-        col = numpy.zeros(Ns+q+1)
+        col = numpy.zeros(NsRed+q)
         col[0] = 1.0 # eq (34d)
 
         # Integral term
@@ -671,10 +710,10 @@ class LMPBVPhelp():
                     sumIntFpi[ind] += simp(self.fp[:,ind,arc],N)
                 #
             #
-            col[(q+1):(q+p+1)] = -self.rho * sumIntFpi
+            col[(q_+1):(q_+p+1)] = - sumIntFpi
         else:
             # eq (34a) - only applicable for rest
-            col[1:(q+1)] = rho1 * self.psi
+            col[1:(q+1)] = - self.psi
 
 
         # Calculations of weights k:
@@ -682,7 +721,7 @@ class LMPBVPhelp():
         Res = M.dot(KMi)-col
         log.printL("LMPBVP: Residual of the Linear System: " + \
                    str(Res.transpose().dot(Res)))
-        K,mu = KMi[:(Ns+1)], KMi[(Ns+1):]
+        K,mu = KMi[:NsRed], KMi[NsRed:]
         log.printL("LMPBVP: coefficients of particular solutions: " + \
                    str(K))
 
@@ -692,7 +731,7 @@ class LMPBVPhelp():
         C = numpy.zeros(p)
         lam = numpy.zeros((N,n,s))
 
-        for j in range(Ns+1):
+        for j in range(NsRed):
             A   += K[j] * res[j]['A']#self.arrayA[j,:,:,:]
             B   += K[j] * res[j]['B']#self.arrayB[j,:,:,:]
             C   += K[j] * res[j]['C']#self.arrayC[j,:]

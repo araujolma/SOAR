@@ -6,13 +6,13 @@ Created on Tue Jun 27 14:19:46 2017
 @author: levi
 """
 
-import datetime, time, sys, os
+import datetime, time, sys, os, traceback
 
 line = "#" * 66
 
 def main(args,isManu=True,destFold=''):
 
-    from interf import ITman
+    from interf import ITman, logger
 
     # This is the default problem, for users who want to just run "main.py"
     defaultProb = None#'zer'#'brac'#'cart'#'9_1'#'9_2'#'10_1'#'10_2'
@@ -91,6 +91,9 @@ def main(args,isManu=True,destFold=''):
         ITman.log.repoStat('inProg')
         # Proceed to the gradient-restoration cycles
         sol = ITman.gradRestCycl(sol,solInit)
+        # It's over! Stop timer
+        timer = time.time() - start_time
+        sol.timer = timer # store in sol object for further post-processing
 
         # Display final messages, show solution and convergence reports
         msg = "\n\n\n" + line + '\n' + (' '*22) + \
@@ -102,7 +105,7 @@ def main(args,isManu=True,destFold=''):
         ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
         # Show all convergence histories
         sol.showHistP(); sol.showHistQ(); sol.showHistI(); sol.showHistQvsI()
-        sol.showHistGradStep()
+        sol.showHistGradStep(); sol.showHistGRrate(); sol.showHistObjEval()
 
         msg = "\n\n\n" + line + '\n' + (' '*19) + \
               "THIS IS THE FINAL SOLUTION:" + (' '*19) + '\n' + line
@@ -120,8 +123,7 @@ def main(args,isManu=True,destFold=''):
         ITman.log.printL(msg)
 
         ITman.log.printL("\n"+line)
-        msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % \
-              (time.time() - start_time)
+        msg = "=== First Guess + MSGRA execution: %s seconds ===\n" % timer
         ITman.log.printL(msg)
 
         # This does not add that much information, but...
@@ -144,13 +146,17 @@ def main(args,isManu=True,destFold=''):
     except:
         ITman.log.printL("\n\n\nmain: I'm sorry, something bad happened.")
         # TODO: the exception should be printed onto the log file!!
-
+        ITman.log.printL(traceback.format_exc())
         ## RUN STATUS: error
         ITman.log.repoStat('err')#,iterN=sol.NIterGrad)
         raise
     finally:
         ITman.log.printL("main: Terminating now.\n")
         ITman.log.close()
+
+        sol.log = logger(sol.probName,isManu=True,makeDir=False,mode='screen')
+
+    return sol, solInit
 
 if __name__ == "__main__":
     print(line)

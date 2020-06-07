@@ -33,6 +33,19 @@ class prob(sgra):
         self.s = s
         self.Ns = 2*n*s + p
 
+        # setting up the omissions
+        # psi = numpy.array([self.x[0, 0, 0],             -> omit
+        #                    self.x[0, 1, 0] - 1.0,       -> omit
+        #                    self.x[0, 2, 0],             -> omit
+        #                    self.x[N - 1, 0, 0] - 3.0,
+        #                    self.x[N - 1, 1, 0]])
+        self.omit = True
+        # list of variations after omission
+        self.omitVarList = [3, 4, 5, 6, 7]
+        # matrix for omitting equations
+        mat = numpy.eye(self.q)
+        self.omitEqMat = mat[[3, 4], :]
+
         initMode = opt.get('initMode','default')
         if initMode == 'default':
             # matrix sizes
@@ -120,7 +133,7 @@ class prob(sgra):
             #x[:,0,0] = .5*t
             #x[:,0,1] = .5+.5*t
 
-            lam = 0.0*x
+            lam = 0.0 * x
             mu = numpy.zeros(q)
             #pi = 10.0*numpy.ones(p)
 
@@ -128,7 +141,7 @@ class prob(sgra):
             self.u = u
             self.pi = pi
             self.lam = lam
-            self.mu= mu
+            self.mu = mu
 
             solInit = self.copy()
             self.compWith(solInit,'Initial Guess')
@@ -226,10 +239,10 @@ class prob(sgra):
         N = self.N
 #        return numpy.array([x[0,0,0],x[0,1,0],x[N-1,0,0]-0.5,x[N-1,1,0],\
 #                            x[0,0,1]-0.5,x[0,1,1],x[N-1,0,1]-1.0,x[N-1,1,1]])
-        return numpy.array([self.x[0,0,0],\
-                            self.x[0,1,0]-1.0,\
-                            self.x[0,2,0],\
-                            self.x[N-1,0,0]-3.0,\
+        return numpy.array([self.x[0,0,0],
+                            self.x[0,1,0]-1.0,
+                            self.x[0,2,0],
+                            self.x[N-1,0,0]-3.0,
                             self.x[N-1,1,0]])
 
     def calcF(self):

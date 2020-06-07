@@ -56,6 +56,7 @@ def declHist(self):
     self.histGRrate = numpy.zeros(MaxIterGrad)
     self.histGaRrate = numpy.zeros(MaxIterGrad)
     self.histGaGrRate = numpy.zeros(MaxIterGrad)
+    self.histObjEval = numpy.zeros(MaxIterGrad,dtype=numpy.int16)
 
 def updtEvntList(self,evnt):
     """ Update the event list.
@@ -184,21 +185,25 @@ def updtHistGrad(self,alfa,GSSstopMotv,mustPlotQs=False):
     NIterGrad = self.NIterGrad+1
     self.log.printL("\nhist_sgra: Updating histGrad.")
 
-    Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
-    self.Q = Q; self.histQ[NIterGrad] = Q
-    self.histQx[NIterGrad] = Qx; self.histQu[NIterGrad] = Qu
-    self.histQp[NIterGrad] = Qp; self.histQt[NIterGrad] = Qt
+    #Q,Qx,Qu,Qp,Qt = self.calcQ(mustPlotQs=mustPlotQs)
+    self.histQ[NIterGrad] = self.Q
+    self.histQx[NIterGrad] = self.Qx; self.histQu[NIterGrad] = self.Qu
+    self.histQp[NIterGrad] = self.Qp; self.histQt[NIterGrad] = self.Qt
 
-    J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
+    #J, J_Lint, J_Lpsi, I, Iorig, Ipf = self.calcJ()
 
-    self.J = J; self.histJ[NIterGrad] = J
-    self.histJLint[NIterGrad] = J_Lint
-    self.histJLpsi[NIterGrad] = J_Lpsi
-    self.I = I; self.histI[NIterGrad] = I
-    self.histIorig[NIterGrad] = Iorig
-    self.histIpf[NIterGrad] = Ipf
+    self.histJ[NIterGrad] = self.J
+    self.histJLint[NIterGrad] = self.J_Lint
+    self.histJLpsi[NIterGrad] = self.J_Lpsi
+    self.histI[NIterGrad] = self.I
+    self.histIorig[NIterGrad] = self.Iorig
+    self.histIpf[NIterGrad] = self.Ipf
 
     self.histStepGrad[NIterGrad] = alfa
+    # "Stop motive" codes:  0 - step rejected
+    #                       1 - local min found
+    #                       2 - step limit hit
+    #                       3 - too many evals
     self.histGSSstopMotv[NIterGrad] = GSSstopMotv
     self.NIterGrad = NIterGrad
     self.ContRest = 0
@@ -222,23 +227,23 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
         plt.semilogy(IterGrad[0],self.histQ[IterGrad[0]],'b',label='Q')
 
     if self.histQx[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQx[IterGrad],'k',label='Qx')
+        plt.semilogy(IterGrad-1,self.histQx[IterGrad],'k',label='Qx')
 
     if self.histQu[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQu[IterGrad],'r',label='Qu')
+        plt.semilogy(IterGrad-1,self.histQu[IterGrad],'r',label='Qu')
 
     if self.histQp[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQp[IterGrad],'g',label='Qp')
+        plt.semilogy(IterGrad-1,self.histQp[IterGrad],'g',label='Qp')
 
     if self.histQt[IterGrad].any() > 0:
-        plt.semilogy(IterGrad,self.histQt[IterGrad],'y',label='Qt')
+        plt.semilogy(IterGrad-1,self.histQt[IterGrad],'y',label='Qt')
 
     # Plot the tolerance line
-    plt.plot(IterGrad, self.tol['Q'] + 0.0 * IterGrad, '-.b', label='tolQ')
+    plt.plot(IterGrad-1, self.tol['Q'] + 0.0 * IterGrad, '-.b', label='tolQ')
 
     if self.histQ[IterGrad].any() > 0:
         # plot it again, now to ensure it stays on top of the other plots!
-        plt.semilogy(IterGrad, self.histQ[IterGrad], 'b')
+        plt.semilogy(IterGrad-1, self.histQ[IterGrad], 'b')
 
     # Assemble lists for the indexes (relative to the gradient event list)
     # where there is each gradient (init, accept, reject)
@@ -261,8 +266,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
 
     # Mark the first point(s?)
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*C0',
-                 label='GradInit')
+        plt.semilogy(numpy.array(GradInitIndx)-1, self.histQ[GradInitIndx],
+                     '*C0', label='GradInit')
 
     # get number of acceptance and rejection iterations, figure out what events to mark
     nGA, nGR = len(GradAcptIndxList), len(GradRjecIndxList)
@@ -300,7 +305,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             else:
                 # ind does not belong to the same block. End it and begin another
                 #self.log.printL("Block is finished.")
-                # if it is a meaningful block (3 or more equal events, add to block list)
+                # if it is a meaningful block (3 or more equal events),
+                # add to block list
                 if blockA[1]-blockA[0] > 1:
                     blockListA.append(blockA.copy())
                     nremA += blockA[1]-blockA[0]-1
@@ -328,7 +334,8 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             else:
                 # ind does not belong to the same block. End it and begin another
                 #self.log.printL("Block is finished.")
-                # if it is a meaningful block (3 or more equal events, add to block list)
+                # if it is a meaningful block  (3 or more equal events),
+                # add to block list
                 if blockR[1] - blockR[0] > 1:
                     blockListR.append(blockR.copy())
                     nremR += blockR[1] - blockR[0] - 1
@@ -341,8 +348,10 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
             blockListR.append(blockR.copy())
             nremR += blockR[1] - blockR[0] - 1
 
-        # Decision about which points to be actually removed. The objective of this section
-        # is to define a remove function rmFunc to remove or not each point from the plot
+        # Decision about which points to be actually removed. The objective of this
+        # section
+        # is to define a remove function rmFunc to remove or not each point from the
+        # plot
         nrem = nremA + nremR #total number of points that can be omitted
         #self.log.printL("\nThese are the acceptance blocks:\n"+str(blockListA))
         #self.log.printL("\nThese are the rejection blocks:\n" + str(blockListR))
@@ -377,29 +386,30 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
                  newGradRjecIndxList.remove(GradRjecIndxList[k])
                  nGR -= 1
 
-        #self.log.printL("This is the NEW gradAcptIndxList: " + str(newGradAcptIndxList))
-        #self.log.printL("This is the NEW gradRjecIndxList: " + str(newGradRjecIndxList))
-
     # FINALLY, the plots of the event points themselves
     if nGA>0:
         # mark just the first acceptance event, for proper labeling
-        plt.semilogy(newGradAcptIndxList[0], self.histQ[newGradAcptIndxList[0]],
-                     'ob', label='GradAccept')
+        plt.semilogy(newGradAcptIndxList[0]-1,
+                     self.histQ[newGradAcptIndxList[0]], 'ob',
+                     label='GradAccept')
         for k in range(1,nGA):
             # mark the remaining acceptance events
-            plt.semilogy(newGradAcptIndxList[k],self.histQ[newGradAcptIndxList[k]],'ob')
+            plt.semilogy(newGradAcptIndxList[k]-1,
+                         self.histQ[newGradAcptIndxList[k]],'ob')
 
     if nGR>0:
         # mark just the first rejection event, for proper labeling
-        plt.semilogy(GradRjecIndxList[0], self.histQ[GradRjecIndxList[0]],
+        plt.semilogy(GradRjecIndxList[0]-1, self.histQ[GradRjecIndxList[0]],
                      'xC0', label='GradReject')
         for k in range(1, nGR):
             # mark the remaining rejection events
-            plt.semilogy(newGradRjecIndxList[k],self.histQ[newGradRjecIndxList[k]],'xC0')
+            plt.semilogy(newGradRjecIndxList[k]-1,
+                         self.histQ[newGradRjecIndxList[k]],'xC0')
 
     # make sure the star is visible, by marking it again!
     if len(GradInitIndx)>0:
-        plt.semilogy(GradInitIndx,self.histQ[GradInitIndx],'*C0')
+        plt.semilogy(numpy.array(GradInitIndx)-1,
+                     self.histQ[GradInitIndx], '*C0')
 
     if isDecim:
         plt.title("Convergence report on Q\n(some redundant events not shown)")
@@ -419,8 +429,9 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
 def showHistI(self,tolZoom=True):
     IterGrad = numpy.arange(0,self.NIterGrad+1,1)
     # Get first and final values of I
-    # Ok, technically it is the second value of I because the first one may not be
-    # significant due to a (possibly) high P value associated with the first guess.
+    # Ok, technically it is the second value of I because the first one may
+    # not be significant due to a (possibly) high P value associated with the
+    # first guess.
     I0, I = self.histI[1], self.histI[self.NIterGrad]
     Iorig = self.histIorig[self.NIterGrad]
     Ipf = self.histIpf[self.NIterGrad]
@@ -451,8 +462,8 @@ def showHistQvsI(self, tolZoom=True, nptsMark=10):
     # Assemble the plotting array (x-axis)
     IterGrad = numpy.arange(1,self.NIterGrad+1,1)
     # I reduction, %, w.r.t. the first actual value of I.
-    # It is best to use I[1] instead of I[0] because the latter could be a very low value
-    # due to a possibly high P value.
+    # It is best to use I[1] instead of I[0] because the latter could be a very low
+    # value due to a possibly high P value.
     Ired = 100*(self.histI[1] - self.histI)/self.histI[1]
 
     # Perform the plots
@@ -500,7 +511,7 @@ def showHistQvsI(self, tolZoom=True, nptsMark=10):
     self.savefig(keyName='histQvsI',fullName='Q vs. I convergence history')
 
 def showHistGradStep(self):
-    IterGrad = numpy.arange(1,self.NIterGrad+1,1)
+    IterGrad = numpy.arange(1,self.NIterGrad,1)
 
     fig, ax1 = plt.subplots()
     color = 'tab:blue'
@@ -539,7 +550,7 @@ def showHistGRrate(self):
 
     #if self.histGRrate[IterGrad].any() > 0:
     plt.title("Gradient-restoration rate history")
-    plt.plot(IterGrad,self.histGRrate[IterGrad])
+    plt.plot(IterGrad-1,self.histGRrate[IterGrad])
     plt.grid(True)
     plt.xlabel("Gradient iterations")
     plt.ylabel("Restorations per gradient")
@@ -547,6 +558,94 @@ def showHistGRrate(self):
     self.savefig(keyName='histGRrate',fullName='Grad-Rest rate history')
     #else:
     #    self.log.printL("showHistGRrate: No positive values. Skipping...")
+
+def showHistObjEval(self,onlyAcpt=True):
+    """ Show the history of object evaluations"""
+
+    # The next calculations assume a minimum number of iterations.
+    # If this number is not met, leave now.
+    if self.NIterGrad < 2:
+        self.log.printL("showHistObjEval: no gradient iterations, leaving.")
+        self.GSStotObjEval = 0
+        self.GSSavgObjEval = 0
+        return False
+
+    # "onlyAcpt": supress the items corresponding to the rejections
+    if onlyAcpt:
+
+        indPlot = list()
+        noRejc = False
+        for ind in range(1, self.NIterGrad):
+            if self.histGSSstopMotv[ind] == 0:
+                # rejection!
+                if noRejc:
+                    # new rejection! Flag it
+                    noRejc = False
+            else:
+                # no rejection, record previous index
+                indPlot.append(ind - 1)
+                if not noRejc: # recovery from rejection, reset flag
+                    noRejc = True
+
+        # remove the index 0
+        indPlot.remove(0)
+        # include the last index
+        indPlot.append(self.NIterGrad-1)
+
+        # Now plot the evaluations
+        plt.plot(range(1,len(indPlot)+1), self.histObjEval[indPlot],
+                 label = 'Total evaluations')
+        totEval = sum(self.histObjEval[indPlot])
+        avgEval = totEval / len(indPlot)
+
+        # Mark the points with rejections
+        KeepLabl = True
+        for i in range(1,len(indPlot)):
+            if indPlot[i] > indPlot[i-1]+1:
+                if KeepLabl:
+                    # label only the first point
+                    plt.plot(i+1, self.histObjEval[indPlot[i]], 'xr',
+                             label='Rejections included')
+                    KeepLabl = False
+                else:
+                    plt.plot(i+1, self.histObjEval[indPlot[i]], 'xr')
+
+        plt.xlabel("Accepted gradient iterations")
+        plt.ylabel("Obj. evaluations per gradient")
+    else:
+        IterGrad = numpy.arange(1, self.NIterGrad, 1)
+        plt.plot(IterGrad, self.histObjEval[IterGrad], label='Obj. evaluations')
+        totEval = sum(self.histObjEval[IterGrad])
+        avgEval = totEval / (self.NIterGrad-1)
+        KeepLabl = True
+
+        for ind in range(1, self.NIterGrad):
+            if self.histGSSstopMotv[ind] == 0:
+                if KeepLabl:
+                    plt.plot(ind-1,self.histObjEval[ind-1],'xr',
+                             label='Rejections')
+                    KeepLabl = False # label only the first one
+                else:
+                    plt.plot(ind-1,self.histObjEval[ind-1],'xr')
+
+        plt.grid(True)
+        plt.xlabel("Gradient iterations")
+        plt.ylabel("Obj. evaluations per gradient")
+    plt.title("Objective function evaluation history\n"
+              "Total evaluations = {}, average = {:.3G}".format(totEval,avgEval))
+    plt.grid(True)
+    # No need for legend if there is just the first curve...
+    if not KeepLabl:
+        plt.legend()
+
+    # put the statistics in the 'sol' object for easier post-processing
+    self.GSStotObjEval = totEval
+    self.GSSavgObjEval = avgEval
+
+    # proceed to save the figure
+    self.savefig(keyName='histObjEval',
+                 fullName='Objective function evaluation history')
+
 
 def copyHistFrom(self,sol_from):
     self.EvntList = sol_from.EvntList
