@@ -52,8 +52,12 @@ class stepMngr:
         # Previous step information
         self.prevStepInfo = prevStepInfo
 
-        # These refer to the current state of the search, and change as it progresses
+        # These refer to the current state of the search, and change as it progresses:
         self.P0, self.I0, self.J0, self.Obj0 = 1., 1., 1., 1. # placeholder values
+        # Begin by putting the "null step" in
+        self.histStep.append(0.)
+        self.sortIndxHistStep.append(0)
+        self.histStat.append(True)
         self.cont = -1      # number of objective function evaluation counter
         self.cont_exp = -1  # number of objective function evaluation estimation
         self.mustRaisObj = False # flag for artificial raising of obj when violating
@@ -65,11 +69,21 @@ class stepMngr:
         self.isDecr = True # the obj function is monotonic until proven otherwise
         self.pLimSrchStopMotv = 0 # reason for abandoning the P lim step search.
         # this is for the P regression
-        self.PRegrAngCoef = 0.
-        self.PRegrLinCoef = 0.
+        self.PRegrAngCoef, self.PRegrLinCoef = 0., 0.
         # this is for the "trissection" search
-        self.trio = {'obj': [0., 0., 0.],
-                     'step': [0., 0., 0.]}  # placeholder values, don't make sense
+        #   The convention is: the first and last elements delimit the region of
+        #   optimality. Thus;
+        #     step[0] < alfa_minObj < step[2]
+        #     minObj  < min(Obj[0],Obj[2])
+        #   The second (middle) element must be between the first and the last:
+        #     step[0] < step[1] < step[2]; hence Obj[1] < min(Obj[0],Obj[2])
+        #   The first and second elements must be valid (non-violating). The last
+        #   element may be violating.
+        #   This "self.trio" attribute holds the indexes of the points in the
+        #   histories (histStep/histObj/histP/etc).
+        self.trio = [0, -1, -1]  # placeholder values, don't make sense
+        #self.trio = {'obj': [0., 0., 0.],
+        #             'step': [0., 0., 0.]}  # placeholder values, don't make sense
         self.isTrioSet = False  # True when the trio is set
         # "Stop motive" codes:  0 - step rejected
         #                       1 - local min found
@@ -82,7 +96,7 @@ class stepMngr:
         self.tolStepLimP = 1e-2
         self.tolLimP = 1e-2
         self.epsStep = 1e-10#min(self.tolStepObj,self.tolStepLimP) / 100.
-        self.ffRate = 2.#10.#1.1
+        self.ffRate = 1.5#2.#10.#
 
         # Try to find a proper limit for the step
 
@@ -291,8 +305,12 @@ class stepMngr:
                             "Obj0 = {:.4E}".format(Obj0))
             self.log.printL("\n> Setting Obj0 to "+str(Obj0))
         self.P0, self.I0, self.J0, self.Obj0 = P0, I0, J0, Obj0
+        # store the base values on the other histories as well
+        self.histP.append(self.P0)
+        self.histI.append(self.I0)
+        self.histObj.append(self.Obj0)
+
         self.best['obj'] = Obj0
-        self.trio['obj'][0] = Obj0
         return Obj0
 
     def testDecr(self,alfa:float,Obj:float):
@@ -303,27 +321,33 @@ class stepMngr:
         This is implemented by keeping ordered lists of the steps and the
         corresponding objective values.
 
-        Only the valid (non-violating) steps are kept, of course.
+        This function is called in tryStep(), before actually appending the given
+        "alfa" to the history.
+
+        In principle, this function would stop being called once the monotonicity on
+        the objective function was lost, but the code sometimes overrides that and
+        calls this anyways.
 
         :return: None
         """
-        isMonoLost = False
-        ins = len(self.sortIndxHistStep)
-        # test if non-ascending monotonicity is maintained
-        if ins > 0:
+
+        isMonoLost = False # flag for recent loss of monotonicity
+        ins = len(self.histStep)
+
+        if len(self.sortIndxHistStep) > 0:
             # the test is different depending on the position of the current
             # step in respect to the list of previous steps.
 
             if alfa > self.histStep[self.sortIndxHistStep[-1]]:
                 # step bigger than all previous steps
-                ind = ins
+                pos = ins # position on the list: final one
                 if self.isDecr:
                     if Obj > self.histObj[self.sortIndxHistStep[-1]]:
                         isMonoLost = True
                         self.isDecr = False
             elif alfa < self.histStep[self.sortIndxHistStep[0]]:
                 # step smaller than all previous steps
-                ind = 0
+                pos = 0 # position on the list: first one
                 if self.isDecr:
                     if Obj < self.histObj[self.sortIndxHistStep[0]]:
                         isMonoLost = True
@@ -333,7 +357,7 @@ class stepMngr:
                 for i, indx_alfa_ in enumerate(self.sortIndxHistStep):
                     alfa_ = self.histStep[indx_alfa_]
                     if alfa_ <= alfa <= self.histStep[self.sortIndxHistStep[i + 1]]:
-                        ind = i
+                        pos = i+1 # position on the list: the (i+1)-th one
                         break
                 else:
                     # this condition should never be reached!
@@ -341,22 +365,19 @@ class stepMngr:
                     raise (Exception(msg))
 
                 if self.isDecr:
-                    if Obj < self.histObj[self.sortIndxHistStep[ind + 1]] or \
-                            Obj > self.histObj[self.sortIndxHistStep[ind]]:
+                    if Obj < self.histObj[self.sortIndxHistStep[pos]] or \
+                            Obj > self.histObj[self.sortIndxHistStep[pos-1]]:
                         isMonoLost = True
                         self.isDecr = False
 
             # insert the current step at the proper place in the sorted list
-            self.sortIndxHistStep.insert(ind, ins)
-            # insert the objective in the corresponding place
+            self.sortIndxHistStep.insert(pos, ins)
+
             # Display message if and only if the monotonicity was lost right now
             if isMonoLost and self.mustPrnt:
                 self.log.printL("\n> Monotonicity was just lost...")
         else:
             self.sortIndxHistStep.append(ins)
-        #self.log.printL("\nLeaving testDecr, these are the sorted lists:")
-        #self.log.printL("SortHistStep = {}\nSortHistObj  = "
-        #                "{}".format(self.sortHistStep,self.sortHistObj))
 
     def raisObj(self):
         """ Raise the objectives in all bad steps (unless the obj is already high),
@@ -427,6 +448,7 @@ class stepMngr:
 
         # Increment evaluation counter
         self.cont += 1
+        thisStepIndx = len(self.histStep)
 
         # Useful for determining if this is the first good step (for setting up the
         # trios)
@@ -468,36 +490,36 @@ class stepMngr:
         # update trios for speeding up the objective "trissection"
         if self.isTrioSet:
             # compare current step with the trio's middle step
-            if alfa < self.trio['step'][1]:
-                # new step is less than the middle step
-                if alfa > self.trio['step'][0]:
-                    # new step is between the left and middle step.
-                    if Obj < self.trio['obj'][1]:
+            if alfa < self.histStep[self.trio[1]]:
+                # new step is less than the middle step. Check left step
+                if alfa > self.histStep[self.trio[0]]:
+                    # new step is between the left and middle step. Check middle obj
+                    if Obj < self.histObj[self.trio[1]]:
                         # shift middle and right steps to the left
-                        self.trio['step'][1], \
-                        self.trio['step'][2] = alfa, self.trio['step'][1]
-                        self.trio['obj'][1], \
-                        self.trio['obj'][2] = Obj, self.trio['obj'][1]
+                        self.trio[1], self.trio[2] = thisStepIndx, self.trio[1]
+                        if self.mustPrnt:
+                            self.log.printL("\n  Shifting middle and right steps "
+                                            "of the trio to the left.")
                     else:
                         # shift the left step to the right
-                        self.trio['step'][0] = alfa
-                        self.trio['obj'][0] = Obj
+                        self.trio[0] = thisStepIndx
+                        if self.mustPrnt:
+                            self.log.printL("\n  Changing left step of the trio.")
             else:
-                # new step is greater than the middle step
-                if alfa < self.trio['step'][2]:
-                    # new step is between the middle and right step.
-                    if Obj < self.trio['obj'][1]:
+                # new step is greater than the middle step. Check right step
+                if alfa < self.histStep[self.trio[2]]:
+                    # new step is between the middle and right step. Check middle obj
+                    if Obj < self.histObj[self.trio[1]]:
                         # shift left and middle steps to the right
-                        self.trio['step'][0], \
-                        self.trio['step'][1] = self.trio['step'][1], alfa
-                        self.trio['obj'][0], \
-                        self.trio['obj'][1] = self.trio['obj'][1], Obj
+                        self.trio[0], self.trio[1] = self.trio[1], thisStepIndx
+                        if self.mustPrnt:
+                            self.log.printL("\n  Shifting left and middle steps "
+                                            "of the trio to the right.")
                     else:
                         # shift the right step to the left
-                        self.trio['step'][2] = alfa
-                        self.trio['obj'][2] = Obj
-            if self.mustPrnt:
-                self.showTrios()
+                        self.trio[2] = thisStepIndx
+                        if self.mustPrnt:
+                            self.log.printL("\n  Changing right step of the trio.")
 
         resStr = ''
         if isOk:
@@ -529,20 +551,20 @@ class stepMngr:
                 if noGoodStepBfor:
                     # This is the first valid step ever!
                     # Put it in the middle of the trio
-                    self.trio['step'][1] = alfa
-                    self.trio['obj'][1] = Obj
+                    self.trio[1] = thisStepIndx
+                    if self.mustPrnt:
+                        self.log.printL("\n  Setting middle step of the trio.")
                     # entry 1 is set. Check entry 2 before switching the 'ready' flag
-                    if self.trio['step'][2] > eps:
+                    if self.trio[2] > -1:
                         # entry 2 had already been set. Switch the flag!
                         self.isTrioSet = True
                         if self.mustPrnt:
-                            self.log.printL("\n> Middle entry was just set, "
+                            self.log.printL("\n  Middle entry was just set, "
                                             "trios are ready.")
                 else:
                     # Not the first valid step. Maybe update middle element of trio?
-                    if Obj < self.trio['obj'][1]:
-                        self.trio['step'][1] = alfa
-                        self.trio['obj'][1] = Obj
+                    if Obj < self.histObj[self.trio[1]]:
+                        self.trio[1] = thisStepIndx
                         if self.mustPrnt:
                             self.log.printL("\n> Updating middle entry of trio.")
                     #elif alfa < self.trio['step'][2]: # ok, maybe the right one then?
@@ -567,13 +589,15 @@ class stepMngr:
             self.histStat.append(False)
             if not self.isTrioSet:
                 # setting up the trios
-                if self.trio['step'][2] < eps or alfa < self.trio['step'][2]:
+                if self.trio[2] == -1 or alfa < self.histStep[self.trio[2]]:
                     # this means the final position of the trio gets the smallest
                     # non-valid step to be found before the trio is set.
-                    self.trio['step'][2] = alfa
-                    self.trio['obj'][2] = Obj
+                    self.trio[2] = thisStepIndx
+                    if self.mustPrnt:
+                        self.log.printL("\n  Setting/updating right step of the "
+                                        "trio.")
                     # entry 2 is set. Check entry 1 before switching the 'ready' flag
-                    if self.trio['step'][1] > eps:
+                    if self.trio[1] > -1:
                         # entry 1 had already been set. Switch the flag!
                         self.isTrioSet = True
                         if self.mustPrnt:
@@ -609,11 +633,15 @@ class stepMngr:
         self.histObj.append(Obj)
 
         if self.mustPrnt:
-            msg = "Steps: {}\n Objs: {}\n   " \
-                  "Ps: {}".format(self.histStep, self.histObj, self.histP)
-            msg += "\nstepTrio = {}\nobjTrio = {}".format(self.trio['step'],
-                                                          self.trio['obj'])
+            msg = "Steps: {}\nStats: {}\n Objs: {}\n   " \
+                  "Ps: {}".format(self.histStep, self.histStat,self.histObj,
+                                  self.histP)
             self.log.printL(msg)
+            self.log.printL("\nsortIndxList:")
+            for i, indx in enumerate(self.sortIndxHistStep):
+                self.log.printL("i = {}, indx = {},"
+                                " alfa = {}".format(i, indx, self.histStep[indx]))
+            self.showTrios()
 
         return P, I, Obj#self.getLast()
 
@@ -650,8 +678,14 @@ class stepMngr:
         return outp
 
     def showTrios(self):
-        msg =  "\nStepTrio: {}\n ObjTrio: {}".format(self.trio['step'],
-                                                     self.trio['obj'])
+        msg =  "\n  StepTrio:\n" + \
+                 "   Indexes: {}\n".format(self.trio) + \
+                 "   Steps:   {}\n".format([self.histStep[self.trio[0]],
+                                            self.histStep[self.trio[1]],
+                                            self.histStep[self.trio[2]]]) + \
+                 "   Objs:    {}".format([self.histObj[self.trio[0]],
+                                          self.histObj[self.trio[1]],
+                                          self.histObj[self.trio[2]]])
         self.log.printL(msg)
 
     def adjsTrios(self,sol):
@@ -663,8 +697,12 @@ class stepMngr:
         This function is called right before starting the min obj search.
         When it is called, the trios are set, that is, there are 3 ascending values
         of step and their corresponding values of objectives.
-        However, the objectives may not be in the V-configuration, that is,
+        Since the middle step holds the best value so far, the objectives are
+        necessarily in the V-configuration, that is,
         left_obj > middle_obj and right_obj > middle_obj.
+
+        However, it is possible that the left and right elements are not as "tight"
+        around the minimum as they could be.
 
         This function adjusts the steps in order to reach that condition.
         """
@@ -673,69 +711,33 @@ class stepMngr:
             self.log.printL("\n> Adjusting trios...")
             self.showTrios()
 
-        #if abs(self.trio['step'][1]-self.best['step']) > eps:
-        #    if self.mustPrnt:
-        #        self.log.printL("  Setting middle element of the trio to the best"
-        #                        " step so far.")
-        #    self.trio['step'][1]
+        # Check if the middle step is the best one. If not, something is very wrong!
+        if abs(self.histStep[self.trio[1]]-self.best['step']) > eps:
+           raise(Exception("Middle element of the trio was not the best step."
+                           "\nDebug now!"))
 
-        if self.trio['obj'][1] > self.trio['obj'][2]:
-            if self.mustPrnt:
-                self.log.printL("\n> Moving to the right!")
-                self.log.printL("  Steps:" + str(self.histStep))
-                self.log.printL("   Objs:" + str(self.histObj))
-            # the right objective is less than the middle one:
-            # move the middle one to the right, keep searching to
-            # the right until the objective rises
-            Obj, alfa = self.trio['obj'][2], self.trio['step'][2]
-            while Obj <= self.trio['obj'][1]:
-                if self.mustPrnt:
-                    self.log.printL("\n  Moving right element of the trio by "
-                                    "{} to the right.".format(self.ffRate))
-                objMid, stepMid = self.trio['obj'][1], self.trio['step'][1]
-                if objMid < self.trio['obj'][0]:
-                    # The middle objective is lesser than the left one;
-                    # move the latter to the right as well!
-                    self.trio['step'][0], self.trio['obj'][0] = stepMid, objMid
-                    if self.mustPrnt:
-                        self.log.printL("\n  Moving the left point of the trio to"
-                                        " the place of the previous middle point.")
-
-                self.trio['obj'][1] = self.trio['obj'][2]
-                self.trio['step'][1] = self.trio['step'][2]
-                alfa *= self.ffRate
-                P, I, Obj = self.tryStep(sol, alfa)
-                self.trio['obj'][2] = Obj
-                self.trio['step'][2] = alfa
-
-        if self.trio['obj'][1] > self.trio['obj'][0]:
-            if self.mustPrnt:
-                self.log.printL("\n> Moving to the left!")
-                self.log.printL("  Steps:" + str(self.histStep))
-                self.log.printL("   Objs:" + str(self.histObj))
-            # the left objective is less than the middle one:
-            # move the middle one to the left, keep searching to
-            # the left until the objective rises
-            Obj, alfa = self.trio['obj'][0], self.trio['step'][0]
-            while Obj <= self.trio['obj'][1]:
-                if self.mustPrnt:
-                    self.log.printL("\n  Moving left element of the trio by "
-                                    "{} to the left.".format(self.ffRate))
-                objMid, stepMid = self.trio['obj'][1], self.trio['step'][1]
-                if objMid < self.trio['obj'][2]:
-                    # The middle objective is lesser than the right one;
-                    # move the latter to the left as well!
-                    self.trio['step'][2], self.trio['obj'][2] = stepMid, objMid
-                    if self.mustPrnt:
-                        self.log.printL("\n  Moving the right point of the trio to"
-                                        " the place of the previous middle point.")
-
-                self.trio['obj'][1] = self.trio['obj'][0]
-                self.trio['step'][1] = self.trio['step'][0]
-                alfa /= self.ffRate
-                P, I, Obj = self.tryStep(sol, alfa)
-                self.trio['obj'][0] = Obj
-                self.trio['step'][0] = alfa
+        trio1 = self.histStep[self.trio[1]]
+        for i, alfa in enumerate(self.histStep):
+            if abs(alfa - trio1) > eps:
+                # this 'alfa' is not the best step. Carry on
+                if abs(alfa - self.histStep[self.trio[0]]) > eps:
+                    # this 'alfa' is not the current first element of the trio.
+                    if self.histStep[self.trio[0]] < alfa < trio1:
+                        # it is closer to the center than the left element.
+                        # Hence, it replaces the left element!
+                        self.trio[0] = i
+                        if self.mustPrnt:
+                            self.log.printL("\n  Changing left element of trio to "
+                                            "{}".format(alfa))
+                if abs(alfa- self.histStep[self.trio[2]]) > eps:
+                    # this 'alfa' is not the current last element of the trio.
+                    if trio1 < alfa < self.histStep[self.trio[2]]:
+                        # it is closer to the center than the right element.
+                        # Hence, it replaces the right element!
+                        self.trio[2] = i
+                        if self.mustPrnt:
+                            self.log.printL("\n  Changing right element of trio to "
+                                            "{}".format(alfa))
 
     def piSafe(self, alfa):
         """Saturate given step with respect to the pi-condition, if necessary."""
@@ -959,9 +961,12 @@ class stepMngr:
             # 1.3.4: perform regression (if it is the case)
             if self.pLimSrchStopMotv == 0:
                 # 1.3.4.1: assemble log arrays for regression
-                logStep = numpy.log(numpy.array(self.histStep))
-                logP = numpy.log(numpy.array(self.histP))
-                n = len(self.histStep)
+                logStep = numpy.log(numpy.array(self.histStep[1:]))
+                logP = numpy.log(numpy.array(self.histP[1:]))
+                n = len(self.histStep[1:])
+                #logStep = numpy.log(numpy.array(self.histStep))
+                #logP = numpy.log(numpy.array(self.histP))
+                #n = len(self.histStep)
 
                 # 1.3.4.2: perform actual regression
                 X = numpy.ones((n, 2))
@@ -1045,7 +1050,7 @@ class stepMngr:
             # 2.0.1: Get latest tried step
             #Obj, alfa, isOk  = self.histObj[-1], self.histStep[-1], self.histStat[-1]
             isOk = False
-            alfa = self.trio['step'][2]
+            alfa = self.histStep[self.trio[2]]
 
             # 2.0.2: Go back a few times. We will need 3 points
             while not isOk or self.cont < 2:
@@ -1114,42 +1119,56 @@ class stepMngr:
                 self.showTrios()
 
             # 2.2.1: Get index for best step so far
+            alfa = self.best['step']
             for ind in self.sortIndxHistStep:
                 alfa_ = self.histStep[self.sortIndxHistStep[ind]]
                 if abs(alfa_-alfa) < eps:
+                    indxAlfa = self.sortIndxHistStep[ind]
                     break
             else:
                 raise(Exception("grad_sgra: Latest step was not found. Debug now!"))
-            Obj = self.histObj[self.sortIndxHistStep[ind]]
 
             # 2.2.2: Special procedures in case the best step is at the
             # beginning or at the end of the list
             n = len(self.sortIndxHistStep) - 1 # max index
-            alfa_m, alfa_p, Obj_m, Obj_p = 0., 0., 0., 0.
-            if ind > 0: # there is a lesser step
-                alfa_m = self.histStep[self.sortIndxHistStep[ind - 1]]
-                Obj_m = self.histObj[self.sortIndxHistStep[ind - 1]]
-            if ind < n: # there is a greater step
-                alfa_p = self.histStep[self.sortIndxHistStep[ind + 1]]
-                Obj_p = self.histObj[self.sortIndxHistStep[ind + 1]]
+
+            indxAlfa_m, indxAlfa_p = 0, 0 # just to shut PyCharm up...
+            if ind > 0: # there is a lesser step; use it
+                indxAlfa_m = self.sortIndxHistStep[ind - 1]
+            # TODO: it is not necessary to use a good step for trio[2].
+            if ind < n: # there is a greater step; use it
+                indxAlfa_p = self.sortIndxHistStep[ind + 1]
 
             if ind <= 0.: # there is no lesser step, try 1% lower
                 alfa_m = alfa * .99
-                P, I, Obj_m = self.tryStep(sol, alfa_m)
+                if self.mustPrnt:
+                    self.log.printL("\n> No lesser valid step; going for a new one,"
+                                    " 1% below the best so far ({}).".format(alfa))
+                # a new step will be tried; this will be its index
+                indxAlfa_m = len(self.histStep)
+                self.tryStep(sol, alfa_m)
             if ind >= n: # there is no greater step, try 1% higher
                 alfa_p = alfa * 1.01
-                P, I, Obj_p = self.tryStep(sol, alfa_p)
+                if self.mustPrnt:
+                    self.log.printL("\n> No greater valid step; going for a new one,"
+                                    " 1% above the best so far ({}).".format(alfa))
+                # a new step will be tried; this will be its index
+                indxAlfa_p = len(self.histStep)
+                self.tryStep(sol, alfa_p)
 
-            # 2.2.3: In any case, assemble the trios
-            self.trio['obj'] = [Obj_m, Obj, Obj_p]
-            self.trio['step'] = [alfa_m, alfa, alfa_p]
+            # 2.2.3: In any case, assemble the trios. Adjustments are probably
+            # necessary.
+            if self.mustPrnt:
+                self.log.printL("\n  Trios before:")
+                self.showTrios()
+            self.trio = [indxAlfa_m, indxAlfa, indxAlfa_p]
             self.isTrioSet = True
             if self.mustPrnt:
                 self.log.printL("\n> Trios are set, maybe some adjustments are still"
                                 " necessary.")
+                self.showTrios()
 
-        # 2.3:  Adjust the trios if the middle point does not correspond
-        # to the lesser obj of the 3
+        # 2.3:  Adjust the trios (if necessary)
         self.adjsTrios(sol)
 
         # 2.4: Final step search by "trissection"
@@ -1160,7 +1179,7 @@ class stepMngr:
 
         # 2.4.-1: Estimation of the number of evaluations until convergence
         n = int(numpy.ceil(numpy.log(self.tolStepObj /
-             (self.trio['step'][2] - self.trio['step'][0]) ) /
+             (self.histStep[self.trio[2]] - self.histStep[self.trio[0]]) ) /
              numpy.log((numpy.sqrt(5.) - 1.) / 2.)))
         if n < 0: # Apparently we are about to converge!
             n = 0
@@ -1181,15 +1200,17 @@ class stepMngr:
         leftRght = False # indicator of left (True) or right (False) movement
         if self.mustPrnt:
             self.showTrios()
-        while self.trio['step'][2] - self.trio['step'][0] > \
-                self.tolStepObj * self.trio['step'][1] and \
+        while self.histStep[self.trio[2]] - self.histStep[self.trio[0]] > \
+                self.tolStepObj * self.histStep[self.trio[1]] and \
                 self.cont < self.stopNEvalLim:
             # 2.4.1: Narrow the boundaries either left or right
             # (alternatively)
             if leftRght:
-                alfa = .5 * (self.trio['step'][0] + self.trio['step'][1])
+                alfa = .5 * (self.histStep[self.trio[0]] +
+                             self.histStep[self.trio[1]])
             else:
-                alfa = .5 * (self.trio['step'][2] + self.trio['step'][1])
+                alfa = .5 * (self.histStep[self.trio[2]] +
+                             self.histStep[self.trio[1]])
 
             # 2.4.2: Try the new step. Updating the trios is done as well
             self.tryStep(sol,alfa)
@@ -1227,15 +1248,20 @@ class stepMngr:
             if self.mustPrnt:
                 self.showTrios()
             self.stopMotv = 3 # too many evals
-            return self.best['step']
         else:
             # minimum was actually found!
             if self.mustPrnt:
-                msg = "\n> Local obj minimum was found."
+                gr_p = (self.histObj[self.trio[2]] - self.histObj[self.trio[1]]) / \
+                       (self.histStep[self.trio[2]] - self.histStep[self.trio[1]])
+                gr_n = (self.histObj[self.trio[1]] - self.histObj[self.trio[0]]) / \
+                       (self.histStep[self.trio[1]] - self.histStep[self.trio[0]])
+                grad = gr_p - gr_n
+                msg = "\n> Local obj minimum was found.\n  Gradients: grad_p = "\
+                      "{}, grad_n = {}, grad = {}".format(gr_p,gr_n,grad)
                 self.log.printL(msg)
                 self.showTrios()
             self.stopMotv = 1 # local min found!
-            return self.trio['step'][1]
+        return self.best['step']#self.histStep[self.trio[1]]
 
     def endPrntPlot(self,alfa,mustPlot=False):
         """Final plots and prints for this run of calcStepGrad. """
@@ -1872,7 +1898,7 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
 
     return alfa, stepMan
 
-def grad(self,corr,alfa_0,retry_grad,stepMan):
+def grad(self,corr,alfa_0:float,retry_grad:bool,stepMan:stepMngr):
 
     self.log.printL("\nIn grad, Q0 = {:.4E}.".format(self.Q))
     #self.log.printL("NIterGrad = "+str(self.NIterGrad))
@@ -1895,11 +1921,11 @@ def grad(self,corr,alfa_0,retry_grad,stepMan):
             self.log.xlsx['misc'].write(row, col, stepMan.StepLimUppr[i])
             row += 2
         # Writing the trios
-        self.log.xlsx['misc'].write(row, col, stepMan.trio['step'][0])
+        self.log.xlsx['misc'].write(row, col, stepMan.histStep[stepMan.trio[0]])
         row += 1
         self.log.xlsx['misc'].write(row, col, alfa)
         row += 1
-        self.log.xlsx['misc'].write(row, col, stepMan.trio['step'][2])
+        self.log.xlsx['misc'].write(row, col, stepMan.histStep[stepMan.trio[2]])
         row += 2
         # Writing the stop motives (for P Lim search and the step search itself)
         self.log.xlsx['misc'].write(row, col, stepMan.pLimSrchStopMotv)

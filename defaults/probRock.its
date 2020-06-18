@@ -1,4 +1,4 @@
-###############################################################################
+e###############################################################################
 # itsme configuration file (.its)
 #
 # author: Carlos Souza
@@ -53,10 +53,12 @@ ShowGRrateRate = 20
 #
 #
 # Gradient phase: use parallel computing?
-PrllGradLMPBVP = True
+PrllGradLMPBVP = False
+#True
 #
 # Restoration phase: use parallel computing?
-PrllRestLMPBVP = True
+PrllRestLMPBVP = False
+#True
 #
 ###############################################################################
 [vehicle] # Vehicle parameters
@@ -153,7 +155,7 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 1.0e-10
+PFtol = 0.
 #1.0e-3
 #
 ###############################################################################
