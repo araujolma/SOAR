@@ -8,8 +8,13 @@ Created on Fri Apr  6 14:09:52 2018
 
 import numpy
 import matplotlib.pyplot as plt
-from utils import simp
 from scipy.linalg import expm
+
+# this refers to the cython code
+import pyximport
+pyximport.install(setup_args={"include_dirs":numpy.get_include()},
+                  reload_support=True)
+import utils_c
 
 class LMPBVPhelp():
     """Class for processing the Linear Multipoint Boundary Value Problem.
@@ -225,7 +230,7 @@ class LMPBVPhelp():
 
         # This command probably broke the compatibility with other integration
         # methods. They weren't working anyway, so...
-        coefList = simp([],N,onlyCoef=True)
+        coefList = utils_c.simp([],N,onlyCoef=True)
 
         for arc in range(s):
             if self.solver == 'heun':
@@ -707,7 +712,7 @@ class LMPBVPhelp():
             sumIntFpi = numpy.zeros(p)
             for arc in range(s):
                 for ind in range(p):
-                    sumIntFpi[ind] += simp(self.fp[:,ind,arc],N)
+                    sumIntFpi[ind] += utils_c.simp(self.fp[:,ind,arc],N)
                 #
             #
             col[(q_+1):(q_+p+1)] = - sumIntFpi
