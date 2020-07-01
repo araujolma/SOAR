@@ -48,3 +48,204 @@ def simp(vec, int N, onlyCoef=False):
         return numpy.asarray(coefList)
     else:
         return numpy.asarray(coefList.dot(vec))
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def prepMat(sizes, fu, phip, phiu, phix):
+    """ Prepare matrices for propagation. """
+
+
+    cdef int Ns, N, n, m, p, s
+    cdef Py_ssize_t arc, k#, kp1, Nm1
+    Ns, N, n, m, p, s = sizes['Ns'], sizes['N'], sizes['n'], \
+                        sizes['m'],  sizes['p'], sizes['s']
+    #Nm1 = N-1
+    cdef double dt = 1.0 / (N-1)#Nm1
+    cdef double mdt = 0.5 * dt
+    cdef double mhdt = - 0.5 * dt
+
+    # Prepare matrices with derivatives:
+    phiuTr = numpy.empty((N,m,n,s))
+    phipTr = numpy.empty((N,p,n,s))
+    phiuFu = numpy.empty((N,n,s))
+
+    # Initial conditions
+    InitCondMat = numpy.eye(Ns,Ns+1)
+
+    # Dynamics matrix for propagating the LSODE:
+    # originally, DynMat was the matrix, D,  with phix, phiu*phiu^T, etc;
+    # but it is more efficient to store (I + .5 * dt * D) instead.
+    DynMat_ = numpy.zeros((N,2*n,2*n,s))
+    DynMat = numpy.empty((N,2*n,2*n,s))
+    I = numpy.eye(2 * n)
+
+    for arc in range(s):
+        for k in range(N):
+            phiuTr[k,:,:,arc] = phiu[k,:,:,arc].transpose()
+            phipTr[k,:,:,arc] = phip[k,:,:,arc].transpose()
+            phiuFu[k,:,arc] = phiu[k,:,:,arc].dot(fu[k,:,arc])
+
+            # TODO: this can be moved to a single command as well
+            DynMat_[k,:n,:n,arc] = phix[k,:,:,arc]
+
+            DynMat_[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
+            DynMat_[k,n:,n:,arc] = -phix[k,:,:,arc].transpose()
+
+            # TODO: maybe it is even better to do this operation in a single
+            # command...
+            DynMat[k, :, :, arc] = I + mdt * DynMat_[k,:,:,arc]
+
+
+    # This is a strategy for lowering the cost of the trapezoidal solver.
+    # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n,
+    # resulting in a cost in the order of (N-1) * s * (2ns+p) * 4n² ; it is
+    # better to pre-invert (N-1) * s matrices of order 2n, resulting in a cost
+    # in the order of (N-1) * s * 8n³. This should always result in an
+    # increased performance because
+    #         (N-1) * s * 8n³ < (N-1) * s * (2ns+p) * 4n²
+
+    InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
+    for arc in range(s):
+        for k in range(1,N):
+             #InvDynMat[k, :, :, arc] = numpy.linalg.inv(DynMat[k, :, :, arc])
+             InvDynMat[k, :, :, arc] = numpy.linalg.inv(
+                 I + mhdt * DynMat_[k, :, :, arc])
+
+
+    outp = {'DynMat': DynMat, 'InitCondMat': InitCondMat,
+            'InvDynMat': InvDynMat,
+            'phipTr':phipTr, 'phiuFu': phiuFu, 'phiuTr': phiuTr}
+    return outp
+
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# @cython.nonecheck(False)
+# @cython.cdivision(True)
+# def propagate(int j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
+#               phip, phipTr, phiuFu, phiuTr, grad=True):
+#     return _propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
+#               phip, phipTr, phiuFu, phiuTr, grad=True)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def propagate(int j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
+              phip, phipTr, phiuFu, phiuTr, grad=True):
+
+    # Load data (sizes, common matrices, etc)
+    cdef int Ns, N, n, m, p, s
+    cdef Py_ssize_t arc, k
+    Ns, N, n, m, p, s = sizes['Ns'], sizes['N'], sizes['n'], \
+                        sizes['m'],  sizes['p'], sizes['s']
+
+    cdef double dt = 1.0 / (N-1)
+    cdef double mdt = 0.5 * dt
+
+    I = numpy.eye(2*n)
+
+    # Declare matrices for corrections
+    phiLamIntCol = numpy.zeros(p)
+    A = numpy.zeros((N,n,s))
+    B = numpy.zeros((N,m,s))
+    #C = numpy.zeros((p,1))
+    DtCol = numpy.empty(2*n*s)
+    EtCol = numpy.empty(2*n*s)
+    lam = numpy.zeros((N,n,s))
+
+    # the vector that will be integrated is Xi = [A; lam]
+    Xi = numpy.zeros((N,2*n,s))
+    # Initial conditions for the LSODE:
+
+    for arc in range(s):
+        A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+        lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
+        Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+
+
+    C = InitCondMat[(2*n*s):,j]
+
+    # Non-homogeneous terms for the LSODE:
+    nonHom = numpy.empty((N,2*n,s))
+
+
+    # TODO: this can be further optimized: the C multiplication can be avioded
+    # in most cases, and err / phiuFu can be done in a single command!
+    if grad:
+        for arc in range(s):
+            for k in range(N):
+                # "A" terms
+                nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C) - phiuFu[k,:,arc]
+        nonHom[:,n:,:] = fx # "lambda" terms
+
+    else:
+        for arc in range(s):
+            for k in range(N):
+                # "A" terms
+                nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C) + err[k,:,arc]
+        nonHom[:,n:,:] = numpy.zeros((N,n,s)) # "lambda" terms
+
+    # get the coefficients for the phiLam integration
+    coefList = simp([],N,onlyCoef=True)
+
+    lam_kp1 = numpy.empty(n)
+    if grad:
+        for arc in range(s):
+            # Integrate the LSODE by trapezoidal (implicit) method
+            B[0,:,arc] = -fu[0,:,arc] + \
+                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+            phiLamIntCol += coefList[0] * \
+                            (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+            # is it better to index in k+1 ?
+            for k in range(N-1):
+                Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
+                  DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+                  mdt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]) )
+
+                lam_kp1 = Xi[k+1,n:,arc]
+                B[k+1,:,arc] = -fu[k+1,:,arc] + \
+                                phiuTr[k+1,:,:,arc].dot(lam_kp1)
+                phiLamIntCol += coefList[k+1] * \
+                                phipTr[k+1,:,:,arc].dot(lam_kp1)
+    else:
+        for arc in range(s):
+            # Integrate the LSODE by trapezoidal (implicit) method
+            B[0,:,arc] = phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+            phiLamIntCol += coefList[0] * \
+                            (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+            # is it better to index in k+1 ?
+            for k in range(N-1):
+                Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
+                   DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+                   mdt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]) )
+
+                lam_kp1 = Xi[k+1,n:,arc]
+                B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)
+                phiLamIntCol += coefList[k+1] * \
+                                phipTr[k+1,:,:,arc].dot(lam_kp1)
+
+
+    for arc in range(s):
+        # Get the A and lam values from Xi
+        A[:,:,arc] = Xi[:,:n,arc]
+        lam[:,:,arc] = Xi[:,n:,arc]
+
+        # Put initial and final conditions of A and Lambda into matrices
+        # DtCol and EtCol, which represent the columns of Dtilde(Dt) and
+        # Etilde(Et)
+        DtCol[(2*arc)*n   : (2*arc+1)*n] =    A[0,:,arc]   # eq (32a)
+        DtCol[(2*arc+1)*n : (2*arc+2)*n] =    A[N-1,:,arc] # eq (32a)
+        EtCol[(2*arc)*n   : (2*arc+1)*n] = -lam[0,:,arc]   # eq (32b)
+        EtCol[(2*arc+1)*n : (2*arc+2)*n] =  lam[N-1,:,arc] # eq (32b)
+
+    # All the outputs go to main output dictionary; the final solution is
+    # computed by the next method, 'getCorr'.
+    outp = {'A':A,'B':B,'C':C,'L':lam,'Dt':DtCol,'Et':EtCol,
+            'phiLam':phiLamIntCol}
+    return outp
