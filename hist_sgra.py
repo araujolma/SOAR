@@ -10,11 +10,10 @@ import numpy
 import matplotlib.pyplot as plt
 #import matplotlib.ticker as ticker
 
-def declHist(self):
+def declHist(self,MaxIterGrad=10000):
     """A method for declaring all the histories. """
 
     MaxIterRest = 100000
-    MaxIterGrad = 10000
     MaxEvnt = 2*MaxIterRest + MaxIterGrad
     # Gradient-Restoration EVent List
     # (00-rest, 10-denied grad, 11-accepted grad)

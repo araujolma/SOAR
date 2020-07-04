@@ -55,6 +55,13 @@ def simp(vec, int N, onlyCoef=False):
 @cython.nonecheck(False)
 @cython.cdivision(True)
 def prepMat(sizes, fu, phip, phiu, phix):
+    return c_prepMat(sizes, fu, phip, phiu, phix)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef dict c_prepMat(dict sizes, fu, phip, phiu, phix):
     """ Prepare matrices for propagation. """
 
 
@@ -120,22 +127,22 @@ def prepMat(sizes, fu, phip, phiu, phix):
             'phipTr':phipTr, 'phiuFu': phiuFu, 'phiuTr': phiuTr}
     return outp
 
-# @cython.boundscheck(False)
-# @cython.wraparound(False)
-# @cython.nonecheck(False)
-# @cython.cdivision(True)
-# def propagate(int j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
-#               phip, phipTr, phiuFu, phiuTr, grad=True):
-#     return _propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
-#               phip, phipTr, phiuFu, phiuTr, grad=True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
+              phip, phipTr, phiuFu, phiuTr, grad=True):
+    return c_propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
+              phip, phipTr, phiuFu, phiuTr, grad=grad)
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def propagate(int j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
-              phip, phipTr, phiuFu, phiuTr, grad=True):
+cdef dict c_propagate(int j, dict sizes, DynMat, err, fu, fx, InitCondMat,
+                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
 
     # Load data (sizes, common matrices, etc)
     cdef int Ns, N, n, m, p, s

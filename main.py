@@ -67,12 +67,12 @@ def main(args,isManu=True,destFold=''):
         if len(args) > 2:
             confFile = args[2]
 
-
+    # Declare iterations manager
+    ITman = ITman(probName=prob.prob.probName, confFile=confFile, isManu=isManu,
+                      destFold=destFold)
+    # Declare object for running solution
     sol = prob.prob()
 
-    # Declare iterations manager
-    ITman = ITman(probName=sol.probName,confFile=confFile,isManu=isManu,
-                  destFold=destFold)
     # the logger object for the solution is the same for the iterations manager
     sol.log = ITman.log
 

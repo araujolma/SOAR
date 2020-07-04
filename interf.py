@@ -281,6 +281,7 @@ class ITman:
         self.loadSolDir = 'defaults' + os.sep + probName + '_solInitRest.pkl'
         self.loadAltSolDir = ''
         #'solInitRest.pkl'#'solInit.pkl'#'currSol.pkl'
+        self.MaxIterGrad = 10000
         self.GRplotSolRate = 20#1#
         self.GRsaveSolRate = 100
         self.GRpausRate = 10000#1000#10
@@ -354,6 +355,8 @@ class ITman:
                     self.defOpt = Pars.get(sec, 'defOpt')
                 if 'initOpt' in Pars.options(sec):
                     self.initOpt = Pars.get(sec, 'initOpt')
+                if 'MaxIterGrad' in Pars.options(sec):
+                    self.MaxIterGrad = Pars.getint(sec, 'MaxIterGrad')
                 if 'GRplotSolRate' in Pars.options(sec):
                     self.GRplotSolRate = Pars.getint(sec, 'GRplotSolRate')
                 if 'GRsaveSolRate' in Pars.options(sec):
@@ -876,8 +879,6 @@ class ITman:
         last_grad = 0
         next_grad = 0
         plotResP, plotResQ = False, False
-        # TODO: put this parameter to the external configuration file
-        stopAt = 400
         stepMan = None
         while do_GR_cycle:
 
@@ -901,7 +902,7 @@ class ITman:
 
             sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
 
-            if sol.Q <= sol.tol['Q'] or sol.NIterGrad > stopAt:
+            if sol.Q <= sol.tol['Q'] or sol.NIterGrad >= self.MaxIterGrad:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
                 #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)

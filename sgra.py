@@ -43,7 +43,7 @@ class sgra:
 
     probName = 'probSGRA'
 
-    def __init__(self, parallel=None):
+    def __init__(self, parallel=None, MaxIterGrad=10000):
         # these numbers should not make any sense;
         # they should change with the problem
         if parallel is None:
@@ -78,7 +78,7 @@ class sgra:
         self.Qx, self.Qu, self.Qp, self.Qt = 1., 1., 1., 1.
 
         # Histories
-        self.declHist()
+        self.declHist(MaxIterGrad=MaxIterGrad)
         self.NIterGrad = 0
 
         self.tol = {'P':1e-7,'Q':1e-7}

@@ -44,11 +44,16 @@ class batMan:
             self.NCases = Pars.getint(sec,'NCases')
             this_str = Pars.get(sec, 'probs')
             self.probList = this_str.split(',\n')
+            # If the problem list is too short, repeat the last element
+            if len(self.probList) < self.NCases:
+                self.probList = self.repLastElem(self.probList,
+                                                 self.NCases-len(self.probList))
             this_str = Pars.get(sec, 'baseFiles')
             self.baseFileList = this_str.split(',\n')
-
-            # TODO: put a simple test for singleton lists, then replace them for proper
-            #  lists of the same element
+            # If the problem list is too short, repeat the last element
+            if len(self.baseFileList) < self.NCases:
+                self.baseFileList = self.repLastElem(self.baseFileList,
+                                                 self.NCases-len(self.baseFileList))
 
         elif self.mode == 'variations':
             sec = 'variations_mode'
@@ -83,6 +88,13 @@ class batMan:
         # show parameters and leave
         self.log.printL("\nThese are the parameters for the batch:")
         self.log.pprint(self.__dict__)
+
+    @staticmethod
+    def repLastElem(givnList,Nrep):
+        elem = givnList[-1]
+        for i in range(Nrep):
+            givnList.append(elem)
+        return givnList
 
     def runNumbAsStr(self,runNr):
         """Produce the standard run number, starting from 1, zero padded for keeping

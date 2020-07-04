@@ -20,6 +20,9 @@ defOpt = newSol
 # Directory for loading and alternative solution (for comparing)
 #loadAltSolDir = ''
 #
+# Maximum number of gradient iterations
+MaxIterGrad = 20
+#
 # Gradient-restoration cycle: solution plotting rate
 GRplotSolRate = 10000
 #
