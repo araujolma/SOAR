@@ -1,9 +1,11 @@
+# cython: profile = True
 # -*- coding: utf-8 -*-
 """
 Created on Fri Dec 16 18:53:01 2016
 
 @author: levi
 """
+
 import numpy
 
 cimport cython
@@ -65,14 +67,18 @@ cdef dict c_prepMat(dict sizes, fu, phip, phiu, phix):
     """ Prepare matrices for propagation. """
 
 
-    cdef int Ns, N, n, m, p, s
-    cdef Py_ssize_t arc, k#, kp1, Nm1
-    Ns, N, n, m, p, s = sizes['Ns'], sizes['N'], sizes['n'], \
-                        sizes['m'],  sizes['p'], sizes['s']
-    #Nm1 = N-1
-    cdef double dt = 1.0 / (N-1)#Nm1
-    cdef double mdt = 0.5 * dt
-    cdef double mhdt = - 0.5 * dt
+    cdef:
+        int Ns = sizes['Ns']
+        int N = sizes['N']
+        int n = sizes['n']
+        int m = sizes['m']
+        int p = sizes['p']
+        int s = sizes['s']
+
+        Py_ssize_t arc, k
+        double dt = 1.0 / (N-1)
+        double mdt = 0.5 * dt
+        double mhdt = - 0.5 * dt
 
     # Prepare matrices with derivatives:
     phiuTr = numpy.empty((N,m,n,s))
@@ -132,26 +138,36 @@ cdef dict c_prepMat(dict sizes, fu, phip, phiu, phix):
 @cython.nonecheck(False)
 @cython.cdivision(True)
 def propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
-              phip, phipTr, phiuFu, phiuTr, grad=True):
+              phip, phipTr, phiuFu, phiuTr, grad=True, isCnull=False):
     return c_propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
-              phip, phipTr, phiuFu, phiuTr, grad=grad)
+              phip, phipTr, phiuFu, phiuTr, grad)
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef dict c_propagate(int j, dict sizes, DynMat, err, fu, fx, InitCondMat,
-                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
+cdef dict c_propagate(int j, dict sizes, DynMat,
+                      err, fu, fx, InitCondMat, InvDynMat,
+                      phip, phipTr, phiuFu, phiuTr, int grad):
+#cdef dict c_propagate(int j, dict sizes, DynMat,
+#                      double[:,:,:] err, fu, fx, double[:,:] InitCondMat,
+#                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
+
+
 
     # Load data (sizes, common matrices, etc)
-    cdef int Ns, N, n, m, p, s
-    cdef Py_ssize_t arc, k
-    Ns, N, n, m, p, s = sizes['Ns'], sizes['N'], sizes['n'], \
-                        sizes['m'],  sizes['p'], sizes['s']
+    cdef:
+        int Ns = sizes['Ns']
+        int N = sizes['N']
+        int n = sizes['n']
+        int m = sizes['m']
+        int p = sizes['p']
+        int s = sizes['s']
 
-    cdef double dt = 1.0 / (N-1)
-    cdef double mdt = 0.5 * dt
+        Py_ssize_t arc, k
+        double dt = 1.0 / (N-1)
+        double mdt = 0.5 * dt
 
     I = numpy.eye(2*n)
 
@@ -182,19 +198,25 @@ cdef dict c_propagate(int j, dict sizes, DynMat, err, fu, fx, InitCondMat,
 
     # TODO: this can be further optimized: the C multiplication can be avioded
     # in most cases, and err / phiuFu can be done in a single command!
-    if grad:
+    #print("\nPropagating with j = {}, C = {}".format(j,C))
+    if sum(C) > 0.5: # C is NOT composed of zeros!
+        #print("Doing the proper math...")
         for arc in range(s):
             for k in range(N):
-                # "A" terms
-                nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C) - phiuFu[k,:,arc]
-        nonHom[:,n:,:] = fx # "lambda" terms
-
+                nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C)
     else:
-        for arc in range(s):
-            for k in range(N):
-                # "A" terms
-                nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C) + err[k,:,arc]
+        #print("Skipped the math!")
+        nonHom[:,:n,:] = numpy.zeros((N,n,s))
+
+    if grad:
+        nonHom[:,:n,:] -= phiuFu # "A" terms
+        nonHom[:,n:,:] = fx      # "lambda" terms
+    else:
+        nonHom[:,:n,:] += err                 # "A" terms
         nonHom[:,n:,:] = numpy.zeros((N,n,s)) # "lambda" terms
+
+    # Pre-multiplying with 0.5*dt should yield better perfomance
+    nonHom *= mdt
 
     # get the coefficients for the phiLam integration
     coefList = simp([],N,onlyCoef=True)
@@ -212,7 +234,7 @@ cdef dict c_propagate(int j, dict sizes, DynMat, err, fu, fx, InitCondMat,
             for k in range(N-1):
                 Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
                   DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                  mdt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]) )
+                  nonHom[k+1,:,arc]+nonHom[k,:,arc] )
 
                 lam_kp1 = Xi[k+1,n:,arc]
                 B[k+1,:,arc] = -fu[k+1,:,arc] + \
@@ -230,7 +252,7 @@ cdef dict c_propagate(int j, dict sizes, DynMat, err, fu, fx, InitCondMat,
             for k in range(N-1):
                 Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
                    DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                   mdt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]) )
+                   nonHom[k+1,:,arc]+nonHom[k,:,arc] )
 
                 lam_kp1 = Xi[k+1,n:,arc]
                 B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)

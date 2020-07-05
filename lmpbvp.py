@@ -10,11 +10,16 @@ import numpy
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
 
-# this refers to the cython code
-import pyximport
-pyximport.install(setup_args={"include_dirs":numpy.get_include()},
-                  reload_support=True)
-import utils_c
+useCython = True
+
+if useCython:
+    # this refers to the cython code
+    import pyximport
+    pyximport.install(setup_args={"include_dirs":numpy.get_include()},
+                      reload_support=True)
+    from utils_c import simp, prepMat, propagate as _propagate
+else:
+    from utils import simp
 
 class LMPBVPhelp():
     """Class for processing the Linear Multipoint Boundary Value Problem.
@@ -32,7 +37,6 @@ class LMPBVPhelp():
         # debug options...
         self.dbugOptGrad = sol.dbugOptGrad
         self.dbugOptRest = sol.dbugOptRest
-        self.useCython = True
         self.t = sol.t
 
         # get sizes
@@ -102,10 +106,10 @@ class LMPBVPhelp():
         self.fu = fu
         self.fp = fp
 
-        if self.useCython:
+        if useCython:
             sizes = {'N': self.N, 'Ns': self.Ns, 'n': self.n,
                      'm': self.m, 'p': self.p, 's': self.s}
-            outp = utils_c.prepMat(sizes, fu, phip, phiu, phix)
+            outp = prepMat(sizes, fu, phip, phiu, phix)
             self.DynMat, self.InvDynMat = outp['DynMat'], outp['InvDynMat']
             self.phipTr = outp['phipTr']
             self.phiuFu = outp['phiuFu']
@@ -188,10 +192,10 @@ class LMPBVPhelp():
         """This method computes each solution, via propagation of the
         applicable Linear System of Ordinary Differential Equations."""
 
-        if self.useCython:
+        if useCython:
             sizes = {'N': self.N, 'Ns': self.Ns, 'n': self.n,
                      'm': self.m, 'p': self.p, 's': self.s}
-            outp = utils_c.propagate(j, sizes, self.DynMat, self.err, self.fu, self.fx,
+            outp = _propagate(j, sizes, self.DynMat, self.err, self.fu, self.fx,
                 self.InitCondMat, self.InvDynMat, self.phip, self.phipTr, self.phiuFu,
                 self.phiuTr, grad=(self.rho>.5))
         else:
@@ -247,7 +251,7 @@ class LMPBVPhelp():
 
             # This command probably broke the compatibility with other integration
             # methods. They weren't working anyway, so...
-            coefList = utils_c.simp([],N,onlyCoef=True)
+            coefList = simp([],N,onlyCoef=True)
 
             for arc in range(s):
                 if self.solver == 'heun':
@@ -727,7 +731,7 @@ class LMPBVPhelp():
             sumIntFpi = numpy.zeros(p)
             for arc in range(s):
                 for ind in range(p):
-                    sumIntFpi[ind] += utils_c.simp(self.fp[:,ind,arc],N)
+                    sumIntFpi[ind] += simp(self.fp[:,ind,arc],N)
                 #
             #
             col[(q_+1):(q_+p+1)] = - sumIntFpi
