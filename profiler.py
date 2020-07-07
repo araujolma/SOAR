@@ -21,7 +21,7 @@ def main():
     fx = numpy.ones((N, n, s))
     err = numpy.zeros((N, n, s))
 
-    for k in range(100):
+    for k in range(1000):
         propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
                   phip, phipTr, phiuFu, phiuTr, grad=True, isCnull=False)
     return None

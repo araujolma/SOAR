@@ -3,6 +3,8 @@
 """
 Created on Fri Dec 16 18:53:01 2016
 
+put this up there for profiling # cython: profile = True
+
 @author: levi
 """
 
@@ -10,6 +12,7 @@ import numpy
 
 cimport cython
 cimport numpy
+#from libc.stdlib cimport malloc
 
 
 @cython.boundscheck(False)
@@ -32,24 +35,40 @@ def simp(vec, int N, onlyCoef=False):
     #cdef double[:]
 
     coefList = numpy.empty(N, dtype=numpy.double)
-    cdef Py_ssize_t k
     cdef double oneN = 1.0 / (3.0 * N)
-    cdef double twoN = 2.0 * oneN
-    cdef double fourN = 2.0 * twoN
 
-    for k in range(1,N-1):
-        if k % 2 == 0:
-            coefList[k] = twoN
-        else:
-            coefList[k] = fourN
-    #
     coefList[0] = oneN
+    coefList[1:N:2] = 4.0 * oneN # set odd coefficientes to 4/3N
+    coefList[2:N:2] = 2.0 * oneN # set even coefficientes to 2/3N
     coefList[N-1] = oneN
 
     if onlyCoef:
         return numpy.asarray(coefList)
     else:
         return numpy.asarray(coefList.dot(vec))
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef c_simp(int N):
+    """ Coefficientes for simple integration of array according to Simpson's
+    method. """
+
+
+    #cdef double[:]
+
+    coefList = numpy.empty(N, dtype=numpy.double)
+    cdef:
+        double oneN = 1.0 / (3.0 * N)
+        #double *
+
+    coefList[0] = oneN
+    coefList[1:N:2] = 4.0 * oneN # set odd coefficientes to 4/3N
+    coefList[2:N:2] = 2.0 * oneN # set even coefficientes to 2/3N
+    coefList[N-1] = oneN
+
+    return coefList
 
 
 @cython.boundscheck(False)
@@ -147,59 +166,16 @@ def propagate(j, sizes, DynMat, err, fu, fx, InitCondMat, InvDynMat,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef dict c_propagate(int j, dict sizes, DynMat,
-                      err, fu, fx, InitCondMat, InvDynMat,
-                      phip, phipTr, phiuFu, phiuTr, int grad):
-#cdef dict c_propagate(int j, dict sizes, DynMat,
-#                      double[:,:,:] err, fu, fx, double[:,:] InitCondMat,
-#                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
+cdef dummy1(int grad, int n, int s, int N, double mdt, C, err, fx, phip,
+            phiuFu):
+    """  Non-homogeneous terms for the LSODE """
 
-
-
-    # Load data (sizes, common matrices, etc)
-    cdef:
-        int Ns = sizes['Ns']
-        int N = sizes['N']
-        int n = sizes['n']
-        int m = sizes['m']
-        int p = sizes['p']
-        int s = sizes['s']
-
-        Py_ssize_t arc, k
-        double dt = 1.0 / (N-1)
-        double mdt = 0.5 * dt
-
-    I = numpy.eye(2*n)
-
-    # Declare matrices for corrections
-    phiLamIntCol = numpy.zeros(p)
-    A = numpy.zeros((N,n,s))
-    B = numpy.zeros((N,m,s))
-    #C = numpy.zeros((p,1))
-    DtCol = numpy.empty(2*n*s)
-    EtCol = numpy.empty(2*n*s)
-    lam = numpy.zeros((N,n,s))
-
-    # the vector that will be integrated is Xi = [A; lam]
-    Xi = numpy.zeros((N,2*n,s))
-    # Initial conditions for the LSODE:
-
-    for arc in range(s):
-        A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
-        lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
-        Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
-
-
-    C = InitCondMat[(2*n*s):,j]
-
-    # Non-homogeneous terms for the LSODE:
     nonHom = numpy.empty((N,2*n,s))
+    cdef Py_ssize_t arc, k
 
 
-    # TODO: this can be further optimized: the C multiplication can be avioded
-    # in most cases, and err / phiuFu can be done in a single command!
     #print("\nPropagating with j = {}, C = {}".format(j,C))
-    if sum(C) > 0.5: # C is NOT composed of zeros!
+    if numpy.any(C > 0.5): # C is NOT composed of zeros!
         #print("Doing the proper math...")
         for arc in range(s):
             for k in range(N):
@@ -217,11 +193,19 @@ cdef dict c_propagate(int j, dict sizes, DynMat,
 
     # Pre-multiplying with 0.5*dt should yield better perfomance
     nonHom *= mdt
+    return nonHom
 
-    # get the coefficients for the phiLam integration
-    coefList = simp([],N,onlyCoef=True)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef dummy2(int grad, int n, int s, int N, double mdt, coefList, fu, lam,
+            nonHom, phipTr, phiuTr, phiLamIntCol, B, DynMat, InvDynMat, Xi):
+    """Perform the actual integration """
     lam_kp1 = numpy.empty(n)
+    cdef Py_ssize_t arc, k
+
     if grad:
         for arc in range(s):
             # Integrate the LSODE by trapezoidal (implicit) method
@@ -258,12 +242,23 @@ cdef dict c_propagate(int j, dict sizes, DynMat,
                 B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)
                 phiLamIntCol += coefList[k+1] * \
                                 phipTr[k+1,:,:,arc].dot(lam_kp1)
+    return phiLamIntCol, B, Xi
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef dummy3(int n, int s, int N, lam, A, DtCol, EtCol, Xi):
+    """Assemble A, lam, Dt and Et."""
+    cdef Py_ssize_t arc
+
+    A = Xi[:,:n,:]
+    lam = Xi[:,n:,:]
     for arc in range(s):
         # Get the A and lam values from Xi
-        A[:,:,arc] = Xi[:,:n,arc]
-        lam[:,:,arc] = Xi[:,n:,arc]
+        #A[:,:,arc] = Xi[:,:n,arc]
+        #lam[:,:,arc] = Xi[:,n:,arc]
 
         # Put initial and final conditions of A and Lambda into matrices
         # DtCol and EtCol, which represent the columns of Dtilde(Dt) and
@@ -272,9 +267,213 @@ cdef dict c_propagate(int j, dict sizes, DynMat,
         DtCol[(2*arc+1)*n : (2*arc+2)*n] =    A[N-1,:,arc] # eq (32a)
         EtCol[(2*arc)*n   : (2*arc+1)*n] = -lam[0,:,arc]   # eq (32b)
         EtCol[(2*arc+1)*n : (2*arc+2)*n] =  lam[N-1,:,arc] # eq (32b)
+    return lam, A, DtCol, EtCol
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef dict c_propagate(int j, dict sizes, DynMat,
+                      err, fu, fx, InitCondMat, InvDynMat,
+                      phip, phipTr, phiuFu, phiuTr, int grad):
+#cdef dict c_propagate(int j, dict sizes, DynMat,
+#                      double[:,:,:] err, fu, fx, double[:,:] InitCondMat,
+#                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
+
+
+
+    # Load data (sizes, common matrices, etc)
+    cdef:
+        int Ns = sizes['Ns']
+        int N = sizes['N']
+        int n = sizes['n']
+        int m = sizes['m']
+        int p = sizes['p']
+        int s = sizes['s']
+
+        Py_ssize_t arc, k
+        double dt = 1.0 / (N-1)
+        double mdt = 0.5 * dt
+
+
+    I = numpy.eye(2*n)
+
+    # Declare matrices for corrections
+    phiLamIntCol = numpy.zeros(p)
+    A = numpy.zeros((N,n,s))
+    B = numpy.zeros((N,m,s))
+    #C = numpy.zeros((p,1))
+    DtCol = numpy.empty(2*n*s)
+    EtCol = numpy.empty(2*n*s)
+    lam = numpy.zeros((N,n,s))
+
+    # the vector that will be integrated is Xi = [A; lam]
+    Xi = numpy.zeros((N,2*n,s))
+    # Initial conditions for the LSODE:
+
+    for arc in range(s):
+        A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+        lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
+        Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+
+
+    C = InitCondMat[(2*n*s):,j]
+
+    # non-homogenous terms
+    nonHom = dummy1(grad, n, s, N, mdt, C, err, fx, phip, phiuFu)
+
+
+    # get the coefficients for the phiLam integration
+    coefList = c_simp(N)
+
+    # perform the integration
+    phiLamIntCol, B, Xi = dummy2(grad, n, s, N, mdt, coefList, fu, lam,
+            nonHom, phipTr, phiuTr, phiLamIntCol, B, DynMat, InvDynMat, Xi)
+
+    # assemble final arrays
+    lam, A, DtCol, EtCol = dummy3(n, s, N, lam, A, DtCol, EtCol, Xi)
+
 
     # All the outputs go to main output dictionary; the final solution is
     # computed by the next method, 'getCorr'.
     outp = {'A':A,'B':B,'C':C,'L':lam,'Dt':DtCol,'Et':EtCol,
             'phiLam':phiLamIntCol}
     return outp
+
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# @cython.nonecheck(False)
+# @cython.cdivision(True)
+# cdef dict c_propagate(int j, dict sizes, DynMat,
+#                       err, fu, fx, InitCondMat, InvDynMat,
+#                       phip, phipTr, phiuFu, phiuTr, int grad):
+# #cdef dict c_propagate(int j, dict sizes, DynMat,
+# #                      double[:,:,:] err, fu, fx, double[:,:] InitCondMat,
+# #                      InvDynMat, phip, phipTr, phiuFu, phiuTr, int grad):
+
+
+
+#     # Load data (sizes, common matrices, etc)
+#     cdef:
+#         int Ns = sizes['Ns']
+#         int N = sizes['N']
+#         int n = sizes['n']
+#         int m = sizes['m']
+#         int p = sizes['p']
+#         int s = sizes['s']
+
+#         Py_ssize_t arc, k
+#         double dt = 1.0 / (N-1)
+#         double mdt = 0.5 * dt
+
+
+#     I = numpy.eye(2*n)
+
+#     # Declare matrices for corrections
+#     phiLamIntCol = numpy.zeros(p)
+#     A = numpy.zeros((N,n,s))
+#     B = numpy.zeros((N,m,s))
+#     #C = numpy.zeros((p,1))
+#     DtCol = numpy.empty(2*n*s)
+#     EtCol = numpy.empty(2*n*s)
+#     lam = numpy.zeros((N,n,s))
+
+#     # the vector that will be integrated is Xi = [A; lam]
+#     Xi = numpy.zeros((N,2*n,s))
+#     # Initial conditions for the LSODE:
+
+#     for arc in range(s):
+#         A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+#         lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
+#         Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+
+
+#     C = InitCondMat[(2*n*s):,j]
+
+#     # Non-homogeneous terms for the LSODE:
+#     nonHom = numpy.empty((N,2*n,s))
+
+
+#     # TODO: this can be further optimized: the C multiplication can be avioded
+#     # in most cases, and err / phiuFu can be done in a single command!
+#     #print("\nPropagating with j = {}, C = {}".format(j,C))
+#     if sum(C) > 0.5: # C is NOT composed of zeros!
+#         #print("Doing the proper math...")
+#         for arc in range(s):
+#             for k in range(N):
+#                 nonHom[k,:n,arc] = phip[k,:,:,arc].dot(C)
+#     else:
+#         #print("Skipped the math!")
+#         nonHom[:,:n,:] = numpy.zeros((N,n,s))
+
+#     if grad:
+#         nonHom[:,:n,:] -= phiuFu # "A" terms
+#         nonHom[:,n:,:] = fx      # "lambda" terms
+#     else:
+#         nonHom[:,:n,:] += err                 # "A" terms
+#         nonHom[:,n:,:] = numpy.zeros((N,n,s)) # "lambda" terms
+
+#     # Pre-multiplying with 0.5*dt should yield better perfomance
+#     nonHom *= mdt
+
+#     # get the coefficients for the phiLam integration
+#     coefList = c_simp(N)
+
+#     lam_kp1 = numpy.empty(n)
+#     if grad:
+#         for arc in range(s):
+#             # Integrate the LSODE by trapezoidal (implicit) method
+#             B[0,:,arc] = -fu[0,:,arc] + \
+#                                 phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#             phiLamIntCol += coefList[0] * \
+#                             (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+#             # is it better to index in k+1 ?
+#             for k in range(N-1):
+#                 Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
+#                   DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+#                   nonHom[k+1,:,arc]+nonHom[k,:,arc] )
+
+#                 lam_kp1 = Xi[k+1,n:,arc]
+#                 B[k+1,:,arc] = -fu[k+1,:,arc] + \
+#                                 phiuTr[k+1,:,:,arc].dot(lam_kp1)
+#                 phiLamIntCol += coefList[k+1] * \
+#                                 phipTr[k+1,:,:,arc].dot(lam_kp1)
+#     else:
+#         for arc in range(s):
+#             # Integrate the LSODE by trapezoidal (implicit) method
+#             B[0,:,arc] = phiuTr[0,:,:,arc].dot(lam[0,:,arc])
+#             phiLamIntCol += coefList[0] * \
+#                             (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+#             # is it better to index in k+1 ?
+#             for k in range(N-1):
+#                 Xi[k+1,:,arc] = InvDynMat[k+1,:,:,arc].dot(
+#                    DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+#                    nonHom[k+1,:,arc]+nonHom[k,:,arc] )
+
+#                 lam_kp1 = Xi[k+1,n:,arc]
+#                 B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)
+#                 phiLamIntCol += coefList[k+1] * \
+#                                 phipTr[k+1,:,:,arc].dot(lam_kp1)
+
+
+#     for arc in range(s):
+#         # Get the A and lam values from Xi
+#         A[:,:,arc] = Xi[:,:n,arc]
+#         lam[:,:,arc] = Xi[:,n:,arc]
+
+#         # Put initial and final conditions of A and Lambda into matrices
+#         # DtCol and EtCol, which represent the columns of Dtilde(Dt) and
+#         # Etilde(Et)
+#         DtCol[(2*arc)*n   : (2*arc+1)*n] =    A[0,:,arc]   # eq (32a)
+#         DtCol[(2*arc+1)*n : (2*arc+2)*n] =    A[N-1,:,arc] # eq (32a)
+#         EtCol[(2*arc)*n   : (2*arc+1)*n] = -lam[0,:,arc]   # eq (32b)
+#         EtCol[(2*arc+1)*n : (2*arc+2)*n] =  lam[N-1,:,arc] # eq (32b)
+
+#     # All the outputs go to main output dictionary; the final solution is
+#     # computed by the next method, 'getCorr'.
+#     outp = {'A':A,'B':B,'C':C,'L':lam,'Dt':DtCol,'Et':EtCol,
+#             'phiLam':phiLamIntCol}
+#     return outp
