@@ -130,6 +130,9 @@ cdef dict c_prepMat(dict sizes, fu, phip, phiu, phix):
             # command...
             DynMat[k, :, :, arc] = I + mdt * DynMat_[k,:,:,arc]
 
+    #DynMat = mdt * DynMat_[:,:,:,:]
+    #DynMat[:, 0:(2*n), 0:(2*n), :] += I
+
 
     # This is a strategy for lowering the cost of the trapezoidal solver.
     # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n,
@@ -206,13 +209,21 @@ cdef dummy2(int grad, int n, int s, int N, double mdt, coefList, fu, lam,
     lam_kp1 = numpy.empty(n)
     cdef Py_ssize_t arc, k
 
+
+    #fu_r = fu.swapaxes(1,2)
+    #phiuTr_r = phiuTr.swapaxes(2,3).swapaxes(1,2)
+    #phipTr_r = phipTr.swapaxes(2,3).swapaxes(1,2)
+    #InvDynMat_r = InvDynMat.swapaxes(2,3).swapaxes(1,2)
+    #DynMat_r = DynMat.swapaxes(2,3).swapaxes(1,2)
+    #nonHom_r = nonHom.swapaxes(1,2)
+
+
     if grad:
         for arc in range(s):
             # Integrate the LSODE by trapezoidal (implicit) method
-            B[0,:,arc] = -fu[0,:,arc] + \
-                                phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-            phiLamIntCol += coefList[0] * \
-                            (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+            #phiLamIntCol += coefList[0] * \
+            #                (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
             # is it better to index in k+1 ?
             for k in range(N-1):
@@ -220,17 +231,30 @@ cdef dummy2(int grad, int n, int s, int N, double mdt, coefList, fu, lam,
                   DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
                   nonHom[k+1,:,arc]+nonHom[k,:,arc] )
 
-                lam_kp1 = Xi[k+1,n:,arc]
-                B[k+1,:,arc] = -fu[k+1,:,arc] + \
-                                phiuTr[k+1,:,:,arc].dot(lam_kp1)
-                phiLamIntCol += coefList[k+1] * \
-                                phipTr[k+1,:,:,arc].dot(lam_kp1)
+                #lam_kp1 = Xi[k+1,n:,arc]
+                #B[k+1,:,arc] = -fu[k+1,:,arc] + \
+                #                phiuTr[k+1,:,:,arc].dot(lam_kp1)
+                #phiLamIntCol += coefList[k+1] * \
+                                #phipTr[k+1,:,:,arc].dot(lam_kp1)
+        lam = Xi[:,n:,:]
+        #lam_r = lam.swapaxes(1,2)
+        #lam_r = numpy.expand_dims(lam_r,axis=3)
+        #print("phiuTr_r: {}, lam_r: {}".format(phiuTr_r.shape,lam_r.shape))
+        #B_r = numpy.matmul(phiuTr_r,lam_r)
+        #B_r = B_r.squeeze(axis=3)
+        #B_r = B_r - fu_r
+        #B = B_r.swapaxes(1,2)
+
+        B = numpy.einsum('nijs,njs->nis',phiuTr,lam) - fu
+        phiLamIntCol = numpy.einsum('nijs,njs->nis',phipTr, lam)
+        phiLamIntCol = numpy.einsum('nis,n->i',phiLamIntCol, coefList)
+
     else:
         for arc in range(s):
             # Integrate the LSODE by trapezoidal (implicit) method
-            B[0,:,arc] = phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-            phiLamIntCol += coefList[0] * \
-                            (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+
+            #phiLamIntCol += coefList[0] * \
+            #                (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
 
             # is it better to index in k+1 ?
             for k in range(N-1):
@@ -239,9 +263,20 @@ cdef dummy2(int grad, int n, int s, int N, double mdt, coefList, fu, lam,
                    nonHom[k+1,:,arc]+nonHom[k,:,arc] )
 
                 lam_kp1 = Xi[k+1,n:,arc]
-                B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)
+                #B[k+1,:,arc] = phiuTr[k+1,:,:,arc].dot(lam_kp1)
                 phiLamIntCol += coefList[k+1] * \
                                 phipTr[k+1,:,:,arc].dot(lam_kp1)
+        lam = Xi[:,n:,:]
+        #lam_r = lam.swapaxes(1,2)
+        #lam_r = numpy.expand_dims(lam_r,axis=3)
+        #B_r = numpy.matmul(phiuTr_r,lam_r)
+        #B_r = B_r.squeeze(axis=3)
+        #B = B_r.swapaxes(1,2)
+        B = numpy.einsum('nijs,njs->nis',phiuTr,lam)
+        phiLamIntCol = numpy.einsum('nijs,njs->nis',phipTr, lam)
+        phiLamIntCol = numpy.einsum('nis,n->i',phiLamIntCol, coefList)
+
+
     return phiLamIntCol, B, Xi
 
 

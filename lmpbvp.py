@@ -10,7 +10,7 @@ import numpy
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
 
-useCython = True
+useCython = False
 
 if useCython:
     # this refers to the cython code
@@ -63,10 +63,6 @@ class LMPBVPhelp():
 
         self.err = err
 
-        # Solver
-        # TODO: put the solver as an external option
-        self.solver = 'trap'#sol.solver
-
         #######################################################################
         if rho < 0.5 and self.dbugOptRest['plotErr']:
             print("\nThis is err:")
@@ -90,21 +86,12 @@ class LMPBVPhelp():
         # Get gradients
         Grads = sol.calcGrads(calcCostTerm=(rho>0.5))
         #dt6 = dt/6
-        phix = Grads['phix']
-        phiu = Grads['phiu']
-        phip = Grads['phip']
-        psiy = Grads['psiy']
-        psip = Grads['psip']
-        fx = Grads['fx']
-        fu = Grads['fu']
-        fp = Grads['fp']
+        phix, phiu, phip = Grads['phix'], Grads['phiu'], Grads['phip']
+        psiy, psip = Grads['psiy'], Grads['psip']
+        fx, fu, fp = Grads['fx'], Grads['fu'], Grads['fp']
 
-        self.phip = phip
-        self.psiy = psiy
-        self.psip = psip
-        self.fx = fx
-        self.fu = fu
-        self.fp = fp
+        self.phip, self.psiy, self.psip = phip, psiy, psip
+        self.fx, self.fu, self.fp = fx, fu, fp
 
         if useCython:
             sizes = {'N': self.N, 'Ns': self.Ns, 'n': self.n,
@@ -117,48 +104,53 @@ class LMPBVPhelp():
             self.InitCondMat = outp['InitCondMat']
         else:
             # Prepare matrices with derivatives:
-            phixTr = numpy.empty_like(phix)
-            phiuTr = numpy.empty((N,m,n,s))
-            phipTr = numpy.empty((N,p,n,s))
-            phiuFu = numpy.empty((N,n,s))
-            for arc in range(s):
-                for k in range(N):
-                    phixTr[k,:,:,arc] = phix[k,:,:,arc].transpose()
-                    phiuTr[k,:,:,arc] = phiu[k,:,:,arc].transpose()
-                    phipTr[k,:,:,arc] = phip[k,:,:,arc].transpose()
-                    phiuFu[k,:,arc] = phiu[k,:,:,arc].dot(fu[k,:,arc])
-            self.phiuFu = phiuFu
-            self.phiuTr = phiuTr
-            self.phipTr = phipTr
-
-            InitCondMat = numpy.eye(Ns,Ns+1)
-            self.InitCondMat = InitCondMat
+            I = numpy.eye(2 * n)
+            mdt = 0.5 * self.dt
+            # this computes phiu * fu, for all times and arcs
+            self.phiuFu = numpy.einsum('nijs,njs->nis',phiu,fu)
+            self.phiu = phiu
+            self.InitCondMat = numpy.eye(Ns,Ns+1)
 
             # Dynamics matrix for propagating the LSODE:
-            DynMat = numpy.zeros((N,2*n,2*n,s))
+            # originally, DynMat was the matrix, D, with phix, phiu*phiu^T, etc;
+            # but it is more efficient to store (I + .5 * dt * D) instead.
+            DynMat_ = numpy.zeros((N,2*n,2*n,s))
+            DynMat_[:,:n,:n,:] = phix
+            # phiu * phiu^T:
+            DynMat_[:, :n, n:, :] = numpy.einsum('nijs,nkjs->niks',phiu,phiu)
+            # - phix^T
+            DynMat_[:, n:, n:, :] = -phix.swapaxes(1,2)
+            #DynMat[k, :, :, arc] = I + mdt * DynMat_[k, :, :, arc]
+            DynMat = mdt * DynMat_[:,:,:,:]
+            # TODO: is this the best way to do it?
             for arc in range(s):
-                for k in range(N):
-                    DynMat[k,:n,:n,arc] = phix[k,:,:,arc]
-                    DynMat[k,:n,n:,arc] = phiu[k,:,:,arc].dot(phiuTr[k,:,:,arc])
-                    DynMat[k,n:,n:,arc] = -phixTr[k,:,:,arc]
+                DynMat[:, 0:(2*n), 0:(2*n), arc] += I
             self.DynMat = DynMat
 
             # This is a strategy for lowering the cost of the trapezoidal solver.
-            # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n, resulting in a
-            # cost in the order of (N-1) * s * (2ns+p) * 4n² ; it is better to pre-invert
-            # (N-1) * s matrices of order 2n, resulting in a cost in the order of
-            # (N-1) * s * 8n³. This should always result in an increased performance because
+            # Instead of solving (N-1) * s * (2ns+p) linear systems of order 2n,
+            # resulting in a cost in the order of
+            #         (N-1) * s * (2ns+p) * 4n² ;
+            # it is  better to pre-invert (N-1) * s matrices of order 2n,
+            # resulting in a cost in the order of
+            #         (N-1) * s * 8n³.
+            # This should always result in an increased performance because
             #         (N-1) * s * 8n³ < (N-1) * s * (2ns+p) * 4n²
 
-            if self.solver == 'trap':
-                I = numpy.eye(2 * n)
-                InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
-                mhdt = -.5 * self.dt
-                for arc in range(s):
-                    for k in range(1,N):
-                        InvDynMat[k, :, :, arc] = numpy.linalg.inv(
-                            I + mhdt * DynMat[k, :, :, arc])
-                self.InvDynMat = InvDynMat
+            # InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
+            # mhdt = -.5 * self.dt
+            # for arc in range(s):
+            #     for k in range(1,N):
+            #         InvDynMat[k, :, :, arc] = numpy.linalg.inv(
+            #             I + mhdt * DynMat_[k, :, :, arc])
+            InvDynMat = -mdt * DynMat_#numpy.zeros((N, s, 2 * n, 2 * n))
+            for arc in range(s):
+                InvDynMat[:,:,:,arc] += I
+            # the inversion works in this vectorized form, but only in the last two
+            # axes. Let's swap them back and forth, then!
+            InvDynMat = numpy.linalg.inv(InvDynMat.
+                             swapaxes(2,3).swapaxes(1,2)).swapaxes(1,2).swapaxes(2,3)
+            self.InvDynMat = InvDynMat
 
         #self.showEig(N,n,s)
 
@@ -196,364 +188,81 @@ class LMPBVPhelp():
             sizes = {'N': self.N, 'Ns': self.Ns, 'n': self.n,
                      'm': self.m, 'p': self.p, 's': self.s}
             outp = _propagate(j, sizes, self.DynMat, self.err, self.fu, self.fx,
-                self.InitCondMat, self.InvDynMat, self.phip, self.phipTr, self.phiuFu,
-                self.phiuTr, grad=(self.rho>.5))
+                self.InitCondMat, self.InvDynMat, self.phip, self.phipTr,
+                self.phiuFu, self.phiuTr, grad=(self.rho>.5))
         else:
             # Load data (sizes, common matrices, etc)
             rho = self.rho
-            rho1 = self.rho-1.0
             Ns,N,n,m,p,s = self.Ns,self.N,self.n,self.m,self.p,self.s
             dt = self.dt
-
+            mdt = .5 * dt
             InitCondMat = self.InitCondMat
-            phip = self.phip
+            phip, phiu, phiuFu = self.phip, self.phiu, self.phiuFu
             err = self.err
-            phiuFu = self.phiuFu
             fx = self.fx
-            if rho > .5:
-                rhoFu = self.fu
-            else:
-                rhoFu = numpy.zeros((N,m,s))
-
-            phiuTr = self.phiuTr
-            phipTr = self.phipTr
             DynMat = self.DynMat
+            grad = (rho>.5) # rho = 1: grad = True; rho = 0: grad = False
+
             I = numpy.eye(2*n)
 
             # Declare matrices for corrections
-            phiLamIntCol = numpy.zeros(p)
-            DtCol = numpy.empty(2*n*s)
-            EtCol = numpy.empty(2*n*s)
-            A = numpy.zeros((N,n,s))
-            B = numpy.zeros((N,m,s))
-            C = numpy.zeros((p,1))
-            lam = numpy.zeros((N,n,s))
+            DtCol, EtCol  = numpy.empty(2*n*s), numpy.empty(2*n*s)
+            #A, B, C, lam = numpy.zeros((N,n,s)), "(N,m,s), "(p,1), "(N,n,s)
 
             # the vector that will be integrated is Xi = [A; lam]
             Xi = numpy.zeros((N,2*n,s))
             # Initial conditions for the LSODE:
+            # TODO: this can probably be done faster!
             for arc in range(s):
-                A[0,:,arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
-                lam[0,:,arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
-                Xi[0,:n,arc],Xi[0,n:,arc] = A[0,:,arc],lam[0,:,arc]
+                Xi[0, :n, arc] = InitCondMat[2*n*arc:(2*n*arc+n) , j]
+                Xi[0, n:, arc] = InitCondMat[(2*n*arc+n):(2*n*(arc+1)) , j]
             C = InitCondMat[(2*n*s):,j]
 
             # Non-homogeneous terms for the LSODE:
-            nonHom = numpy.empty((N,2*n,s))
-            for arc in range(s):
-                for k in range(N):
-                    # minus sign in rho1 (rho-1) is on purpose!
-                    nonHA = phip[k,:,:,arc].dot(C) + \
-                                -rho1*err[k,:,arc] - rho*phiuFu[k,:,arc]
-                    nonHL = rho * fx[k,:,arc]
-                    nonHom[k,:n,arc] = nonHA#.copy()
-                    nonHom[k,n:,arc] = nonHL#.copy()
+            # nonHom = [[phip*C - rho * phiu * fu + (1-rho) * err],
+            #           [rho * fx]],
+            #           for each time and arc
+            nonHom = numpy.zeros((N,2*n,s))
+            if numpy.any(C > 0.5):  # C is NOT composed of zeros!
+                nonHom[:,:n,:] = numpy.einsum('nijs,j->nis',phip,C)
+
+            if grad:
+                nonHom[:, :n, :] -= phiuFu  # "A" terms
+                nonHom[:, n:, :] = fx  # "lambda" terms
+            else:
+                nonHom[:, :n, :] += err  # "A" terms
+
+            # Pre-multiplying with 0.5*dt yields better performance
+            nonHom *= mdt
+
 
             # This command probably broke the compatibility with other integration
             # methods. They weren't working anyway, so...
             coefList = simp([],N,onlyCoef=True)
 
+            # TODO: most of the cost of the entire project is right here!!
             for arc in range(s):
-                if self.solver == 'heun':
-    ###############################################################################
-                    # Integrate the LSODE (by Heun's method):
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
+                # Integrate the LSODE by trapezoidal (implicit) method
+                for k in range(N-1):
+                    Xi[k+1,:,arc] = self.InvDynMat[k+1,:,:,arc].dot(
+                      DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
+                      (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
+                #
 
-                    # First point: simple propagation
-                    derXik = DynMat[0,:,:,arc].dot(Xi[0,:,arc]) + \
-                                nonHom[0,:,arc]
-                    Xi[1,:,arc] = Xi[0,:,arc] + dt * derXik
-                    #A[1,:,arc] = Xi[1,:n,arc]
-                    lam[1,:,arc] = Xi[1,n:,arc]
-                    B[1,:,arc] = -rhoFu[1,:,arc] + \
-                                    phiuTr[1,:,:,arc].dot(lam[1,:,arc])
-                    phiLamIntCol += phipTr[1,:,:,arc].dot(lam[1,:,arc])
+            # Get the A values from Xi
+            A, lam = Xi[:,:n,:], Xi[:,n:,:]
+            if grad:
+                # this calculates phiu^T * lam - fu, for all times and arcs
+                B = numpy.einsum('njis,njs->nis', phiu, lam) - self.fu
+            else:
+                # this calculates phiu^T * lam, for all times and arcs
+                B = numpy.einsum('njis,njs->nis', phiu, lam)
+            # this calculates the product phip * lam, for all times and arcs...
+            phiLamIntCol = numpy.einsum('njis,njs->nis', phip, lam)
+            # and this, the integral of the previous term, w.r.t. the non-dim time
+            phiLamIntCol = numpy.einsum('nis,n->i', phiLamIntCol, coefList)
 
-                    # "Middle" points: original Heun propagation
-                    for k in range(1,N-2):
-                        derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                                nonHom[k,:,arc]
-                        aux = Xi[k,:,arc] + dt * derXik
-                        Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
-                                        DynMat[k+1,:,:,arc].dot(aux) + \
-                                        nonHom[k+1,:,arc])
-                        #A[k+1,:,arc] = Xi[k+1,:n,arc]
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-
-                    # Last point: simple propagation, but based on the last point
-                    derXik = DynMat[N-1,:,:,arc].dot(Xi[N-2,:,arc]) + \
-                                nonHom[N-1,:,arc]
-                    Xi[N-1,:,arc] = Xi[N-2,:,arc] + dt * derXik
-                    #A[N-1,:,arc] = Xi[N-1,:n,arc]
-                    lam[N-1,:,arc] = Xi[N-1,n:,arc]
-                    B[N-1,:,arc] = -rhoFu[N-1,:,arc] + \
-                                    phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-                    phiLamIntCol += .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-    ###############################################################################
-                elif self.solver == 'trap':
-                    # Integrate the LSODE by trapezoidal (implicit) method
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += coefList[0] * \
-                                    (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    for k in range(N-1):
-                        Xi[k+1,:,arc] = self.InvDynMat[k+1,:,:,arc].dot(
-                          (I + .5 * dt * DynMat[k,:,:,arc]).dot(Xi[k,:,arc]) + \
-                          .5 * dt * (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-
-    ###############################################################################
-                elif self.solver == 'BEI':
-                # Integrate the LSODE by "original" Euler Backwards implicit
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += .5*(phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    for k in range(N-1):
-                        Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
-                          Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-
-                    phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-    ###############################################################################
-                if self.solver == 'leapfrog':
-                    # Integrate the LSODE by "leapfrog" with special start and end
-
-                    # with special 1st step...
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    Xi[1,:,arc] = Xi[0,:,arc] + dt * \
-                                  (DynMat[0,:,:,arc].dot(Xi[0,:,arc])+nonHom[0,:,arc])
-                    lam[1,:,arc] = Xi[1,n:,arc]
-                    B[1,:,arc] = -rhoFu[1,:,arc] + \
-                                        phiuTr[1,:,:,arc].dot(lam[1,:,arc])
-                    phiLamIntCol += coefList[1] * \
-                                        phipTr[1,:,:,arc].dot(lam[1,:,arc])
-
-                    for k in range(1,N-2):
-
-                        Xi[k+1,:,arc] = Xi[k-1,:,arc] + 2. * dt * \
-                            (DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc])
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-
-        #            # with special last step...
-                    Xi[N-1,:,arc] = numpy.linalg.solve(I - dt*DynMat[N-1,:,:,arc],\
-                          Xi[N-2,:,arc] + dt*nonHom[N-1,:,arc])
-
-        #            # with special last step...
-        #            Xi[N-1,:,arc] = Xi[N-2,:,arc] + dt * \
-        #                          (DynMat[N-1,:,:,arc].dot(Xi[N-2,:,arc])+nonHom[N-1,:,arc])
-
-                    # with special last step...
-        #            derXik = DynMat[N-2,:,:,arc].dot(Xi[N-2,:,arc]) + \
-        #                        nonHom[N-2,:,arc]
-        #            aux = Xi[N-2,:,arc] + dt * derXik
-        #            Xi[N-1,:,arc] = Xi[N-2,:,arc] + .5 * dt * (derXik + \
-        #                                DynMat[N-1,:,:,arc].dot(aux) + \
-        #                                nonHom[N-1,:,arc])
-
-                    lam[N-1,:,arc] = Xi[N-1,n:,arc]
-                    B[N-1,:,arc] = -rhoFu[N-1,:,arc] + \
-                                        phiuTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-                    phiLamIntCol += coefList[N-1] * \
-                                        phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-    ###############################################################################
-                if self.solver == 'BEI_spec':
-                    # Integrate the LSODE by Euler Backwards implicit,
-                    # with special 1st step...
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    Xi[1,:,arc] = Xi[0,:,arc] + dt * \
-                                  (DynMat[0,:,:,arc].dot(Xi[0,:,arc])+nonHom[0,:,arc])
-                    lam[1,:,arc] = Xi[1,n:,arc]
-                    B[1,:,arc] = -rhoFu[1,:,arc] + \
-                                        phiuTr[1,:,:,arc].dot(lam[1,:,arc])
-                    phiLamIntCol += coefList[1] * \
-                                        phipTr[1,:,:,arc].dot(lam[1,:,arc])
-
-                    for k in range(1,N-1):
-                        Xi[k+1,:,arc] = numpy.linalg.solve(I - dt*DynMat[k+1,:,:,arc],\
-                          Xi[k,:,arc] + dt*nonHom[k+1,:,arc])
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-    ###############################################################################
-                if self.solver == 'hamming_mod':
-                    # Integrate the LSODE by Hamming's mod predictor-corrector method
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    # First points: RKF4
-                    Xi[1,:,arc] = Xi[0,:,arc] + dt * \
-                                (DynMat[0,:,:,arc].dot(Xi[0,:,arc]) + nonHom[0,:,arc])
-                    lam[1,:,arc] = Xi[1,n:,arc]
-                    B[1,:,arc] = -rhoFu[1,:,arc] + \
-                                        phiuTr[1,:,:,arc].dot(lam[1,:,arc])
-                    phiLamIntCol += coefList[1] * \
-                                        phipTr[1,:,:,arc].dot(lam[1,:,arc])
-
-                    for k in range(1,3):
-                        Xik = Xi[k,:,arc]
-                        DM13 = DynMat[k,:,:,arc]*(2./3.) + DynMat[k+1,:,:,arc]*(1./3.)
-                        NH13 = nonHom[k,:,arc] * (2./3.) + nonHom[k+1,:,arc] * (1./3.)
-                        DM23 = DynMat[k,:,:,arc]*(1./3.) + DynMat[k+1,:,:,arc]*(2./3.)
-                        NH23 = nonHom[k,:,arc] * (1./3.) + nonHom[k+1,:,arc] * (2./3.)
-
-                        f1 = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc]
-                        f2 = DM13.dot(Xik+(1./3.)*dt*f1) + NH13
-                        f3 = DM23.dot(Xik + dt*(-(1./3.)*f1 + f2)) + NH23
-                        f4 = DynMat[k+1,:,:,arc].dot(Xik + dt*(f1-f2+f3)) + nonHom[k+1,:,arc]
-
-                        Xi[k+1,:,arc] = Xik + dt * (f1 + 3.*f2 + 3.*f3 + f4)/8.
-
-        #                Xik = Xi[k,:,arc]
-        #                DM14 = DynMat[k,:,:,arc]*.75 + DynMat[k+1,:,:,arc]*.25
-        #                NH14 = nonHom[k,:,arc] * .75 + nonHom[k+1,:,arc] * .25
-        #                DM38 = DynMat[k,:,:,arc]*.625 + DynMat[k+1,:,:,arc]*.375
-        #                NH38 = nonHom[k,:,arc] * .625 + nonHom[k+1,:,arc] * .375
-        #                DM12 = DynMat[k,:,:,arc]*.5 + DynMat[k+1,:,:,arc]*.5
-        #                NH12 = nonHom[k,:,arc] * .5 + nonHom[k+1,:,arc] * .5
-        #                DM1213 = DynMat[k,:,:,arc]*(1./13.) + DynMat[k+1,:,:,arc]*(12./13.)
-        #                NH1213 = nonHom[k,:,arc] * (1./13.) + nonHom[k+1,:,arc] * (1./13.)
-        #                f1 = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc]
-        #                f2 = DM14.dot(Xik+.25*dt*f1) + NH14
-        #                f3 = DM38.dot(Xik + dt*(3.*f1 + 9.*f2)/32.) + NH38
-        #                f4 = DM1213.dot(Xik + dt*(1932.*f1 - 7200.*f2 + 7296.)/2197.) + NH1213
-        #                f5 = DynMat[k+1,:,:,arc].dot(Xik + dt*((439./216.)*f1-8.*f2+(3680./513.)*f3-(845./4104.)*f4)) + nonHom[k+1,:,arc]
-        #                f6 = DM12.dot(Xik+dt*(-(8./27.)*f1 + 2.*f2 -(3544./2565.)*f3 +(1859./4104.)*f4 -(11./40.)*f5)) + NH12
-        #
-        #                Xi[k+1,:,arc] = Xik + dt * ((16./135.)*f1 + \
-        #                                            (6656./12825.)*f3 + \
-        #                                            (28561./56430.)*f4 + \
-        #                                            -(9./50.)*f5 + \
-        #                                            (2./55.)*f6)
-
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-                    # Now, Hamming's...
-                    pk = numpy.zeros_like(Xi[0,:,arc])
-                    ck = pk
-                    for k in range(3,N-1):
-                        fk = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc]
-                        fkm1 = DynMat[k-1,:,:,arc].dot(Xi[k-1,:,arc]) + nonHom[k-1,:,arc]
-                        fkm2 = DynMat[k-2,:,:,arc].dot(Xi[k-2,:,arc]) + nonHom[k-2,:,arc]
-                        pkp1 = Xi[k-3,:,arc] + (4.0*dt/3.0) * \
-                                (2.0 * fk - fkm1 + 2.0 * fkm2)
-                        mkp1 = pkp1 + (112.0/121.0) * (ck - pk)
-                        rdkp1  = DynMat[k+1,:,:,arc].dot(mkp1)
-                        ckp1 = (9.0/8.0) * Xi[k,:,arc] -(1.0/8.0) * Xi[k-2,:,arc] + \
-                               (3.0*dt/8.0) * (rdkp1 + 2.0 * fk - fkm1)
-                        Xi[k+1,:,arc] = ckp1 + (9.0/121.0) * (pkp1 - ckp1)
-
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        pk, ck = pkp1, ckp1
-                    #
-    ###############################################################################
-                if self.solver == 'hamming':
-                    # Integrate the LSODE by Hamming's predictor-corrector method
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += coefList[0] * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-
-                    # first point: simple propagation?
-        #            Xi[1,:,arc] = numpy.linalg.solve(I - dt*DynMat[1,:,:,arc],\
-        #                  Xi[0,:,arc] + dt*nonHom[1,:,arc])
-
-                    # First points: Heun...
-                    for k in range(3):
-                        Xi[k+1,:,arc] = numpy.linalg.solve(I - .5*dt*DynMat[k+1,:,:,arc],\
-                                        Xi[k,:,arc] + .5 * dt * \
-                                        (DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                                        nonHom[k,:,arc] + nonHom[k+1,:,arc]))
-
-        #                derXik = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-        #                            nonHom[k,:,arc]
-        #                aux = Xi[k,:,arc] + dt * derXik
-        #                Xi[k+1,:,arc] = Xi[k,:,arc] + .5 * dt * (derXik + \
-        #                                DynMat[k+1,:,:,arc].dot(aux) + \
-        #                                nonHom[k+1,:,arc])
-
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-                    # Now, Hamming's...
-                    for k in range(3,N-1):
-                        fk = DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + nonHom[k,:,arc]
-                        fkm1 = DynMat[k-1,:,:,arc].dot(Xi[k-1,:,arc]) + nonHom[k-1,:,arc]
-                        fkm2 = DynMat[k-2,:,:,arc].dot(Xi[k-2,:,arc]) + nonHom[k-2,:,arc]
-                        Xikp1 = Xi[k-3,:,arc] + (4.0*dt/3.0) * \
-                                (2.0 * fk - fkm1 + 2.0 * fkm2)
-                        fkp1 = DynMat[k+1,:,:,arc].dot(Xikp1) + nonHom[k+1,:,arc]
-                        Xi[k+1,:,arc] = (9.0/8.0) * Xi[k,:,arc] + \
-                                        -(1.0/8.0) * Xi[k-2,:,arc] + (3.0*dt/8.0) * \
-                                        (fkp1 - fkm1 + 2.0 * fk)
-
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += coefList[k+1] * \
-                                        phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-    ###############################################################################
-                if self.solver == 'expm':
-                    # Integrate the LSODE by matrix exponentiation
-                    B[0,:,arc] = -rhoFu[0,:,arc] + \
-                                        phiuTr[0,:,:,arc].dot(lam[0,:,arc])
-                    phiLamIntCol += .5 * (phipTr[0,:,:,arc].dot(lam[0,:,arc]))
-                    for k in range(N-1):
-                        expDM = expm(DynMat[k,:,:,arc]*dt)
-                        NHterm = expDM.dot(nonHom[k,:,arc]) - nonHom[k,:,arc]
-                        Xi[k+1,:,arc] = expDM.dot(Xi[k,:,arc]) + \
-                                        numpy.linalg.solve(DynMat[k,:,:,arc], NHterm)
-                        lam[k+1,:,arc] = Xi[k+1,n:,arc]
-                        B[k+1,:,arc] = -rhoFu[k+1,:,arc] + \
-                                        phiuTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                        phiLamIntCol += phipTr[k+1,:,:,arc].dot(lam[k+1,:,arc])
-                    #
-
-                    phiLamIntCol -= .5*phipTr[N-1,:,:,arc].dot(lam[N-1,:,arc])
-    ###############################################################################
-
-                # Get the A values from Xi
-                A[:,:,arc] = Xi[:,:n,arc]
-
+            for arc in range(s):
                 # Put initial and final conditions of A and Lambda into matrices
                 # DtCol and EtCol, which represent the columns of Dtilde(Dt) and
                 # Etilde(Et)
@@ -764,7 +473,8 @@ class LMPBVPhelp():
 ###############################################################################
         if (self.rho > 0.5 and self.dbugOptGrad['plotCorrFin']) or \
            (self.rho < 0.5 and self.dbugOptRest['plotCorrFin']):
-            log.printL("\n------------------------------------------------------------")
+            log.printL("\n-----------------------------"
+                       "-------------------------------")
             log.printL("Final corrections:\n")
             for arc in range(s):
                 log.printL("> Corrections for arc =",arc)

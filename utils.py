@@ -55,14 +55,13 @@ def simp(vec, N, onlyCoef=False):
 #    coefList[3] = 49.0/48.0; coefList[N-4] = coefList[3]
 #    coefList *= 1.0/(N-1)
 
-    coefList = numpy.ones(N)
-    for k in range(1,N-1):
-        if k % 2 == 0:
-            coefList[k] = 2.0
-        else:
-            coefList[k] = 4.0
-    #
-    coefList /= (3.0 * (N-1))
+    coefList = numpy.empty(N)
+    oneN = 1.0 / (3.0 * N)
+
+    coefList[0] = oneN
+    coefList[1:N:2] = 4.0 * oneN  # set odd coefficientes to 4/3N
+    coefList[2:N:2] = 2.0 * oneN  # set even coefficientes to 2/3N
+    coefList[N - 1] = oneN
 
     if onlyCoef:
         return coefList
