@@ -1570,72 +1570,75 @@ def calcQ(self,mustPlotQs=False,addName=''):
     psip = Grads['psip']
 
     Qx, Qu, Qp, Qt, Q = 0.0, 0.0, 0.0, 0.0, 0.0
-    auxVecIntQp = numpy.zeros((p,s))
 
-    errQx = numpy.empty((N,n,s)); normErrQx = numpy.empty((N,s))
-    accQx = numpy.empty((N,s))
-    errQu = numpy.empty((N,m,s)); normErrQu = numpy.empty((N,s))
-    accQu = numpy.empty((N,s))
-    errQp = numpy.empty((N,p,s))#; normErrQp = numpy.empty(N)
-
+    errQx = numpy.empty((N,n,s))
     coefList = simp([],N,onlyCoef=True)
     z = numpy.empty(2*n*s)
 
+    # this computes fu - (phiu^T)*lam, for all times and arcs
+    errQu = fu - numpy.einsum('njis,njs->nis', phiu, lam)
+    # this computes fp - (phip^T)*lam, for all times and arcs
+    errQp = fp - numpy.einsum('njis,njs->nis', phip, lam)
+    # this computes |errQu|², for all times and arcs
+    normErrQu = numpy.einsum('nis,nis->ns', errQu, errQu)
+
+    # assemble z term
+    # TODO: this can probably be rewritten without the for loop...
     for arc in range(s):
         z[2*arc*n : (2*arc+1)*n] = -lam[0,:,arc]
         z[(2*arc+1)*n : (2*arc+2)*n] = lam[N-1,:,arc]
 
-        # calculate Qx separately. In this way, the derivative evaluation is
-        # adequate with the trapezoidal integration method
-        med = (lam[1,:,arc]-lam[0,:,arc])/dt -.5*(fx[0,:,arc]+fx[1,:,arc]) + \
-                .5 * (phix[0,:,:,arc].transpose().dot(lam[0,:,arc]) +
-                      phix[1,:,:,arc].transpose().dot(lam[1,:,arc])    )
+    # calculate Qx separately. In this way, the derivative evaluation is
+    # adequate with the trapezoidal integration method
 
-        errQx[0,:,arc] = med
-        errQx[1,:,arc] = med
-        for k in range(2,N):
-            errQx[k,:,arc] = 2.0 * (lam[k,:,arc]-lam[k-1,:,arc]) / dt + \
-                        -fx[k,:,arc] - fx[k-1,:,arc] + \
-                        phix[k,:,:,arc].transpose().dot(lam[k,:,arc]) + \
-                        phix[k-1,:,:,arc].transpose().dot(lam[k-1,:,arc]) + \
-                        -errQx[k-1,:,arc]
+    # this computes (phix ^ T) * lam, for all times and arcs
+    phixTlam = numpy.einsum('njis,njs->nis',phix,lam)
+    med = (lam[1,:,:]-lam[0,:,:])/dt -.5*(fx[0,:,:]+fx[1,:,:]) + \
+            .5 * (phixTlam[0,:,:] + phixTlam[1,:,:])
 
-        errQu[0,:,arc] = fu[0,:,arc] +  \
-                            - phiu[0,:,:,arc].transpose().dot(lam[0,:,arc])
-        errQp[0,:,arc] = fp[0,:,arc] + \
-                            - phip[0,:,:,arc].transpose().dot(lam[0,:,arc])
-        normErrQx[0,arc] = errQx[0,:,arc].transpose().dot(errQx[0,:,arc])
-        normErrQu[0,arc] = errQu[0,:,arc].transpose().dot(errQu[0,:,arc])
-        accQx[0,arc] = normErrQx[0,arc] * coefList[0]
-        accQu[0,arc] = normErrQu[0,arc] * coefList[0]
-        auxVecIntQp[:,arc] += errQp[0,:,arc] * coefList[0]
-        for k in range(1,N):
-            errQu[k,:,arc] = fu[k,:,arc] +  \
-                            - phiu[k,:,:,arc].transpose().dot(lam[k,:,arc])
-            errQp[k,:,arc] = fp[k,:,arc] + \
-                            - phip[k,:,:,arc].transpose().dot(lam[k,:,arc])
+    errQx[0,:,:] = med
+    aux = numpy.empty((self.N-1,self.n,self.s))
+    aux[1:,:,:] = 2. * (lam[2:,:,:] - lam[1:(self.N-1),:,:]) / self.dt + \
+                  -(fx[2:,:,:] + fx[1:(self.N-1),:,:]) + \
+                  phixTlam[2:, :, :] + phixTlam[1:(self.N-1), :, :]
+    aux[0,:,:] = med
 
-            normErrQx[k,arc] = errQx[k,:,arc].transpose().dot(errQx[k,:,arc])
-            normErrQu[k,arc] = errQu[k,:,arc].transpose().dot(errQu[k,:,arc])
-            accQx[k,arc] = accQx[k-1,arc] + normErrQx[k,arc] * coefList[k]
-            accQu[k,arc] = accQu[k-1,arc] + normErrQu[k,arc] * coefList[k]
-            auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
+    # this computes errQx[k+1,:,:] = aux[k,:,:] - errQx[k,:,:], for all k
+    errQx[1:,:,:] = numpy.einsum('ij,jks->iks',self.CalcErrMat,aux)
+    # this computes |errQx|², for all times and arcs
+    normErrQx = numpy.einsum('nis,nis->ns', errQx, errQx)
+
+    if mustPlotQs:
+        accQx = numpy.empty((N, s))
+        accQu = numpy.empty((N, s))
+        auxVecIntQp = numpy.zeros((p, s))
+        for arc in range(s):
+            accQx[0,arc] = normErrQx[0,arc] * coefList[0]
+            accQu[0,arc] = normErrQu[0,arc] * coefList[0]
+            auxVecIntQp[:,arc] += errQp[0,:,arc] * coefList[0]
+            for k in range(1,N):
+                accQx[k,arc] = accQx[k-1,arc] + normErrQx[k,arc] * coefList[k]
+                accQu[k,arc] = accQu[k-1,arc] + normErrQu[k,arc] * coefList[k]
+                auxVecIntQp[:,arc] += errQp[k,:,arc] * coefList[k]
+            #
+            Qx += accQx[N-1,arc]; Qu += accQu[N-1,arc]
         #
-        Qx += accQx[N-1,arc]; Qu += accQu[N-1,arc]
 
-    #
+        # Correct the accumulation
+        for arc in range(1,s):
+            accQx[:,arc] += accQx[-1,arc-1]
+            accQu[:,arc] += accQu[-1,arc-1]
 
-    # Correct the accumulation
-    for arc in range(1,s):
-        accQx[:,arc] += accQx[-1,arc-1]
-        accQu[:,arc] += accQu[-1,arc-1]
-
-    # Using this is wrong, unless the integration is being done by hand!
-    #auxVecIntQp *= dt; Qx *= dt; Qu *= dt
-
-    resVecIntQp = numpy.zeros(p)
-    for arc in range(s):
-        resVecIntQp += auxVecIntQp[:,arc]
+        resVecIntQp = numpy.zeros(p)
+        for arc in range(s):
+            resVecIntQp += auxVecIntQp[:, arc]
+    else:
+        # this computes sum(coefList[k]*normErrQx[k,arc])
+        Qx = numpy.einsum('n,ns->', coefList, normErrQx)
+        # this computes sum(coefList[k]*normErrQu[k,arc])
+        Qu = numpy.einsum('n,ns->', coefList, normErrQu)
+        # this computes sum(coefList[k]*errQp[k,:,arc])
+        resVecIntQp = numpy.einsum('n,nis->i',coefList, errQp)
 
     resVecIntQp += psip.transpose().dot(mu)
     Qp = resVecIntQp.transpose().dot(resVecIntQp)
@@ -1648,14 +1651,12 @@ def calcQ(self,mustPlotQs=False,addName=''):
           ", Qu = {:.4E}".format(Qu)+", Qp = {:.7E}".format(Qp)+\
           ", Qt = {:.4E}".format(Qt))
 
-###############################################################################
     if mustPlotQs:
         args = {'errQx':errQx, 'errQu':errQu, 'errQp':errQp, 'Qx':Qx, 'Qu':Qu,
                 'normErrQx':normErrQx, 'normErrQu':normErrQu,
                 'resVecIntQp':resVecIntQp, 'accQx':accQx, 'accQu':accQu}
         self.plotQRes(args,addName=addName)
 
-###############################################################################
 
     somePlot = False
     for key in self.dbugOptGrad.keys():
@@ -1744,7 +1745,6 @@ def calcQ(self,mustPlotQs=False,addName=''):
                     plt.grid(True)
                     plt.title("Lambda_m")
                     plt.show()
-
 
     if self.dbugOptGrad['pausCalcQ']:
         self.log.prom("calcQ in debug mode. Press any key to continue...")

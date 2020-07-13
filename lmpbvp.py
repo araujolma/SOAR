@@ -137,12 +137,6 @@ class LMPBVPhelp():
             # This should always result in an increased performance because
             #         (N-1) * s * 8n³ < (N-1) * s * (2ns+p) * 4n²
 
-            # InvDynMat = numpy.zeros((N, 2 * n, 2 * n, s))
-            # mhdt = -.5 * self.dt
-            # for arc in range(s):
-            #     for k in range(1,N):
-            #         InvDynMat[k, :, :, arc] = numpy.linalg.inv(
-            #             I + mhdt * DynMat_[k, :, :, arc])
             InvDynMat = -mdt * DynMat_#numpy.zeros((N, s, 2 * n, 2 * n))
             for arc in range(s):
                 InvDynMat[:,:,:,arc] += I
@@ -151,7 +145,12 @@ class LMPBVPhelp():
             InvDynMat = numpy.linalg.inv(InvDynMat.
                              swapaxes(2,3).swapaxes(1,2)).swapaxes(1,2).swapaxes(2,3)
             self.InvDynMat = InvDynMat
-
+            # this is the main propagation matrix. The differential equation is
+            # propagated by:
+            # Xi[k+1,:,arc] = MainPropMat[k,:,:,arc] * Xi[k,:,arc] + genNonHom[k,:,arc]
+            # for every k and every arc.
+            self.MainPropMat = numpy.einsum('nijs,njks->niks',InvDynMat[1:,:,:,:],
+                                                        DynMat[:(N-1),:,:,:])
         #self.showEig(N,n,s)
 
     def showEig(self,N,n,s,mustShow=False):
@@ -240,14 +239,18 @@ class LMPBVPhelp():
             # methods. They weren't working anyway, so...
             coefList = simp([],N,onlyCoef=True)
 
+            genNonHom = numpy.einsum('nijs,njs->nis',self.InvDynMat[1:,:,:,:],
+                                     nonHom[1:,:,:] + nonHom[:(N-1),:,:])
             # TODO: most of the cost of the entire project is right here!!
-            for arc in range(s):
-                # Integrate the LSODE by trapezoidal (implicit) method
-                for k in range(N-1):
-                    Xi[k+1,:,arc] = self.InvDynMat[k+1,:,:,arc].dot(
-                      DynMat[k,:,:,arc].dot(Xi[k,:,arc]) + \
-                      (nonHom[k+1,:,arc]+nonHom[k,:,arc]))
-                #
+            # Integrate the LSODE by trapezoidal (implicit) method
+            for k in range(N-1):
+                # this computes
+                # Xi[k+1,:,arc] = MainPropMat[k,:,:,arc] * Xi[k,:,arc]
+                #                 + genNonHom[k,:, arc] ,
+                # for each arc
+                Xi[k+1, :, :] = numpy.einsum('ijs,js->is',self.MainPropMat[k, :, :, :],
+                                             Xi[k, :, :]) + genNonHom[k, :, :]
+            #
 
             # Get the A values from Xi
             A, lam = Xi[:,:n,:], Xi[:,n:,:]

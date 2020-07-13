@@ -135,6 +135,8 @@ class sgra:
                            'restLMPBVP': parallel.get('restLMPBVP',False)}
         self.timer = -1. # timer for the run
 
+        self.CalcErrMat = None#numpy.zeros((self.N))
+
     # Basic "utility" methods
 
     def copy(self):
@@ -375,6 +377,29 @@ class sgra:
 
         return f
 
+    def prepCalcErrMat(self):
+        """Prepare the error-calculating matrix.
+
+        It is basically a (N-1) x (N-1) matrix with the structure as follows:
+        M = [[ 1  0  0  0  0 ...  0  0],
+             [-1  1  0  0  0 ...  0  0],
+             [ 1 -1  1  0  0 ...  0  0],
+             [-1  1 -1  1  0 ...  0  0],
+                             ... ,
+             [-1  1 -1  1 -1 ...  1  0],
+             [ 1 -1  1 -1  1 ... -1  1]] .
+
+        """
+        CalcErrMat = numpy.zeros((self.N-1,self.N-1))
+        # auxiliary column with 1, -1, 1, -1, ...
+        auxCol = numpy.ones(self.N-1)
+        auxCol[1:self.N-1:2] = -1.
+
+        for j in range(self.N-1):
+            CalcErrMat[j:,j] = auxCol[0:(self.N-1-j)]
+
+        self.CalcErrMat = CalcErrMat
+
     # These methods SHOULD all be properly implemented in each problem class.
 
     def plotTraj(self,*args,**kwargs):
@@ -511,10 +536,11 @@ class sgra:
 
 #%% LMPBVP
     def calcErr(self):
+        """Calculate the "error", that is the residual between phi and dx/dt."""
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
-#        phi = self.calcPhi()
-#        err = phi - ddt(self.x,self.N)
+        # phi = self.calcPhi()
+        # err = phi - ddt(self.x,self.N)
 
         # New method, adequate for trapezoidal integration scheme
         phi = self.calcPhi()
@@ -523,16 +549,21 @@ class sgra:
         m = .5*(phi[0,:,:] + phi[1,:,:]) + \
                 -(self.x[1,:,:]-self.x[0,:,:])/self.dt
         err[0,:,:] = m
-        err[1,:,:] = m
-        for k in range(2,self.N):
-            err[k,:,:] = (phi[k,:,:] + phi[k-1,:,:]) + \
-            -2.0*(self.x[k,:,:]-self.x[k-1,:,:])/self.dt + \
-            -err[k-1,:,:]
+
+        aux = numpy.empty((self.N-1,self.n,self.s))
+        aux[1:,:,:] = phi[2:,:,:] + phi[1:(self.N-1),:,:]  + \
+              - 2. * (self.x[2:,:,:]-self.x[1:(self.N-1)]) / self.dt
+        aux[0,:,:] = m # err[1,:,:] = m as well.
+        # this computes err[k+1,:,:] = aux[k,:,:] - err[k,:,:] for each k
+        err[1:,:,:] = numpy.einsum('ij,jks->iks',self.CalcErrMat,aux)
 
         return err
 
     def LMPBVP(self,rho=0.0,isParallel=False):
+        """Solves the Linear Multi-Point Boundary Value Problem, which is
+        either grad (rho=1) or rest (rho=0). """
 
+        # create the LMPBVP helper object
         helper = LMPBVPhelp(self,rho)
 
         # get proper range according to grad or rest and omit or not
@@ -595,15 +626,13 @@ class sgra:
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
                 self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
                              piIsTime=False)
-            #if self.NIterGrad > 380:
-            #    raise Exception("Mandou parar, parei.")
 
             #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
             #time.sleep(5.0)
             #input("\n@Grad: Waiting for lambda/corrections check...")
         #
 
-        return corr,lam,mu
+        return corr, lam, mu
 
 #%% Validation
     def calcHam(self):

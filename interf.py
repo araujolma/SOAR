@@ -720,6 +720,8 @@ class ITman:
                             '(for comparing purposes only)...')
             solInit = self.loadSol(path=self.loadAltSolDir)
 
+        # Prepare error-calculating matrix (used in every call of calcErr and calcQ)
+        sol.prepCalcErrMat()
         # Plot obtained solution, check parameters
         self.log.prntDashStr()
         self.log.printL("\nProposed initial guess:\n")
@@ -749,7 +751,6 @@ class ITman:
         sol.dbugOptGrad.setAll(opt=self.default_dbugOptGrad)
 #        sol.log = self.log
 #        solInit.log = self.log
-
         return sol,solInit
 
     def showHistPCond(self,sol):
