@@ -1522,17 +1522,12 @@ def calcJ(self):
     I,Iorig,Ipf = self.calcI()
 
     func = -self.calcErr() #like this, it's dx-phi
-    vetL = numpy.empty((N,s))
-    #vetIL = numpy.empty((N,s))
-
-    for arc in range(s):
-        for t in range(N):
-            vetL[t,arc] = lam[t,:,arc].transpose().dot(func[t,:,arc])
+    vetL = numpy.einsum('nis,nis->ns',lam,func)
 
     # Perform the integration of Lint array by Simpson's method
     vetIL = numpy.empty(s)
     Lint = 0.0
-    for arc in range(self.s):
+    for arc in range(s):
         vetIL[arc] = simp(vetL[:,arc],N)
         Lint += vetIL[arc]
     self.log.printL("L components, by arc: "+str(vetIL))

@@ -749,9 +749,10 @@ class prob(sgra):
         # TODO: making atmosphere.rho vectorized (array compatible) would
         # increase performance significantly!
 
-        dens = numpy.empty((N,s))
-        for arc in range(s):
-            dens[:,arc] = rhoSGRA(x[:,0,arc])
+        #dens = numpy.empty((N, s))
+        #for arc in range(s):
+        #    dens[:,arc] = rhoSGRA(x[:,0,arc])
+        dens = rhoSGRA(x[:,0,:].reshape(N*s)).reshape((N,s))
 
         pDynTimesSref = numpy.empty_like(CL)
         for arc in range(s):

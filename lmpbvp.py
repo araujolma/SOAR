@@ -151,7 +151,30 @@ class LMPBVPhelp():
             # for every k and every arc.
             self.MainPropMat = numpy.einsum('nijs,njks->niks',InvDynMat[1:,:,:,:],
                                                         DynMat[:(N-1),:,:,:])
+            #self.BigMat = numpy.empty((s, N * n * 2, N * n * 2))
+            #self.prepBigMat()
         #self.showEig(N,n,s)
+
+    def prepBigMat(self):
+        """
+        Prepare the "big matrix" for Xi propagation.
+
+        This function assembles the "big matrix" (s x 2*n*N x 2*n*N !) for propagating
+        the Xi differential equation in a single step.
+        :return: None
+        """
+
+        n2 = 2 * self.n
+        BigMat = numpy.empty((self.s,self.N * n2,self.N * n2))
+        I = numpy.eye(n2*self.N)
+        for arc in range(self.s):
+            BigMat[arc,:,:] = I
+        for k in range(1,self.N):
+            kn2 = k * n2
+            BigMat[:, kn2:(kn2+n2) , 0:kn2] = numpy.einsum('ijs,sjk->sik',
+                                                self.MainPropMat[k-1,:,:,:],
+                                                BigMat[:,(kn2-n2):k*n2, 0:kn2])
+        self.BigMat = BigMat
 
     def showEig(self,N,n,s,mustShow=False):
         #print("\nLá vem os autovalores!")
@@ -179,6 +202,23 @@ class LMPBVPhelp():
         if mustShow:
             plt.show()
 
+    def propXi(self,Xi,genNonHom):
+        # Integrate the LSODE by trapezoidal (implicit) method
+        for k in range(self.N - 1):
+            # this computes
+            # Xi[k+1,:,arc] = MainPropMat[k,:,:,arc] * Xi[k,:,arc]
+            #                 + genNonHom[k,:, arc] ,
+            # for each arc
+            Xi[k + 1, :, :] = numpy.einsum('ijs,js->is', self.MainPropMat[k, :, :, :],
+                                           Xi[k, :, :]) + genNonHom[k, :, :]
+
+        # n2 = n * 2
+        # BigCol = numpy.empty((n2 * N, s))
+        # BigCol[:n2, :] = Xi[0, :, :]
+        # BigCol[n2:, :] = genNonHom.reshape((n2 * (N - 1), s))
+        # Xi = numpy.einsum('sij,js->is', self.BigMat, BigCol).reshape((N, n2, s))
+        return Xi
+
     def propagate(self,j):
         """This method computes each solution, via propagation of the
         applicable Linear System of Ordinary Differential Equations."""
@@ -199,10 +239,7 @@ class LMPBVPhelp():
             phip, phiu, phiuFu = self.phip, self.phiu, self.phiuFu
             err = self.err
             fx = self.fx
-            DynMat = self.DynMat
             grad = (rho>.5) # rho = 1: grad = True; rho = 0: grad = False
-
-            I = numpy.eye(2*n)
 
             # Declare matrices for corrections
             DtCol, EtCol  = numpy.empty(2*n*s), numpy.empty(2*n*s)
@@ -241,16 +278,9 @@ class LMPBVPhelp():
 
             genNonHom = numpy.einsum('nijs,njs->nis',self.InvDynMat[1:,:,:,:],
                                      nonHom[1:,:,:] + nonHom[:(N-1),:,:])
-            # TODO: most of the cost of the entire project is right here!!
-            # Integrate the LSODE by trapezoidal (implicit) method
-            for k in range(N-1):
-                # this computes
-                # Xi[k+1,:,arc] = MainPropMat[k,:,:,arc] * Xi[k,:,arc]
-                #                 + genNonHom[k,:, arc] ,
-                # for each arc
-                Xi[k+1, :, :] = numpy.einsum('ijs,js->is',self.MainPropMat[k, :, :, :],
-                                             Xi[k, :, :]) + genNonHom[k, :, :]
-            #
+
+            # TODO: no need for a function here, this is just for profiling
+            Xi = self.propXi(Xi,genNonHom) # most of the cost is right here!
 
             # Get the A values from Xi
             A, lam = Xi[:,:n,:], Xi[:,n:,:]
@@ -262,7 +292,7 @@ class LMPBVPhelp():
                 B = numpy.einsum('njis,njs->nis', phiu, lam)
             # this calculates the product phip * lam, for all times and arcs...
             phiLamIntCol = numpy.einsum('njis,njs->nis', phip, lam)
-            # and this, the integral of the previous term, w.r.t. the non-dim time
+            # ...and this, the integral of the previous term, w.r.t. the non-dim time
             phiLamIntCol = numpy.einsum('nis,n->i', phiLamIntCol, coefList)
 
             for arc in range(s):

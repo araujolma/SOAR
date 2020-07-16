@@ -8,7 +8,7 @@
 [main] # Main parameters
 
 # Batch name
-name = test
+name = profile
 
 # Mode ('explicit', 'variations', 'closed-loop')
 mode = explicit
