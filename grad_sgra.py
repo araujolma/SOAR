@@ -8,7 +8,7 @@ Created on Tue Jun 27 14:39:08 2017
 
 import numpy #, time
 #from utils import testAlgn
-from utils import simp, testAlgn
+from utils import simp, testAlgn, avoidRepCalc
 import matplotlib.pyplot as plt
 eps = 1e-20 # this is for avoiding == 0.0 (float) comparisons
 LARG = 1e100 # this is for a "random big number"
@@ -1510,7 +1510,9 @@ def plotQRes(self,args,mustSaveFig=True,addName=''):
         plt.show()
         plt.clf()
 
+#@avoidRepCalc(fieldsTuple=('J','J_Lint','J_Lpsi','I','Iorig','I_pf')) # not worth it
 def calcJ(self):
+    #self.log.printL("\nIn calcJ.")
     N, s = self.N, self.s
     #x = self.x
 
@@ -1545,6 +1547,7 @@ def calcJ(self):
 
     return J, J_Lint, J_Lpsi, I, Iorig, Ipf
 
+@avoidRepCalc(fieldsTuple=('Q', 'Qx', 'Qu', 'Qp', 'Qt'))
 def calcQ(self,mustPlotQs=False,addName=''):
     # Q expression from (15).
     # FYI: Miele (2003) is wrong in oh so many ways...
@@ -1937,13 +1940,8 @@ def grad(self,corr,alfa_0:float,retry_grad:bool,stepMan:stepMngr):
     self.updtHistGrad(alfa,stepMan.stopMotv)
 
     # Apply correction, update histories in alternative solution
-#    dummySol = self.copy()
-#    dummySol.aplyCorr(1.0,corr)
-#    dummySol.calcQ(mustPlotQs=True,addName='-FullCorr')
-
     newSol = self.copy()
     newSol.aplyCorr(alfa,corr)
-#    newSol.calcQ(mustPlotQs=True,addName='-PartCorr')
     newSol.updtHistP()
 
     self.log.printL("Leaving grad with alfa = "+str(alfa))

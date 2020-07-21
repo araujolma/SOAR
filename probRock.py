@@ -9,7 +9,7 @@ import numpy, itsme
 from sgra import sgra
 from atmosphere import rho, rhoSGRA
 import matplotlib.pyplot as plt
-from utils import simp#, getNowStr
+from utils import simp, avoidRepCalc#, getNowStr
 from naivRock import naivGues
 
 d2r = numpy.pi / 180.0
@@ -647,6 +647,7 @@ class prob(sgra):
         """Calculate variables alpha (angle of attack) and beta (thrust), from
         either the object's own control (self.u) or external control
         (additional parameter needed)."""
+        #self.log.printL("\nIn calcDimCtrl.")
 
         restrictions = self.restrictions
         alpha_min = restrictions['alpha_min']
@@ -716,7 +717,9 @@ class prob(sgra):
         u = numpy.arctanh(u)
         return u
 
+    @avoidRepCalc(fieldsTuple = ('phi',))
     def calcPhi(self):
+        #self.log.printL("\nIn calcPhi.")
         N,n,s = self.N,self.n,self.s
 
         constants = self.constants
@@ -792,6 +795,7 @@ class prob(sgra):
 
     def calcAcc(self):
         """ Calculate tangential acceleration."""
+        #self.log.printL("\nIn calcAcc.")
         acc = numpy.empty((self.N,self.s))
         phi = self.calcPhi()
 
@@ -1191,8 +1195,9 @@ class prob(sgra):
         return Grads
 
 #%%
+    #@avoidRepCalc(fieldsTuple=('psi',))
     def calcPsi(self):
-        #self.log.printL("In calcPsi.")
+        #self.log.printL("\nIn calcPsi.")
         boundary = self.boundary
         s_f = self.constants['s_f']
         x = self.x
@@ -1260,7 +1265,9 @@ class prob(sgra):
 
         return psi
 
+    @avoidRepCalc(fieldsTuple=('f', 'fOrig', 'f_pf'))
     def calcF(self):
+        #self.log.printL("\nIn calcF.")
         constants = self.constants
         restrictions = self.restrictions
 
@@ -1298,7 +1305,9 @@ class prob(sgra):
 
         return f,fOrig,fPF
 
+    @avoidRepCalc(fieldsTuple=('I', 'Iorig', 'I_pf'))
     def calcI(self):
+        #self.log.printL("\nIn calcI.")
         N, s = self.N, self.s
         _, fOrig, fPF = self.calcF()
 
@@ -1364,7 +1373,6 @@ class prob(sgra):
         #self.log.printL("Iorig: "+str(Iorig))
         #self.log.printL("IpfVec: "+str(IpfVec))
         #self.log.printL("Ipf: "+str(Ipf))
-
 
         return Iorig+Ipf, Iorig, Ipf
 

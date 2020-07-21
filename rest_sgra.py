@@ -6,10 +6,12 @@ Created on Tue Jun 27 14:36:59 2017
 @author: levi
 """
 import numpy
-from utils import simp
+from utils import simp, avoidRepCalc
 import matplotlib.pyplot as plt
 
+@avoidRepCalc(fieldsTuple=('P','Pint','Ppsi'))
 def calcP(self,mustPlotPint=False):
+    #self.log.printL("\nIn calcP.")
     N, s = self.N, self.s
 
     psi = self.calcPsi()

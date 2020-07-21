@@ -7,7 +7,7 @@ A module for the problem 9-1 from Miele (1970)
 
 import numpy
 from sgra import sgra
-from utils import simp
+from utils import simp, avoidRepCalc
 import matplotlib.pyplot as plt
 
 class prob(sgra):
@@ -112,7 +112,9 @@ class prob(sgra):
 
 #%%
 
+    @avoidRepCalc(fieldsTuple=('phi',))
     def calcPhi(self):
+        self.log.printL("\nIn calcPhi.")
         N = self.N
         n = self.n
         s = self.s
@@ -193,25 +195,16 @@ class prob(sgra):
         return Grads
 
 #%%
+    @avoidRepCalc(fieldsTuple=('psi',))
     def calcPsi(self):
         x = self.x
         N = self.N
-        return numpy.array([x[0,0,0],\
-                            x[0,1,0]-1.0,\
-                            x[N-1,0,0]-1.0,\
+        return numpy.array([x[0,0,0],
+                            x[0,1,0]-1.0,
+                            x[N-1,0,0]-1.0,
                             x[N-1,1,0]-2.0])
 
-    def calcF(self):
-        x = self.x
-        u = self.u
-        N = self.N
-        s = self.s
-        f = numpy.zeros((N,s))
-
-        f =  1.0 + x[:,0,:]**2 + x[:,1,:]**2 + u[:,0,:]**2
-
-        return f, f, numpy.zeros((N,s))
-
+    @avoidRepCalc(fieldsTuple=('I','Iorig','I_pf'))
     def calcI(self):
         f,_,_ = self.calcF()
         N = self.N
@@ -220,6 +213,19 @@ class prob(sgra):
         for arc in range(self.s):
             I += simp(f[:,arc],N)
         return I, I, 0.0
+
+    @avoidRepCalc(fieldsTuple=('f','fOrig','f_pf'))
+    def calcF(self):
+        self.log.printL("\nIn calcF.")
+        x = self.x
+        u = self.u
+        N = self.N
+        s = self.s
+        #f = numpy.zeros((N,s))
+
+        f =  1.0 + x[:,0,:]**2 + x[:,1,:]**2 + u[:,0,:]**2
+
+        return f, f, numpy.zeros((N,s))
 #%%
     def plotSol(self,opt=None,intv=None,piIsTime=True,mustSaveFig=True,
                 subPlotAdjs={}):

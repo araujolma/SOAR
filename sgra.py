@@ -6,7 +6,7 @@ Created on Tue Jun 27 13:07:35 2017
 @author: levi
 """
 
-import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os
+import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os, functools
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
 from utils import simp, getNowStr
@@ -19,15 +19,33 @@ class binFlagDict(dict):
     """Class for binary flag dictionaries.
     Provides good grounding for any settings or options dictionary. """
 
-    def __init__(self, inpDict={}, inpName='options'):
+    def __init__(self, inpDict=None, inpName='options'):
         super().__init__()
+        if inpDict is None:
+            inpDict = {}
         self.name = inpName
         for key in inpDict.keys():
             self[key] = inpDict[key]
 
-    def setAll(self,tf=True,opt={}):
-        for key in self.keys():
-            self[key] = (tf and opt.get(key,True))
+    def copy(self):
+        """
+        :return: a shallow copy of itself.
+        """
+
+        return binFlagDict(inpDict=self,inpName=self.name)
+
+    # def setAll(self, tf=True, opt=None):
+    #     if opt is None:
+    #         opt = {}
+    #     for key in self.keys():
+    #         self[key] = (tf and opt.get(key,True))
+    def setAll(self, tf=True, opt=None):
+        if opt is None:
+            for key in self.keys():
+                self[key] = tf
+        else:
+            for key in self.keys():
+                self[key] = (tf and opt.get(key,True))
 
 #        self.log.printL("\nSetting '"+self.name+"' as follows:")
 #        self.log.pprint(self)
@@ -62,7 +80,7 @@ class sgra:
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
 
-        # If the problem has unnecessary variations(typically, boundary conditions
+        # If the problem has unnecessary variations (typically, boundary conditions
         # containing begin of arc specified values for states), it should override this
         # attribute with a cropped version of the Ns+1 identity matrix, omitting the
         # columns corresponding to the unnecessary variations, according to the order
@@ -73,9 +91,27 @@ class sgra:
 
         self.boundary, self.constants, self.restrictions = {}, {}, {}
         self.P, self.Q, self.I, self.J = 1.0, 1.0, 1.0, 1.0
+        self.Pint, self.Ppsi = 1.0, 1.0
         self.Iorig, self.I_pf = 1., 1
         self.J_Lint, self.J_Lpsi = 1., 1.
         self.Qx, self.Qu, self.Qp, self.Qt = 1., 1., 1., 1.
+
+        # These attributes will be used if the problem makes use of the
+        # @utils.avoidRepCalc decorator.
+        self.f = numpy.empty((N,s))
+        self.fOrig, self.f_pf = numpy.empty((N,s)), numpy.empty((N,s))
+        self.phi = numpy.empty((N,n,s))
+        #self.psi = numpy.empty(q) # not worth it...
+        # self.isUpdated = binFlagDict(inpName='Update status',
+        #                              inpDict={'f': False, 'phi': False, 'psi': False,
+        #                                       'I': False, 'J': False,
+        #                                       'P': False, 'Q': False})
+        self.isUpdated = binFlagDict(inpName='Update status',
+                                     inpDict={'f': False, 'phi': False,
+                                              'I': False,
+                                              'P': False, 'Q': False})
+
+
 
         # Histories
         self.declHist(MaxIterGrad=MaxIterGrad)
@@ -154,7 +190,8 @@ class sgra:
         newSol.x = self.x.copy()
         newSol.u = self.u.copy()
         newSol.pi = self.pi.copy()
-        newSol.P = 1. # This is just to the change the reference from self.P ...
+        newSol.isUpdated = self.isUpdated.copy()
+        newSol.P = self.P + 0. # To the change the reference from self.P ...
 
         return newSol
 
@@ -163,6 +200,9 @@ class sgra:
         self.x  += alfa * corr['x']
         self.u  += alfa * corr['u']
         self.pi += alfa * corr['pi']
+        # Set all the statuses (?) to False, since the states, controls and parameters
+        # were very likely changed
+        self.isUpdated.setAll(False)
 
     def loadParsFromFile(self,file):
         pConf = problemConfigurationSGRA(fileAdress=file)
@@ -449,13 +489,14 @@ class sgra:
         pass
 
     def calcI(self,*args,**kwargs):
-        pass
+        return 0., 0., 0.
 
     def calcF(self,*args,**kwargs):
-        pass
+        return numpy.empty((self.N,self.s)), numpy.empty((self.N,self.s)), \
+               numpy.empty((self.N,self.s))
 
     def calcPhi(self,*args,**kwargs):
-        pass
+        return numpy.empty((self.N,self.n,self.s))
 
 #%% RESTORATION-WISE METHODS
 
@@ -638,13 +679,10 @@ class sgra:
     def calcHam(self):
         """Calculate Hamiltonian."""
 
-        # noinspection PyTupleAssignmentBalance
         H,_,_ = self.calcF()
         phi = self.calcPhi()
 
-        for arc in range(self.s):
-            for k in range(self.N):
-                H[k,arc] -= self.lam[k,:,arc].transpose().dot(phi[k,:,arc])
+        H = H - numpy.einsum('nis,nis->ns',self.lam,phi)
 
         return H
 
@@ -667,7 +705,7 @@ class sgra:
         for j in range(self.m):
             # get a dummy copy of solution for applying variations
             dummySol = self.copy()
-
+            dummySol.isUpdated.setAll(False)
             # apply positive increment
             dummySol.u[:,j,:] += delta
             DHp = dummySol.calcHam() - H0
@@ -693,6 +731,7 @@ class sgra:
 
             # apply negative increment
             dummySol.u[:, j, :] += -2. * delta
+            dummySol.isUpdated.setAll(False)
             DHm = dummySol.calcHam() - H0
             argMinDHm = numpy.argmin(DHm)
             indMinDHm = numpy.unravel_index(argMinDHm, (self.N, self.s))
@@ -725,7 +764,5 @@ class sgra:
             plt.legend()
             plt.title("Hamiltonian variations")
             self.savefig(keyName='hamCheck',fullName='Hamiltonian check')
-
-
 
         # TODO: add tests for pi conditions as well!

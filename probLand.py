@@ -12,7 +12,7 @@ rocket lander.
 import numpy
 from sgra import sgra
 from itsme import problemConfigurationSGRA
-from utils import simp
+from utils import simp, avoidRepCalc
 import matplotlib.pyplot as plt
 
 class problemConfigurationSGRA2(problemConfigurationSGRA):
@@ -371,6 +371,7 @@ class prob(sgra):
 
         return u
 
+    @avoidRepCalc(fieldsTuple=('phi',))
     def calcPhi(self):
         N = self.N
         n = self.n
@@ -627,6 +628,7 @@ class prob(sgra):
             raise Exception(msg)
         return psi
 
+    @avoidRepCalc(fieldsTuple=('f', 'fOrig', 'f_pf'))
     def calcF(self):
         N,s = self.N,self.s
         fOrig = numpy.empty((N,s))
@@ -652,6 +654,7 @@ class prob(sgra):
 
         return fOrig+fPF, fOrig, fPF
 
+    @avoidRepCalc(fieldsTuple=('I', 'Iorig', 'I_pf'))
     def calcI(self):
         N,s = self.N,self.s
         _, fOrig, fPF = self.calcF()
