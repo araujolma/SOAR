@@ -7,7 +7,6 @@ Created on Tue Jun 27 14:39:08 2017
 """
 
 import numpy #, time
-#from utils import testAlgn
 from utils import simp, testAlgn, avoidRepCalc
 import matplotlib.pyplot as plt
 eps = 1e-20 # this is for avoiding == 0.0 (float) comparisons
@@ -908,6 +907,7 @@ class stepMngr:
 
             # 1.3 (alt): The fit was not that successful... carry on
             if self.pLimSrchStopMotv == 0:
+                doTenPercent = False
                 if self.cont > 0:
                     # 1.3.1 (alt1): If more than 1 step was tried, make a line!
                     y1, y2 = numpy.log(self.histP[-1]), numpy.log(self.histP[-2])
@@ -915,14 +915,30 @@ class stepMngr:
                     x2 = numpy.log(self.histStep[-2])
                     a = (y2-y1)/(x2-x1) # angular coefficient
                     b = y1 - x1 * a     # linear coefficient
-                    self.PRegrAngCoef, self.PRegrLinCoef = a, b # store them
-                    alfaLimP = numpy.exp((logP_targ - b) / a)
-                    if self.mustPrnt:
-                        msg = "\n> Ok, that did not work. "\
-                              "Let's try alfa = {}\n  (linear fit from" \
-                              " the latest tries).".format(alfaLimP)
-                        self.log.printL(msg)
+                    # 1.3.2 (alt1) Check validity of fit
+                    if a > 0:
+                        # Fit seems ok; store parameters
+                        self.PRegrAngCoef, self.PRegrLinCoef = a, b # store them
+                        # calculate the next alfa to be used according to the fit
+                        alfaLimP = numpy.exp((logP_targ - b) / a)
+                        if self.mustPrnt:
+                            msg = "\n> Ok, that did not work. "\
+                                  "Let's try alfa = {}\n  (linear fit from" \
+                                  " the latest tries).".format(alfaLimP)
+                            self.log.printL(msg)
+                    else:
+                        # Fit is not good. We are probably way beyond the limit...
+                        if self.mustPrnt:
+                            msg = "\n> Ok, that did not work. \n"\
+                                  "Besides, linear fit from" \
+                                  " the latest tries yields:\n"\
+                                  " a = {}, b = {}, aborting...".format(a, b)
+                            self.log.printL(msg)
+                        doTenPercent = True # go to 1.3.1 (alt2)
                 else:
+                    doTenPercent = True
+
+                if doTenPercent:
                     # 1.3.1 (alt2): Unable to fit, let's go with +/-10%...
                     if P > P_targ:
                         alfaLimP *= 0.9 # 10% lower
@@ -946,7 +962,10 @@ class stepMngr:
             # 1.3.1: Safety in alfaLimP: make sure the guess is in the right
             # interval
             if alfaLimP > self.minBadStep or alfaLimP < self.StepLimLowr[1]:
-                alfaLimP = .5 * (self.StepLimLowr[1] + self.minBadStep)
+                if self.StepLimLowr[1] < eps:
+                    alfaLimP = numpy.sqrt(self.minBadStep)
+                else:
+                    alfaLimP = numpy.sqrt(self.StepLimLowr[1] * self.minBadStep)
                 msg = "\n> Model has retrieved a bad guess for alfaLimP..." \
                       "\n  Let's go with {} instead.".format(alfaLimP)
                 self.log.printL(msg)
