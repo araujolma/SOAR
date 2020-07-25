@@ -6,7 +6,7 @@ Created on Sun Jan  5 15:31:15 2020
 @author: levi
 """
 import sys, datetime, shutil, os, traceback, numpy, random, string, time
-from configparser import ConfigParser
+from configparser import ConfigParser, NoOptionError
 from interf import logger
 from main import main
 
@@ -38,6 +38,18 @@ class batMan:
                                      os.sep)
         self.log.printL(b+'Saved a copy of the configuration file to:\n'+
                         self.confFile+'\n')
+
+        try:
+            # this is a list of the attributes for the "sol" object that the user wants
+            self.postProcKeyList = Pars.get(sec,'postProcKeyList').split(',\n')
+        except NoOptionError:
+            # apparently the user failed to specify what he/she wants. Default it is!
+            self.log.printL(nb+"Could not find 'postProcKeyList' in the .bat file."
+                               "\n  Going with default keys...")
+            self.postProcKeyList = ['NIterGrad',
+                                    'GSStotObjEval',
+                                    'GSSavgObjEval',
+                                    'timer']
 
         if self.mode == 'explicit':
             sec = 'explicit_mode'
@@ -75,12 +87,7 @@ class batMan:
 
         # post processing info
         self.postProcInfo = {}
-        # TODO: put this on the configuration file!!
-        # this is a list of the attributes for the "sol" object that the user wants
-        self.postProcKeyList = ['NIterGrad',
-                                'GSStotObjEval',
-                                'GSSavgObjEval',
-                                'timer']
+
         # basic initialization
         for key in self.postProcKeyList:
             self.postProcInfo[key] = [0] * self.NCases

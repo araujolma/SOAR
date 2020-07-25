@@ -116,8 +116,20 @@ def main(args,isManu=True,destFold=''):
 
         red = 100. * (sol.histI[1] - sol.I) / sol.histI[1]
         msg = '\nFinal value of I: {:.7E},\n"initial" value of I: {:.7E} ' \
-              '(after restoration).\nReduction: {:.3G}%'.format(sol.I, sol.histI[1], red)
+              '(after restoration).\nReduction: ' \
+              '{:.3G}%'.format(sol.I, sol.histI[1], red)
         ITman.log.printL(msg)
+
+        # If this problem has an exact solution, calculate the errors and display them
+        if sol.hasExactSol:
+            sol.calcOptErr()
+            msg = '\nValue of I for the exact variational solution: {:.7E}.' \
+                  '\nRelative error: {:.3G}%'.format(sol.I_opt,
+                                                     100. * sol.relErrI_opt) + \
+                  '\nRMS errors w.r.t. the exact variational solution:' \
+                  '\nx = {:.3G}, u = {:.3G}, pi = {:.3G}' \
+                  '.'.format(sol.rmsErr_x_opt, sol.rmsErr_u_opt, sol.rmsErr_pi_opt)
+            ITman.log.printL(msg)
 
         msg = '\nFinal values: P = {:.3E}, Q = {:.3E}.\n'.format(sol.P, sol.Q)
         ITman.log.printL(msg)

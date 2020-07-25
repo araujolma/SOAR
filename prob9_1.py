@@ -114,7 +114,7 @@ class prob(sgra):
 
     @avoidRepCalc(fieldsTuple=('phi',))
     def calcPhi(self):
-        self.log.printL("\nIn calcPhi.")
+        #self.log.printL("\nIn calcPhi.")
         N = self.N
         n = self.n
         s = self.s
@@ -195,7 +195,7 @@ class prob(sgra):
         return Grads
 
 #%%
-    @avoidRepCalc(fieldsTuple=('psi',))
+    #@avoidRepCalc(fieldsTuple=('psi',))
     def calcPsi(self):
         x = self.x
         N = self.N
@@ -216,7 +216,7 @@ class prob(sgra):
 
     @avoidRepCalc(fieldsTuple=('f','fOrig','f_pf'))
     def calcF(self):
-        self.log.printL("\nIn calcF.")
+        #self.log.printL("\nIn calcF.")
         x = self.x
         u = self.u
         N = self.N

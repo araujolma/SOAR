@@ -66,16 +66,6 @@ class prob(sgra):
             mu = numpy.zeros(q)
             pi = numpy.array([1.0])
 
-            self.x = x
-            self.u = u
-            self.pi = pi
-            self.lam = lam
-            self.mu= mu
-
-            solInit = self.copy()
-
-            self.log.printL("\nInitialization complete.\n")
-            return solInit
 
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
@@ -94,17 +84,32 @@ class prob(sgra):
             lam = 0.0*x.copy()
             mu = numpy.zeros(q)
             pi = numpy.array([1.0])
+        else:
+            raise(Exception("Unknown 'initMode' = {}.".format(initMode)))
 
-            self.x = x
-            self.u = u
-            self.pi = pi
-            self.lam = lam
-            self.mu= mu
+        self.x = x
+        self.u = u
+        self.pi = pi
+        self.lam = lam
+        self.mu = mu
 
-            solInit = self.copy()
+        # Setting up the exact (variational) analytical solution
+        self.hasExactSol = True
+        self.I_opt = numpy.sqrt(numpy.pi)
+        self.u_opt =  numpy.empty_like(self.u)
+        self.u_opt[:, 0, 0] = .5 * numpy.pi * (1. - self.t)
+        self.x_opt = numpy.empty_like(self.x)
+        self.x_opt[:, 0, 0] = self.t - numpy.sin(2 * self.u_opt[:, 0, 0]) / numpy.pi
+        self.x_opt[:, 1, 0] = numpy.cos(self.u_opt[:, 0, 0])**2 * \
+                              (2./numpy.pi)
+        self.x_opt[:, 2, 0] = numpy.cos(self.u_opt[:, 0, 0]) * \
+                              (2. / numpy.sqrt(numpy.pi))
+        self.pi_opt = numpy.sqrt(numpy.pi)
 
-            self.log.printL("\nInitialization complete.\n")
-            return solInit
+        solInit = self.copy()
+
+        self.log.printL("\nInitialization complete.\n")
+        return solInit
 
 #%%
 
@@ -211,7 +216,7 @@ class prob(sgra):
     def calcI(self):
         return self.pi[0], self.pi[0], 0.0
 #%%
-    def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,\
+    def plotSol(self, opt={}, intv=None, piIsTime=True, mustSaveFig=True,
                 subPlotAdjs={}):
         t = self.t
         x = self.x
@@ -253,7 +258,7 @@ class prob(sgra):
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
             self.savefig(keyName='currSol',fullName='solution')
-            self.log.printL("pi ="+str(pi))
+            self.log.printL("pi = "+str(pi))
         elif opt['mode'] == 'var':
             dx = opt['x']
             du = opt['u']

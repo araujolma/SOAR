@@ -59,7 +59,7 @@ class sgra:
     Each instance of an optimization problem must then inherit these methods
     and properties. """
 
-    probName = 'probSGRA'
+    probName = 'probSGRA' # this also gets altered in each instance of the problem
 
     def __init__(self, parallel=None, MaxIterGrad=10000):
         # these numbers should not make any sense;
@@ -111,7 +111,17 @@ class sgra:
                                               'I': False,
                                               'P': False, 'Q': False})
 
-
+        # Existence of exact solutions, default is not having them.
+        self.hasExactSol = False
+        # Their parameters and errors
+        self.I_opt = -1.
+        self.relErrI_opt = -1.
+        self.x_opt = None
+        self.u_opt = None
+        self.pi_opt = None
+        self.rmsErr_x_opt = -1.
+        self.rmsErr_u_opt = -1.
+        self.rmsErr_pi_opt = -1.
 
         # Histories
         self.declHist(MaxIterGrad=MaxIterGrad)
@@ -440,6 +450,18 @@ class sgra:
 
         self.CalcErrMat = CalcErrMat
 
+    def calcOptErr(self):
+        """ Calculate the error with respect to the optimal solution."""
+
+        # Root mean square errors
+        self.rmsErr_x_opt = numpy.sqrt(numpy.einsum('nis,nis->',self.x_opt-self.x,
+                                           self.x_opt-self.x)/self.N/self.s)
+        self.rmsErr_u_opt = numpy.sqrt(numpy.einsum('mis,mis->', self.u_opt - self.u,
+                                        self.u_opt - self.u) / self.N / self.s)
+        self.rmsErr_pi_opt = numpy.sqrt(numpy.einsum('s,s->', self.pi_opt - self.pi,
+                                        self.pi_opt - self.pi) / self.s)
+        # Relative error of I with respect to I optimum
+        self.relErrI_opt = (self.I - self.I_opt) / self.I_opt
     # These methods SHOULD all be properly implemented in each problem class.
 
     def plotTraj(self,*args,**kwargs):

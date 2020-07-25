@@ -212,11 +212,12 @@ class LMPBVPhelp():
             Xi[k + 1, :, :] = numpy.einsum('ijs,js->is', self.MainPropMat[k, :, :, :],
                                            Xi[k, :, :]) + genNonHom[k, :, :]
 
-        # n2 = n * 2
-        # BigCol = numpy.empty((n2 * N, s))
+        # n2 = self.n * 2
+        # BigCol = numpy.empty((n2 * self.N, self.s))
         # BigCol[:n2, :] = Xi[0, :, :]
-        # BigCol[n2:, :] = genNonHom.reshape((n2 * (N - 1), s))
-        # Xi = numpy.einsum('sij,js->is', self.BigMat, BigCol).reshape((N, n2, s))
+        # BigCol[n2:, :] = genNonHom.reshape((n2 * (self.N - 1), self.s))
+        # Xi = numpy.einsum('sij,js->is', self.BigMat, BigCol).reshape(
+        #     (self.N, n2, self.s))
         return Xi
 
     def propagate(self,j):
