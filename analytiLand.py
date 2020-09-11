@@ -91,7 +91,7 @@ def solve_pi_noLim(tol=1e-6,pars=None):
         pi, res))
     return pi, t1
 
-def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001):
+def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001,getAll=False):
     """This is the innermost function for the lander problem with acceleration
     limitation. It yields (numerically, of course) a solution to the lander
     problem, assuming the total time pi>0, waiting fraction 0<t1<1, initial
@@ -107,12 +107,12 @@ def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001):
     h(1) = 0,
     v(1) = 0,
     lambda_M(1) = 0,
-    integral of (H_pi) dt = 0
+    integral of (H_pi) dt in [0,1] = 0
 
     where lambda_M is the Mass costate and H = f - lam * phi is the
     Hamiltonian.
     """
-
+    w = 1e3   # larger weight for final height and speed
     lh, lv0, lm0 = lam0
     g0Isp = pars['g0Isp']
     g = pars['g']
@@ -171,13 +171,17 @@ def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001):
             b[k] = 1.
         elif b_ < 0.:
             b[k] = 0.
+
+    if getAll:
+        return h, v, M, b, pi
+
     a = b * T / M
     # this is the term for the integral equation
     intg = (M0-M[-1])/pi + K * simp((a-aL)**2 * (a>=aL),N) + \
             2. * lh * h0 / pi + lv0 * v0 / pi + (T/g0Isp) * simp(lm * b,N)
 
     # assemble residuals
-    resV = numpy.array([h[-1], v[-1], lm[-1], intg])
+    resV = numpy.array([w * h[-1], w * v[-1], lm[-1], intg])
     res = sum(resV ** 2)
 
     #if mustPrint:
@@ -192,7 +196,8 @@ def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001):
         axs[0,0].set_xlabel('Time [s]')
         axs[0, 0].grid()
 
-        msg = 'Analytical solution for K = {:.1G}, aLim = {:.1G}g (Res = {:.3E})'.format(K,aL/g,res)
+        msg = 'Analytical solution for K = {:.1G}, aLim = {:.1G}g\n' \
+              '(Res = {:.3E}, ResV = {})'.format(K,aL/g,res,resV)
         fig.suptitle(msg, fontsize=12)
 
         axs[0,1].plot(t*pi, v, label='v')
@@ -319,7 +324,7 @@ def try_all2(x, aL, K, pars=None,mustPrint=False,mustPlot=False):
 
     return resV
 
-def try_all3(x, aL, K, refs=None,pars=None,mustPrint=False,mustPlot=False):
+def try_all3(x, aL, K, refs=None,pars=None,mustPrint=False,mustPlot=False,getAll=False):
     """This in an alternate version of try_all, with a different set of
      input variables (basically a change of coordinates).
 
@@ -353,12 +358,11 @@ def try_all3(x, aL, K, refs=None,pars=None,mustPrint=False,mustPlot=False):
     lh = -xi0 * M0 / pi / t1
 
     lam0 = [lh,lv0,lm0]
-    resV = intg_land(pi,t1,lam0,aL,K,pars,mustPlot=mustPlot)
+    resV = intg_land(pi,t1,lam0,aL,K,pars,mustPlot=mustPlot,getAll=getAll)
 
     return resV
 
-
-def getInitGuesLargK(aL,pars=None, mustPlot=False, numPlot=1000):
+def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
     """This function performs the calculations for the durations and
     initial values for costates in a solution that consists of two phases:
     no propulsion (free-fall) then constant-deceleration until full stop
@@ -501,6 +505,19 @@ def getInitGuesLargK(aL,pars=None, mustPlot=False, numPlot=1000):
 
     return pi, t1, lams
 
+def getSol(pars):
+    """Gets the parameters for the analytical solution."""
+
+    aL, K = pars['aLim'], pars['Kpf']
+    pi, t1, lams = getInitGuesLargK(aL)
+    xi0 = (1. + lams[2]) / pars['g0Isp'] - lams[1] / pars['M0']
+    initGues = numpy.array(
+        (numpy.log(pi * t1), numpy.log(pi * (1. - t1)), lams[1], numpy.log(xi0)))
+    sol = root(try_all3, initGues, (aL, K, numpy.ones(4)), tol=1e-12)
+
+    return try_all3(sol.x, aL, K, pars=pars, getAll=True) # h, V, M, beta, pi
+
+
 if __name__ == "__main__":
 
     aL = 5. * pars_def['g']
@@ -579,7 +596,8 @@ if __name__ == "__main__":
 
     pi, t1, lams = getInitGuesLargK(aL, mustPlot=True)
     xi0 = (1. + lams[2]) / pars_def['g0Isp'] - lams[1] / pars_def['M0']
-    initGues = numpy.array((numpy.log(pi*t1), numpy.log(pi*(1.-t1)), lams[1], numpy.log(xi0)))
+    initGues = numpy.array((numpy.log(pi*t1), numpy.log(pi*(1.-t1)), lams[1],
+                            numpy.log(xi0)))
     sol = root(try_all3, initGues, (aL, K,numpy.ones(4)))
     print(sol)
     try_all3(sol.x, aL, K, mustPrint=True, mustPlot=True)
