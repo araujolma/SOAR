@@ -720,7 +720,7 @@ class ITman:
                             '(for comparing purposes only)...')
             solInit = self.loadSol(path=self.loadAltSolDir)
 
-        # Prepare error-calculating matrix (used in every call of calcErr and calcQ)
+        # Prepare error-calculating matrix (used in each call of calcErr and calcQ)
         sol.prepCalcErrMat()
         # Plot obtained solution, check parameters
         self.log.prntDashStr()

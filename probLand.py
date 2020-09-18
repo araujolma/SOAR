@@ -13,6 +13,7 @@ import numpy
 from sgra import sgra
 from itsme import problemConfigurationSGRA
 from utils import simp, avoidRepCalc
+from analytiLand import getSol
 import matplotlib.pyplot as plt
 
 class problemConfigurationSGRA2(problemConfigurationSGRA):
@@ -246,7 +247,6 @@ class prob(sgra):
 #
 #            self.log.printL("\nInitialization complete.\n")
 #            return solInit
-
         elif initMode == 'extSol':
             inpFile = opt.get('confFile','')
 
@@ -287,11 +287,235 @@ class prob(sgra):
             self.lam = 0.0 * self.x
             self.mu = numpy.zeros(q)
 
-#            self.Kpf = 10.0
-#            self.uLim = 1.0
+            # Setting up the exact solution
+            self.hasExactSol = True
+            self.x_opt = numpy.empty_like(self.x)
+            self.u_opt = numpy.empty_like(self.u)
+            self.pi_opt = numpy.empty_like(self.pi)
 
+            # Get the exact solution (all states and controls come in a long array)
+            h_opt, V_opt, M_opt, beta_opt, pi_opt = getSol(
+                 pars = {'aLim': self.restrictions['acc_max'],
+                         'Kpf': self.constants['Kpf'],
+                         'g': self.constants['g'],
+                         'g0Isp': self.constants['g0'] * self.constants['Isp'],
+                         'h0': self.restrictions['h'],
+                         'v0': self.restrictions['V'],
+                         'M0': self.restrictions['M'],
+                         'T': self.constants['T']},
+                 tol=1e-12,
+                 mustPlot=False)
+            print("h_opt = {}".format(h_opt))
+            print("V_opt = {}".format(V_opt))
+            print("M_opt = {}".format(M_opt))
+            print("beta_opt = {}".format(beta_opt))
+            print("pi_opt = {}".format(pi_opt))
+
+            t_opt = numpy.linspace(0., 1., num=len(h_opt))
+
+            hBound = self.restrictions['hList'][0]
+            self.log.printL("\nhBound = {}".format(hBound))
+
+            # find the index 'ind' for which h_opt[ind] = hBound
+            for ind, h_ in enumerate(h_opt):
+                # h_opt is descending, so the crossing occurs when h_<hBound
+                if h_ < hBound:
+                    break
+            if abs(h_opt[ind - 1] - hBound) < abs(h_ - hBound):
+                ind -= 1
+            self.log.printL("ind = {}, h_opt[ind] = {}".format(ind, h_opt[ind]))
+
+            #
+            # # Display of the optimal solution, obtained from analytiLand
+            # plt.figure(0)
+            # plt.plot(t_opt * pi_opt, h_opt)
+            # plt.grid()
+            # plt.xlabel('time, s')
+            # plt.ylabel('h, km')
+            #
+            # plt.figure(1)
+            # plt.plot(t_opt * pi_opt, V_opt)
+            # plt.grid()
+            # plt.xlabel('time, s')
+            # plt.ylabel('V, km/s')
+            #
+            # plt.figure(2)
+            # plt.plot(t_opt * pi_opt, M_opt)
+            # plt.grid()
+            # plt.xlabel('time, s')
+            # plt.ylabel('M, kg')
+            #
+            # plt.figure(3)
+            # plt.plot(t_opt * pi_opt, beta_opt)
+            # plt.grid()
+            # plt.xlabel('time, s')
+            # plt.ylabel('beta, -')
+            # # plt.show()
+            #
+
+            # Option 1: interpolations
+            print("t_opt = {}".format(t_opt))
+            # Prepare the pi's
+            self.pi_opt = numpy.empty(s)
+            self.pi_opt[0] = t_opt[ind] * pi_opt
+            self.pi_opt[1] = pi_opt - self.pi_opt[0]
+            self.pi = self.pi_opt
+
+            # Interpolations for the first arc
+            t_arc0 = self.t * self.pi_opt[0]
+            t_arc0_fine = t_opt[:(ind+1)] * pi_opt
+            # DEBUG
+            # k = 0
+            # for k_fine, t_ in enumerate(t_arc0_fine):
+            #     print("t_fine[{}] = {}".format(k_fine, t_))
+            #     if t_ >= t_arc0[k]:
+            #         print("  t_coarse[{}] = {}".format(k,t_arc0[k]))
+            #         k += 1
+            beta = numpy.zeros((N, s))
+            beta[:, 0] = numpy.interp(t_arc0, t_arc0_fine, beta_opt[0:(ind + 1)])
+            self.x_opt[:, 0, 0] = numpy.interp(t_arc0, t_arc0_fine,
+                                               h_opt[0:(ind + 1)])
+            self.x_opt[:, 1, 0] = numpy.interp(t_arc0, t_arc0_fine,
+                                               V_opt[0:(ind + 1)])
+            self.x_opt[:, 2, 0] = numpy.interp(t_arc0, t_arc0_fine,
+                                               M_opt[0:(ind + 1)])
+            # Interpolations for the second arc
+            t_arc1 = self.pi_opt[0] + self.t * self.pi_opt[1]
+            t_arc1_fine = t_opt[ind:] * pi_opt
+            # DEBUG
+            # k = 0
+            # for k_fine, t_ in enumerate(t_arc1_fine):
+            #     print("t_fine[{}] = {}".format(k_fine, t_))
+            #     if t_ >= t_arc1[k]:
+            #         print("  t_coarse[{}] = {}".format(k, t_arc1[k]))
+            #         k += 1
+            beta[:, 1] = numpy.interp(t_arc1, t_arc1_fine, beta_opt[ind:])
+            self.x_opt[:, 0, 1] = numpy.interp(t_arc1, t_arc1_fine,
+                                               h_opt[ind:])
+            self.x_opt[:, 1, 1] = numpy.interp(t_arc1, t_arc1_fine,
+                                               V_opt[ind:])
+            self.x_opt[:, 2, 1] = numpy.interp(t_arc1, t_arc1_fine,
+                                               M_opt[ind:])
+            # DEBUG
+            # for arc in range(s):
+            #     print(" ")
+            #     for k, M_ in enumerate(self.x_opt[:,2,arc]):
+            #        print("M[{}, {}] = {}".format(k,arc,M_))
+
+            # Re-calculate the beta for the given masses:
+            # # THIS DOES NOT WORK!! SPECIALLY FOR LOW VALUES OF N
+            # # This produces weird oscillations that are not even
+            # print("\ng0 = {}, Isp = {}, T = {}".format(self.constants['g0'],
+            #                                            self.constants['Isp'],
+            #                                            self.constants['T']))
+            # g0Isp2Tdt = 2. * self.constants['g0'] * self.constants['Isp'] * \
+            #             (N-1) / self.constants['T']
+            # print("N = {}. g0Isp2... = {}".format(N, g0Isp2Tdt))
+            # g, Tm = self.constants['g'], self.constants['T']/2.
+            # for arc in range(s):
+            #     # continuity condition
+            #     if arc > 0:
+            #         beta[0,arc] = beta[N-1,arc-1]
+            #     pidt = self.pi_opt[arc] / (N-1)
+            #     print("pi[{}] = {}, dtd = {}".format(arc, self.pi_opt[arc], pidt))
+            #     for k in range(N-1):
+            #         beta[k+1,arc] = g0Isp2Tdt * \
+            #                         (self.x_opt[k,2,arc]-self.x_opt[k+1,2,arc]) /\
+            #                         self.pi_opt[arc] - beta[k,arc]
+            #         #dvdt = (self.x_opt[k+1,1,arc] - self.x_opt[k,1,arc])/pidt
+            #         #beta[k+1, arc] = (self.x_opt[k+1,1,arc] / Tm) * (g + dvdt) - \
+            #         #             (self.x_opt[k+1,1,arc]/self.x_opt[k,1,arc]) * \
+            #         #                 beta[k,arc]
+            beta_orig = beta.copy() # this is just to have a comparison base
+            self.u_opt[:, 0, 0] = self.calcAdimCtrl(beta[:, 0])
+            self.u_opt[:, 0, 1] = self.calcAdimCtrl(beta[:, 1])
+
+            # DEBUG
+            # print("\n")
+            # for k in range(len(M_opt)):
+            #     if t_opt[k] * pi_opt > 99.57:
+            #         print("@k = {}, t_fine = {}, beta_fine = {}, M_fine = {}"
+            #               "".format(k, t_opt[k] * pi_opt, beta_opt[k], M_opt[k]))
+            #     if t_opt[k] * pi_opt > 100.674:
+            #         break
+            #
+            # beta_recalc = self.calcDimCtrl()
+            # print("\n")
+            # for arc in range(s):
+            #     for k, b_ in enumerate(beta_orig[:,arc]):
+            #        print("beta[{}] = {}, beta_rec[{}] = {}"
+            #              "".format(k,b_,k,beta_recalc[k,arc]))
+            pass
+            # check the quality of the solution:
+            # for i in range(3):
+            #     plt.figure(i)
+            #     plt.plot(t_arc0, self.x_opt[:, i, 0], 'or')
+            #     plt.plot(t_arc1, self.x_opt[:, i, 1], 'or')
+            #
+            # plt.figure(3)
+            # plt.plot(t_arc0, beta_orig[:, 0], 'or')
+            # plt.plot(t_arc1, beta_orig[:, 1], 'or')
+            #
+            # plt.show()
+            # input("FUNFOU?")
+            pass
+            # # Option 2: Reintegration
+            #
+            # t_opt = numpy.linspace(0., 1., num=len(h_opt))
+            # print("t_opt = {}".format(t_opt))
+            # self.pi_opt = numpy.empty(s)
+            # self.pi_opt[0] = t_opt[ind] * pi_opt
+            # self.pi_opt[1] = pi_opt - self.pi_opt[0]
+            # self.pi = self.pi_opt
+            # t_arc0 = self.t * self.pi_opt[0]
+            # t_arc0_fine = t_opt[:(ind + 1)] * pi_opt
+            # beta = numpy.empty((N, s))
+            # beta[:, 0] = numpy.interp(t_arc0, t_arc0_fine, beta_opt[0:(ind + 1)])
+            # t_arc1 = self.pi_opt[0] + self.t * self.pi_opt[1]
+            # t_arc1_fine = t_opt[ind:] * pi_opt
+            # beta[:, 1] = numpy.interp(t_arc1, t_arc1_fine, beta_opt[ind:])
+            #
+            # # Integration scheme
+            # # dx/dt = pi * [x[1], beta * T / x[2] - g, - beta * T /g0Isp]
+            # #       = pi * [0,-g, 0] + pi * beta * [0, T/x[2], -T/goIsp]
+            # # Half-point integration
+            # # x[k+1] = x[k] + mdt * pi * [x[k,1]+x[k+1,1],
+            # #                             T*(beta[k] / x[k,2] + beta[k+1] / x[k+1,
+            # #                             2]) - 2g,
+            # #                             - (beta[k]+beta[k+1])*T/g0Isp]
+            # x = numpy.empty((N, n, s))
+            # g = self.constants['g']
+            # g0Isp = self.constants['g0'] * self.constants['Isp']
+            # x[0, :, 0] = h_opt[0], V_opt[0], M_opt[0]
+            # x[0, :, 1] = h_opt[ind], V_opt[ind], M_opt[ind]
+            # for arc in range(s):
+            #     print("arc = {}".format(arc))
+            #     mdt = self.pi[arc] / (N - 1) / 2.
+            #     for k in range(1, N):
+            #         print("beta[{},{}] = {}".format(k, arc, beta[k, arc]))
+            #         # mass
+            #         x[k, 2, arc] = x[k - 1, 2, arc] + \
+            #                        - mdt * (beta[k, arc] + beta[
+            #             k - 1, arc]) * T / g0Isp
+            #         # speed
+            #         x[k, 1, arc] = x[k - 1, 1, arc] + \
+            #                        mdt * (-2. * g + T * (
+            #                     beta[k, arc] / x[k, 2, arc] +
+            #                     beta[k - 1, arc] / x[k - 1, 2, arc]))
+            #         # height
+            #         x[k, 0, arc] = x[k - 1, 0, arc] + mdt * (
+            #                     x[k, 1, arc] + x[k - 1, 1, arc])
+            # storing
+            # self.x_opt = x
+            # self.u_opt[:, 0, 0] = self.calcAdimCtrl(beta[:, 0])
+            # self.u_opt[:, 0, 1] = self.calcAdimCtrl(beta[:, 1])
+
+            # calculate I for the "optimal" solution
+            Iopt = self.x_opt[0,2,0] - self.x_opt[N-1,2,1]
+            self.log.printL("Iopt = {}".format(Iopt))
+            self.I_opt = Iopt
+            # Make the copy of the current solution; it will be solInit
             solInit = self.copy()
-
             self.log.printL("\nInitialization complete.\n")
             return solInit
 
@@ -325,7 +549,7 @@ class prob(sgra):
 
         return beta
 
-    def calcAdimCtrl(self, beta):
+    def calcAdimCtrl(self, beta_):
         """Calculate non-dimensional control from a given thrust profile
         (beta), which is an external array."""
 
@@ -338,7 +562,7 @@ class prob(sgra):
         #
         # print(Nu)
         # print(su)
-        Nu = len(beta)
+        Nu = len(beta_)
 
         if self.ctrlPar == 'tanh':
             # Basic saturation
@@ -348,23 +572,23 @@ class prob(sgra):
             lowL = .5 * (1-sat)
             highL = .5 * (1+sat)
             for k in range(Nu):
-                if beta[k] > highL:
-                    beta[k] = highL
-                if beta[k] < lowL:
-                    beta[k] = lowL
+                if beta_[k] > highL:
+                    beta_[k] = highL
+                if beta_[k] < lowL:
+                    beta_[k] = lowL
             #
-            u = numpy.arctanh(2.*beta-1.)
+            u = numpy.arctanh(2.*beta_-1.)
 
 
         elif self.ctrlPar == 'sin':
             # Basic saturation
             for k in range(Nu):
-                if beta[k] > 1.:
-                    beta[k] = 1.
-                if beta[k] < -1.:
-                    beta[k] = -1.
+                if beta_[k] > 1.:
+                    beta_[k] = 1.
+                if beta_[k] < -1.:
+                    beta_[k] = -1.
             #
-            u = numpy.arcsin(2.*beta-1.)
+            u = numpy.arcsin(2.*beta_-1.)
 
         else:
             raise (Exception("calcAdimCtrl: Unknown control parametrization."))

@@ -598,7 +598,7 @@ class sgra:
         return hist_sgra.copyHistFrom(self,*args,**kwargs)
 
 #%% LMPBVP
-    def calcErr(self):
+    def calcErr(self, plotErr=False):
         """Calculate the "error", that is the residual between phi and dx/dt."""
 
         # Old method (which is adequate for Euler + leapfrog, actually...)
@@ -620,6 +620,18 @@ class sgra:
         # this computes err[k+1,:,:] = aux[k,:,:] - err[k,:,:] for each k
         err[1:,:,:] = numpy.einsum('ij,jks->iks',self.CalcErrMat,aux)
 
+        if plotErr:  # plot the error (for debugging purposes)
+            indFig = 0
+            for arc in range(self.s):
+                for j in range(self.n):
+                    plt.figure(indFig)
+                    plt.plot(self.t, err[:,j,arc])
+                    plt.xlabel('Time, -')
+                    plt.ylabel('Residual')
+                    plt.title('Residual component, state #{}, arc #{}'.format(j,arc))
+                    plt.grid()
+                    indFig += 1
+            plt.show()
         return err
 
     def LMPBVP(self,rho=0.0,isParallel=False):

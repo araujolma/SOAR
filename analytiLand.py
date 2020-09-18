@@ -76,7 +76,7 @@ def solve_pi_noLim(tol=1e-6,pars=None):
         resN,_ = try_pi_noLim(pin, pars=pars)
 
     # now, do the bisection
-    res = 1.; pi = 1.
+    res = 1.; pi = 1.; t1 = 0.5
     while abs(res) > tol:
         pi = .5 * (pip + pin)
         print("\nTrying pi =", pi)
@@ -240,6 +240,180 @@ def intg_land(pi,t1,lam0,aL,K,pars,mustPlot=False,N=100001,getAll=False):
 
     return resV
 
+def intg_land_dir(pi, lam0, aL, K, pars, mustPlot=False, N=200001, getAll=False):
+    """This is the innermost function for the lander problem with acceleration
+    limitation. It yields (numerically, of course) a solution to the lander
+    problem, assuming the total time pi>0, waiting fraction 0<t1<1, initial
+    conditions on costates lam0, limiting acceleration aL and penalty function
+    gain K.
+
+    N is the number of elements for discretization of time array, should be
+    kept high because the differential equations are solved with the simplest
+    (first order) Euler method.
+
+    This function returns the four residuals that must become zero (only) for
+    the exact optimal solution, corresponding to the conditions:
+    h(1) = 0,
+    v(1) = 0,
+    lambda_M(1) = 0,
+    integral of (H_pi) dt in [0,1] = 0
+
+    where lambda_M is the Mass costate and H = f - lam * phi is the
+    Hamiltonian.
+    """
+    w = 1e3   # larger weight for final height and speed
+    lh, lv0, lm0 = lam0
+    g0Isp = pars['g0Isp']
+    g = pars['g']
+
+    h0 = pars['h0']
+    v0 = pars['v0']
+    M0 = pars['M0']
+
+    T = pars['T']
+    # initial value for the crossing function xi
+    xi0 = (1. + lm0) / g0Isp - lv0 / M0
+    msg = "pi = {:.6G}, xi0 = {:.6G}, "\
+          "lh = {:.6G}, lv0 = {:.6G}".format(pi, xi0, lh, lv0)
+    print(msg)
+
+    t = numpy.linspace(0., 1., num=N)
+    dtd = t[1] * pi
+    # speed costate
+    lv = lv0 * numpy.ones(N)
+
+    v = v0 * numpy.ones(N)
+    h = h0 * numpy.ones(N)
+    M = M0 * numpy.ones(N)
+    lm = lm0 * numpy.ones(N)
+
+    b = numpy.zeros(N)
+
+    # Perform the integration
+    for k in range(N-1):
+        h_, v_, M_, lv_, lm_ = h[k], v[k], M[k], lv[k], lm[k]
+
+        xi_ = (1. + lm_)/g0Isp - lv_/M_
+
+        if xi_ > 0.:
+            beta_ = 0.
+        elif xi_ < - 2.* (K/M_) *  (T/M_ - aL):
+            beta_ = 1.
+        else:
+            beta_ = (M_/T) * (aL - xi_ * M_ / 2. /K)
+        a = beta_ * T / M_
+
+        h[k+1] = h_ + dtd * v_
+        v[k+1] = v_ + dtd * (a-g)
+        M[k+1] = M_ - dtd * beta_ * T / g0Isp
+        lv[k+1] = lv_ - dtd * lh
+        if a > aL:
+            lm[k+1] = lm_ + dtd * (a/M_) * (lv_ - 2. * K * (a-aL))
+        else:
+            lm[k+1] = lm_ + dtd * (a / M_) * lv_
+
+        b[k+1] = beta_
+    xi = (1.+lm)/g0Isp - lv/M
+
+    if getAll:
+        return h, v, M, b, pi
+
+    a = b * T / M
+    # this is the term for the integral equation
+    intg = (M0-M[-1])/pi + K * simp((a-aL)**2 * (a>=aL),N) + \
+            2. * lh * h0 / pi + lv0 * v0 / pi + (T/g0Isp) * simp(lm * b,N)
+
+    # assemble residuals
+    resV = numpy.array([w * h[-1], w * v[-1], lm[-1], intg])
+    res = sum(resV ** 2)
+
+    #if mustPrint:
+    print("resV =", resV)
+    print("res =", res)
+
+    if mustPlot:
+        fig, axs = plt.subplots(3, 2, constrained_layout=True)
+        axs[0,0].plot(t*pi,h,label='h')
+        #axs[0].set_title('subplot 1')
+        axs[0,0].set_ylabel('Height [km]')
+        axs[0,0].set_xlabel('Time [s]')
+        axs[0, 0].grid()
+
+        msg = 'Analytical solution for K = {:.2G}, aLim = {:.2G}g\n' \
+              'Vars: pi = {:.6G}, lh0 = {:.6G}, lv0 = {:.6G}, lm0 = {:.6G}\n' \
+              '(Res. = {:.2E}, Errors = [{:.1G}m, {:.1G}m/s, {:.1G}, {:.1G}kg/s])' \
+              ''.format(K, aL/g,
+                        pi, lh, lv0, lm0,
+                        res, resV[0], resV[1], resV[2], resV[3])
+        fig.suptitle(msg, fontsize=12)
+
+        axs[1,0].plot(t*pi, v, label='v')
+        axs[1,0].set_ylabel('Speed [km/s]')
+        axs[1,0].set_xlabel('Time [s]')
+        axs[1,0].grid()
+
+        axs[0,1].plot(t*pi, a/aL, label='acc/accLim')
+        axs[0,1].set_ylabel('acc/accLim [-]')
+        axs[0,1].set_xlabel('Time [s]')
+        axs[0,1].grid()
+
+        axs[1,1].plot(t*pi, b, label='beta')
+        axs[1,1].set_ylabel('beta [-]')
+        axs[1,1].set_xlabel('Time [s]')
+        axs[1,1].grid()
+
+        axs[2,0].plot(t*pi, M, label='M')
+        axs[2,0].set_ylabel('Mass [kg]')
+        axs[2,0].set_xlabel('Time [s]')
+        axs[2,0].grid()
+
+        axs[2,1].plot(t*pi, xi, label='xi')
+        axs[2,1].set_ylabel('xi [s/km]')
+        axs[2,1].set_xlabel('Time [s]')
+        axs[2,1].grid()
+
+        # calculate maximum violation, mean violation, etc
+        maxVio = (max(a) / aL - 1.) * 100.
+        # lh = -xi0 * M0 / pi / t1
+        t1 = -xi0 * M0 / pi / lh
+        meanVio = (simp((a - aL) * (a >= aL), N) / (1. - t1) / aL ) * 100.
+
+        plt.figure()
+        plt.plot(t*pi,a/aL)
+        plt.grid()
+        plt.xlabel("Time [s]")
+        plt.ylabel("Acc/AccLim")
+        plt.title("Violations for K = {:.2G}. Max  = {:.2G}%, mean = {:.2G}%".format(
+            K, maxVio, meanVio))
+
+        plt.show()
+
+    return resV
+
+def try_all_dir(x, aL, K, pars=None, mustPrint=False, mustPlot=False,
+             getAll=False):
+    """This function does the same thing as try_pi_noLim, but assuming there
+    is a limitation to the acceleration. The problem is that with this
+    limitation, the shape of the solution is no longer as simple as before.
+
+    In fact, it depends on all initial parameters of the costates, as well as
+    total time pi. This dependence, of course, is highly non-linear.
+
+    The approach in this function is to avoid adding any residuals."""
+
+    print("\nTrying directly pi = {}, lh0 = {}, lv0 = {}, lm0 = {}".format(
+        x[0], x[1], x[2], x[3]))
+
+    pi = x[0]
+    lam0 = [x[1], x[2], x[3]]
+
+    if pars is None:
+        pars = pars_def
+
+    resV = intg_land_dir(pi, lam0, aL, K, pars, mustPlot=mustPlot, getAll=getAll)
+
+    return resV
+
 def try_all(x, aL, K, pars=None,mustPrint=False,mustPlot=False):
     """This function does the same thing as try_pi_noLim, but assuming there
     is a limitation to the acceleration. The problem is that with this
@@ -295,8 +469,13 @@ def try_all2(x, aL, K, pars=None,mustPrint=False,mustPlot=False):
     """This in an alternate version of try_all, with a different set of
      input variables (basically a change of coordinates).
 
+     It is best to use as inputs t1, the fraction of the time in which the engine is
+     off; as well as xi0, the initial value of xi = (1+lm)/g0Isp -lv/M.
+
      Since pi > 0, xi0 > 0, 0<t1<1, the input variables are chosen to be
      x0 = log(pi), x1 = arcsin(2*t1-1), x2 = lv0, x3 = log(xi0).
+
+    This implies that the values of lh0 and lm0 are now dependant of xi0 and t1.
 
     In this approach, there is no need to artificially add residuals."""
 
@@ -324,28 +503,31 @@ def try_all2(x, aL, K, pars=None,mustPrint=False,mustPlot=False):
 
     return resV
 
-def try_all3(x, aL, K, refs=None,pars=None,mustPrint=False,mustPlot=False,getAll=False):
+def try_all3(x, aL, K, pars=None, mustPrint=False, mustPlot=False,
+             getAll=False, compare=False):
     """This in an alternate version of try_all, with a different set of
      input variables (basically a change of coordinates).
 
+     It is best to use as inputs t1, the fraction of the time in which the engine is
+     off; as well as xi0, the initial value of xi = (1+lm)/g0Isp -lv/M.
+
      Since pi > 0, xi0 > 0, 0<t1<1, the input variables are chosen to be
      x0 = log(pi*t1)), x1 = log(pi*(1-t1)), x2 = lv0, x3 = log(xi0).
+
+    This implies that the values of lh0 and lm0 are now dependant of xi0 and t1.
 
     In this approach, there is also no need to artificially add residuals."""
 
     print("\nTrying x =",x)
     x0, x1, x2, x3 = x
-    if refs is None:
-        print("Going with default refs...")
-        refs = numpy.ones(4)
 
-    pi1 = numpy.exp(x0) * refs[0]
-    pi2 = numpy.exp(x1) * refs[1]
+    pi1 = numpy.exp(x0)
+    pi2 = numpy.exp(x1)
     pi = pi1 + pi2
     t1 = pi1 / pi
 
-    lv0 = x2 * refs[2]
-    xi0 = numpy.exp(x3) * refs[3]
+    lv0 = x2
+    xi0 = numpy.exp(x3)
     if pars is None:
         pars = pars_def
 
@@ -358,18 +540,21 @@ def try_all3(x, aL, K, refs=None,pars=None,mustPrint=False,mustPlot=False,getAll
     lh = -xi0 * M0 / pi / t1
 
     lam0 = [lh,lv0,lm0]
-    resV = intg_land(pi,t1,lam0,aL,K,pars,mustPlot=mustPlot,getAll=getAll)
+    if compare:
+        getInitGuesLargK(aL, mustPlot=True, noShow=True)
+    resV = intg_land_dir(pi, lam0, aL, K, pars, mustPlot=mustPlot, getAll=getAll)
+    #intg_land(pi,t1,lam0,aL,K,pars,mustPlot=mustPlot,getAll=getAll)
 
     return resV
 
-def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
+def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000, noShow=False):
     """This function performs the calculations for the durations and
     initial values for costates in a solution that consists of two phases:
     no propulsion (free-fall) then constant-deceleration until full stop
     at height=0.
 
-    This is never the "true" variational solution, but actually a limit when the penalty function
-    gain K tends to infinity.
+    This is never the "true" variational solution, but actually a limit when the
+    penalty function gain K tends to infinity.
     """
 
     if pars is None:
@@ -440,11 +625,13 @@ def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
         t1d = pi * t1
         vt1 = v0 - t1d * g
         ht1 = h0 + v0 * t1d - .5 * g * t1d**2
+        # noinspection PyTypeChecker
         exp = numpy.exp(coef*(t-t1))
 
         v = (v0 - g * td)*(t<t1) + (vt1 + (aL-g) * (td-t1d)) * (t>=t1)
         h = (h0 + v0 * td - .5 * g * td**2) * (t<t1) + \
             (ht1 + vt1 * (td - t1d) + .5 * (aL - g) * (td - t1d) ** 2) * (t>=t1)
+        # noinspection PyTypeChecker
         M = (M0+0.*t) * (t<t1) + (M0/exp)*(t>=t1)
 
         # texp_tt1 = (t-t1) * exp
@@ -452,6 +639,7 @@ def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
         #      (lm0 + (lv0 * g0Isp/M0) * (exp-1.) +
         #        -(pi*pi*aL*lh/M0)*( (t1/coef-1./coef/coef) * exp_tt1 +
         #                              texp_tt1/coef ) ) * (t>=t1)
+        # noinspection PyTypeChecker
         lm = (lm0 + 0. * t) * (t < t1) + \
              (lm0 + (lv0 * g0Isp / M0) * (exp-1.) +
               -(pi * pi * aL * lh / M0) *
@@ -465,7 +653,9 @@ def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
         axs[0,0].set_xlabel('Time [s]')#'Non-dim time [-]')
         axs[0, 0].grid()
 
-        msg = 'Analytical solution for K -> \\infty, aLim = {:.1G}g '.format(aL/g)
+        msg = 'Analytical solution for K -> \\infty, aLim = {:.2G}g \n' \
+              'Vars: pi = {:.6G}, lh0 = {:.6G}, lv0 = {:.6G}, lm0 = {:.6G}' \
+              ''.format(aL/g, pi, lh0, lv0, lm0)
         fig.suptitle(msg, fontsize=12)
 
         axs[1,0].plot(t*pi, v, label='v')
@@ -500,21 +690,30 @@ def getInitGuesLargK(aL, pars=None, mustPlot=False, numPlot=1000):
         # plt.grid()
         # plt.xlabel("Time [s]")
         # plt.ylabel("xi [s/m]")
-
-        plt.show()
+        if not noShow:
+            plt.show()
 
     return pi, t1, lams
 
-def getSol(pars):
+def getSol(pars, tol=1e-12, mustPlot=False):
     """Gets the parameters for the analytical solution."""
 
     aL, K = pars['aLim'], pars['Kpf']
+
+    # obtain initial guess for the solver, by assuming K -> infinity
     pi, t1, lams = getInitGuesLargK(aL)
+    # calculate the corresponding initial value of xi
     xi0 = (1. + lams[2]) / pars['g0Isp'] - lams[1] / pars['M0']
+    # perform the variable change for try_all3
     initGues = numpy.array(
         (numpy.log(pi * t1), numpy.log(pi * (1. - t1)), lams[1], numpy.log(xi0)))
-    sol = root(try_all3, initGues, (aL, K, numpy.ones(4)), tol=1e-12)
+    # calculate the actual solution
+    sol = root(try_all3, initGues, (aL, K, pars), tol=tol)
 
+    if mustPlot:
+        # this is just to get the plots, if the user wants them
+        try_all3(sol.x, aL, K, pars=pars, mustPlot=True)
+    # this final call is to get the arrays for h, V, M, beta; as well as pi
     return try_all3(sol.x, aL, K, pars=pars, getAll=True) # h, V, M, beta, pi
 
 
@@ -551,7 +750,8 @@ if __name__ == "__main__":
     #try_all2(sol.x, aL, K, mustPrint=True, mustPlot=True)
 
     # THIS ONE WORKS (for these pars, anyway...)
-    #sol = root(try_all3, (numpy.log(1.228e2*0.8), numpy.log(1.228e2*0.2), 0., numpy.log(0.5)), (aL, K))
+    #sol = root(try_all3, (numpy.log(1.228e2*0.8), numpy.log(1.228e2*0.2), 0.,
+    #           numpy.log(0.5)), (aL, K))
     #print(sol)
     #try_all3(sol.x, aL, K, mustPrint=True, mustPlot=True)
 
@@ -573,7 +773,8 @@ if __name__ == "__main__":
     #print(sol)
     #try_all3(sol.x, aL, K, refs=refs, mustPrint=True, mustPlot=True)
 
-    #sol = root(try_all3, (numpy.log(pi*t1), numpy.log(pi*(1.-t1)), 0., numpy.log(0.5)), (aL, K))
+    #sol = root(try_all3, (numpy.log(pi*t1), numpy.log(pi*(1.-t1)), 0.,
+    #           numpy.log(0.5)), (aL, K))
     #print(sol)
     #try_all3(sol.x, aL, K, refs=refs, mustPrint=True, mustPlot=True)
 
@@ -594,10 +795,16 @@ if __name__ == "__main__":
 
     # Newest attempt: use the guess for large K
 
-    pi, t1, lams = getInitGuesLargK(aL, mustPlot=True)
+    pi, t1, lams = getInitGuesLargK(aL)#, mustPlot=True)
     xi0 = (1. + lams[2]) / pars_def['g0Isp'] - lams[1] / pars_def['M0']
     initGues = numpy.array((numpy.log(pi*t1), numpy.log(pi*(1.-t1)), lams[1],
                             numpy.log(xi0)))
-    sol = root(try_all3, initGues, (aL, K,numpy.ones(4)))
+    sol = root(try_all3, initGues, (aL, K), options={'xtol':1e-10})
     print(sol)
-    try_all3(sol.x, aL, K, mustPrint=True, mustPlot=True)
+    try_all3(sol.x, aL, K, mustPrint=True, mustPlot=True, compare=True)
+
+    # xi0 = (1. + lams[2]) / pars_def['g0Isp'] - lams[1] / pars_def['M0']
+    # initGues = numpy.array([pi, lams[0], lams[1], lams[2]])
+    # sol = root(try_all_dir, initGues, (aL, K))
+    # print(sol)
+    # try_all_dir(sol.x, aL, K, pars=pars_def, mustPlot=True)
