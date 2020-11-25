@@ -752,7 +752,6 @@ class stepMngr:
     def keepSrchPLim(self):
         """ Decide to keep looking for P step limit or not.
 
-
         keepLookCode is 0 for keep looking. Other values correspond to different
         exit conditions:
 
@@ -763,46 +762,26 @@ class stepMngr:
         5 - P limit is within tolerance"""
 
         if not self.StepLimActv[1]:
-            keepLoopCode = 1
+            keepLoopCode = 1  # P limit is no longer active
         elif (self.StepLimUppr[1] - self.StepLimLowr[1]) < \
                 self.StepLimLowr[1] * self.tolStepLimP:
-            keepLoopCode = 2
+            keepLoopCode = 2  # upper&lower bounds for P step limit within tolerance
         elif not self.isDecr:
-            keepLoopCode = 3
+            keepLoopCode = 3  # obj min is before P limit
         elif self.cont >= self.stopNEvalLim:
-            keepLoopCode = 4
+            keepLoopCode = 4  # too many objective function evaluations (debug maybe?)
         elif self.tolLimP > self.best['limP'] > 0.:
-            keepLoopCode = 5
+            keepLoopCode = 5  # P limit within tolerance
         else:
-            keepLoopCode = 0
+            keepLoopCode = 0  # keep looking!
 
         self.pLimSrchStopMotv = keepLoopCode
 
-    def srchStep(self,sol):
-        """The ultimate step search.
-
-        First of all, the algorithm tries to find a step value for which
-        P = limP; called AlfaLimP. This is because of the almost linear
-        behavior of P with step in loglog plot.
-        This AlfaLimP search is conducted until the value is found (with a
-        given tolerance, of course) or if Obj > Obj0 before P = limP.
-
-        The second part concerns the min Obj search itself. Ideally, some
-        step values have already been tried in the previous search.
-        The search is performed by "trissection"; we have 3 ascending values
-        of step with the corresponding values of Obj. If the middle point
-        corresponds to the lowest value (V condition), the trissection
-        begins. Else, the search point moves left of right until the V
-        condition is met.
+    def pLimSrch(self,sol):
+        """ First part of the step search: the P-limit search.
+        :param sol:
+        :return: None
         """
-
-        if self.mustPrnt:
-            self.log.printL("\n> Entering ULTIMATE STEP SEARCH!\n")
-
-        # PART 1: alfa_limP search
-
-        # 1.0: Get the stop motive of the previous grad iteration, if it exists
-        prevStopMotv = self.prevStepInfo.get('stopMotv', -1)
 
         # 1.0.1: Get the best step from the previous grad iteration
         prevBest = self.prevStepInfo.get('best', None)
@@ -814,22 +793,22 @@ class stepMngr:
                 self.log.printL(msg)
             self.tryStep(sol, alfa)
 
+        # 1.0: Get the stop motive of the previous grad iteration, if it exists
+        prevStopMotv = self.prevStepInfo.get('stopMotv', -1)
+
         # 1.0.2: Decide the mode for P limit search, default or not
         if prevStopMotv == 1 or prevStopMotv == 2 or prevStopMotv == 3:
             isPLimSrchDefault = False
-        else:
-            isPLimSrchDefault = True
-
-        # 1.0.3: If the previous P limit fit is to be used, check validity first
-        if not isPLimSrchDefault:
+            # 1.0.3: If the previous P limit fit is to be used, check validity first
             a = self.prevStepInfo['PRegrAngCoef']
-            #b = self.prevStepInfo['PRegrLinCoef']
             if a < eps:
                 # Fit is not good, override and return to default
                 if self.mustPrnt:
-                    self.log.printL("\n> Overriding P limit search to default"
-                                    " mode.")
+                    self.log.printL("\n> Previous fit is bad.\n  Overriding P "
+                                    "limit search to default mode.")
                 isPLimSrchDefault = True
+        else:
+            isPLimSrchDefault = True
 
         # 1.0.4: calculate P target (just below P limit, but still within tolerance)
         P_targ = self.limP * (1. - self.tolLimP / 2.)
@@ -837,15 +816,15 @@ class stepMngr:
         logP_targ = numpy.log(P_targ)
 
         if isPLimSrchDefault:
-            # 1.1: Start with alfa = 1, unless the pi conditions don't allow it
-            if self.StepLimActv[0]:
-                alfa1 = min([1., self.StepLimLowr[0]*.9])
-            else:
-                alfa1 = 1.
-
             if self.mustPrnt:
                 self.log.printL("\n> Going for default P limit search.")
+            # 1.1: Start with alfa = 1, unless the pi conditions don't allow it
+            if self.StepLimActv[0]:
+                alfa1 = min([1., self.StepLimLowr[0] * .9])
+            else:
+                alfa1 = 1.
             P1, I1, Obj1 = self.tryNewStep(sol, alfa1)
+            # this is necessary because tryNewStep does not necessarily use alfa1!
             alfa1 = self.histStep[-1]
 
             if self.cont > 0:
@@ -854,7 +833,7 @@ class stepMngr:
                 x1 = numpy.log(self.histStep[-1])
                 x2 = numpy.log(self.histStep[-2])
                 a = (y2 - y1) / (x2 - x1)  # angular coefficient
-                b = y1 - x1 * a            # linear coefficient
+                b = y1 - x1 * a  # linear coefficient
                 self.PRegrAngCoef, self.PRegrLinCoef = a, b  # store them
                 alfaLimP = numpy.exp((logP_targ - b) / a)
                 if self.mustPrnt:
@@ -903,7 +882,7 @@ class stepMngr:
                 # 1.2 (alt) Checking if we must proceed...
                 self.keepSrchPLim()
             else:
-                alfaLimP, P = 1., 1. # These values will not be used.
+                alfaLimP, P = 1., 1.  # These values will not be used.
 
             # 1.3 (alt): The fit was not that successful... carry on
             if self.pLimSrchStopMotv == 0:
@@ -913,39 +892,39 @@ class stepMngr:
                     y1, y2 = numpy.log(self.histP[-1]), numpy.log(self.histP[-2])
                     x1 = numpy.log(self.histStep[-1])
                     x2 = numpy.log(self.histStep[-2])
-                    a = (y2-y1)/(x2-x1) # angular coefficient
-                    b = y1 - x1 * a     # linear coefficient
+                    a = (y2 - y1) / (x2 - x1)  # angular coefficient
+                    b = y1 - x1 * a  # linear coefficient
                     # 1.3.2 (alt1) Check validity of fit
                     if a > 0:
                         # Fit seems ok; store parameters
-                        self.PRegrAngCoef, self.PRegrLinCoef = a, b # store them
+                        self.PRegrAngCoef, self.PRegrLinCoef = a, b  # store them
                         # calculate the next alfa to be used according to the fit
                         alfaLimP = numpy.exp((logP_targ - b) / a)
                         if self.mustPrnt:
-                            msg = "\n> Ok, that did not work. "\
+                            msg = "\n> Ok, that did not work. " \
                                   "Let's try alfa = {}\n  (linear fit from" \
                                   " the latest tries).".format(alfaLimP)
                             self.log.printL(msg)
                     else:
                         # Fit is not good. We are probably way beyond the limit...
                         if self.mustPrnt:
-                            msg = "\n> Ok, that did not work. \n"\
+                            msg = "\n> Ok, that did not work. \n" \
                                   "Besides, linear fit from" \
-                                  " the latest tries yields:\n"\
+                                  " the latest tries yields:\n" \
                                   " a = {}, b = {}, aborting...".format(a, b)
                             self.log.printL(msg)
-                        doTenPercent = True # go to 1.3.1 (alt2)
+                        doTenPercent = True  # go to 1.3.1 (alt2)
                 else:
                     doTenPercent = True
 
                 if doTenPercent:
                     # 1.3.1 (alt2): Unable to fit, let's go with +/-10%...
                     if P > P_targ:
-                        alfaLimP *= 0.9 # 10% lower
+                        alfaLimP *= 0.9  # 10% lower
                         msg = "\n> Ok, that did not work. Let's try" \
                               " alfa = {} (10% lower).".format(alfaLimP)
                     else:
-                        alfaLimP *= 1.1 # 10% higher
+                        alfaLimP *= 1.1  # 10% higher
                         msg = "\n> Ok, that did not work. Let's try" \
                               " alfa = {} (10% higher).".format(alfaLimP)
                     if self.mustPrnt:
@@ -983,9 +962,9 @@ class stepMngr:
                 logStep = numpy.log(numpy.array(self.histStep[1:]))
                 logP = numpy.log(numpy.array(self.histP[1:]))
                 n = len(self.histStep[1:])
-                #logStep = numpy.log(numpy.array(self.histStep))
-                #logP = numpy.log(numpy.array(self.histP))
-                #n = len(self.histStep)
+                # logStep = numpy.log(numpy.array(self.histStep))
+                # logP = numpy.log(numpy.array(self.histP))
+                # n = len(self.histStep)
 
                 # 1.3.4.2: perform actual regression
                 X = numpy.ones((n, 2))
@@ -1047,27 +1026,23 @@ class stepMngr:
                 msg += "P limit tolerance is met."
             self.log.printL(msg)
 
-        # 1.4: If the loop was abandoned because of too many evals, leave now.
+    def minObjSrch(self, sol):
+        """
+        Second part of the step search: minimum objective search.
+        :param sol:
+        :return: None
+        """
         alfa = self.best['step']
-        if self.pLimSrchStopMotv == 4:
-            msg = "\n> Leaving step search due to excessive evaluations." + \
-                  "\n  Debugging is recommended."
-            self.log.printL(msg)
-            self.stopMotv = 3
-            return alfa
-
-        # PART 2: min Obj search
-
         # 2.0: Bad condition: all tested steps were bad (not valid)
-        if alfa < eps: # alfa is essentially 0 in this case
+        if alfa < eps:  # alfa is essentially 0 in this case
             if self.isTrioSet:
-                raise(Exception("grad_sgra: No good step but the trios are set."
-                                "\nDebug this now!"))
+                raise (Exception("grad_sgra: No good step but the trios are set."
+                                 "\nDebug this now!"))
             if self.mustPrnt:
                 msg = "\n\n> Bad condition! None of the tested steps was valid."
                 self.log.printL(msg)
             # 2.0.1: Get latest tried step
-            #Obj, alfa, isOk  = self.histObj[-1], self.histStep[-1], self.histStat[-1]
+            # Obj, alfa, isOk  = self.histObj[-1], self.histStep[-1], self.histStat[-1]
             isOk = False
             alfa = self.histStep[self.trio[2]]
 
@@ -1076,8 +1051,8 @@ class stepMngr:
                 if self.mustPrnt:
                     self.log.printL("  Going back by {}...".format(self.ffRate))
                 alfa /= self.ffRate
-                self.tryStep(sol,alfa)
-                isOk = self.histStat[-1] # get its status
+                self.tryStep(sol, alfa)
+                isOk = self.histStat[-1]  # get its status
 
             # The trios are already automatically assembled!
 
@@ -1110,15 +1085,15 @@ class stepMngr:
             # TODO: this hardcoded value can cause issues in super sensitive
             #  problems...
             alfa_ = alfa * .999
-            P_,I_,Obj_ = self.tryStep(sol,alfa_)
-            grad = (Obj-Obj_)/(alfa-alfa_)
+            P_, I_, Obj_ = self.tryStep(sol, alfa_)
+            grad = (Obj - Obj_) / (alfa - alfa_)
 
             if grad < 0.:
                 if self.mustPrnt:
                     msg = "\n> Objective seems to be descending with step.\n" + \
                           "  Leaving calcStepGrad with alfa = {}\n".format(alfa)
                     self.log.printL(msg)
-                self.stopMotv = 2 # step limit hit
+                self.stopMotv = 2  # step limit hit
                 return alfa
             else:
                 if self.mustPrnt:
@@ -1141,24 +1116,24 @@ class stepMngr:
             alfa = self.best['step']
             for ind in self.sortIndxHistStep:
                 alfa_ = self.histStep[self.sortIndxHistStep[ind]]
-                if abs(alfa_-alfa) < eps:
+                if abs(alfa_ - alfa) < eps:
                     indxAlfa = self.sortIndxHistStep[ind]
                     break
             else:
-                raise(Exception("grad_sgra: Latest step was not found. Debug now!"))
+                raise (Exception("grad_sgra: Latest step was not found. Debug now!"))
 
             # 2.2.2: Special procedures in case the best step is at the
             # beginning or at the end of the list
-            n = len(self.sortIndxHistStep) - 1 # max index
+            n = len(self.sortIndxHistStep) - 1  # max index
 
-            indxAlfa_m, indxAlfa_p = 0, 0 # just to shut PyCharm up...
-            if ind > 0: # there is a lesser step; use it
+            indxAlfa_m, indxAlfa_p = 0, 0  # just to shut PyCharm up...
+            if ind > 0:  # there is a lesser step; use it
                 indxAlfa_m = self.sortIndxHistStep[ind - 1]
             # TODO: it is not necessary to use a good step for trio[2].
-            if ind < n: # there is a greater step; use it
+            if ind < n:  # there is a greater step; use it
                 indxAlfa_p = self.sortIndxHistStep[ind + 1]
 
-            if ind <= 0.: # there is no lesser step, try 1% lower
+            if ind <= 0.:  # there is no lesser step, try 1% lower
                 alfa_m = alfa * .99
                 if self.mustPrnt:
                     self.log.printL("\n> No lesser valid step; going for a new one,"
@@ -1166,7 +1141,7 @@ class stepMngr:
                 # a new step will be tried; this will be its index
                 indxAlfa_m = len(self.histStep)
                 self.tryStep(sol, alfa_m)
-            if ind >= n: # there is no greater step, try 1% higher
+            if ind >= n:  # there is no greater step, try 1% higher
                 alfa_p = alfa * 1.01
                 if self.mustPrnt:
                     self.log.printL("\n> No greater valid step; going for a new one,"
@@ -1191,16 +1166,17 @@ class stepMngr:
         self.adjsTrios(sol)
 
         # 2.4: Final step search by "trissection"
-        pass #just to break the comment
+        pass  # just to break the comment
         # up to this point, stepTrio has three ascending values of step,
         # and objTrio has the corresponding values of Obj, with
         #   objTrio[1] < min(objTrio[0], objTrio[2])
 
         # 2.4.-1: Estimation of the number of evaluations until convergence
-        n = int(numpy.ceil(numpy.log(self.tolStepObj /
-             (self.histStep[self.trio[2]] - self.histStep[self.trio[0]]) ) /
-             numpy.log((numpy.sqrt(5.) - 1.) / 2.)))
-        if n < 0: # Apparently we are about to converge!
+        n_float = numpy.log(self.tolStepObj / \
+                (self.histStep[self.trio[2]] - self.histStep[self.trio[0]])) / \
+                numpy.log((numpy.sqrt(5.) - 1.) / 2.)
+        n = int(numpy.ceil(n_float))
+        if n < 0:  # Apparently we are about to converge!
             n = 0
         if self.mustPrnt:
             self.log.printL("\n> According to the Golden Section approximation, "
@@ -1208,7 +1184,7 @@ class stepMngr:
         self.cont_exp = n + self.cont
 
         # 2.4.0: Move left or right depending on which side is the largest
-        pass #just to break the comment
+        pass  # just to break the comment
         # if self.trio['step'][1] / self.trio['step'][0] > \
         #     self.trio['step'][2] / self.trio['step'][1]:
         #     # left side is largest, move left
@@ -1216,7 +1192,7 @@ class stepMngr:
         # else:
         #     # right side is largest, move right
         #     leftRght = False # indicator of left (True) or right (False) movement
-        leftRght = False # indicator of left (True) or right (False) movement
+        leftRght = False  # indicator of left (True) or right (False) movement
         if self.mustPrnt:
             self.showTrios()
         while self.histStep[self.trio[2]] - self.histStep[self.trio[0]] > \
@@ -1232,7 +1208,7 @@ class stepMngr:
                              self.histStep[self.trio[1]])
 
             # 2.4.2: Try the new step. Updating the trios is done as well
-            self.tryStep(sol,alfa)
+            self.tryStep(sol, alfa)
 
             # DEBUG PLOT
             # plt.semilogx(self.histStep, self.histObj, 'o', label='Obj')
@@ -1256,8 +1232,8 @@ class stepMngr:
             #     # right side is largest, move right
             #     leftRght = False
             #     # indicator of left (True) or right (False) movement
-            leftRght = not leftRght # reverse search direction
-            #input(">> ")
+            leftRght = not leftRght  # reverse search direction
+            # input(">> ")
 
         # 2.5: End conditions
         if self.cont >= self.stopNEvalLim:
@@ -1266,7 +1242,7 @@ class stepMngr:
             self.log.printL(msg)
             if self.mustPrnt:
                 self.showTrios()
-            self.stopMotv = 3 # too many evals
+            self.stopMotv = 3  # too many evals
         else:
             # minimum was actually found!
             if self.mustPrnt:
@@ -1275,11 +1251,47 @@ class stepMngr:
                 gr_n = (self.histObj[self.trio[1]] - self.histObj[self.trio[0]]) / \
                        (self.histStep[self.trio[1]] - self.histStep[self.trio[0]])
                 grad = gr_p - gr_n
-                msg = "\n> Local obj minimum was found.\n  Gradients: grad_p = "\
-                      "{}, grad_n = {}, grad = {}".format(gr_p,gr_n,grad)
+                msg = "\n> Local obj minimum was found.\n  Gradients: grad_p = " \
+                      "{}, grad_n = {}, grad = {}".format(gr_p, gr_n, grad)
                 self.log.printL(msg)
                 self.showTrios()
-            self.stopMotv = 1 # local min found!
+            self.stopMotv = 1  # local min found!
+
+    def srchStep(self,sol):
+        """The ultimate step search.
+
+        First of all, the algorithm tries to find a step value for which
+        P = limP; called AlfaLimP. This is because of the almost linear
+        behavior of P with step in loglog plot.
+        This AlfaLimP search is conducted until the value is found (with a
+        given tolerance, of course) or if Obj > Obj0 before P = limP.
+
+        The second part concerns the min Obj search itself. Ideally, some
+        step values have already been tried in the previous search.
+        The search is performed by "trissection"; we have 3 ascending values
+        of step with the corresponding values of Obj. If the middle point
+        corresponds to the lowest value (V condition), the trissection
+        begins. Else, the search point moves left of right until the V
+        condition is met.
+        """
+
+        if self.mustPrnt:
+            self.log.printL("\n> Entering ULTIMATE STEP SEARCH!\n")
+
+        # PART 1: alfa_limP search
+        self.pLimSrch(sol)
+
+        # If the P limit search was abandoned because of too many evals, leave now.
+        if self.pLimSrchStopMotv == 4:
+            msg = "\n> Leaving step search due to excessive evaluations." + \
+                  "\n  Debugging is recommended."
+            self.log.printL(msg)
+            self.stopMotv = 3
+            return self.best['step']
+
+        # PART 2: min Obj search
+        self.minObjSrch(sol)
+
         return self.best['step']#self.histStep[self.trio[1]]
 
     def endPrntPlot(self,alfa,mustPlot=False):
@@ -1874,7 +1886,6 @@ def calcStepGrad(self,corr,alfa_0,retry_grad,stepMan):
             self.log.xlsx['obj'].write(0, col, stepMan.Obj0)
 
         # Proceed to the step search itself
-        alfa = stepMan.srchStep(self)
 
     # TODO: "Assured rejection prevention"
     #  if P<tolP, make sure I<I0, otherwise,

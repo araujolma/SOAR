@@ -359,7 +359,6 @@ class prob(sgra):
             self.pi_opt = numpy.empty(s)
             self.pi_opt[0] = t_opt[ind] * pi_opt
             self.pi_opt[1] = pi_opt - self.pi_opt[0]
-            self.pi = self.pi_opt
 
             # Interpolations for the first arc
             t_arc0 = self.t * self.pi_opt[0]
