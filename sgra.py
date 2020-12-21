@@ -691,7 +691,7 @@ class sgra:
             #
 
             CC = C.transpose().dot(C)
-            dJdStep = -BB-CC; corr['dJdStepTheo'] = dJdStep
+            dJdStep = -BB-CC; corr['dJdStepTheo'] = -self.Q#dJdStep
 
             self.log.printL("\nBB = {:.4E}".format(BB) + \
                             ", CC = {:.4E},".format(CC) + \
