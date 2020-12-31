@@ -750,7 +750,7 @@ class stepMngr:
                         if self.mustPrnt:
                             self.log.printL("\n  Changing left element of trio to "
                                             "{}".format(alfa))
-                if abs(alfa- self.histStep[self.trio[2]]) > eps:
+                if abs(alfa - self.histStep[self.trio[2]]) > eps:
                     # this 'alfa' is not the current last element of the trio.
                     if trio1 < alfa < self.histStep[self.trio[2]]:
                         # it is closer to the center than the right element.
@@ -1058,8 +1058,8 @@ class stepMngr:
         # 2.0: Bad condition: all tested steps were bad (not valid)
         if alfa < eps:  # alfa is essentially 0 in this case
             if self.isTrioSet:
-                raise (Exception("grad_sgra: No good step but the trios are set."
-                                 "\nDebug this now!"))
+                raise Exception("grad_sgra: No good step but the trios are set."
+                                "\nDebug this now!")
             if self.mustPrnt:
                 msg = "\n\n> Bad condition! None of the tested steps was valid."
                 self.log.printL(msg)
@@ -1070,6 +1070,7 @@ class stepMngr:
 
             # 2.0.2: Go back a few times. We will need 3 points
             while not isOk or self.cont < 2:
+                # keep searching until we have tried >= 3, and one of them is good
                 if self.mustPrnt:
                     self.log.printL("  Going back by {}...".format(self.ffRate))
                 alfa /= self.ffRate
@@ -1077,11 +1078,10 @@ class stepMngr:
                 isOk = self.histStat[-1]  # get its status
 
             # The trios are already automatically assembled!
-
             if self.mustPrnt:
                 self.log.printL("\n> Finished looking for valid objs.")
                 self.showTrios()
-            # NECESSÁRIO??? REVER!
+            # This is actually necessary!
             self.isTrioSet = True
 
             # DEBUG PLOTS
@@ -1135,15 +1135,15 @@ class stepMngr:
                                 " so far:")
                 self.showTrios()
 
-            # 2.2.1: Get index for best step so far
+            # 2.2.1: Get index for best step so far, on sortIndxHistStep list
             alfa = self.bestStep()
-            for ind in self.sortIndxHistStep:
+            for ind in range(len(self.sortIndxHistStep)):
                 alfa_ = self.histStep[self.sortIndxHistStep[ind]]
                 if abs(alfa_ - alfa) < eps:
                     indxAlfa = self.sortIndxHistStep[ind]
                     break
             else:
-                raise (Exception("grad_sgra: Latest step was not found. Debug now!"))
+                raise Exception("grad_sgra: Latest step was not found. Debug now!")
 
             # 2.2.2: Special procedures in case the best step is at the
             # beginning or at the end of the list
@@ -1179,7 +1179,7 @@ class stepMngr:
                 self.log.printL("\n  Trios before:")
                 self.showTrios()
             self.trio = [indxAlfa_m, indxAlfa, indxAlfa_p]
-            # NECESSÁRIO??? REVER!
+            # This is necessary!
             self.isTrioSet = True
             if self.mustPrnt:
                 self.log.printL("\n> Trios are set, maybe some adjustments are still"

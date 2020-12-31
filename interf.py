@@ -95,7 +95,7 @@ class logger:
                 print("Sorry, could not open/create the file!")
                 raise
         else:
-            self.mode = 'screen'
+            self.mode = 1 # screen
             self.folderName = os.getcwd()
 
     # TODO: when grinding for performance, changing 'mode' to an integer would be
