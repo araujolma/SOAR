@@ -5,6 +5,7 @@ Created on Tue Dec 22 12:12:07 2020
 
 @author: levi
 """
+import os
 import numpy
 import matplotlib.pyplot as plt
 import grad_sgra
@@ -113,6 +114,13 @@ class SgraDummy:
                 return self.pars['limP_step']
         else:
             limP = self.pars['tolP'] * self.pars['GSS_PLimCte']
+
+            # in this case, there is no alfa so that P(alfa) = limP ...
+            if max(self.pars['step_J_P_array'][2,:]) < limP:
+                if limPtoo:
+                    return None, None
+                else:
+                    return None
 
             # basic bisection. Prepare upper and lower bounds
             alfa_low = 0.
@@ -225,7 +233,7 @@ class SgraDummy:
 class TestSeq:
     """Test sequence."""
 
-    def __init__(self, parsList, showPJ=False):
+    def __init__(self, givenParsList, showPJ=False):
         alfa_0 = 0.
         corr = {'x': 1.,
                 'pi': numpy.array([1e-10]),
@@ -235,7 +243,7 @@ class TestSeq:
         self.stepError, self.stepRelError, self.nAttempts = [], [], []
         self.sgraList, self.stepManList, self.stepList = [], [], []
         self.stopMotv, self.minObjPt, self.limPPt = [], [], []
-        for pars in parsList:
+        for pars in givenParsList:
             sgra = SgraDummy(corr, pars=pars)
             if showPJ:
                 sgra.showPJ()
@@ -250,19 +258,9 @@ class TestSeq:
 
     def checkPerf(self):
         """Check performance of calcStepGrad on the runs"""
-        nTest = 0
-        for alfa, stepMan, sgra in zip(self.stepList, self.stepManList, self.sgraList):
-            alfa_J_min = sgra.getMinJStep()
-            alfa_P = sgra.getPLimStep()
-            alfa_exact = min(alfa_J_min, alfa_P)
 
-            self.stepError.append(alfa - alfa_exact)
-            self.stepRelError.append((alfa - alfa_exact)/alfa_exact)
-            self.nAttempts.append(stepMan.cont)
-            nTest += 1
-        print("\nTest concluded! Here are the results:")
         # making the results
-        headers = ["N", 'obj evals', "Min obj pt", "P=limP pt", "Error",
+        headers = ["N", 'obj evals', "Step", "Min obj pt", "P=limP pt", "Error",
                    "Error, %", "Stop motv"]
         # data = {'N': numpy.linspace(0,nTest-1,num=nTest)
         #         'evals': self.nAttempts,
@@ -270,40 +268,207 @@ class TestSeq:
         #         'P=limP pt': self.limPPt,
         #         'Step error:'} # not good because loses the order...
         data = []
-        for k in range(nTest):
-            data.append((k, self.nAttempts[k], self.minObjPt[k],
-                         self.limPPt[k], self.stepError[k],
+        for k in range(len(self.sgraList)):
+            # get theoretical values for comparison
+            alfa_J_min = self.minObjPt[k]
+            alfa_P = self.limPPt[k]
+            if alfa_P is None:
+                alfa_exact = alfa_J_min
+            else:
+                alfa_exact = min(alfa_J_min, alfa_P)
+            # get the value returned by the search
+            alfa = self.stepList[k]
+            # error, absolute and relative
+            self.stepError.append(alfa - alfa_exact)
+            self.stepRelError.append((alfa - alfa_exact)/alfa_exact)
+            # number of attempts
+            self.nAttempts.append(self.stepManList[k].cont)
+            #print("\nnTest = {}, alfa_J_min = {}, alfa_P = {}".format(k,
+            #                                                          alfa_J_min,
+            #                                                          alfa_P))
+            data.append((k, self.nAttempts[k], alfa, alfa_J_min,
+                         alfa_P, self.stepError[k],
                          self.stepRelError[k]*100., self.stopMotv[k]))
 
+        print("\nTest concluded! Here are the results:")
         print(tabulate(data, headers=headers, floatfmt='.3G'))
+
+class LogParser:
+    """A class for the log parser.
+
+    The purpose of this is to parse a given log.txt file of a SGRA run so that
+    new algorithms can be tested."""
+
+    def __init__(self, foldername):
+
+        # this parses the .its file as well to get the 'pars'
+        pars = self.make_pars_default(foldername)
+
+        # read the whole file
+        with open(foldername + os.sep + 'log.txt', 'r') as fhand:
+            whole = fhand.read()
+
+        # this is the string that gets printed at the end of every calcGradStep session
+        str_match = "> State of stepMan at the end of the run:"
+        # split the whole file by that string
+        chunks = whole.split(str_match)
+        N = len(chunks)
+        # amount of "chunks" = amount of 'runs' + 1
+        if N == 1: # minimum number of outputs of .split() is 1
+            raise Exception("Sorry, key string was not found.")
+
+        # iterate over the chunks to get the information
+        thisParsList = []
+        for i in range(1,N):
+            this_chunk = chunks[i]
+
+            # the idea here is that the end of the dictionary (with }) marks the
+            # end of the parameters part
+            pars_part = this_chunk.split('}')[0]
+
+            # get the 'histories'
+            histObj = self.get_field(pars_part, 'histObj')
+            histP = self.get_field(pars_part, 'histP')
+            histStep = self.get_field(pars_part, 'histStep')
+
+            sJP_array = numpy.empty((3, len(histStep)))
+            # sorting the arrays using the step history
+            indxSort = numpy.argsort(histStep)
+            sJP_array[0, :] = histStep[indxSort]
+            sJP_array[1, :] = histObj[indxSort]
+            sJP_array[2, :] = histP[indxSort]
+
+            # store the information on the pars dictionary
+            pars['step_J_P_array'] = sJP_array
+            pars['P0'] = histP[0]
+
+            thisParsList.append(pars.copy())
+        self.parsList = thisParsList
+
+    @staticmethod
+    def get_field(pars_chunk:str, field_name:str, dtype:str ='float',
+                  from_its=False):
+        """Get given field from the text.
+
+        This works for two main 'modes' when getting the information from log files
+        or from .its configuration files."""
+        # the string to be matched
+        if from_its:
+            # .its file default (from ConfigParser)
+            str_match = field_name + " = "
+        else:
+            # log.txt file default (from pprint)
+            str_match = "'" + field_name + "':"
+        # its length
+        L = len(str_match)
+        # start of the string
+        ind1 = pars_chunk.index(str_match)
+        # this is the first 'enter'
+        if from_its:
+            ind2 = pars_chunk.index('\n', ind1)
+        else:
+            ind2 = pars_chunk.index(',\n', ind1)
+
+        param_str = pars_chunk[(ind1 + L):ind2]
+
+        if '[' in param_str:
+            # found a '['; this means it's an array (only 1D arrays are supported)
+            is_scalar = False
+            #  remove the '[' so the string can be converted to a number properly
+            param_str = param_str.replace('[','')
+        else:
+            is_scalar = True
+
+        if dtype == 'float':
+            param = float(param_str)
+        elif dtype == 'int':
+            param = int(param_str)
+        else:
+            raise Exception("Unsupported data type '{}'.".format(dtype))
+
+        if is_scalar:
+            return param
+        else:
+            # assemble a list
+            ret = [param]
+            keep_look = True
+            while keep_look:  # the search continues until the first ']'
+                ind1 = ind2+2
+                ind2 = pars_chunk.index(',\n', ind1)
+                param_str = pars_chunk[ind1:ind2]
+                if ']' in param_str:
+                    param_str = param_str.replace(']', '')
+                    keep_look = False
+
+                if dtype == 'float':
+                    param = float(param_str)
+                elif dtype == 'int':
+                    param = int(param_str)
+                else:
+                    raise Exception("Unsupported data type '{}'.".format(dtype))
+
+                ret.append(param)
+
+            return numpy.array(ret)
+
+    @staticmethod
+    def make_pars_default(foldername: str):
+        """Read from a .its file and make a pars dictionary"""
+        # start with parsDefault, make some alterations
+        pars = parsDefault
+        pars['plotCalcStepGrad'] = False
+        pars['usePPars'] = False
+        pars['useObjPars'] = False
+
+        # get the names of the .its files in this folder, continue with the first one
+        its_files = [f for f in os.listdir(foldername) if f.endswith('.its')]
+        if len(its_files) > 1:
+            print("\nWARNING: more than 1 .its files. Proceeding with the first "
+                  "one...\n\n")
+
+        # read the whole file
+        with open(foldername + os.sep + its_files[0], 'r') as fhand:
+            whole = fhand.read()
+
+        # use the get_field method to extract these keys from the file
+        for key in ['tolP', 'GSS_PLimCte', 'GSS_stopStepLimTol', 'GSS_stopObjDerTol',
+                    'GSS_stopNEvalLim', 'GSS_findLimStepTol']:
+            pars[key] = LogParser.get_field(whole, key, from_its=True)
+
+        #print("These are the pars that I got:\n{}".format(pars))
+        return pars
 
 if __name__ == "__main__":
 
-    thesePars = parsDefault
-    thesePars['limP_step'] = 1.5
-    thesePars['plotCalcStepGrad'] = False
-    parsList = [thesePars]
-
-    newPars = thesePars.copy()
-    newPars['limP_step'] = 10.
-    parsList.append(newPars)
-
-    newPars = newPars.copy()
-    newPars['minPt'] = 1e-4
-    parsList.append(newPars)
-
-    parsNonPar = parsDefault.copy()
-    parsNonPar['limP_step'] = 4.
-    parsNonPar['useObjPars'] = False # this makes it interpolate for calculating J
-    parsNonPar['usePPars'] = False # this makes it interpolate for calculating P
-    sJP = numpy.empty((3, 11))
-    sJP[0,:] = numpy.linspace(0.,10.,num=11)
-    sJP[1,:] = numpy.array([1., 1., 0.7, 0.5, -.25, -1., -.6, .5, .5, .7, 1.]) + 2.
-    sJP[2,:] = parsNonPar['P0'] + 1.1e-5 * sJP[0,:]
-    parsNonPar['step_J_P_array'] = sJP
-    parsList.append(parsNonPar)
-
-    TS = TestSeq(parsList, showPJ=True)
+    LP = LogParser('probLand_2020_11_30_18_48_29_372897')# + os.sep + 'log.txt')
+    TS = TestSeq(LP.parsList)
     TS.checkPerf()
 
+    #input("\nIAE?")
 
+    # thesePars = parsDefault
+    # thesePars['limP_step'] = 1.5
+    # thesePars['plotCalcStepGrad'] = False
+    # parsList = [thesePars]
+    #
+    # newPars = thesePars.copy()
+    # newPars['limP_step'] = 10.
+    # parsList.append(newPars)
+    #
+    # newPars = newPars.copy()
+    # newPars['minPt'] = 1e-4
+    # parsList.append(newPars)
+    #
+    # parsNonPar = parsDefault.copy()
+    # parsNonPar['limP_step'] = 4.
+    # parsNonPar['useObjPars'] = False # this makes it interpolate for calculating J
+    # parsNonPar['usePPars'] = False # this makes it interpolate for calculating P
+    # sJP = numpy.empty((3, 11))
+    # sJP[0,:] = numpy.linspace(0.,10.,num=11)
+    # sJP[1,:] = numpy.array([1., 1., 0.7, 0.5, -.25, -1., -.6, .5, .5, .7, 1.]) + 2.
+    # sJP[2,:] = parsNonPar['P0'] + 1.1e-5 * sJP[0,:]
+    # parsNonPar['step_J_P_array'] = sJP
+    # parsList.append(parsNonPar)
+    #
+    # TS = TestSeq(parsList, showPJ=True)
+    # TS.checkPerf()
