@@ -223,7 +223,7 @@ class logger:
                 row += 1
                 self.xlsx['misc'].write(row, col, key+'-StepLimLowr')
                 row += 1
-                self.xlsx['misc'].write(row, col, key+'-StepLimUppr')
+                self.xlsx['misc'].write(row, col, key+'-minStepVio')
                 row += 2
             # Writing the "legends" for the 'misc' tab - trios
             self.xlsx['misc'].write(row, col, 'stepMinObj-lowrBnd')
@@ -902,13 +902,14 @@ class ITman:
             sol.lam, sol.mu = lam, mu
 
             sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
+            corr['dJdStepTheo'] = -sol.Q
 
             if sol.Q <= sol.tol['Q'] or sol.NIterGrad >= self.MaxIterGrad:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
                 #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 if sol.Q <= sol.tol['Q']:
-                    msg = '\nTolerance for Q functional is met!'
+                    msg = '\nTolerance for Q functional was met!'
                 else:
                     msg = '\nToo many gradient iterations.'
                 msg += "\nTerminate program. Solution is sol_r."

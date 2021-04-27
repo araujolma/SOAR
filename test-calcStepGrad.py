@@ -157,7 +157,7 @@ class SgraDummy:
             elif x < xmin:
                 x = xmin
 
-            I = self.obj(x)
+            I = self.obj(x).item()
         #J, J_Lint, J_Lpsi, I, Iorig, Ipf
         return I, 0., 0., I, I, 0.
 
@@ -440,35 +440,47 @@ class LogParser:
 
 if __name__ == "__main__":
 
-    LP = LogParser('probLand_2020_11_30_18_48_29_372897')# + os.sep + 'log.txt')
-    TS = TestSeq(LP.parsList)
-    TS.checkPerf()
+    # LP = LogParser('probLand_2020_11_30_18_48_29_372897')# + os.sep + 'log.txt')
+    # TS = TestSeq([LP.parsList[-1]])
+    # TS.checkPerf()
 
     #input("\nIAE?")
 
-    # thesePars = parsDefault
-    # thesePars['limP_step'] = 1.5
-    # thesePars['plotCalcStepGrad'] = False
-    # parsList = [thesePars]
-    #
-    # newPars = thesePars.copy()
-    # newPars['limP_step'] = 10.
-    # parsList.append(newPars)
-    #
-    # newPars = newPars.copy()
-    # newPars['minPt'] = 1e-4
-    # parsList.append(newPars)
-    #
-    # parsNonPar = parsDefault.copy()
-    # parsNonPar['limP_step'] = 4.
-    # parsNonPar['useObjPars'] = False # this makes it interpolate for calculating J
-    # parsNonPar['usePPars'] = False # this makes it interpolate for calculating P
-    # sJP = numpy.empty((3, 11))
-    # sJP[0,:] = numpy.linspace(0.,10.,num=11)
-    # sJP[1,:] = numpy.array([1., 1., 0.7, 0.5, -.25, -1., -.6, .5, .5, .7, 1.]) + 2.
-    # sJP[2,:] = parsNonPar['P0'] + 1.1e-5 * sJP[0,:]
-    # parsNonPar['step_J_P_array'] = sJP
-    # parsList.append(parsNonPar)
-    #
-    # TS = TestSeq(parsList, showPJ=True)
-    # TS.checkPerf()
+    thesePars = parsDefault
+    thesePars['limP_step'] = 1.5
+    thesePars['plotCalcStepGrad'] = False
+    parsList = [thesePars]
+
+    newPars = thesePars.copy()
+    newPars['limP_step'] = 10.
+    parsList.append(newPars)
+
+    newPars = newPars.copy()
+    newPars['minPt'] = 1e-4
+    parsList.append(newPars)
+
+    parsNonPar = parsDefault.copy()
+    parsNonPar['limP_step'] = 4.
+    parsNonPar['useObjPars'] = False # this makes it interpolate for calculating J
+    parsNonPar['usePPars'] = False # this makes it interpolate for calculating P
+    sJP = numpy.empty((3, 11))
+    sJP[0,:] = numpy.linspace(0.,10.,num=11)
+    sJP[1,:] = numpy.array([1., 1., 0.7, 0.5, -.25, -1., -.6, .5, .5, .7, 1.]) + 2.
+    sJP[2,:] = parsNonPar['P0'] + 1.1e-5 * sJP[0,:]
+    parsNonPar['step_J_P_array'] = sJP
+    parsList.append(parsNonPar)
+
+    parsNonPar = parsDefault.copy()
+    parsNonPar['limP_step'] = 4.
+    parsNonPar['useObjPars'] = False # this makes it interpolate for calculating J
+    parsNonPar['usePPars'] = False # this makes it interpolate for calculating P
+    sJP = numpy.empty((3, 11))
+    sJP[0,:] = numpy.linspace(0.,10.,num=11)
+    sJP[1,:] = numpy.array([1., 0.2, 0.7, 0.8, 0.5, 0.4, 0.1, .7, .8, .1, 1.]) + 2.
+    sJP[2,:] = parsNonPar['P0'] + 1.1e-5 * sJP[0,:] * sJP[0,:]
+    parsNonPar['step_J_P_array'] = sJP
+    parsList.append(parsNonPar)
+
+
+    TS = TestSeq(parsList, showPJ=True)
+    TS.checkPerf()
