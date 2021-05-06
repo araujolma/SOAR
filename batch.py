@@ -88,9 +88,9 @@ class batMan:
         # post processing info
         self.postProcInfo = {}
 
-        # basic initialization
+        # basic initialization (if something goes wrong, the field stays as 'None'
         for key in self.postProcKeyList:
-            self.postProcInfo[key] = [0] * self.NCases
+            self.postProcInfo[key] = [None] * self.NCases
 
         # show parameters and leave
         self.log.printL("\nThese are the parameters for the batch:")
