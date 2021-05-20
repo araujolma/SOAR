@@ -879,6 +879,7 @@ class ITman:
         do_GR_cycle = True
         last_grad = 0
         next_grad = 0
+        low_step = False
         plotResP, plotResQ = False, False
         stepMan = None
         while do_GR_cycle:
@@ -904,12 +905,14 @@ class ITman:
             sol.Q, sol.Qx, sol.Qu, sol.Qp, sol.Qt = sol.calcQ(mustPlotQs=plotResQ)
             corr['dJdStepTheo'] = -sol.Q
 
-            if sol.Q <= sol.tol['Q'] or sol.NIterGrad >= self.MaxIterGrad:
+            if sol.Q <= sol.tol['Q'] or sol.NIterGrad >= self.MaxIterGrad or low_step:
                 # Run again calcQ, making sure the residuals are plotted.
                 # This is good for debugging eventual convergence errors
                 #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 if sol.Q <= sol.tol['Q']:
                     msg = '\nTolerance for Q functional was met!'
+                elif low_step:
+                    msg = '\nGradient step search returned a value too low.'
                 else:
                     msg = '\nToo many gradient iterations.'
                 msg += "\nTerminate program. Solution is sol_r."
@@ -968,7 +971,20 @@ class ITman:
                           str(100.0 * ((sol_new.I-I_base)/alfa/(-sol.Q))) + "%"
                     self.log.printL(msg)
 
-                    if sol_new.I <= I_base:
+                    if alfa < 1e-30:
+                        # The chosen value of step is too low. There will be problems...
+                        # It is better to leave right now.
+                        sol = sol_new
+                        evnt = 'gradOK'
+                        keep_walking_grad = False
+                        low_step = True
+                        next_grad += 1
+                        msg = "\nNext grad counter = {}" \
+                              "\nLast grad counter = {}" \
+                              "\nStep is too low. Leaving...".format(next_grad,
+                                                                     last_grad)
+                        self.log.printL(msg)
+                    elif sol_new.I <= I_base:
                         # Here, the I functional has been lowered!
                         # The grad step is accepted:
                         # rebase the solution and leave this loop.

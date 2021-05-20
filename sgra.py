@@ -68,6 +68,7 @@ class sgra:
             parallel = {}
         N,n,m,p,q,s = 50000,4,2,1,3,2
 
+        self.log = None  # For logging, this will be updated later
         self.N, self.n, self.m, self.p, self.q, self.s = N, n, m, p, q, s
         # TODO: since this formula actually does not change, this should be a method...
         self.Ns = 2*n*s + p

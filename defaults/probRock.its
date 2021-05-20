@@ -21,11 +21,11 @@ defOpt = newSol
 #loadAltSolDir = ''
 #
 # Gradient-restoration cycle: solution plotting rate
-GRplotSolRate = 20
+GRplotSolRate = 100
 #
 #
 # Gradient-restoration cycle: solution saving rate
-GRsaveSolRate = 100
+GRsaveSolRate = 500
 #
 #
 # Gradient-restoration cycle: pausing rate
@@ -33,11 +33,11 @@ GRpausRate = 10000
 #
 # 
 # Gradient phase: gradient step history plotting rate
-GradHistShowRate = 20
+GradHistShowRate = 100
 #
 #
 # ??? Restoration phase: restoration solution plotting rate ??
-RestPlotSolRate = 20
+RestPlotSolRate = 10000
 #
 #
 # ??? Restoration phase: restoration step history plotting rate ??
@@ -45,11 +45,11 @@ RestHistShowRate = 100
 #
 #
 # Gradient-restoration cycle: eigenvalue plotting rate
-ShowEigRate = 20
+ShowEigRate = 100000
 #
 #
 # Gradient-restoration cycle: "gradient-restoration ratio" showing rate
-ShowGRrateRate = 20
+ShowGRrateRate = 100
 #
 #
 # Gradient phase: use parallel computing?
@@ -140,8 +140,8 @@ DampCent = 3.0
 DampSlop = 3.0
 #
 # Target heights for extra arcs (without stage separation) [km]
-TargHeig = 250.
-#
+TargHeig = _
+#250.
 ###############################################################################
 [accel] # Acceleration limitation parameters
 #
@@ -155,8 +155,7 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 0.
-#1.0e-3
+PFtol = 1.0e-6
 #
 ###############################################################################
 [sgra] # Internal SGRA parameters

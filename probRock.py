@@ -34,6 +34,7 @@ class prob(sgra):
         TargHeig = numpy.array(inputDict['TargHeig'])
         # Number of additional arcs:
         addArcs = len(TargHeig); self.addArcs = addArcs
+
         # Number of arcs:
         s = inputDict['NStag'] + addArcs; self.s = s
 
@@ -1213,6 +1214,7 @@ class prob(sgra):
         psi[3] = x[0,3,0] - boundary['m_initial']
 
         # inter-arc conditions for the extra arcs (if any)
+        i = 4
         for arc in range(addArcs):
             i = 4 + 5 * arc
             # states in order: height (2x), speed, flight angle and mass
@@ -1227,7 +1229,7 @@ class prob(sgra):
         # inter-arc conditions for between arc and arc+1 for "natural" arcs
         # (that's why the loop only goes up to s-1)
         # noinspection PyUnboundLocalVariable
-        i0 = i + 5
+        i0 = 4 + 5 * addArcs
         for arc in range(addArcs,s-1):
             #self.log.printL("arc = "+str(arc))
             i = i0 + 4 * (arc-addArcs)

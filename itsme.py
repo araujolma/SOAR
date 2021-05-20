@@ -217,11 +217,14 @@ class problemConfigurationSGRA(problemConfiguration):
         self.con['DampCent'] = self.config.getfloat(section, 'DampCent')
         self.con['DampSlop'] = self.config.getfloat(section, 'DampSlop')
         targHeigStr = self.config.get(section, 'TargHeig')
-        targHeigStr = targHeigStr.split(', ')
-        targHeig = list()
-        for nStr in targHeigStr:
-            targHeig.append(float(nStr))
-        self.con['TargHeig'] = numpy.array(targHeig)
+        if targHeigStr.strip() == '_':
+            self.con['TargHeig'] = list()
+        else:
+            targHeigStr = targHeigStr.split(', ')
+            targHeig = list()
+            for nStr in targHeigStr:
+                targHeig.append(float(nStr))
+            self.con['TargHeig'] = numpy.array(targHeig)
 
     def accel(self):
         """Acceleration limitation parameters.
