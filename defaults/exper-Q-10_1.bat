@@ -38,7 +38,7 @@ probName = prob10_1
 baseFile = defaults/prob10_1.its
 
 # Initial guess for subsequent cases ('scratch', 'base', '')
-initGuesMode = 'scratch'
+initGuesMode = base
 
 # Variations on input parameters to be run in each case (other than the first one)
 #	 (each variation must be a | enclosed triple containing:

@@ -417,7 +417,11 @@ def showHistQ(self,tolZoom=True,nptsMark=40):
 
     # If applicable, remove from the plot everything that is way too small
     if tolZoom:
-        plt.ylim(ymin=(self.tol['Q'])**2)
+        if self.tol['Q'] < 1.:
+            ymin = self.tol['Q'] ** 2
+        else:
+            ymin = self.tol['Q'] ** .5
+        plt.ylim(ymin=ymin)
     plt.grid(True)
     plt.xlabel("Gradient iterations")
     plt.ylabel("Q values")
@@ -496,12 +500,21 @@ def showHistQvsI(self, tolZoom=True, nptsMark=10):
     # Draw the Q tolerance line
     plt.plot(Ired[IterGrad],self.tol['Q']+0.0*IterGrad,'-.b',label='tolQ')
 
-    msg = "Convergence: Q vs I behavior\nCircles mark points every " + \
-          "{} grad iterations".format(per)
+    # final "dQ/dI" gradient
+    dlQdI = (self.histQ[self.NIterGrad] - self.histQ[self.NIterGrad - 1]) / \
+            (self.histI[self.NIterGrad] - self.histI[self.NIterGrad - 1])
+    dlQdI /= -self.histQ[self.NIterGrad] / self.histI[1]
+    msg = "Convergence: Q vs I behavior\n" + \
+          f"Circles mark points every {per} grad iterations\n" + \
+          "Final d(log Q)/d(Ired) = {:.1E}".format(dlQdI)
     plt.title(msg)
     # If applicable, remove from the plot everything that is way too small
     if tolZoom:
-        plt.ylim(ymin=(self.tol['Q'])**2)
+        if self.tol['Q'] < 1.:
+            ymin = self.tol['Q'] ** 2
+        else:
+            ymin = self.tol['Q'] ** .5
+        plt.ylim(ymin=ymin)
     plt.grid(True)
     plt.xlabel("I reduction, % (w.r.t. I0 = {:.4E})".format(self.histI[1]))
     plt.ylabel("Q values")

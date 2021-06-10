@@ -10,13 +10,13 @@
 defOpt = newSol
 #
 # Source for initial guess (either 'extSol' or 'naive' or 'default')
-#initOpt = extSol
+initOpt = extSol
 #
 # Directory for loading a starting solution
-#loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
 #
 # Directory for loading and alternative solution (for comparing)
-#loadAltSolDir = ''
+loadAltSolDir = ''
 #
 # Maximum number of iterations
 MaxIterGrad = 2000
@@ -66,7 +66,7 @@ PrllRestLMPBVP = False
 tolP = 1e-8
 #
 # Tolerance for Q functional
-tolQ = 1e-4
+tolQ = 1e-3
 #
 # Pi lower limits
 pi_min = 0.0, 0.0
@@ -153,7 +153,7 @@ PFmode = quad
 acc_max_relTol = 0.1
 #
 # Penalty function value at tolerance acceleration [-]
-PFtol = 1e-2
+PFtol = 1e-6
 #1e-10
 #3e-2
 #

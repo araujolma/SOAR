@@ -27,24 +27,24 @@ probName = probLand
 baseFile = defaults/probLand-timer.its
 
 # Initial guess for subsequent cases ('scratch', 'base', '')
-initGuesMode = 'scratch'
+initGuesMode = cascade
 
 # Variations on input parameters to be run in each case (other than the first one)
 #	 (each variation must be a | enclosed triple containing:
 #         section, parameter name as in the file, value
 #         separate items for each case via ', ' and 'enter')
-vars = accel,PFtol,2e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-       accel,PFtol,5e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,2001 ,
-#vars = sgra,GSS_PLimCte,1.0e5   |  accel,acc_max,100 ,  
-#       sgra,GSS_PLimCte,1.0e10  
-#vars = accel,PFtol,1.1e-2 | sgra,GSS_PLimCte,1.0e4, 
-#       accel,PFtol,1.2e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.3e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.4e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.5e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.6e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.7e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.8e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
-#       accel,PFtol,1.9e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001
+vars = accel,PFtol,1e-3,
+       accel,PFtol,5e-3,
+       accel,PFtol,5e-3 | sgra,tolQ,1e-4 ,
+       accel,PFtol,1e-2,
+       accel,PFtol,1.1e-2,
+       accel,PFtol,1.2e-2,
+       accel,PFtol,1.4e-2,
+       accel,PFtol,1.6e-2,
+       accel,PFtol,1.8e-2,
+       accel,PFtol,2e-2,
+
+#vars = accel,PFtol,2e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
+#       accel,PFtol,5e-2 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
+#       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,1001 ,
+#       accel,PFtol,1e-1 | sgra,GSS_PLimCte,1.0e4 | sgra,N,2001 ,

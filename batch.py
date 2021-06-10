@@ -17,7 +17,7 @@ nb = '\n'+b
 class batMan:
     """This is a class for the manager of batch runs, the BATch MANager."""
 
-    def __init__(self,confFile=''):
+    def __init__(self, confFile=''):
         self.confFile = confFile
 
         Pars = ConfigParser()
@@ -70,15 +70,44 @@ class batMan:
         elif self.mode == 'variations':
             sec = 'variations_mode'
             self.baseFile = Pars.get(sec, 'baseFile')
-            # TODO: actually use this somewhere. It makes a lot of sense for variations
             self.initGuesMode = Pars.get(sec, 'initGuesMode')
 
             # Get the variations; NCases goes automatically
             varsSets_list = Pars.get(sec, 'vars').split(',\n')
             varSets = self.parseVars(varsSets_list)
-            self.varSets = varSets
             self.NCases = len(varSets)+1
+
+            # List of the problems
             self.probList = [Pars.get(sec, 'probName').strip()] * self.NCases
+
+            # Special procedures for initGuesMode 'base' or 'cascade'
+            if self.initGuesMode == 'base':
+                # For initial guess in 'base mode', add these variations
+                base_sol_loc = self.folderNameForRun(0) + self.probList[0] + os.sep
+                d1 = {'section': 'settings',
+                       'parName': 'defOpt',
+                       'val': 'loadSol'}
+                d2 = {'section': 'settings',
+                       'parName': 'loadSolDir',
+                       'val': base_sol_loc + 'finalSol.pkl'}
+                for i in range(self.NCases-1):
+                    varSets[i].append(d1)
+                    varSets[i].append(d2)
+            elif self.initGuesMode == 'cascade':
+                # For initial guess in 'cascade mode', add these variations
+                d1 = {'section': 'settings',
+                       'parName': 'defOpt',
+                       'val': 'loadSol'}
+                for i in range(self.NCases-1):
+                    base_sol_loc = self.folderNameForRun(i) + self.probList[i] + \
+                                   os.sep
+                    d2 = {'section': 'settings',
+                          'parName': 'loadSolDir',
+                          'val': base_sol_loc + 'finalSol.pkl'}
+                    varSets[i].append(d1)
+                    varSets[i].append(d2)
+
+            self.varSets = varSets
 
             # Generate the files corresponding to the cases to be run:
             self.genFiles()
@@ -88,7 +117,7 @@ class batMan:
         # post processing info
         self.postProcInfo = {}
 
-        # basic initialization (if something goes wrong, the field stays as 'None'
+        # basic initialization (if something goes wrong, the field stays as 'None')
         for key in self.postProcKeyList:
             self.postProcInfo[key] = [None] * self.NCases
 
@@ -97,19 +126,30 @@ class batMan:
         self.log.pprint(self.__dict__)
 
     @staticmethod
-    def repLastElem(givnList,Nrep):
+    def repLastElem(givnList: list, Nrep: int):
+        """Repeat the last element of the given list, for a given number of times."""
         elem = givnList[-1]
         for i in range(Nrep):
             givnList.append(elem)
         return givnList
 
-    def runNumbAsStr(self,runNr):
+    def runNumbAsStr(self, runNr: int):
         """Produce the standard run number, starting from 1, zero padded for keeping
         alphabetical order in case of more than 9 runs."""
 
         return str(runNr + 1).zfill(int(numpy.floor(numpy.log(self.NCases))))
 
-    def parseVars(self,varsSets_list):
+    def folderNameForRun(self, runNr: int):
+        """Procude the folder name for a given run number."""
+
+        # set up the string for this run's number
+        runNrStr = self.runNumbAsStr(runNr)
+        # the name of this run's folder, inside the batch folder
+        folder = self.log.folderName + os.sep + runNrStr + '_'
+
+        return folder
+
+    def parseVars(self, varsSets_list):
         """Parse the variations to be performed, from the input file.
         The idea is that the user can put as many variations as desired in each run.
         For example, the input:
@@ -125,7 +165,7 @@ class batMan:
                       'acc_max' parameter in 'accel' section is changed to 100.
 
         """
-        self.log.printL("\n" + b + "Parsing the variations:")
+        self.log.printL(nb + "Parsing the variations:")
         contVarSets = 0; varSets = []
         # for each set of variations (i.e., for each new run)
         for thisVarSet_str in varsSets_list:
@@ -154,7 +194,7 @@ class batMan:
         return varSets
 
     def genFiles(self):
-        # generate the different files here, load their names to BM.baseFileList
+        """Generate the different files, loading their names to self.baseFileList."""
 
         self.log.printL("\n"+b+"Generating the files for the variations...")
 
@@ -172,7 +212,7 @@ class batMan:
         for nRun in range(self.NCases-1):
             name = self.baseFile[:l-4] + '_' + rand + \
                    '_var' + self.runNumbAsStr(nRun) + '.its'
-            self.log.printL("Name of the file for run #{}: {}".format(nRun+1,name))
+            self.log.printL("Name of the file for run #{}: {}".format(nRun+1, name))
             # Append the name of the file to the list of base files, for running later!
             baseFileList.append(name)
             # List of Variations for this run
@@ -184,7 +224,7 @@ class batMan:
                 secList.add(var['section'])
 
             # open the file pointers
-            targHand = open(name,'w+')           # target file
+            targHand = open(name, 'w+')          # target file
             baseHand = open(self.baseFile, 'r')  # source file
 
             secName = ''; newLine = ''
@@ -203,29 +243,36 @@ class batMan:
                         secName = stripLine[1:ind]
                 else:
                     # not a new section. Maybe a comment!
-                    if not(stripLine.startswith('#')):
-                        # Not a comment... Now it has to be a variable assignment.
-                        if secName in secList:
-                            # if this section is not even in the list, no need for checking
-                            # get the equal sign for separating variable name
-                            ind = stripLine.find('=')
-                            if ind > -1:
-                                # variable name goes right up to the =
-                                varbName = stripLine[:ind].strip()
-                                # check for matches: the section must be equal to the current
-                                # section and the variable name must match the 'parName'
-                                for var in theseVars:
-                                    # DISCLAIMER:
-                                    # if the user is crazy enough so that there are two or
-                                    # more variations on the same set for the same variable,
-                                    # only the last one will be applied.
+                    if stripLine.startswith('#'):
+                        continue
+                    # Not a comment... Now it has to be a variable assignment.
 
-                                    if var['section'] == secName and \
-                                        var['parName'] == varbName:
+                    # if this section is not even in the list, no need for checking
+                    # get the equal sign for separating variable name
+                    if secName not in secList:
+                        targHand.write(stripLine + '\n')
+                        continue
 
-                                        # Finally! Change the line
-                                        mustChange = True
-                                        newLine = stripLine[:ind+1] + ' ' + var['val']
+                    # variable name goes right up to the =
+                    ind = stripLine.find('=')
+                    if ind == -1:
+                        targHand.write(stripLine + '\n')
+                        continue
+
+                    varbName = stripLine[:ind].strip()
+                    # check for matches: the section must be equal to the current
+                    # section and the variable name must match the 'parName'
+                    for var in theseVars:
+                        # DISCLAIMER:
+                        # if the user is crazy enough so that there are two or
+                        # more variations on the same set for the same variable,
+                        # only the last one will be applied.
+
+                        if var['section'] == secName and var['parName'] == varbName:
+
+                            # Finally! Change the line
+                            mustChange = True
+                            newLine = stripLine[:ind+1] + ' ' + var['val']
 
                 # finally, write either the original line or the changed line
                 if mustChange:
@@ -331,10 +378,9 @@ if __name__ == "__main__":
                                                         thisFile)
         BM.log.printL(msg)
         BM.log.printL(line+'\n')
-        # set up the string for this run's number
-        runNrStr = BM.runNumbAsStr(runNr)
-        # set up the this run's folder, inside the batch folder
-        folder = BM.log.folderName + os.sep + runNrStr + '_'
+
+        # the name of this run's folder, inside the batch folder
+        folder = BM.folderNameForRun(runNr)
 
         try:
             BM.countdown()

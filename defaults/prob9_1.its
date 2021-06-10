@@ -13,7 +13,8 @@ defOpt = newSol
 #initOpt = extSol
 #
 # Directory for loading a starting solution
-#loadSolDir = 'defaults' + os.sep + probName+'_solInitRest.pkl'
+loadSolDir = finalSol.pkl
+#'defaults' + os.sep + probName+'_solInitRest.pkl'
 #
 # Directory for loading and alternative solution (for comparing)
 #loadAltSolDir = ''

@@ -52,7 +52,12 @@ class problemConfigurationSGRA2(problemConfigurationSGRA):
 class prob(sgra):
     probName = 'probLand'
 
-    def loadParsFromFile2(self,file):
+    def loadParsFromFile(self,file):
+        """Loads the parameters from the file to the probLand object."""
+        # begin by calling the original loadParsFromFile to get basic sgra parameters
+        sgra.loadParsFromFile(self,file=file)
+
+        # Now let's continue loading new parameters
         pConf = problemConfigurationSGRA2(fileAdress=file)
         #pConf.dyn()
         pConf.restr()
@@ -251,9 +256,7 @@ class prob(sgra):
             inpFile = opt.get('confFile','')
 
             # Get parameters from file
-
             self.loadParsFromFile(file=inpFile)
-            self.loadParsFromFile2(file=inpFile)
 
             # The actual "initial guess"
 

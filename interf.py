@@ -6,7 +6,7 @@ Created on Wed Jun 28 09:35:29 2017
 @author: levi
 """
 
-import dill, datetime, pprint, os, shutil, time, xlsxwriter
+import dill, datetime, pprint, os, shutil, time, xlsxwriter, sgra
 from utils import getNowStr
 from configparser import ConfigParser
 
@@ -53,7 +53,8 @@ class logger:
         self.runStatRep = 'none'
 
         self.xlsx = None
-        if makeDir:
+        if makeDir:  # BE CAREFUL WHEN CHANGING THIS!! IT WILL BREAK BATCH.PY a.s. !!!
+
             # Results folder for this run
             self.folderName = path + probName
             # Append run name, if it is the case
@@ -258,7 +259,7 @@ class ITman:
 
     """
 
-    def __init__(self,confFile='',probName='prob', isInteractive=False, isManu=True,
+    def __init__(self, confFile='', probName='prob', isInteractive=False, isManu=True,
                  destFold=''):
         """
 
@@ -355,6 +356,8 @@ class ITman:
                     self.defOpt = Pars.get(sec, 'defOpt')
                 if 'initOpt' in Pars.options(sec):
                     self.initOpt = Pars.get(sec, 'initOpt')
+                if 'loadSolDir' in Pars.options(sec):
+                    self.loadSolDir = Pars.get(sec, 'loadSolDir')
                 if 'MaxIterGrad' in Pars.options(sec):
                     self.MaxIterGrad = Pars.getint(sec, 'MaxIterGrad')
                 if 'GRplotSolRate' in Pars.options(sec):
@@ -410,7 +413,7 @@ class ITman:
                         " Iterations manager:\n")
         self.log.pprint(self.__dict__)
 
-    def bell(self,lag=0.1,nRing=3):
+    def bell(self, lag=0.1, nRing=3):
         """ Make some sounds to warn the user. Only works in manual mode.
          :param lag: lag between successive rings, in seconds;
          :param nRing: number of rings."""
@@ -568,9 +571,7 @@ class ITman:
                 #  without one, it just defaults to the value in this class's
                 #  init method
             else:
-
-                # TODO: SOL LOAD
-
+                # Solution loading is working!
                 self.isNewSol = False
                 self.loadSolDir = inp
             return
@@ -581,7 +582,7 @@ class ITman:
             raise Exception(msg)
         #
     #
-    def checkPars(self,sol):
+    def checkPars(self, sol: sgra.sgra):
         """Makes the user check the parameters of an initial solution,
          and performs an automatic check as well."""
 
@@ -661,40 +662,49 @@ class ITman:
                   "necessarily\nregenerating the initial guess.\n" + \
                   "(See 'loadParsFromFile' method in 'sgra.py'.)"
             inp = self.log.prom(msg)
-            if inp != '':
+            if inp != '' or not self.isManu:
                 self.log.printL("\nFine, reloading parameters...")
                 sol.loadParsFromFile(file=self.confFile)
+                if not self.isManu:
+                    keepLoop = False
             else:
                 self.log.printL("\nGreat! Moving on then...\n")
                 keepLoop = False
             #
         #
 
-    def loadSol(self,path=''):
+    def loadSol(self, path=''):
+        """Loads a solution from a .pkl file."""
         if path == '':
             path = self.loadSolDir
 
         self.log.printL("\nReading solution from '"+path+"'.")
-        with open(path,'rb') as inpt:
+        with open(path, 'rb') as inpt:
             sol = dill.load(inpt)
+
+        # By default the logger is not saved with the solution
         sol.log = self.log
+
+        # For all intents and purposes, nothing is updated anymore
+        sol.isUpdated.setAll(False)
+
         return sol
 
-    def saveSol(self,sol,path=''):
+    def saveSol(self, sol: sgra.sgra, path=''):
+        """Saves solution to a .pkl file."""
         if path == '':
             path = self.probName + '_sol_' + getNowStr() + '.pkl'
 
         # set the logger to a manual one for loading later
-        # TODO: is it really necessary to create a new logger?
-        #  Changing the mode to 'screen' should work!
         sol.log = logger(sol.probName, makeDir=False, mode='screen')
         self.log.printL("\nWriting solution to '"+path+"'.")
-        with open(path,'wb') as outp:
+        with open(path, 'wb') as outp:
             dill.dump(sol,outp,-1)
 
         sol.log = self.log
 
-    def setInitSol(self,sol):
+    def setInitSol(self, sol: sgra.sgra):
+        """Setup for the initial solution."""
         msg = "Setting initial solution.\n" + \
               "Please wait, you will be asked to confirm it later.\n\n"
         self.log.printL(msg)
@@ -706,7 +716,7 @@ class ITman:
                             "in this run's folder.")
             self.confFile = shutil.copy2(self.confFile, self.log.folderName +
                                          os.sep)
-            self.saveSol(sol,self.log.folderName + os.sep + 'solInit.pkl')
+            self.saveSol(sol, self.log.folderName + os.sep + 'solInit.pkl')
         else:
             # load previously prepared solution
             self.log.printL('Loading "current" solution...')
@@ -753,19 +763,19 @@ class ITman:
 #        solInit.log = self.log
         return sol,solInit
 
-    def showHistPCond(self,sol):
+    def showHistPCond(self, sol: sgra.sgra):
         if sol.NIterRest % self.RestHistShowRate == 0:
             return True
         else:
             return False
 
-    def plotSolRestCond(self,sol):
+    def plotSolRestCond(self, sol: sgra.sgra):
         if sol.NIterRest % self.RestPlotSolRate == 0:
             return True
         else:
             return False
 
-    def restRnds(self,sol):
+    def restRnds(self, sol: sgra.sgra):
         self.log.printL("\nStart of restoration rounds. " + \
                         "P = {:.4E}".format(sol.P))
         contRest = 0
@@ -787,7 +797,7 @@ class ITman:
         sol.dbugOptRest.setAll(opt=origDbugOptRest)
         return sol, contRest
 
-    def frstRestRnds(self,sol):
+    def frstRestRnds(self, sol: sgra.sgra):
         self.log.prntDashStr()
         self.log.printL("\nBeginning first restoration rounds...\n")
         sol.P,_,_ = sol.calcP(mustPlotPint=True)
@@ -797,55 +807,55 @@ class ITman:
 
         return sol
 
-    def showHistQCond(self,sol):
+    def showHistQCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.GradHistShowRate == 0:
             return True
         else:
             return False
 
-    def showHistICond(self,sol):
+    def showHistICond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.GradHistShowRate == 0:
             return True
         else:
             return False
 
-    def showHistGradStepCond(self,sol):
+    def showHistGradStepCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.GradHistShowRate == 0:
             return True
         else:
             return False
 
-    def showHistGRrateCond(self,sol):
+    def showHistGRrateCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.ShowGRrateRate == 0:
             return True
         else:
             return False
 
-    def showEigCond(self,sol):
+    def showEigCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.ShowEigRate == 0:
             return True
         else:
             return False
 
-    def showLambCond(self, sol):
+    def showLambCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.ShowLambRate == 0:
             return True
         else:
             return False
 
-    def showVarCond(self, sol):
+    def showVarCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.ShowVarRate == 0:
             return True
         else:
             return False
 
-    def plotSolGradCond(self,sol):
+    def plotSolGradCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.GRplotSolRate == 0:
             return True
         else:
             return False
 
-    def saveSolCond(self,sol):
+    def saveSolCond(self, sol: sgra.sgra):
         #return False
 
         if sol.NIterGrad % self.GRsaveSolRate==0:
@@ -853,25 +863,26 @@ class ITman:
         else:
             return False
 
-    def gradRestPausCond(self,sol):
+    def gradRestPausCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.GRpausRate==0:
             return True
         else:
             return False
 
-    def plotResPCond(self, sol):
+    def plotResPCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.plotResPRate == 0:
             return True
         else:
             return False
 
-    def plotResQCond(self, sol):
+    def plotResQCond(self, sol: sgra.sgra):
         if sol.NIterGrad % self.plotResQRate == 0:
             return True
         else:
             return False
 
-    def gradRestCycl(self,sol,altSol=None):
+    def gradRestCycl(self, sol: sgra.sgra, altSol:sgra.sgra = None):
+        """Gradient-restoration cycle."""
 
         self.log.prntDashStr()
         self.log.printL("\nBeginning gradient-restoration rounds...")
@@ -972,7 +983,7 @@ class ITman:
                     self.log.printL(msg)
 
                     if alfa < 1e-30:
-                        # The chosen value of step is too low. There will be problems...
+                        # The chosen step value is too low. There will be problems...
                         # It is better to leave right now.
                         sol = sol_new
                         evnt = 'gradOK'

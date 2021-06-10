@@ -6,7 +6,7 @@ Created on Tue Jun 27 13:07:35 2017
 @author: levi
 """
 
-import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os, functools
+import rest_sgra, grad_sgra, hist_sgra, numpy, copy, os  #, functools
 import matplotlib.pyplot as plt
 from lmpbvp import LMPBVPhelp
 from utils import simp, getNowStr
@@ -81,6 +81,9 @@ class sgra:
         self.lam = numpy.zeros((N,n))
         self.mu = numpy.zeros(q)
 
+        # initialization mode. This will probably be overwritten later
+        self.initMode = 'default'
+
         # If the problem has unnecessary variations (typically, boundary conditions
         # containing begin of arc specified values for states), it should override this
         # attribute with a cropped version of the Ns+1 identity matrix, omitting the
@@ -125,8 +128,11 @@ class sgra:
         self.rmsErr_pi_opt = -1.
 
         # Histories
-        self.declHist(MaxIterGrad=MaxIterGrad)
-        self.NIterGrad = 0
+        self.histStepGrad = []  # Just so that PyCharm knows this attribute is legit
+        self.histObjEval = []   # Just so that PyCharm knows this attribute is legit
+        self.NIterGrad = 0      # Just so that PyCharm knows this attribute is legit
+        self.NIterRest = 0      # Just so that PyCharm knows this attribute is legit
+        self.declHist(MaxIterGrad=MaxIterGrad)  # all the attributes are added here
 
         self.tol = {'P':1e-7,'Q':1e-7}
 
@@ -216,6 +222,10 @@ class sgra:
         self.isUpdated.setAll(False)
 
     def loadParsFromFile(self,file):
+        """Loads the parameters from the file into the sgra object.
+
+        This method may be overwritten by a specific child class, but care must be
+        taken w.r.t. """
         pConf = problemConfigurationSGRA(fileAdress=file)
         pConf.sgra()
 
