@@ -76,18 +76,53 @@ class prob(sgra):
             x = numpy.zeros((N,n,s))
             u = numpy.ones((N,m,s))
 
+            # Miele (1970)'s initial guess
             x[:,0,0] = self.t.copy()
             lam = 0.0*x.copy()
             mu = numpy.zeros(q)
             pi = numpy.array([1.0])
+
+            # # this is the exact solution, by the way
+            # x[:,0,0] = numpy.sin(.5 * numpy.pi * self.t)
+            # x[:,1,0] = -.5 * numpy.sin(numpy.pi * self.t)
+            # u[:,0,0] = numpy.cos(.5 * numpy.pi * self.t)
+            # pi = numpy.array([.5 * numpy.pi])
+            # lam = 0. * x
+            # mu = numpy.zeros(q)
+
         else:
-            raise(Exception("Unknown 'initMode' = {}.".format(initMode)))
+            raise Exception("Unknown 'initMode' = {}.".format(initMode))
 
         self.x = x
         self.u = u
         self.pi = pi
         self.lam = lam
         self.mu = mu
+
+        # Omission configuration
+        # psi = [x[0, 0, 0],                   ---> 0, omitted
+        #        x[0, 1, 0],                   ---> 1, omitted
+        #        x[N - 1, 0, 0] - 1.0,
+        #        x[N - 1, 1, 0]])
+        # psi = numpy.array([self.x[0,0,0] - h0,               ---> 0, omitted
+        #                    self.x[0,1,0] - V0,               ---> 1, omitted
+        #                    self.x[0,2,0] - M0,               ---> 2, omitted
+        #                    self.x[N - 1, 0, 0] - hBound,
+        #                    self.x[0,0,1] - hBound,           ---> 4, omitted
+        #                    self.x[0,1,1] - self.x[N-1,1,0],
+        #                    self.x[0,2,1] - self.x[N-1,2,0],
+        #                    self.x[N-1,0,1],
+        #                    self.x[N-1,1,1]])
+        # list of variations after omission
+        # mat = numpy.eye(self.q)
+        # # matrix for omitting equations
+        # self.omitEqMat = mat[[2, 3], :]
+        # # list of variations after omission
+        # self.omitVarList = [  # states for 1st arc (all omitted)
+        #     2, 3,  # Lambdas for 1st arc
+        #     4,  # pi
+        #     5]  # final variation
+        # self.omit = True
 
         # Setting up the exact (variational) analytical solution
         self.hasExactSol = True
@@ -199,7 +234,7 @@ class prob(sgra):
         return self.pi[0],self.pi[0],0.0
 #%%
     def plotSol(self, opt={}, intv=None, piIsTime=True, mustSaveFig=True,
-                subPlotAdjs={}):
+                subPlotAdjs={}, overwrite=True):
         t = self.t
         x = self.x
         u = self.u
@@ -234,7 +269,7 @@ class prob(sgra):
             plt.ylabel("u")
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-            self.savefig(keyName='currSol',fullName='solution')
+            self.savefig(keyName='currSol',fullName='solution', overwrite=overwrite)
             self.log.printL("pi = "+str(pi))
         elif opt['mode'] == 'var':
             dx = opt['x']
@@ -263,7 +298,7 @@ class prob(sgra):
             plt.ylabel("u")
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
-            self.savefig(keyName='corr',fullName='corrections')
+            self.savefig(keyName='corr',fullName='corrections', overwrite=overwrite)
 
         else:
             titlStr = opt['mode']

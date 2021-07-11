@@ -83,6 +83,8 @@ class sgra:
 
         # initialization mode. This will probably be overwritten later
         self.initMode = 'default'
+        # Determines if this solution is converged or not
+        self.isConverged = False
 
         # If the problem has unnecessary variations (typically, boundary conditions
         # containing begin of arc specified values for states), it should override this
@@ -225,7 +227,7 @@ class sgra:
         """Loads the parameters from the file into the sgra object.
 
         This method may be overwritten by a specific child class, but care must be
-        taken w.r.t. """
+        taken to still call it (sgra.loadParsFromFile). """
         pConf = problemConfigurationSGRA(fileAdress=file)
         pConf.sgra()
 
@@ -364,11 +366,15 @@ class sgra:
             # Correct accumulated time, for next arc
             accTime += arcsDur[arc]
 
-    def savefig(self,keyName='',fullName=''):
+    def savefig(self, keyName='', fullName='', overwrite=True):
+        """Saves a figure to the HD as a pdf file."""
         if self.save.get(keyName,'False'):
 #            fileName = self.log.folderName + '/' + self.probName + '_' + \
 #                        keyName + '.pdf'
-            now = ''#'_' + getNowStr()
+            if overwrite:
+                now = ''
+            else:
+                now = '_' + getNowStr()
             fileName = self.log.folderName + os.sep + keyName + now + '.pdf'
             self.log.printL('Saving ' + fullName + ' plot to ' + fileName + \
                             '!')
@@ -709,9 +715,24 @@ class sgra:
                             " dJ/dAlfa = {:.4E}".format(dJdStep))
 
             if self.save.get('var', False):
-                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
-                self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C},
-                             piIsTime=False)
+                # self.plotSol(opt={'mode':'var','x':A,'u':B,'pi':C})
+                try:
+                    self.plotSol(piIsTime=False, overwrite=False)
+                except TypeError:
+                    # Maybe the intended instance of problem has not implemented a
+                    # plotSol method that allows for avoiding overwriting the
+                    # resulting figure...
+                    self.plotSol(piIsTime=False)
+
+                try:
+                    self.plotSol(opt={'mode': 'var', 'x': A, 'u': B, 'pi': C},
+                                 piIsTime=False, overwrite=False)
+                except TypeError:
+                    # Maybe the intended instance of problem has not implemented a
+                    # plotSol method that allows for avoiding overwriting the
+                    # resulting figure...
+                    self.plotSol(opt={'mode': 'var', 'x': A, 'u': B, 'pi': C},
+                                 piIsTime=False)
 
             #self.log.printL("\nWaiting 5.0 seconds for lambda/corrections check...")
             #time.sleep(5.0)

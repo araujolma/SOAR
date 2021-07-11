@@ -6,6 +6,7 @@ Created on Sun Jan  5 15:31:15 2020
 @author: levi
 """
 import sys, datetime, shutil, os, traceback, numpy, random, string, time
+import sgra
 from configparser import ConfigParser, NoOptionError
 from interf import logger
 from main import main
@@ -41,15 +42,29 @@ class batMan:
 
         try:
             # this is a list of the attributes for the "sol" object that the user wants
-            self.postProcKeyList = Pars.get(sec,'postProcKeyList').split(',\n')
+            cmdList = Pars.get(sec,'postProcKeyList').split(',\n')
+            # assemble the list of keys (basically clean parentheses, brackets, etc)
+            keyList = []
+            for i in range(len(cmdList)):
+                cmd = cmdList[i].strip()
+                key = cmd + ''
+                # brackets get mapped to _ ; quotes get mapped to nothing
+                key = key.replace('[','_').replace('(','_').replace('{','_').\
+                    replace('.','_').replace(']','').replace(')','').replace('}','').\
+                    replace('"','').replace("'","")
+                keyList.append(key)
+                cmdList[i] = cmd
+            self.postProcKeyList = keyList
+            self.postProcCmdList = cmdList
         except NoOptionError:
             # apparently the user failed to specify what he/she wants. Default it is!
             self.log.printL(nb+"Could not find 'postProcKeyList' in the .bat file."
                                "\n  Going with default keys...")
-            self.postProcKeyList = ['NIterGrad',
-                                    'GSStotObjEval',
-                                    'GSSavgObjEval',
-                                    'timer']
+            self.postProcKeyList = []
+            self.postProcCmdList = []
+        for key in ['NIterGrad', 'GSStotObjEval', 'GSSavgObjEval', 'timer']:
+            self.postProcKeyList.append(key)
+            self.postProcCmdList.append(key)
 
         if self.mode == 'explicit':
             sec = 'explicit_mode'
@@ -285,19 +300,22 @@ class batMan:
 
         self.baseFileList = baseFileList
 
-    def getPostProcData(self,sol,runNr:int):
-        """Post processing data gathering"""
+    # noinspection PyUnusedLocal
+    def getPostProcData(self, solu: sgra.sgra, run_nr:int):
+        """Post processing data gathering.
 
-        for key in self.postProcKeyList:
+        This basically consists in retrieving fields from the solution object."""
+
+        for key, cmd in zip(self.postProcKeyList, self.postProcCmdList):
             # try...except so that if something goes wrong,
             # the whole batch is not wasted
             try:
-                self.postProcInfo[key][runNr] = getattr(sol,key)
+                self.postProcInfo[key][run_nr] = eval("solu.{}".format(cmd))
             except AttributeError:
                 msg = "Error while retrieving the attribute" \
-                      " {} in run {}".format(key,runNr)
+                      " {} (command: '{}') in run {}".format(key, cmd, run_nr)
                 self.log.printL(nb + msg)
-                self.postProcInfo[key][runNr] = 'ERROR!'
+                self.postProcInfo[key][run_nr] = 'ERROR!'
 
     def showPostProcData(self):
         """Post processing data show"""
@@ -323,7 +341,7 @@ class batMan:
             # fill in the actual data
             for runNr in range(self.NCases):
                 row = runNr + 1 # because the first row has the header
-                ws.write(row, 0, runNr)
+                ws.write(row, 0, runNr + 1)
                 ws.write(row, 1, self.probList[runNr])
                 ws.write(row, 2, self.baseFileList[runNr])
                 ws.write(row, 3, self.isGoodRun[runNr])
@@ -389,7 +407,7 @@ if __name__ == "__main__":
             BM.log.printL(nb + "Entering post-processing for this run...")
             BM.getPostProcData(sol,runNr)
             BM.log.printL(nb + "Done. Going for the next run.")
-            BM.isGoodRun[runNr] = True # good run
+            BM.isGoodRun[runNr] = sol.isConverged  # good or bad run
         except KeyboardInterrupt:
             BM.log.printL(nb + "User has stopped the program during this run.")
         except Exception:

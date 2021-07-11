@@ -95,12 +95,16 @@ def main(args,isManu=True,destFold=''):
         timer = time.time() - start_time
         sol.timer = timer # store in sol object for further post-processing
 
+        if sol.isConverged:
+            report, word = 'ok', 'FINISHED!'
+        else:
+            report, word = 'int', 'INTERRUPTED'
         # Display final messages, show solution and convergence reports
         msg = "\n\n\n" + line + '\n' + (' '*22) + \
-              "OPTIMIZATION FINISHED!" + (' '*22) + '\n' + line
-        ITman.log.printL(msg)
-        ## RUN STATUS: sucess!
-        ITman.log.repoStat('ok')
+              "OPTIMIZATION {}" + (' '*22) + '\n' + line
+        ITman.log.printL(msg.format(word))
+        ## RUN STATUS: either "success!" or "interrupted"
+        ITman.log.repoStat(report)
         # Save solution to disk
         ITman.saveSol(sol,ITman.log.folderName+'/finalSol.pkl')
         # Show all convergence histories
@@ -141,6 +145,7 @@ def main(args,isManu=True,destFold=''):
         # This does not add that much information, but...
         ITman.log.printL("\nHistQ: "+str(sol.histQ[:(sol.NIterGrad+1)]))
         ITman.log.printL("\nHistI: "+str(sol.histI[:(sol.NIterGrad+1)]))
+        ITman.log.printL("\nHistStepGrad: " + str(sol.histStepGrad[1:sol.NIterGrad]))
 
         # Make a sound!
         ITman.bell()

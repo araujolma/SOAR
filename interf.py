@@ -105,10 +105,8 @@ class logger:
     def repoStat(self,runStat):#,iterN=None):
         """ Report the status of the current run, as commanded.
         The report is simply the creation of an empty .txt file whose title reports
-         the
-        progress of the run. There is a simple mechanism to prevent creation of the
-         same
-        file again.
+        the progress of the run. There is a simple mechanism to prevent creation of
+        the same file again.
         :param runStat: the status to be reported.
             Either 'init' or 'inProg', 'ok', 'usrStop' or 'err'.
         :return: None
@@ -136,10 +134,12 @@ class logger:
                 fname += 'in_progress.txt'
             elif runStat == 'ok':
                 fname += 'successful!.txt'
+            elif runStat == 'int':
+                fname += 'interrupted.txt'
             elif runStat == 'usrStop':
                 fname += 'stopped_by_user.txt'#_in_it#{}.txt'.format(iterN)
             elif runStat == 'err':
-                fname += 'error!'#_in_it#{}.txt'.format(iterN)
+                fname += 'error!.txt'#_in_it#{}.txt'.format(iterN)
             self.printL("\nReporting status with file '{}'".format(fname))
             fhand = open(fname,'w+') # create the file
             fhand.close() # close handler
@@ -922,6 +922,7 @@ class ITman:
                 #_,_,_,_,_ = sol.calcQ(mustPlotQs=True)
                 if sol.Q <= sol.tol['Q']:
                     msg = '\nTolerance for Q functional was met!'
+                    sol.isConverged = True
                 elif low_step:
                     msg = '\nGradient step search returned a value too low.'
                 else:

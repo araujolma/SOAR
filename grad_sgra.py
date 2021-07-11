@@ -932,13 +932,22 @@ class stepMngr:
             isOk = False
             alfa = self.histStep[self.trio[2]]
 
-            # 1.2: Go back until a good point is found
-            while not isOk:
+            # 1.2: Go back until a good point is found (or too many evals...)
+            while not isOk and self.cont < self.stopNEvalLim:
                 if self.mustPrnt:
                     self.log.printL(f"\n>  Going back by {self.ffRate}...")
                 alfa /= self.ffRate
                 self.tryStep(sol, alfa)
                 isOk = self.histStat[-1]  # get its status
+
+            # 1.2.1: too many evals, complain and return the best so far
+            if self.cont >= self.stopNEvalLim:
+                msg = "\n> Leaving step search due to excessive evaluations."
+                self.log.printL(msg)
+                if self.mustPrnt:
+                    self.showTrio()
+                self.stopMotv = 3  # too many evals
+                return None
 
             # The trios are already automatically assembled!
             if self.mustPrnt:

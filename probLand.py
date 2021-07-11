@@ -105,6 +105,9 @@ class prob(sgra):
         self.log.prom("Please confirm Kpf value. ")
         self.constants['PFmode'] =  PFmode
         self.constants['Kpf'] = Kpf
+        # Some important parameter may have been changed.
+        # It is best to remove all cached values.
+        self.isUpdated.setAll(False)
 
 
     def initGues(self,opt={}):
@@ -893,13 +896,18 @@ class prob(sgra):
 #
         IOrig, IPF = IvecOrig.sum(), IvecPF.sum()
         IOrig = self.x[0, 2, 0] - self.x[-1, 2, -1]
+        # DEBUG
+        # self.log.printL(f"Calculating \nI = {IOrig+IPF}, Iorig = {IOrig}, Ipf = {IPF} "
+        #                f"\nwith Kpf = {self.constants['Kpf']}")
+
         return IOrig+IPF, IOrig, IPF
+
 
 #        IOrig = self.x[0,2,0] - self.x[-1,2,-1]
 #        return IOrig, IOrig, 0.0
 #%%
     def plotSol(self,opt={},intv=None,piIsTime=True,mustSaveFig=True,
-                subPlotAdjs={}):
+                subPlotAdjs={}, overwrite=True):
 
         pi = self.pi
 
@@ -978,7 +986,8 @@ class prob(sgra):
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.45)
             if mustSaveFig:
-                self.savefig(keyName='currSol',fullName='solution')
+                self.savefig(keyName='currSol',fullName='solution',
+                             overwrite=overwrite)
             else:
                 plt.show()
 
@@ -1031,7 +1040,7 @@ class prob(sgra):
             plt.ylabel("Thrust [kN]")
             plt.xlabel(timeLabl)
 
-            self.savefig(keyName='corr',fullName='corrections')
+            self.savefig(keyName='corr',fullName='corrections', overwrite=overwrite)
 
         elif opt['mode'] == 'lambda':
             titlStr = "Lambda for current solution"

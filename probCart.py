@@ -116,6 +116,15 @@ class prob(sgra):
             mu = numpy.zeros(q)
             pi = numpy.array([1.0,1.0])
 
+            # # This is the optimal solution, by the way
+            # t = numpy.linspace(0., 1., num=N)
+            # x[:, 0, 0] = .5 * t**2.             # position, 1st arc: t²/2
+            # x[:, 1, 0] = t                      # speed, 1st arc: t
+            # u[:, 0, 0] = 10.
+            # x[:, 0, 1] = .5 * (1. - t**2.) + t  # position, 2nd arc: 1/2 + t -t²/2
+            # x[:, 1, 1] = 1. - t                 # speed, 2nd arc: 1-t
+            # u[:, 0, 1] = -10.
+
             self.x = x
             self.u = u
             self.pi = pi
@@ -257,7 +266,7 @@ class prob(sgra):
 #%%
 
     def plotSol(self,opt={},intv=[],piIsTime=True,mustSaveFig=True,\
-                subPlotAdjs={}):
+                subPlotAdjs={}, overwrite=True):
 
         x = self.x
         u = self.u
@@ -298,7 +307,7 @@ class prob(sgra):
 
             plt.subplots_adjust(0.0125,0.0,0.9,2.5,0.2,0.2)
 
-            self.savefig(keyName='currSol',fullName='solution')
+            self.savefig(keyName='currSol',fullName='solution', overwrite=overwrite)
 
             self.log.printL("pi = "+str(pi))
         elif opt['mode'] == 'var':
@@ -337,7 +346,7 @@ class prob(sgra):
             plt.xlabel("t")
             plt.ylabel("Acceleration")
 
-            self.savefig(keyName='corr',fullName='corrections')
+            self.savefig(keyName='corr',fullName='corrections', overwrite=overwrite)
 
         elif opt['mode'] == 'lambda':
             titlStr = "Lambda for current solution"
