@@ -1155,7 +1155,7 @@ class prob(sgra):
         # d hdot d u2: 0.0
 
         # d vdot d u1:
-            phiu[:,1,0,arc] = -(bTm[:,arc] * sinAlpha[:,arc] +
+            phiu[:,1,0,arc] = -(thrust[:,arc] * sinAlpha[:,arc] +
             dens[:,arc] * V2[:,arc] * s_ref[arc] * CD2[arc] * alpha[:,arc]) * \
             DAlfaDu1[:,arc] / m[:,arc]
         # d vdot d u2:
